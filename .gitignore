@@ -1,0 +1,15 @@
+# Excel temporary files
+~$*
+*.tmp
+
+# Local data and reports (keep structure if needed)
+ComponentLife/data/*.json
+!ComponentLife/data/.gitkeep
+ComponentLife/reports/*.csv
+ComponentLife/reports/*.xlsx
+!ComponentLife/reports/.gitkeep
+
+# System / OS files
+Thumbs.db
+Desktop.ini
+.DS_Store

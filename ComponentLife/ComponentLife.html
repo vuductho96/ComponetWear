@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mold Life Span</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --ink: #071833;
+      --muted: #60708a;
+      --line: #d8e0ea;
+      --line2: #edf1f6;
+      --blue: #0f6bff;
+      --blue2: #0457d8;
+      --green: #00994d;
+      --yellow: #ffed7a;
+      --shadow: 0 6px 22px rgba(20, 45, 80, .08);
+      --radius: 7px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 20% 0%, #ffffff 0, #f6f8fb 42%, #eef3f8 100%);
+      color: var(--ink);
+      font: 14px/1.45 "Segoe UI", Arial, sans-serif;
+    }
+
+    .app {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    .top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 29px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: #233654;
+      font-size: 15px;
+    }
+
+    .status {
+      display: none;
+      margin: 12px 0 16px;
+      padding: 10px 13px;
+      border: 1px solid #bfe6d7;
+      background: #ecfbf5;
+      color: #075c48;
+      border-radius: var(--radius);
+    }
+
+    .status.error {
+      border-color: #f2b8ac;
+      background: #fff0ed;
+      color: #a83d2d;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(310px, 1fr) 240px 240px;
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, .9);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .month-panel {
+      display: flex;
+      align-items: end;
+      gap: 22px;
+      padding: 18px 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      color: #10284a;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    select, input, textarea {
+      width: 100%;
+      border: 1px solid #cad6e5;
+      background: #fff;
+      color: var(--ink);
+      border-radius: var(--radius);
+      font: 600 14px "Segoe UI", Arial, sans-serif;
+    }
+
+    select, input {
+      height: 46px;
+      padding: 0 14px;
+    }
+
+    textarea {
+      min-height: 132px;
+      padding: 11px;
+      resize: vertical;
+      font: 12px/1.55 Consolas, "Courier New", monospace;
+    }
+
+    select:focus, input:focus, textarea:focus, .cell:focus {
+      outline: 3px solid rgba(15, 107, 255, .18);
+      border-color: var(--blue);
+    }
+
+    button {
+      height: 46px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      padding: 0 16px;
+      color: #fff;
+      background: linear-gradient(#1678ff, #075fe4);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 3px 8px rgba(12, 92, 220, .22);
+      cursor: pointer;
+      font: 700 14px "Segoe UI", Arial, sans-serif;
+      white-space: nowrap;
+    }
+
+    button:hover { background: linear-gradient(#0f70f4, #0457d8); }
+    button.secondary {
+      color: #17304f;
+      background: #eef3f8;
+      border-color: #d5dfeb;
+      box-shadow: none;
+    }
+
+    .metric {
+      padding: 18px 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .metric .label {
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .metric.max .label { color: #062452; }
+
+    .metric .number {
+      margin-top: 6px;
+      font-size: 36px;
+      line-height: 1;
+      font-weight: 800;
+      color: var(--green);
+    }
+
+    .metric.max .number { color: #0067ea; }
+    .metric small { margin-left: 6px; font-size: 13px; font-weight: 500; color: #10284a; }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      padding: 22px;
+      margin-bottom: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      align-items: end;
+      gap: 3px;
+      padding: 0 4px;
+      margin-top: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tab {
+      height: 36px;
+      padding: 0 17px;
+      color: #4b5f78;
+      background: #e9eef5;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      border-radius: 6px 6px 0 0;
+      box-shadow: none;
+    }
+
+    .tab.active {
+      color: #061f43;
+      background: #fff;
+      border-top: 3px solid var(--blue);
+    }
+
+    .sheet {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-top: 0;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .sheet-title {
+      height: 36px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(#fdfefe, #f3f7fb);
+      min-width: 1180px;
+    }
+
+    table.grid {
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: 1180px;
+      width: 100%;
+      font-size: 13px;
+    }
+
+    table.grid th, table.grid td {
+      border: 1px solid var(--line2);
+      height: 52px;
+      text-align: center;
+      vertical-align: middle;
+      padding: 0;
+    }
+
+    table.grid th:first-child, table.grid td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      width: 160px;
+      min-width: 160px;
+      text-align: left;
+      padding-left: 18px;
+      font-weight: 800;
+      background: #fff;
+      border-right-color: #cfd9e7;
+    }
+
+    table.grid thead th {
+      height: 38px;
+      background: #f4f7fb;
+      color: #10284a;
+      font-weight: 800;
+    }
+
+    table.grid thead th:first-child {
+      background: linear-gradient(90deg, #0b63e5, #247cff);
+      color: #fff;
+    }
+
+    .cell {
+      min-height: 50px;
+      display: grid;
+      place-items: center;
+      padding: 0 4px;
+      border: 1px solid transparent;
+      cursor: text;
+    }
+
+    .cell.empty { color: #5c6e86; }
+    .cell.replacement { background: var(--yellow); color: #071833; font-weight: 800; }
+    .cell.zero { color: #061f43; }
+    .cell.has-output { color: #061f43; font-weight: 700; }
+    .cell.weekend { background: #fbfcfe; }
+
+    .row-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 16px;
+      height: 16px;
+      margin-left: 8px;
+      border: 1px solid #90a4bc;
+      border-radius: 50%;
+      color: #52708d;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .below {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .card {
+      padding: 18px;
+    }
+
+    .card h2 {
+      margin: 0 0 5px;
+      font-size: 17px;
+    }
+
+    .note {
+      margin: 0 0 12px;
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .summary-box {
+      margin-top: 18px;
+      overflow: auto;
+      max-height: 360px;
+    }
+
+    table.summary {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    table.summary th, table.summary td {
+      padding: 10px 11px;
+      border-bottom: 1px solid var(--line2);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    table.summary th {
+      position: sticky;
+      top: 0;
+      background: #f3f6fa;
+      color: #51637a;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: .02em;
+    }
+
+    .hidden { display: none !important; }
+    .file { display: none; }
+
+    @media (max-width: 980px) {
+      .top, .toolbar, .below { grid-template-columns: 1fr; display: grid; }
+      .toolbar { gap: 12px; }
+      .info-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+      .month-panel { align-items: stretch; flex-direction: column; gap: 12px; }
+      button { width: 100%; }
+    }
+
+    @media (max-width: 620px) {
+      .app { padding: 14px; }
+      .info-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="top">
+      <div>
+        <h1>Mold Life Span</h1>
+        <p class="subtitle">Track replacement dates and calculate Shoot Number, MIN / MAX Cycle.</p>
+      </div>
+    </section>
+
+    <div id="status" class="status"></div>
+
+    <section class="toolbar">
+      <div class="panel month-panel">
+        <div style="min-width: 250px; flex: 1">
+          <label for="monthPick">Month</label>
+          <select id="monthPick"></select>
+        </div>
+        <button onclick="loadMonth()">↻ Load Month</button>
+      </div>
+      <div class="panel metric">
+        <span class="label">MIN Cycle</span>
+        <span class="number" id="minCycle">0<small>shots</small></span>
+      </div>
+      <div class="panel metric max">
+        <span class="label">MAX Cycle</span>
+        <span class="number" id="maxCycle">0<small>shots</small></span>
+      </div>
+    </section>
+
+    <section class="panel info-grid">
+      <div>
+        <label for="part">Part</label>
+        <input id="part" placeholder="M-SLC3">
+      </div>
+      <div>
+        <label for="series">Series</label>
+        <input id="series" placeholder="9970B">
+      </div>
+      <div>
+        <label for="dieSet">Die Set</label>
+        <input id="dieSet" placeholder="M0341">
+      </div>
+      <div>
+        <label for="mold">Mold</label>
+        <input id="mold" placeholder="I9970B01">
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="month">Month Sheet</button>
+      <button class="tab" data-tab="paste">Paste Data</button>
+      <button class="tab" data-tab="summary">Cycle Summary</button>
+    </nav>
+
+    <section id="monthTab">
+      <div class="sheet">
+        <div class="sheet-title" id="sheetTitle">August 2026</div>
+        <table class="grid">
+          <thead id="dayHead"></thead>
+          <tbody id="dayBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="pasteTab" class="below hidden">
+      <article class="panel card">
+        <h2>Dán Shoot Number</h2>
+        <p class="note">Copy từ Excel gồm header: Date, Mold Name/Die Set, Output hoặc Shoot Number.</p>
+        <textarea id="shootPaste" placeholder="Date&#9;Mold Name&#9;Output&#10;01/08/2026&#9;I9970B01&#9;7200"></textarea>
+        <div class="actions">
+          <button onclick="importShoot()">Lưu Shoot Data</button>
+          <button class="secondary" onclick="pasteTo('shootPaste')">Dán clipboard</button>
+        </div>
+      </article>
+
+      <article class="panel card">
+        <h2>Dán lịch thay linh kiện</h2>
+        <p class="note">Copy gồm header: Part, Series, Die Set/Mold Name, Replace Date. Cột Code/Lot nếu có sẽ hiển thị trên dòng Replacement.</p>
+        <textarea id="replacementPaste" placeholder="Part&#9;Series&#9;Die Set&#9;Replace Date&#9;Code&#10;M-SLC3&#9;9970B&#9;I9970B01&#9;08/08/2026&#9;H18006501"></textarea>
+        <div class="actions">
+          <button onclick="importReplacement()">Lưu lịch thay</button>
+          <button class="secondary" onclick="pasteTo('replacementPaste')">Dán clipboard</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="summaryTab" class="panel card hidden">
+      <h2>Cycle Summary</h2>
+      <p class="note">MIN/MAX được tính từ tổng từng cycle hoàn chỉnh giữa hai mốc reset.</p>
+      <div class="actions">
+        <button onclick="rebuild()">Refresh calculation</button>
+        <button onclick="exportCsv()">Export Excel CSV</button>
+        <button class="secondary" onclick="downloadBackup()">Tải backup JSON</button>
+        <button class="secondary" onclick="document.getElementById('backup').click()">Nạp backup JSON</button>
+        <input class="file" id="backup" type="file" accept="application/json" onchange="loadBackup(this.files[0])">
+      </div>
+      <div class="summary-box">
+        <table class="summary">
+          <thead>
+            <tr>
+              <th>Part</th>
+              <th>Series</th>
+              <th>Die Set</th>
+              <th>Cycles</th>
+              <th>MIN</th>
+              <th>MAX</th>
+              <th>Average</th>
+            </tr>
+          </thead>
+          <tbody id="summaryRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const KEY = "componentLifeData";
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    let db = JSON.parse(localStorage.getItem(KEY) || '{"shoot":[],"replacements":[]}');
+    let result = { cycles: [], summary: [], errors: [] };
+
+    function save() {
+      localStorage.setItem(KEY, JSON.stringify(db));
+    }
+
+    function msg(text, bad = false) {
+      const el = $("status");
+      el.textContent = text;
+      el.className = "status" + (bad ? " error" : "");
+      el.style.display = "block";
+      setTimeout(() => el.style.display = "none", 5500);
+    }
+
+    function norm(text) {
+      return String(text || "")
+        .toLowerCase()
+        .replace(/[ _.-]/g, "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function toIso(value) {
+      const s = String(value || "").trim();
+      let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+      if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+      m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+      if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+      throw Error("Ngày không hợp lệ: " + s);
+    }
+
+    function monthKey(date) {
+      return date.slice(0, 7);
+    }
+
+    function selectedMonth() {
+      return $("monthPick").value;
+    }
+
+    function getContext() {
+      return {
+        part: $("part").value.trim(),
+        series: $("series").value.trim(),
+        dieSet: $("dieSet").value.trim(),
+        mold: $("mold").value.trim()
+      };
+    }
+
+    function activeDieSet() {
+      const ctx = getContext();
+      return ctx.mold || ctx.dieSet;
+    }
+
+    function parseTable(text, type) {
+      const rows = text.trim().split(/\r?\n/).filter(Boolean).map(line => line.split("\t"));
+      if (rows.length < 2) throw Error("Cần header và ít nhất một dòng dữ liệu.");
+      const headers = rows.shift().map(norm);
+      const find = (...names) => headers.findIndex(header => names.includes(header));
+
+      if (type === "shoot") {
+        const dateIndex = find("date", "ngay");
+        const dieIndex = find("dieset", "moldname", "khuon", "mold");
+        const outputIndex = find("output", "shootnumber", "shoot", "pcs", "outputpcs");
+        if ([dateIndex, dieIndex, outputIndex].some(i => i < 0)) throw Error("Header Shoot chưa đúng.");
+        return rows.map(row => ({
+          Date: toIso(row[dateIndex]),
+          DieSet: String(row[dieIndex] || "").trim(),
+          Output: Number(String(row[outputIndex] || "0").replace(/,/g, ""))
+        })).filter(row => row.Date && row.DieSet);
+      }
+
+      const partIndex = find("part", "partname", "ten");
+      const seriesIndex = find("series", "masolinhkien");
+      const dieIndex = find("dieset", "moldname", "khuon", "mold");
+      const dateIndex = find("replacedate", "ngaythay", "date");
+      const labelIndex = find("code", "lot", "serial", "replacement", "linhkien", "component");
+      if ([partIndex, seriesIndex, dieIndex, dateIndex].some(i => i < 0)) throw Error("Header lịch thay chưa đúng.");
+      return rows.map(row => ({
+        Part: String(row[partIndex] || "").trim(),
+        Series: String(row[seriesIndex] || "").trim(),
+        DieSet: String(row[dieIndex] || "").trim(),
+        ReplaceDate: toIso(row[dateIndex]),
+        Label: labelIndex >= 0 ? String(row[labelIndex] || "").trim() : ""
+      })).filter(row => row.Part && row.DieSet);
+    }
+
+    async function pasteTo(id) {
+      try {
+        $(id).value = await navigator.clipboard.readText();
+      } catch {
+        msg("Trình duyệt không cho đọc clipboard. Hãy Ctrl+V vào ô dán.", true);
+      }
+    }
+
+    function importShoot() {
+      try {
+        const rows = parseTable($("shootPaste").value, "shoot");
+        const map = new Map(db.shoot.map(row => [row.Date + "|" + row.DieSet, row]));
+        let added = 0;
+        let updated = 0;
+        rows.forEach(row => {
+          if (!Number.isFinite(row.Output)) throw Error("Output phải là số.");
+          const key = row.Date + "|" + row.DieSet;
+          map.has(key) ? updated++ : added++;
+          map.set(key, row);
+        });
+        db.shoot = [...map.values()].sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+        save();
+        rebuild(false);
+        renderMonth();
+        msg(`Đã lưu Shoot Data: thêm ${added}, cập nhật ${updated} dòng.`);
+      } catch (error) {
+        msg(error.message, true);
+      }
+    }
+
+    function importReplacement() {
+      try {
+        const rows = parseTable($("replacementPaste").value, "replacement");
+        db.replacements = rows.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+        save();
+        fillContextFromData();
+        rebuild(false);
+        renderMonth();
+        msg(`Đã lưu ${rows.length} mốc thay. Lịch thay cũ đã được thay thế.`);
+      } catch (error) {
+        msg(error.message, true);
+      }
+    }
+
+    function rebuild(showMessage = true) {
+      const cycles = [];
+      const errors = [];
+      const groups = {};
+      db.replacements.forEach(row => {
+        const key = [row.Part, row.Series, row.DieSet].join("|");
+        (groups[key] ||= []).push(row);
+      });
+
+      Object.entries(groups).forEach(([key, events]) => {
+        events.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+        if (events.length < 2) return;
+        const [part, series, dieSet] = key.split("|");
+        const shots = db.shoot.filter(row => row.DieSet === dieSet);
+        if (!shots.length) {
+          errors.push({ part, series, dieSet });
+          return;
+        }
+
+        for (let i = 0; i < events.length - 1; i++) {
+          const start = events[i].ReplaceDate;
+          const end = events[i + 1].ReplaceDate;
+          if (end <= start) {
+            errors.push({ part, series, dieSet });
+            continue;
+          }
+          const total = shots
+            .filter(row => row.Date >= start && row.Date < end)
+            .reduce((sum, row) => sum + row.Output, 0);
+          cycles.push({ Part: part, Series: series, DieSet: dieSet, StartDate: start, EndDate: end, CycleShots: total });
+        }
+      });
+
+      const summaryMap = {};
+      cycles.forEach(row => {
+        const key = [row.Part, row.Series, row.DieSet].join("|");
+        (summaryMap[key] ||= []).push(row);
+      });
+      const summary = Object.values(summaryMap).map(rows => {
+        const values = rows.map(row => row.CycleShots);
+        return {
+          Part: rows[0].Part,
+          Series: rows[0].Series,
+          DieSet: rows[0].DieSet,
+          CompletedCycles: rows.length,
+          MinShots: Math.min(...values),
+          MaxShots: Math.max(...values),
+          AverageShots: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+        };
+      });
+
+      result = { cycles, summary, errors };
+      renderSummary();
+      renderMetrics();
+      if (showMessage) msg(`Đã tính ${cycles.length} cycle hoàn chỉnh.`);
+    }
+
+    function renderMetrics() {
+      const dieSet = activeDieSet();
+      const rows = dieSet ? result.summary.filter(row => row.DieSet === dieSet) : result.summary;
+      const min = rows.length ? Math.min(...rows.map(row => row.MinShots)) : 0;
+      const max = rows.length ? Math.max(...rows.map(row => row.MaxShots)) : 0;
+      $("minCycle").innerHTML = `${min.toLocaleString()}<small>shots</small>`;
+      $("maxCycle").innerHTML = `${max.toLocaleString()}<small>shots</small>`;
+    }
+
+    function renderSummary() {
+      $("summaryRows").innerHTML = result.summary.length
+        ? result.summary.map(row => `<tr><td>${esc(row.Part)}</td><td>${esc(row.Series)}</td><td>${esc(row.DieSet)}</td><td>${row.CompletedCycles}</td><td>${row.MinShots.toLocaleString()}</td><td>${row.MaxShots.toLocaleString()}</td><td>${row.AverageShots.toLocaleString()}</td></tr>`).join("")
+        : '<tr><td colspan="7">Chưa có cycle hoàn chỉnh. Cần ít nhất 2 mốc thay cho cùng Part + Series + Die Set.</td></tr>';
+    }
+
+    function renderMonth() {
+      const ym = selectedMonth();
+      const [year, month] = ym.split("-").map(Number);
+      const days = new Date(year, month, 0).getDate();
+      const dieSet = activeDieSet();
+      const ctx = getContext();
+      $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
+
+      $("dayHead").innerHTML = "<tr><th>Type</th>" + Array.from({ length: days }, (_, i) => `<th>${String(i + 1).padStart(2, "0")}</th>`).join("") + "</tr>";
+
+      const replacementMap = new Map(db.replacements
+        .filter(row => monthKey(row.ReplaceDate) === ym && (!dieSet || row.DieSet === dieSet))
+        .map(row => [Number(row.ReplaceDate.slice(8, 10)), row]));
+      const shootMap = new Map(db.shoot
+        .filter(row => monthKey(row.Date) === ym && (!dieSet || row.DieSet === dieSet))
+        .map(row => [Number(row.Date.slice(8, 10)), row]));
+
+      const makeCell = (day, rowType) => {
+        const date = `${ym}-${String(day).padStart(2, "0")}`;
+        const weekend = [0, 6].includes(new Date(year, month - 1, day).getDay());
+        if (rowType === "replacement") {
+          const item = replacementMap.get(day);
+          const value = item ? (item.Label || item.Part || "RESET") : "-";
+          const cls = item ? "cell replacement" : "cell empty";
+          return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="replacement" data-date="${date}">${esc(value)}</div></td>`;
+        }
+        const shot = shootMap.get(day);
+        const value = shot ? shot.Output : 0;
+        const cls = value ? "cell has-output" : "cell zero";
+        return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="shoot" data-date="${date}">${value}</div></td>`;
+      };
+
+      $("dayBody").innerHTML = `
+        <tr><td>Replacement <span class="row-icon">i</span></td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}</tr>
+        <tr><td>Shoot Number <span class="row-icon">i</span></td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}</tr>
+        <tr><td>Output (pcs) <span class="row-icon">i</span></td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}</tr>
+      `;
+
+      document.querySelectorAll(".cell").forEach(cell => {
+        cell.addEventListener("blur", () => updateCell(cell));
+        cell.addEventListener("keydown", event => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            cell.blur();
+          }
+        });
+      });
+      renderMetrics();
+    }
+
+    function updateCell(cell) {
+      const type = cell.dataset.type;
+      const date = cell.dataset.date;
+      const ctx = getContext();
+      const dieSet = activeDieSet();
+      const text = cell.textContent.trim();
+
+      if (!dieSet) {
+        renderMonth();
+        return msg("Cần nhập Mold hoặc Die Set trước khi sửa trực tiếp trên bảng.", true);
+      }
+
+      if (type === "shoot") {
+        const value = Number(text.replace(/,/g, ""));
+        if (!Number.isFinite(value)) {
+          renderMonth();
+          return msg("Shoot Number phải là số.", true);
+        }
+        db.shoot = db.shoot.filter(row => !(row.Date === date && row.DieSet === dieSet));
+        db.shoot.push({ Date: date, DieSet: dieSet, Output: value });
+      } else {
+        db.replacements = db.replacements.filter(row => !(row.ReplaceDate === date && row.DieSet === dieSet));
+        if (text && text !== "-") {
+          db.replacements.push({
+            Part: ctx.part || "Unknown",
+            Series: ctx.series || "",
+            DieSet: dieSet,
+            ReplaceDate: date,
+            Label: text
+          });
+        }
+      }
+
+      db.shoot.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+      db.replacements.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+      save();
+      rebuild(false);
+      renderMonth();
+    }
+
+    function loadMonth() {
+      renderMonth();
+      rebuild(false);
+      msg("Đã load bảng tháng.");
+    }
+
+    function buildMonthOptions() {
+      const select = $("monthPick");
+      const today = new Date();
+      const months = new Set();
+      for (let offset = -18; offset <= 18; offset++) {
+        const d = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+        months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+      }
+      [...db.shoot, ...db.replacements.map(row => ({ Date: row.ReplaceDate }))].forEach(row => {
+        if (row.Date) months.add(monthKey(row.Date));
+      });
+      select.innerHTML = [...months].sort().map(ym => {
+        const [year, month] = ym.split("-").map(Number);
+        return `<option value="${ym}">${monthNames[month - 1]} ${year}</option>`;
+      }).join("");
+      select.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+      if (!select.value) select.selectedIndex = Math.max(0, select.options.length - 1);
+    }
+
+    function fillContextFromData() {
+      const last = [...db.replacements].reverse()[0];
+      if (!last) return;
+      if (!$("part").value) $("part").value = last.Part || "";
+      if (!$("series").value) $("series").value = last.Series || "";
+      if (!$("mold").value) $("mold").value = last.DieSet || "";
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
+      $("monthTab").classList.toggle("hidden", name !== "month");
+      $("pasteTab").classList.toggle("hidden", name !== "paste");
+      $("summaryTab").classList.toggle("hidden", name !== "summary");
+      if (name === "summary") rebuild(false);
+    }
+
+    function download(name, text, type) {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([text], { type }));
+      link.download = name;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function exportCsv() {
+      if (!result.summary.length) return msg("Hãy Refresh calculation trước khi export.", true);
+      const cols = ["Part", "Series", "Die Set", "Completed Cycles", "MIN Shots", "MAX Shots", "Average Shots"];
+      const rows = result.summary.map(row => [row.Part, row.Series, row.DieSet, row.CompletedCycles, row.MinShots, row.MaxShots, row.AverageShots]);
+      const csv = "\ufeff" + [cols, ...rows].map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
+      download("ComponentLife-Report.csv", csv, "text/csv;charset=utf-8");
+    }
+
+    function downloadBackup() {
+      download("ComponentLife-Backup.json", JSON.stringify(db, null, 2), "application/json");
+    }
+
+    function loadBackup(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!Array.isArray(data.shoot) || !Array.isArray(data.replacements)) throw Error("Sai định dạng backup.");
+          db = data;
+          save();
+          buildMonthOptions();
+          fillContextFromData();
+          rebuild(false);
+          renderMonth();
+          msg("Đã nạp backup.");
+        } catch (error) {
+          msg(error.message, true);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+
+    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => switchTab(tab.dataset.tab)));
+    ["part", "series", "dieSet", "mold"].forEach(id => $(id).addEventListener("change", () => {
+      renderMonth();
+      renderMetrics();
+    }));
+    $("monthPick").addEventListener("change", renderMonth);
+
+    buildMonthOptions();
+    fillContextFromData();
+    rebuild(false);
+    renderMonth();
+  </script>
+</body>
+</html>
