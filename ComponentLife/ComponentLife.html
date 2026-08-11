@@ -794,20 +794,37 @@
     function buildMonthOptions() {
       const select = $("monthPick");
       const today = new Date();
-      const months = new Set();
-      for (let offset = -18; offset <= 18; offset++) {
-        const d = new Date(today.getFullYear(), today.getMonth() + offset, 1);
-        months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-      }
+      const currentYear = today.getFullYear();
+      const startYear = 2026;
+
+      let minYear = startYear;
+      let maxYear = Math.max(currentYear + 15, startYear + 15);
+
       [...db.shoot, ...db.replacements.map(row => ({ Date: row.ReplaceDate }))].forEach(row => {
-        if (row.Date) months.add(monthKey(row.Date));
+        if (row.Date && row.Date.length >= 4) {
+          const y = parseInt(row.Date.slice(0, 4), 10);
+          if (y) {
+            if (y < minYear) minYear = y;
+            if (y > maxYear) maxYear = y;
+          }
+        }
       });
+
+      const months = new Set();
+      for (let y = minYear; y <= maxYear; y++) {
+        for (let m = 1; m <= 12; m++) {
+          months.add(`${y}-${String(m).padStart(2, "0")}`);
+        }
+      }
+
       select.innerHTML = [...months].sort().map(ym => {
         const [year, month] = ym.split("-").map(Number);
         return `<option value="${ym}">${monthNames[month - 1]} ${year}</option>`;
       }).join("");
-      select.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-      if (!select.value) select.selectedIndex = Math.max(0, select.options.length - 1);
+
+      const defaultYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+      select.value = months.has(defaultYm) ? defaultYm : `${startYear}-01`;
+      if (!select.value && select.options.length > 0) select.selectedIndex = 0;
     }
 
     function fillContextFromData() {
