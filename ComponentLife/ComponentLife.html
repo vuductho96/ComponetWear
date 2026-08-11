@@ -244,17 +244,44 @@
       padding: 0;
     }
 
-    table.grid th:first-child, table.grid td:first-child {
+    table.grid th.col-part, table.grid td.col-part {
       position: sticky;
       left: 0;
       z-index: 3;
-      width: 160px;
-      min-width: 160px;
+      width: 120px;
+      min-width: 120px;
       text-align: left;
-      padding-left: 18px;
+      padding-left: 10px;
       font-weight: 800;
       background: #fff;
-      border-right-color: #cfd9e7;
+      border-right: 1px solid var(--line2);
+      vertical-align: middle;
+    }
+    table.grid th.col-mold, table.grid td.col-mold {
+      position: sticky;
+      left: 120px;
+      z-index: 3;
+      width: 120px;
+      min-width: 120px;
+      text-align: left;
+      padding-left: 10px;
+      font-weight: 700;
+      background: #fff;
+      border-right: 1px solid var(--line2);
+      vertical-align: middle;
+    }
+    table.grid th.col-type, table.grid td.col-type {
+      position: sticky;
+      left: 240px;
+      z-index: 3;
+      width: 145px;
+      min-width: 145px;
+      text-align: left;
+      padding-left: 10px;
+      font-weight: 600;
+      background: #fff;
+      border-right: 1px solid #cfd9e7;
+      vertical-align: middle;
     }
 
     table.grid thead th {
@@ -264,7 +291,9 @@
       font-weight: 800;
     }
 
-    table.grid thead th:first-child {
+    table.grid thead th.col-part,
+    table.grid thead th.col-mold,
+    table.grid thead th.col-type {
       background: linear-gradient(90deg, #0b63e5, #247cff);
       color: #fff;
     }
@@ -386,11 +415,10 @@
 
     <section class="toolbar">
       <div class="panel month-panel">
-        <div style="min-width: 250px; flex: 1">
+        <div style="width: 100%;">
           <label for="monthPick">Month</label>
           <select id="monthPick"></select>
         </div>
-        <button onclick="loadMonth()">↻ Load Month</button>
       </div>
       <div class="panel metric">
         <span class="label">MIN Cycle</span>
@@ -405,19 +433,21 @@
     <section class="panel info-grid">
       <div>
         <label for="part">Part</label>
-        <input id="part" placeholder="M-SLC3">
+        <input id="part" placeholder="M-SLC3" list="partList" autocomplete="off">
+        <datalist id="partList"></datalist>
       </div>
       <div>
         <label for="series">Series</label>
         <input id="series" placeholder="9970B">
       </div>
       <div>
-        <label for="dieSet">Die Set</label>
+        <label for="dieSet">Mold (old)</label>
         <input id="dieSet" placeholder="M0341">
       </div>
       <div>
-        <label for="mold">Mold</label>
-        <input id="mold" placeholder="I9970B01">
+        <label for="mold">Mold (new)</label>
+        <input id="mold" placeholder="I9970B01" list="moldList" autocomplete="off">
+        <datalist id="moldList"></datalist>
       </div>
     </section>
 
@@ -439,12 +469,14 @@
 
     <section id="pasteTab" class="below hidden">
       <article class="panel card">
-        <h2>Dán Shoot Number</h2>
-        <p class="note">Copy từ Excel gồm header: Date, Mold Name/Die Set, Output hoặc Shoot Number.</p>
-        <textarea id="shootPaste" placeholder="Date&#9;Mold Name&#9;Output&#10;01/08/2026&#9;I9970B01&#9;7200"></textarea>
+        <h2>Dán / Nạp Shoot(Month) Data</h2>
+        <p class="note">Copy từ Excel hoặc Nạp file <b>ShootMonth.csv</b> gồm: Date, PartName/MoldName, Output.</p>
+        <textarea id="shootPaste" placeholder="Date&#9;PartName&#9;MoldName&#9;Output&#10;01/08/2026&#9;218-2&#9;I9926B03&#9;7200"></textarea>
         <div class="actions">
           <button onclick="importShoot()">Lưu Shoot Data</button>
           <button class="secondary" onclick="pasteTo('shootPaste')">Dán clipboard</button>
+          <button class="secondary" onclick="document.getElementById('shootFileInput').click()">Nạp ShootMonth.csv</button>
+          <input class="file" id="shootFileInput" type="file" accept=".csv,.json,.txt" onchange="importShootFile(this.files[0])">
         </div>
       </article>
 
@@ -455,6 +487,15 @@
         <div class="actions">
           <button onclick="importReplacement()">Lưu lịch thay</button>
           <button class="secondary" onclick="pasteTo('replacementPaste')">Dán clipboard</button>
+        </div>
+      </article>
+
+      <article class="panel card" style="grid-column: 1 / -1;">
+        <h2>Cập nhật Master Data (ComponentMaster.csv / .json)</h2>
+        <p class="note">Nạp file <b>ComponentMaster.csv</b> hoặc <b>ComponentMaster.json</b> để tự động thêm/cập nhật linh kiện & khuôn mới vào hệ thống.</p>
+        <div class="actions">
+          <button onclick="document.getElementById('masterFileInput').click()">Nạp file ComponentMaster (.csv / .json)</button>
+          <input class="file" id="masterFileInput" type="file" accept=".csv,.json,.txt" onchange="importMasterFile(this.files[0])">
         </div>
       </article>
     </section>
@@ -475,7 +516,7 @@
             <tr>
               <th>Part</th>
               <th>Series</th>
-              <th>Die Set</th>
+              <th>Mold (old)</th>
               <th>Cycles</th>
               <th>MIN</th>
               <th>MAX</th>
@@ -492,7 +533,40 @@
     const $ = id => document.getElementById(id);
     const KEY = "componentLifeData";
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const defaultShootData = [
+      { Date: "2026-06-30", DieSet: "H9111B01", Output: 8800 },
+      { Date: "2026-06-30", DieSet: "H9665S02", Output: 31000 },
+      { Date: "2026-06-30", DieSet: "H10141S01", Output: 4100 },
+      { Date: "2026-06-30", DieSet: "H12003C02", Output: 10500 },
+      { Date: "2026-06-30", DieSet: "H10109C25", Output: 19000 },
+      { Date: "2026-06-30", DieSet: "H13036B02", Output: 3500 },
+      { Date: "2026-06-30", DieSet: "H12003S02", Output: 8400 },
+      { Date: "2026-06-30", DieSet: "H10106B06", Output: 3600 },
+      { Date: "2026-06-30", DieSet: "H10128S01", Output: 8960 },
+      { Date: "2026-06-30", DieSet: "H10141C01", Output: 3400 },
+      { Date: "2026-06-30", DieSet: "H13066B01", Output: 1800 },
+      { Date: "2026-06-30", DieSet: "H13077B02", Output: 2240 },
+      { Date: "2026-06-30", DieSet: "H9685C02", Output: 24000 },
+      { Date: "2026-06-30", DieSet: "H13030B01", Output: 5750 },
+      { Date: "2026-06-30", DieSet: "H9827S12", Output: 8400 },
+      { Date: "2026-06-30", DieSet: "MF01200", Output: 8800 },
+      { Date: "2026-06-30", DieSet: "H18015C01", Output: 12000 },
+      { Date: "2026-06-30", DieSet: "H9637C13", Output: 33000 },
+      { Date: "2026-06-30", DieSet: "H18006S01", Output: 7800 },
+      { Date: "2026-06-30", DieSet: "H10128C01", Output: 9660 },
+      { Date: "2026-06-30", DieSet: "H12003C04", Output: 22000 },
+      { Date: "2026-06-30", DieSet: "H10109C08", Output: 13000 }
+    ];
+
     let db = JSON.parse(localStorage.getItem(KEY) || '{"shoot":[],"replacements":[]}');
+    const existingShootKeys = new Set(db.shoot.map(r => r.Date + "|" + r.DieSet));
+    defaultShootData.forEach(r => {
+      if (!existingShootKeys.has(r.Date + "|" + r.DieSet)) {
+        db.shoot.push(r);
+      }
+    });
+    db.shoot.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+    localStorage.setItem(KEY, JSON.stringify(db));
     let result = { cycles: [], summary: [], errors: [] };
 
     function save() {
@@ -547,21 +621,32 @@
     }
 
     function parseTable(text, type) {
-      const rows = text.trim().split(/\r?\n/).filter(Boolean).map(line => line.split("\t"));
-      if (rows.length < 2) throw Error("Cần header và ít nhất một dòng dữ liệu.");
+      const rawLines = text.trim().split(/\r?\n/).filter(Boolean);
+      if (rawLines.length < 2) throw Error("Cần header và ít nhất một dòng dữ liệu.");
+      const delimiter = rawLines[0].includes("\t") ? "\t" : (rawLines[0].includes(",") ? "," : "\t");
+      const rows = rawLines.map(line => line.split(delimiter));
       const headers = rows.shift().map(norm);
       const find = (...names) => headers.findIndex(header => names.includes(header));
 
       if (type === "shoot") {
-        const dateIndex = find("date", "ngay");
-        const dieIndex = find("dieset", "moldname", "khuon", "mold");
-        const outputIndex = find("output", "shootnumber", "shoot", "pcs", "outputpcs");
-        if ([dateIndex, dieIndex, outputIndex].some(i => i < 0)) throw Error("Header Shoot chưa đúng.");
-        return rows.map(row => ({
-          Date: toIso(row[dateIndex]),
-          DieSet: String(row[dieIndex] || "").trim(),
-          Output: Number(String(row[outputIndex] || "0").replace(/,/g, ""))
-        })).filter(row => row.Date && row.DieSet);
+        const dateIndex = find("date", "ngay", "month");
+        const dieIndex = find("dieset", "moldname", "khuon", "mold", "moldnew", "olddieset");
+        const partIndex = find("part", "partname", "tenlinhkien", "ten");
+        const outputIndex = find("output", "shootnumber", "shoot", "pcs", "outputpcs", "shotcount");
+        if (dateIndex < 0 || outputIndex < 0) throw Error("Header Shoot chưa đúng. Cần cột Date và Output/ShootNumber.");
+        return rows.map(row => {
+          const pName = partIndex >= 0 ? String(row[partIndex] || "").trim() : "";
+          let die = dieIndex >= 0 ? String(row[dieIndex] || "").trim() : "";
+          if (!die && pName) {
+            const m = masterData.find(x => x.PartName && x.PartName.toLowerCase() === pName.toLowerCase());
+            if (m) die = m.NewDieSet || m.OldDieSet;
+          }
+          return {
+            Date: toIso(row[dateIndex]),
+            DieSet: die || pName || "Unknown",
+            Output: Number(String(row[outputIndex] || "0").replace(/,/g, ""))
+          };
+        }).filter(row => row.Date && row.DieSet);
       }
 
       const partIndex = find("part", "partname", "ten");
@@ -695,43 +780,125 @@
         : '<tr><td colspan="7">Chưa có cycle hoàn chỉnh. Cần ít nhất 2 mốc thay cho cùng Part + Series + Die Set.</td></tr>';
     }
 
+    function getPartsToRender() {
+      const activeP = $("part").value.trim();
+      const activeM = $("mold").value.trim();
+
+      const partsMap = new Map();
+
+      masterData.forEach(item => {
+        if (item.PartName) {
+          const key = item.PartName + "|" + (item.NewDieSet || item.OldDieSet || "");
+          if (!partsMap.has(key)) {
+            partsMap.set(key, {
+              part: item.PartName,
+              series: item.Series || "",
+              moldOld: item.OldDieSet || "",
+              moldNew: item.NewDieSet || item.OldDieSet || ""
+            });
+          }
+        }
+      });
+
+      db.replacements.forEach(item => {
+        if (item.Part) {
+          const key = item.Part + "|" + (item.DieSet || "");
+          if (!partsMap.has(key)) {
+            partsMap.set(key, {
+              part: item.Part,
+              series: item.Series || "",
+              moldOld: item.DieSet || "",
+              moldNew: item.DieSet || ""
+            });
+          }
+        }
+      });
+
+      let list = Array.from(partsMap.values());
+
+      if (activeP) {
+        const lowerP = activeP.toLowerCase();
+        const nP = normKey(activeP);
+        list = list.filter(x => x.part.toLowerCase() === lowerP || normKey(x.part) === nP);
+      }
+
+      if (activeM) {
+        const lowerM = activeM.toLowerCase();
+        const nM = normKey(activeM);
+        list = list.filter(x => 
+          (x.moldNew && (x.moldNew.toLowerCase() === lowerM || normKey(x.moldNew) === nM)) ||
+          (x.moldOld && (x.moldOld.toLowerCase() === lowerM || normKey(x.moldOld) === nM))
+        );
+      }
+
+      return list.sort((a, b) => a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' }));
+    }
+
     function renderMonth() {
       const ym = selectedMonth();
       const [year, month] = ym.split("-").map(Number);
       const days = new Date(year, month, 0).getDate();
-      const dieSet = activeDieSet();
-      const ctx = getContext();
       $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
 
-      $("dayHead").innerHTML = "<tr><th>Type</th>" + Array.from({ length: days }, (_, i) => `<th>${String(i + 1).padStart(2, "0")}</th>`).join("") + "</tr>";
+      $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-mold">Mold (new)</th><th class="col-type">Loại</th>` + 
+        Array.from({ length: days }, (_, i) => `<th>${String(i + 1).padStart(2, "0")}</th>`).join("") + "</tr>";
 
-      const replacementMap = new Map(db.replacements
-        .filter(row => monthKey(row.ReplaceDate) === ym && (!dieSet || row.DieSet === dieSet))
-        .map(row => [Number(row.ReplaceDate.slice(8, 10)), row]));
-      const shootMap = new Map(db.shoot
-        .filter(row => monthKey(row.Date) === ym && (!dieSet || row.DieSet === dieSet))
-        .map(row => [Number(row.Date.slice(8, 10)), row]));
+      const partsList = getPartsToRender();
+      let bodyHtml = "";
 
-      const makeCell = (day, rowType) => {
-        const date = `${ym}-${String(day).padStart(2, "0")}`;
-        const weekend = [0, 6].includes(new Date(year, month - 1, day).getDay());
-        if (rowType === "replacement") {
-          const item = replacementMap.get(day);
-          const value = item ? (item.Label || item.Part || "RESET") : "-";
-          const cls = item ? "cell replacement" : "cell empty";
-          return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="replacement" data-date="${date}">${esc(value)}</div></td>`;
-        }
-        const shot = shootMap.get(day);
-        const value = shot ? shot.Output : 0;
-        const cls = value ? "cell has-output" : "cell zero";
-        return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="shoot" data-date="${date}">${value}</div></td>`;
-      };
+      if (partsList.length === 0) {
+        bodyHtml = `<tr><td colspan="${days + 3}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
+      } else {
+        partsList.forEach(item => {
+          const dieSet = item.moldNew || item.moldOld || item.part;
+          const partName = item.part;
 
-      $("dayBody").innerHTML = `
-        <tr><td>Replacement <span class="row-icon">i</span></td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}</tr>
-        <tr><td>Shoot Number <span class="row-icon">i</span></td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}</tr>
-        <tr><td>Output (pcs) <span class="row-icon">i</span></td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}</tr>
-      `;
+          const replacementMap = new Map(db.replacements
+            .filter(row => monthKey(row.ReplaceDate) === ym && (row.DieSet === dieSet || row.Part === partName))
+            .map(row => [Number(row.ReplaceDate.slice(8, 10)), row]));
+
+          const shootMap = new Map(db.shoot
+            .filter(row => {
+              if (monthKey(row.Date) !== ym) return false;
+              const rDie = String(row.DieSet || "").toLowerCase().trim();
+              const mNew = String(item.moldNew || "").toLowerCase().trim();
+              const mOld = String(item.moldOld || "").toLowerCase().trim();
+              const pName = String(item.part || "").toLowerCase().trim();
+              return (mNew && rDie === mNew) || (mOld && rDie === mOld) || (pName && rDie === pName);
+            })
+            .map(row => [Number(row.Date.slice(8, 10)), row]));
+
+          const makeCell = (day, rowType) => {
+            const date = `${ym}-${String(day).padStart(2, "0")}`;
+            const weekend = [0, 6].includes(new Date(year, month - 1, day).getDay());
+            if (rowType === "replacement") {
+              const repItem = replacementMap.get(day);
+              const value = repItem ? (repItem.Label || repItem.Part || "RESET") : "-";
+              const cls = repItem ? "cell replacement" : "cell empty";
+              return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="replacement" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}">${esc(value)}</div></td>`;
+            }
+            const shot = shootMap.get(day);
+            const value = shot ? shot.Output : 0;
+            const cls = value ? "cell has-output" : "cell zero";
+            return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="shoot" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}">${value}</div></td>`;
+          };
+
+          bodyHtml += `
+            <tr>
+              <td class="col-part" rowspan="2">${esc(partName)}</td>
+              <td class="col-mold" rowspan="2">${esc(item.moldNew || item.moldOld || '-')}</td>
+              <td class="col-type">Replacement time <span class="row-icon">i</span></td>
+              ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}
+            </tr>
+            <tr>
+              <td class="col-type">Shoot Number <span class="row-icon">i</span></td>
+              ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}
+            </tr>
+          `;
+        });
+      }
+
+      $("dayBody").innerHTML = bodyHtml;
 
       document.querySelectorAll(".cell").forEach(cell => {
         cell.addEventListener("blur", () => updateCell(cell));
@@ -748,13 +915,13 @@
     function updateCell(cell) {
       const type = cell.dataset.type;
       const date = cell.dataset.date;
-      const ctx = getContext();
-      const dieSet = activeDieSet();
+      const dieSet = cell.dataset.dieset || activeDieSet();
+      const partName = cell.dataset.part || getContext().part || "Unknown";
       const text = cell.textContent.trim();
 
       if (!dieSet) {
         renderMonth();
-        return msg("Cần nhập Mold hoặc Die Set trước khi sửa trực tiếp trên bảng.", true);
+        return msg("Cần chọn linh kiện hoặc nhập Mold trước khi sửa.", true);
       }
 
       if (type === "shoot") {
@@ -769,8 +936,8 @@
         db.replacements = db.replacements.filter(row => !(row.ReplaceDate === date && row.DieSet === dieSet));
         if (text && text !== "-") {
           db.replacements.push({
-            Part: ctx.part || "Unknown",
-            Series: ctx.series || "",
+            Part: partName,
+            Series: getContext().series || "",
             DieSet: dieSet,
             ReplaceDate: date,
             Label: text
@@ -822,8 +989,12 @@
         return `<option value="${ym}">${monthNames[month - 1]} ${year}</option>`;
       }).join("");
 
-      const defaultYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-      select.value = months.has(defaultYm) ? defaultYm : `${startYear}-01`;
+      let defaultYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+      if (db.shoot && db.shoot.length > 0) {
+        const shootMonth = db.shoot[db.shoot.length - 1].Date.slice(0, 7);
+        if (months.has(shootMonth)) defaultYm = shootMonth;
+      }
+      select.value = months.has(defaultYm) ? defaultYm : `${startYear}-06`;
       if (!select.value && select.options.length > 0) select.selectedIndex = 0;
     }
 
@@ -894,17 +1065,286 @@
       }[char]));
     }
 
+    let masterData = [{"PartName":"MSLC3","Series":"9970B","OldDieSet":"M0341","NewDieSet":"I9970B01"},{"PartName":"M-SLC3","Series":"9971B","OldDieSet":"M0342","NewDieSet":"I9971B01"},{"PartName":"121","Series":"9926B","OldDieSet":"M7448","NewDieSet":"I9926B02"},{"PartName":"209-53","Series":"9926B","OldDieSet":"M7448","NewDieSet":"I9926B02"},{"PartName":"219","Series":"9926B","OldDieSet":"M7448","NewDieSet":"I9926B02"},{"PartName":"321","Series":"9926B","OldDieSet":"M7448","NewDieSet":"I9926B02"},{"PartName":"331","Series":"9926B","OldDieSet":"M7448","NewDieSet":"I9926B02"},{"PartName":"159","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"218","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"218-2","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"218-3","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"219","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"120","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"122","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"123","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"124","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"125","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"128","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"129","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"131","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"144-1","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"144-2","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"158","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"160","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"161","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"162","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"163","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"233","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"101","Series":"13067B","OldDieSet":"M7938","NewDieSet":"I13067B01"},{"PartName":"106","Series":"13067B","OldDieSet":"M7938","NewDieSet":"I13067B01"},{"PartName":"305","Series":"13067B","OldDieSet":"M7938","NewDieSet":"I13067B01"},{"PartName":"CF01A","Series":"9615S","OldDieSet":"FA06001","NewDieSet":"H9615S01"},{"PartName":"CF01B","Series":"9615S","OldDieSet":"FA06001","NewDieSet":"H9615S01"},{"PartName":"CR02A","Series":"9615S","OldDieSet":"FA06001","NewDieSet":"H9615S01"},{"PartName":"CR02B","Series":"9615S","OldDieSet":"FA06001","NewDieSet":"H9615S01"},{"PartName":"CR04","Series":"9615S","OldDieSet":"FA06001","NewDieSet":"H9615S01"},{"PartName":"CR09-3P","Series":"9615S","OldDieSet":"FA06001","NewDieSet":"H9615S01"},{"PartName":"CR11","Series":"9615S","OldDieSet":"FA06001","NewDieSet":"H9615S01"},{"PartName":"CR12","Series":"9615S","OldDieSet":"FA06001","NewDieSet":"H9615S01"},{"PartName":"CF01","Series":"9615S","OldDieSet":"FA06004","NewDieSet":"H9615S04"},{"PartName":"CF08","Series":"9615S","OldDieSet":"FA06004","NewDieSet":"H9615S04"},{"PartName":"TS1","Series":"9690S","OldDieSet":"H9690S16","NewDieSet":"H9690S16"},{"PartName":"105-1","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"105-1V","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"105V","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"106","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"106-1","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"106-1B","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"106-1C","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"106-1V","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"106B","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"106C","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"106V","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"401","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"402","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"403","Series":"10109C-E1A","OldDieSet":"ID-163","NewDieSet":"H10109C01"},{"PartName":"108","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"108-10P","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"112A","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"112B","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"113A","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"113B","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"506A","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"506B","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"507","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"507A","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"507D","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"508","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"511A","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"512","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"517A","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"702","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"702B","Series":"9709B","OldDieSet":"ID-164","NewDieSet":"H9709B01"},{"PartName":"205A","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"205B","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"208A","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"211A","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"213","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"606A","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"607A","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"608A","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"608B","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"609A","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"609B","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"610A","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"610C","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"611","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"612","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"613","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"614","Series":"9687S","OldDieSet":"ID-187","NewDieSet":"H9687S02"},{"PartName":"109C","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"117","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"506A","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"507B","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"508-1","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"508A","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"508B","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"509A","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"509B","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"510A","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"510B","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"519","Series":"9665S","OldDieSet":"ID-195","NewDieSet":"H9665S01"},{"PartName":"106F","Series":"13007B","OldDieSet":"ID-225","NewDieSet":"H13007B01"},{"PartName":"519A","Series":"13007B","OldDieSet":"ID-225","NewDieSet":"H13007B01"},{"PartName":"511","Series":"13046B","OldDieSet":"ID-278","NewDieSet":"H13046B04"},{"PartName":"12A","Series":"9633S","OldDieSet":"IR-021","NewDieSet":"H9633S01"},{"PartName":"12B","Series":"9633S","OldDieSet":"IR-021","NewDieSet":"H9633S01"},{"PartName":"49","Series":"9633S","OldDieSet":"IR-021","NewDieSet":"H9633S01"},{"PartName":"CF10","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CF12","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CF13","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CF14A","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CF14B","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CF14C","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CR10B","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CR10C","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CR11A","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CR11C","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CR14A","Series":"9134S","OldDieSet":"IR-0802","NewDieSet":"H9134S01"},{"PartName":"CF20","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CF21","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CF25","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CF27","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CR21","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CR22A","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CR22B","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CR23A","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CR23B","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CR24A","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CR24B","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"CR24C","Series":"9820S","OldDieSet":"IR-0903","NewDieSet":"H9820S01"},{"PartName":"306","Series":"9962B","OldDieSet":"IR-222","NewDieSet":"H9962B01"},{"PartName":"334A","Series":"9962B","OldDieSet":"IR-222","NewDieSet":"H9962B01"},{"PartName":"334B","Series":"9962B","OldDieSet":"IR-222","NewDieSet":"H9962B01"},{"PartName":"305-2R","Series":"9111B","OldDieSet":"IR-228","NewDieSet":"H9111B01"},{"PartName":"307","Series":"9111B","OldDieSet":"IR-228","NewDieSet":"H9111B01"},{"PartName":"201B","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"202B","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"203A","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"205A","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"207A","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"301A","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"301B","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"301C","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"303A","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"303B","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"310C","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"311","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"311B","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"343A","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"343B","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"401A","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"401B","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"VOI PHUN","Series":"9640S","OldDieSet":"IR-286","NewDieSet":"H9640S02"},{"PartName":"202A","Series":"9637S","OldDieSet":"IR-324","NewDieSet":"H9637S13"},{"PartName":"202B","Series":"9637S","OldDieSet":"IR-324","NewDieSet":"H9637S13"},{"PartName":"203A","Series":"9637S","OldDieSet":"IR-324","NewDieSet":"H9637S13"},{"PartName":"203B","Series":"9637S","OldDieSet":"IR-324","NewDieSet":"H9637S13"},{"PartName":"306A","Series":"9637S","OldDieSet":"IR-324","NewDieSet":"H9637S13"},{"PartName":"306B","Series":"9637S","OldDieSet":"IR-324","NewDieSet":"H9637S13"},{"PartName":"341A","Series":"9637S","OldDieSet":"IR-324","NewDieSet":"H9637S13"},{"PartName":"201A","Series":"9637C","OldDieSet":"IR-325","NewDieSet":"H9637C12"},{"PartName":"201B","Series":"9637C","OldDieSet":"IR-325","NewDieSet":"H9637C12"},{"PartName":"339B","Series":"9637C","OldDieSet":"IR-325","NewDieSet":"H9637C12"},{"PartName":"339C","Series":"9637C","OldDieSet":"IR-325","NewDieSet":"H9637C12"},{"PartName":"303","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"321","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"322A","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"322B","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"344A","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"344B","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"344C","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"409A","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"409B","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"412A","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"412B","Series":"13056B","OldDieSet":"IR-356","NewDieSet":"H13056B01"},{"PartName":"212B","Series":"11603S","OldDieSet":"IR-362","NewDieSet":"H11603S02"},{"PartName":"302","Series":"11603S","OldDieSet":"IR-362","NewDieSet":"H11603S02"},{"PartName":"307","Series":"11603S","OldDieSet":"IR-362","NewDieSet":"H11603S02"},{"PartName":"309A","Series":"11603S","OldDieSet":"IR-362","NewDieSet":"H11603S02"},{"PartName":"309B","Series":"11603S","OldDieSet":"IR-362","NewDieSet":"H11603S02"},{"PartName":"309C","Series":"11603S","OldDieSet":"IR-362","NewDieSet":"H11603S02"},{"PartName":"309D","Series":"11603S","OldDieSet":"IR-362","NewDieSet":"H11603S02"},{"PartName":"201A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"203","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"204","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"205","Series":"11502S","OldDieSet":"Ir-367","NewDieSet":"H11502S01"},{"PartName":"206","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"207A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"207B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"208A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"208B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"213A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"213B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"237A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"237B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"301A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"301B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"301C","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"301D","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"302A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"302B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"304A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"304B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"305A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"305B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"309A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"309B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"310A","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"310B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"311","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"343B","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"343C","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"343D","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"343E","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"343F","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"343G","Series":"11502S","OldDieSet":"IR-367","NewDieSet":"H11502S01"},{"PartName":"238A","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"238B","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"302","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"303","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"305E","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"307","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"309C","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"338A","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"338B","Series":"11603S","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"344C","Series":"11603S-D1E","OldDieSet":"IR-371","NewDieSet":"H11603S06"},{"PartName":"016A","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"016D","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"101","Series":"10106B-E1G","OldDieSet":"Ir-378","NewDieSet":"H10106B01"},{"PartName":"201","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"202","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"203","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"204","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"207","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"226A","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"226B","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"229","Series":"10106B-E1G","OldDieSet":"IR-378","NewDieSet":"H10106B01"},{"PartName":"203A","Series":"11603S","OldDieSet":"IR-393","NewDieSet":"H11603S03"},{"PartName":"109-1B","Series":"6302B","OldDieSet":"IRSV-001","NewDieSet":"H6302B04"},{"PartName":"201A","Series":"6302B","OldDieSet":"IRSV-001","NewDieSet":"H6302B04"},{"PartName":"201B","Series":"6302B","OldDieSet":"IRSV-001","NewDieSet":"H6302B04"},{"PartName":"209","Series":"6302B","OldDieSet":"IRSV-001","NewDieSet":"H6302B04"},{"PartName":"301-1A","Series":"6302B","OldDieSet":"IRSV-001","NewDieSet":"H6302B04"},{"PartName":"301-1B","Series":"6302B","OldDieSet":"IRSV-001","NewDieSet":"H6302B04"},{"PartName":"EPVB0.5-36.15-P0.499","Series":"6302B","OldDieSet":"IRSV-001","NewDieSet":"H6302B04"},{"PartName":"EPVB0.6-36.15-P0.505","Series":"6302B","OldDieSet":"IRSV-001","NewDieSet":"H6302B04"},{"PartName":"17A","Series":"9615S","OldDieSet":"IRSV-003","NewDieSet":"H9615S05"},{"PartName":"301A","Series":"9637C-H5F","OldDieSet":"IRSV-007","NewDieSet":"H9637C14"},{"PartName":"301C","Series":"9637C-H5F","OldDieSet":"IRSV-007","NewDieSet":"H9637C14"},{"PartName":"202A","Series":"9637S","OldDieSet":"IRSV-008","NewDieSet":"H9637S15"},{"PartName":"202B","Series":"9637S","OldDieSet":"IRSV-008","NewDieSet":"H9637S15"},{"PartName":"101A","Series":"9687C","OldDieSet":"IRSV-016","NewDieSet":"H9687C02"},{"PartName":"101B","Series":"9687C","OldDieSet":"IRSV-016","NewDieSet":"H9687C02"},{"PartName":"203B","Series":"9687C","OldDieSet":"IRSV-016","NewDieSet":"H9687C02"},{"PartName":"106B","Series":"9665C","OldDieSet":"IRSV-019","NewDieSet":"H9665C01"},{"PartName":"108A","Series":"9687S","OldDieSet":"IRSV-020","NewDieSet":"H9687S03"},{"PartName":"108B","Series":"9687S","OldDieSet":"IRSV-020","NewDieSet":"H9687S03"},{"PartName":"210","Series":"9687S","OldDieSet":"IRSV-020","NewDieSet":"H9687S03"},{"PartName":"205B","Series":"11603S","OldDieSet":"IRSV-021","NewDieSet":"H11603S04"},{"PartName":"210A","Series":"11603S","OldDieSet":"IRSV-021","NewDieSet":"H11603S04"},{"PartName":"210B","Series":"11603S","OldDieSet":"IRSV-021","NewDieSet":"H11603S04"},{"PartName":"309A","Series":"11603S","OldDieSet":"IRSV-021","NewDieSet":"H11603S04"},{"PartName":"309B","Series":"11603S","OldDieSet":"IRSV-021","NewDieSet":"H11603S04"},{"PartName":"309C","Series":"11603S","OldDieSet":"IRSV-021","NewDieSet":"H11603S04"},{"PartName":"309D","Series":"11603S","OldDieSet":"IRSV-021","NewDieSet":"H11603S04"},{"PartName":"B15","Series":"9220A","OldDieSet":"IRSV-022","NewDieSet":"H9220A01"},{"PartName":"TM14","Series":"9220A","OldDieSet":"IRSV-022","NewDieSet":"H9220A01"},{"PartName":"TM15","Series":"9220A","OldDieSet":"IRSV-022","NewDieSet":"H9220A01"},{"PartName":"604","Series":"9827B","OldDieSet":"IRSV-027","NewDieSet":"0x2a"},{"PartName":"107A","Series":"9637S","OldDieSet":"IRSV-029","NewDieSet":"H9637S17"},{"PartName":"107B","Series":"9637S","OldDieSet":"IRSV-029","NewDieSet":"H9637S17"},{"PartName":"205","Series":"9637S","OldDieSet":"IRSV-029","NewDieSet":"H9637S17"},{"PartName":"206","Series":"9637S","OldDieSet":"IRSV-029","NewDieSet":"H9637S17"},{"PartName":"121-1","Series":"10109B-E1L","OldDieSet":"IRSV-033","NewDieSet":"H10109B14"},{"PartName":"201","Series":"10109B-E1L","OldDieSet":"IRSV-033","NewDieSet":"H10109B14"},{"PartName":"202","Series":"10109B-E1L","OldDieSet":"IRSV-033","NewDieSet":"H10109B14"},{"PartName":"216","Series":"10109B-E1L","OldDieSet":"IRSV-033","NewDieSet":"H10109B14"},{"PartName":"405","Series":"10109B-E1L","OldDieSet":"IRSV-033","NewDieSet":"H10109B14"},{"PartName":"406","Series":"10109B-E1L","OldDieSet":"IRSV-033","NewDieSet":"H10109B14"},{"PartName":"601","Series":"10109B-E1AA","OldDieSet":"IRSV-034","NewDieSet":"H10109B15"},{"PartName":"116","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"119","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"201","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"202","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"223-1","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"223-2","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"301","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"302","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"602","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"603","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"604","Series":"10109B-E1R","OldDieSet":"IRSV-037","NewDieSet":"H10109B16"},{"PartName":"201","Series":"10109S-E1E","OldDieSet":"IRSV-038","NewDieSet":"H10109S01"},{"PartName":"403","Series":"10109S-E1E","OldDieSet":"IRSV-038","NewDieSet":"H10109S01"},{"PartName":"121-1","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"121-2","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"121-3","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"122B","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"132A","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"132B","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"521E","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"521F","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"529B","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"534B","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"603","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"604","Series":"9690S","OldDieSet":"IRSV-043","NewDieSet":"H9690S01"},{"PartName":"210","Series":"9697S","OldDieSet":"IRSV-048","NewDieSet":"H9697S03"},{"PartName":"403A","Series":"9697S","OldDieSet":"IRSV-048","NewDieSet":"H9697S03"},{"PartName":"403B","Series":"9697S","OldDieSet":"IRSV-048","NewDieSet":"H9697S03"},{"PartName":"B023","Series":"9947B","OldDieSet":"M00218","NewDieSet":"H9947B02"},{"PartName":"101","Series":"9665S","OldDieSet":"M0229","NewDieSet":"H9665S02"},{"PartName":"102","Series":"9665S","OldDieSet":"M0229","NewDieSet":"H9665S02"},{"PartName":"105B","Series":"9665S","OldDieSet":"M0229","NewDieSet":"H9665S02"},{"PartName":"106A","Series":"9665S","OldDieSet":"M0229","NewDieSet":"H9665S02"},{"PartName":"106B","Series":"9665S","OldDieSet":"M0229","NewDieSet":"H9665S02"},{"PartName":"208A","Series":"9665S","OldDieSet":"M0229","NewDieSet":"H9665S02"},{"PartName":"37B","Series":"9686C","OldDieSet":"M0234","NewDieSet":"H9686C02"},{"PartName":"B06","Series":"9492B","OldDieSet":"M03029","NewDieSet":"H9492B01"},{"PartName":"B10","Series":"9492B","OldDieSet":"M03029","NewDieSet":"H9492B01"},{"PartName":"C10","Series":"9492B","OldDieSet":"M03029","NewDieSet":"H9492B01"},{"PartName":"C11","Series":"9492B","OldDieSet":"M03029","NewDieSet":"H9492B01"},{"PartName":"C12","Series":"9492B","OldDieSet":"M03029","NewDieSet":"H9492B01"},{"PartName":"C13","Series":"9492B","OldDieSet":"M03029","NewDieSet":"H9492B01"},{"PartName":"B10","Series":"9492B","OldDieSet":"M03030","NewDieSet":"H9492B02"},{"PartName":"B20","Series":"9492B","OldDieSet":"M03030","NewDieSet":"H9492B02"},{"PartName":"C11","Series":"9492B","OldDieSet":"M03030","NewDieSet":"H9492B02"},{"PartName":"C12","Series":"9492B","OldDieSet":"M03030","NewDieSet":"H9492B02"},{"PartName":"C13","Series":"9492B","OldDieSet":"M03030","NewDieSet":"H9492B02"},{"PartName":"B10","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"C13A","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"C13B","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"C13D","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"C13E","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"C14","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"S107","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"S108","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"S109","Series":"9199S","OldDieSet":"M03042","NewDieSet":"H9199S01"},{"PartName":"C02A","Series":"9110S","OldDieSet":"M03059","NewDieSet":"H9110S01"},{"PartName":"C02B","Series":"9110S","OldDieSet":"M03059","NewDieSet":"H9110S01"},{"PartName":"C04B","Series":"9110S","OldDieSet":"M03059","NewDieSet":"H9110S01"},{"PartName":"C04C","Series":"9110S","OldDieSet":"M03059","NewDieSet":"H9110S01"},{"PartName":"MSLC4","Series":"9970B","OldDieSet":"M0341","NewDieSet":"I9970B01"},{"PartName":"FC3","Series":"9971B","OldDieSet":"M0342","NewDieSet":"I9971B01"},{"PartName":"VOI PHUN 9971B","Series":"9971B","OldDieSet":"M0342","NewDieSet":"I9971B01"},{"PartName":"211","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"212A","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"212B","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"213","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"214A","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"214B","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"215A","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"215B","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"216","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"217","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"222A","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"222B","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"226","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"227A","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"227B","Series":"10109C-H5G","OldDieSet":"M0794","NewDieSet":"H10109C08"},{"PartName":"109","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"110","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"112-1","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"131","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"132","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"134","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"141","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"203 100P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"203 140P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"203 60P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"218","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"220","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"302A.B-80P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"302A-B 100P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"302A-B 120P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"302A-B 140P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"302A-B 40P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"302A-B 60P","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"402","Series":"10106S-E1A","OldDieSet":"M0798","NewDieSet":"H10106S01"},{"PartName":"303A","Series":"10106C-E1A","OldDieSet":"M0799","NewDieSet":"H10106C01"},{"PartName":"303AA","Series":"10106C-E1A","OldDieSet":"M0799","NewDieSet":"H10106C01"},{"PartName":"403","Series":"10106C-E1A","OldDieSet":"M0799","NewDieSet":"H10106C01"},{"PartName":"101-1","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"105","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"114","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"201-2A","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"201-2B","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"203","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"210A","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"210B","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"221-1","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"221B","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"405","Series":"10106B-E1E","OldDieSet":"M0800","NewDieSet":"H10106B02"},{"PartName":"107","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"111","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"112","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"113","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"114","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"116","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"117","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"118","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"119","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"211","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"212","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"213A","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"213B","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"214","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"215","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"216","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"217","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"218","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"219","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"402","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"417","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"421","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"501l-1","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"501l-2","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"502","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"503A","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"503D","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"503G-1","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"503G-2","Series":"10106C-H5B","OldDieSet":"M0807","NewDieSet":"H10106C02"},{"PartName":"115B1","Series":"10106C-H5A","OldDieSet":"M0808","NewDieSet":"H10106C03"},{"PartName":"212","Series":"10106E-H5A","OldDieSet":"M0808","NewDieSet":"H10106C03"},{"PartName":"213","Series":"10106E","OldDieSet":"M0808","NewDieSet":"H10106C03"},{"PartName":"221","Series":"10106E","OldDieSet":"M0808","NewDieSet":"H10106C03"},{"PartName":"305","Series":"10106E-H5A","OldDieSet":"M0808","NewDieSet":"H10106C03"},{"PartName":"114","Series":"9686C","OldDieSet":"M0824","NewDieSet":"H9686C04"},{"PartName":"212A","Series":"9686C","OldDieSet":"M0824","NewDieSet":"H9686C04"},{"PartName":"212D","Series":"9686C","OldDieSet":"M0824","NewDieSet":"H9686C04"},{"PartName":"214","Series":"9686C","OldDieSet":"M0824","NewDieSet":"H9686C04"},{"PartName":"215B","Series":"9686C","OldDieSet":"M0824","NewDieSet":"H9686C04"},{"PartName":"216A","Series":"9686C","OldDieSet":"M0824","NewDieSet":"H9686C04"},{"PartName":"216B","Series":"9686C","OldDieSet":"M0824","NewDieSet":"H9686C04"},{"PartName":"101A","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"101B","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"101C","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"101D","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"101E","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"101F","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"101G","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"101H","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"105","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"201A","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"201B","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"202","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"206","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"207","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"208A","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"208B","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"301A","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"301B","Series":"13030B","OldDieSet":"M0829","NewDieSet":"H13030B01"},{"PartName":"312A","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"411","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"412A","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"412B","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"415A","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"416A","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"416B","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"417","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"419A","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"419B","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"451","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"452","Series":"18005S","OldDieSet":"M0845","NewDieSet":"H18005S01"},{"PartName":"111A","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"111B","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"114","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"115","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"119","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"212B","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"213","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"214","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"215","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"216","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"218","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"221A","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"221B","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"222","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"224","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"225A","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"225B","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"228","Series":"13036B","OldDieSet":"M0846","NewDieSet":"H13036B01"},{"PartName":"111A","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"111B","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"112","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"113","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"114","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"115","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"118","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"211A","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"211B","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"212A","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"212B","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"213A","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"214","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"215","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"216","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"217","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"218","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"219","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"221A","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"221B","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"222","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"223","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"224","Series":"13037B","OldDieSet":"M0850","NewDieSet":"H13037B01"},{"PartName":"311","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"312A","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"312B","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"313A","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"313B","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"314","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"315","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"316","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"317","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"411","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"411A","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"411Y","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"411Z","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"412","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"412Z","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"415A","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"415B","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"451","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"452","Series":"18011S","OldDieSet":"M0883","NewDieSet":"H18011S01"},{"PartName":"101","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"102","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"103","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"106","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"109","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"110","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"115B","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"116","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"117","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"202","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"203","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"203A","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"205","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"207","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"208","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"211","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"213","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"214","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"301","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"302","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"403","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"404","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"405","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"406","Series":"13043B","OldDieSet":"M0899","NewDieSet":"H13043B01"},{"PartName":"105A","Series":"13042B","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"111A","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"111B","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"117","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"119","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"201","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"203-1","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"208","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"212","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"403","Series":"13042B","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"404","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"405","Series":"13042B-D1A","OldDieSet":"M0900","NewDieSet":"H13042B01"},{"PartName":"405","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"406A","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"406B","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"407A","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"407B","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"451","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"453","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"454","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"455","Series":"10109C-H5K","OldDieSet":"M0909","NewDieSet":"H10109C09"},{"PartName":"113","Series":"9665C","OldDieSet":"M0945","NewDieSet":"H9665C02"},{"PartName":"122","Series":"9665C","OldDieSet":"M0945","NewDieSet":"H9665C02"},{"PartName":"504B","Series":"9665C","OldDieSet":"M0945","NewDieSet":"H9665C02"},{"PartName":"511A","Series":"9665C","OldDieSet":"M0945","NewDieSet":"H9665C02"},{"PartName":"201","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"205A","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"205B","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"216","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"501A","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"502A","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"503","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"504B","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"521B","Series":"9687C","OldDieSet":"M0946","NewDieSet":"H9687C03"},{"PartName":"106A","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"108","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"109-40","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"156","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"203a","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"212","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"215B","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"215C","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"256","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"403","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"404","Series":"11001S","OldDieSet":"M0949","NewDieSet":"H11001S01"},{"PartName":"108","Series":"11002S","OldDieSet":"M0950","NewDieSet":"H11002S01"},{"PartName":"156","Series":"11002S","OldDieSet":"M0950","NewDieSet":"H11002S01"},{"PartName":"203A","Series":"11002S","OldDieSet":"M0950","NewDieSet":"H11002S01"},{"PartName":"256","Series":"11002S","OldDieSet":"M0950","NewDieSet":"H11002S01"},{"PartName":"403","Series":"11002S","OldDieSet":"M0950","NewDieSet":"H11002S01"},{"PartName":"404","Series":"11002S","OldDieSet":"M0950","NewDieSet":"H11002S01"},{"PartName":"104","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"106","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"112","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"118","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"119","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"156","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"205","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"208","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"209","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"213","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"256","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"401","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"402","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"403","Series":"11001B","OldDieSet":"M0951","NewDieSet":"H11001B01"},{"PartName":"112","Series":"11002B","OldDieSet":"M0952","NewDieSet":"H11002B01"},{"PartName":"113","Series":"11002B","OldDieSet":"M0952","NewDieSet":"H11002B01"},{"PartName":"156","Series":"11002B","OldDieSet":"M0952","NewDieSet":"H11002B01"},{"PartName":"402","Series":"11002B","OldDieSet":"M0952","NewDieSet":"H11002B01"},{"PartName":"403","Series":"11002B","OldDieSet":"M0952","NewDieSet":"H11002B01"},{"PartName":"103A","Series":"11001C","OldDieSet":"M0953","NewDieSet":"H11001C01"},{"PartName":"103B","Series":"11001C","OldDieSet":"M0953","NewDieSet":"H11001C01"},{"PartName":"108A","Series":"11001C","OldDieSet":"M0953","NewDieSet":"H11001C01"},{"PartName":"108B","Series":"11001C","OldDieSet":"M0953","NewDieSet":"H11001C01"},{"PartName":"501","Series":"11001C","OldDieSet":"M0953","NewDieSet":"H11001C01"},{"PartName":"502","Series":"11001C","OldDieSet":"M0953","NewDieSet":"H11001C01"},{"PartName":"201","Series":"11002C","OldDieSet":"M0954","NewDieSet":"H11002C01"},{"PartName":"203A","Series":"11002C","OldDieSet":"M0954","NewDieSet":"H11002C01"},{"PartName":"502","Series":"11002C","OldDieSet":"M0954","NewDieSet":"H11002C01"},{"PartName":"107A","Series":"18015S","OldDieSet":"M0974","NewDieSet":"H18015S01"},{"PartName":"107B","Series":"18015S","OldDieSet":"M0974","NewDieSet":"H18015S01"},{"PartName":"110A","Series":"18015S","OldDieSet":"M0974","NewDieSet":"H18015S01"},{"PartName":"110B","Series":"18015S","OldDieSet":"M0974","NewDieSet":"H18015S01"},{"PartName":"106A","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"107A","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"107B","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"202A","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"205A","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"210-1","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"214A","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"214B","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"215","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"216A","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"216B","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"302","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"405","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"408","Series":"18015C","OldDieSet":"M0975","NewDieSet":"H18015C01"},{"PartName":"114","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"115","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"201","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"204","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"215","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"216","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"402","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"403","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"404","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"405","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"406","Series":"10106B-E1C","OldDieSet":"M1058","NewDieSet":"H10106B03"},{"PartName":"108","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"109","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"110B","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"113","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"210","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"211A","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"211B","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"212","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"403","Series":"13051B","OldDieSet":"M1063","NewDieSet":"H13051B01"},{"PartName":"108","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"109","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"110","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"111","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"112","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"114","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"116","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"202","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"203","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"204","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"209","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"215","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"216","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"218","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"223","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"404","Series":"10121S-E1A","OldDieSet":"M1078","NewDieSet":"H10121S01"},{"PartName":"102","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"105","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"108","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"109","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"110","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"111","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"113","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"114","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"201","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"202","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"204","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"210","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"214A","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"216","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"255","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"404","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"405","Series":"10121S-E1C","OldDieSet":"M1079","NewDieSet":"H10121S02"},{"PartName":"216","Series":"13036B","OldDieSet":"M1086","NewDieSet":"H13036B02"},{"PartName":"116","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"117","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"120","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"125","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"201","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"202","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"214","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"222","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"402","Series":"10109B-E1AC","OldDieSet":"M1088","NewDieSet":"H10109B17"},{"PartName":"208","Series":"13057B","OldDieSet":"M1135","NewDieSet":"H13057B01"},{"PartName":"209","Series":"13057B","OldDieSet":"M1135","NewDieSet":"H13057B01"},{"PartName":"210","Series":"13057B","OldDieSet":"M1135","NewDieSet":"H13057B01"},{"PartName":"211","Series":"13057B","OldDieSet":"M1135","NewDieSet":"H13057B01"},{"PartName":"301","Series":"13057B","OldDieSet":"M1135","NewDieSet":"H13057B01"},{"PartName":"402","Series":"13057B","OldDieSet":"M1135","NewDieSet":"H13057B01"},{"PartName":"403","Series":"13057B","OldDieSet":"M1135","NewDieSet":"H13057B01"},{"PartName":"404","Series":"13057B","OldDieSet":"M1135","NewDieSet":"H13057B01"},{"PartName":"104B","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"201","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"202A","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"202B","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"203","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"204A","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"204B","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"205B","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"206A","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"206B","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"207A","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"207B","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"501","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"502","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"503","Series":"9664C","OldDieSet":"M1147","NewDieSet":"H9664C01"},{"PartName":"120","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"205A","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"205B","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"206A-B","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"207A-B","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"215","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"218","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"403","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"404","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"405","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"406","Series":"9664S","OldDieSet":"M1148","NewDieSet":"H9664S01"},{"PartName":"102A","Series":"9665S-H5A","OldDieSet":"M1149","NewDieSet":"H9665S03"},{"PartName":"102B","Series":"9665S-H5A","OldDieSet":"M1149","NewDieSet":"H9665S03"},{"PartName":"105A","Series":"9665S-H5A","OldDieSet":"M1149","NewDieSet":"H9665S03"},{"PartName":"105B","Series":"9665S-H5A","OldDieSet":"M1149","NewDieSet":"H9665S03"},{"PartName":"113","Series":"9665S-H5A","OldDieSet":"M1149","NewDieSet":"H9665S03"},{"PartName":"16A1","Series":"9665S","OldDieSet":"M1149","NewDieSet":"H9665S03"},{"PartName":"205","Series":"9665S-H5A","OldDieSet":"M1149","NewDieSet":"H9665S03"},{"PartName":"206","Series":"9665S-H5A","OldDieSet":"M1149","NewDieSet":"H9665S03"},{"PartName":"103","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"107","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"108","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"111","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"205","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"216","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"402","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"403","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"404","Series":"13055B","OldDieSet":"M1173","NewDieSet":"H13055B01"},{"PartName":"116","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"117","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"118","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"119","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"120","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"121","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"212","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"213","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"214","Series":"10109B-E1AE","OldDieSet":"M1202","NewDieSet":"H10109B18"},{"PartName":"B020","Series":"10113C","OldDieSet":"M12157","NewDieSet":"H10113C01"},{"PartName":"C04A","Series":"10113C","OldDieSet":"M12157","NewDieSet":"H10113C01"},{"PartName":"202","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"203","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"206","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"207","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"208","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"209","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"501","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"502","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"504A","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"504B","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"505A","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"506","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"507","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"510A","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"510B","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"511","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"701A","Series":"13066B","OldDieSet":"M1229","NewDieSet":"H13066B01"},{"PartName":"214","Series":"13073B","OldDieSet":"M1308","NewDieSet":"H13073B01"},{"PartName":"215","Series":"13073B","OldDieSet":"M1308","NewDieSet":"H13073B01"},{"PartName":"301","Series":"13073B","OldDieSet":"M1308","NewDieSet":"H13073B01"},{"PartName":"302","Series":"13073B","OldDieSet":"M1308","NewDieSet":"H13073B01"},{"PartName":"EERVF1.5-110.57-P0.90-W0.60-","Series":"13073B","OldDieSet":"M1308","NewDieSet":"H13073B01"},{"PartName":"EERVF1.5-112.48-P1.20-W0.70-","Series":"13073B","OldDieSet":"M1308","NewDieSet":"H13073B01"},{"PartName":"EERVL2-110.57-P1.20-W0.80-N7","Series":"13073B","OldDieSet":"M1308","NewDieSet":"H13073B01"},{"PartName":"206A","Series":"13075B","OldDieSet":"M1355","NewDieSet":"H13075B01"},{"PartName":"206B","Series":"13075B","OldDieSet":"M1355","NewDieSet":"H13075B01"},{"PartName":"208A","Series":"13075B","OldDieSet":"M1355","NewDieSet":"H13075B01"},{"PartName":"208B","Series":"13075B","OldDieSet":"M1355","NewDieSet":"H13075B01"},{"PartName":"216","Series":"13075B","OldDieSet":"M1355","NewDieSet":"H13075B01"},{"PartName":"217","Series":"13075B","OldDieSet":"M1355","NewDieSet":"H13075B01"},{"PartName":"256","Series":"13075B","OldDieSet":"M1355","NewDieSet":"H13075B01"},{"PartName":"105","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"106","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"111","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"113A","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"113B","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"208","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"212","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"213","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"214","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"215","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"306A","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"306B","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"308A","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"311","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"315","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"402","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"404","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"405","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"406","Series":"13042B-H5B","OldDieSet":"M1363","NewDieSet":"H13042B02"},{"PartName":"113B","Series":"12003C","OldDieSet":"M1393","NewDieSet":"H12003C03"},{"PartName":"515-1","Series":"12003C","OldDieSet":"M1393","NewDieSet":"H12003C03"},{"PartName":"515-2","Series":"12003C","OldDieSet":"M1393","NewDieSet":"H12003C03"},{"PartName":"515-3","Series":"12003C","OldDieSet":"M1393","NewDieSet":"H12003C03"},{"PartName":"515-4","Series":"12003C","OldDieSet":"M1393","NewDieSet":"H12003C03"},{"PartName":"516-2","Series":"12003C","OldDieSet":"M1393","NewDieSet":"H12003C03"},{"PartName":"601","Series":"12003C","OldDieSet":"M1393","NewDieSet":"H12003C03"},{"PartName":"602","Series":"12003C","OldDieSet":"M1393","NewDieSet":"H12003C03"},{"PartName":"113-1","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"113-2A","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"113-2B","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"114","Series":"12003S-E1A","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"118B","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"512A","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"512B","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"516A","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"516B","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"531A","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"531B","Series":"12003S","OldDieSet":"M1394","NewDieSet":"H12003S02"},{"PartName":"101","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"102","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"103","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"104","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"108","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"109","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"110","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"111","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"201","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"202","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"211A","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"212","Series":"9115S-E1A-05","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"213","Series":"9115S-E1A-05","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"214","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"215","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"216","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"217","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"403","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"404","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"405","Series":"9115S-E1A","OldDieSet":"M1446","NewDieSet":"H9115S01"},{"PartName":"107","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"204","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"210l","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"210R","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"212L","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"212R","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"403","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"404","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"405","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"406","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"408","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"409","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"410","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"411","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"412","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"413","Series":"13018B","OldDieSet":"M1457","NewDieSet":"H13018B01"},{"PartName":"109","Series":"13078B","OldDieSet":"M1458","NewDieSet":"H13078B01"},{"PartName":"114A","Series":"13078B","OldDieSet":"M1458","NewDieSet":"H13078B01"},{"PartName":"202","Series":"13078B","OldDieSet":"M1458","NewDieSet":"H13078B01"},{"PartName":"223","Series":"13078B","OldDieSet":"M1458","NewDieSet":"H13078B01"},{"PartName":"225","Series":"13078B","OldDieSet":"M1458","NewDieSet":"H13078B01"},{"PartName":"231","Series":"13078B","OldDieSet":"M1458","NewDieSet":"H13078B01"},{"PartName":"404","Series":"13078B","OldDieSet":"M1458","NewDieSet":"H13078B01"},{"PartName":"406","Series":"13078B","OldDieSet":"M1458","NewDieSet":"H13078B01"},{"PartName":"205","Series":"13078C","OldDieSet":"M1459","NewDieSet":"0x2a"},{"PartName":"403","Series":"9685C","OldDieSet":"M1471","NewDieSet":"H9685C02"},{"PartName":"101A","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"101B","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"106A","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"106B","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"201A","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"201B","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"203","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"205A","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"206B","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"207A","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"207B","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"401","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"402","Series":"9685C","OldDieSet":"M1472","NewDieSet":"H9685C03"},{"PartName":"204","Series":"13036B-E1B","OldDieSet":"M1487","NewDieSet":"H13036B03"},{"PartName":"120-1","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"120-2","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"511-1","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"511-2","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"513A","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"513B","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"516-1","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"601","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"602","Series":"12003C","OldDieSet":"M1493","NewDieSet":"H12003C04"},{"PartName":"118A","Series":"12003S","OldDieSet":"M1494","NewDieSet":"H12003S03"},{"PartName":"517-3","Series":"12003S","OldDieSet":"M1494","NewDieSet":"H12003S03"},{"PartName":"517-4","Series":"12003S","OldDieSet":"M1494","NewDieSet":"H12003S03"},{"PartName":"518-3A","Series":"12003S","OldDieSet":"M1494","NewDieSet":"H12003S03"},{"PartName":"518-3B","Series":"12003S","OldDieSet":"M1494","NewDieSet":"H12003S03"},{"PartName":"525A","Series":"12003S","OldDieSet":"M1494","NewDieSet":"H12003S03"},{"PartName":"531A","Series":"12003S","OldDieSet":"M1494","NewDieSet":"H12003S03"},{"PartName":"531B","Series":"12003S","OldDieSet":"M1494","NewDieSet":"H12003S03"},{"PartName":"121A","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"121B","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"122-2","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"123-1","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"123-2","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"128A","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"128B","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"521-3","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"524-2","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"528A","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"604","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"701","Series":"9640S","OldDieSet":"M15001","NewDieSet":"H9640S03"},{"PartName":"103","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"103-1","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"108","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"109","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"110A","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"110B","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"110C","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"110D","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"111","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"112","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"204","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"214","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"219A","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"219B","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"221A","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"221B","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"225","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"226","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"405","Series":"13080B-H5A","OldDieSet":"M1564","NewDieSet":"H13080B01"},{"PartName":"201","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"302-100P","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"302-140","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"302-40","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"302-60P","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"302-80P","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"402","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"403","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"404","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"407","Series":"10106C-E1C","OldDieSet":"M1603","NewDieSet":"H10106C04"},{"PartName":"102","Series":"10106B-E1J","OldDieSet":"M1604","NewDieSet":"H10106B04"},{"PartName":"304-4B","Series":"10106B-E1L","OldDieSet":"M1605","NewDieSet":"H10106B05"},{"PartName":"114A","Series":"10106B-E1N","OldDieSet":"M1606","NewDieSet":"H10106B06"},{"PartName":"114B","Series":"10106B-E1N","OldDieSet":"M1606","NewDieSet":"H10106B06"},{"PartName":"206","Series":"10106B-E1N","OldDieSet":"M1606","NewDieSet":"H10106B06"},{"PartName":"101","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"102","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"103","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"104","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"105","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"201","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"202","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"203","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"204","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"205","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"206","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"207","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"208","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"209","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"210","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"211","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"212","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"213","Series":"9685C","OldDieSet":"M1616","NewDieSet":"H9685C04"},{"PartName":"105","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"106","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"107","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"110","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"121","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"201","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"203","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"204","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"207","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"208","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"211","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"212","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"223","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"226","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"301A","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"301B","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"302","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"311","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"312","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"313","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"314","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"403","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"404","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"405","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"406","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"407","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"408","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"409","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"410","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"411","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"412","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"413","Series":"13084B","OldDieSet":"M1617","NewDieSet":"H13084B01"},{"PartName":"104","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"105A","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"105B","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"112B","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"114","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"201","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"203","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"206","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"208","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"403","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"404","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"405","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"406","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"407","Series":"13085B","OldDieSet":"M1618","NewDieSet":"H13085B01"},{"PartName":"203","Series":"10109C-H5C","OldDieSet":"M1633","NewDieSet":"H10109C12"},{"PartName":"204A","Series":"10109C-H5C","OldDieSet":"M1633","NewDieSet":"H10109C12"},{"PartName":"205A","Series":"10109C-H5C","OldDieSet":"M1633","NewDieSet":"H10109C12"},{"PartName":"205B","Series":"10109C-H5C","OldDieSet":"M1633","NewDieSet":"H10109C12"},{"PartName":"206B","Series":"10109C-H5C","OldDieSet":"M1633","NewDieSet":"H10109C12"},{"PartName":"206D","Series":"10109C-H5C","OldDieSet":"M1633","NewDieSet":"H10109C12"},{"PartName":"206E","Series":"10109C-H5C","OldDieSet":"M1633","NewDieSet":"H10109C12"},{"PartName":"501","Series":"10109C-H5C","OldDieSet":"M1633","NewDieSet":"H10109C12"},{"PartName":"116","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"117","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"119","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"121","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"155","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"201","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"202","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"203","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"229","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"230","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"302","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"351","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"402","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"403","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"404","Series":"10109B-E1A","OldDieSet":"M1663","NewDieSet":"H10109B19"},{"PartName":"105-1","Series":"9926B-A1A","OldDieSet":"M7054","NewDieSet":"I9926B01"},{"PartName":"106","Series":"9926B-A1A","OldDieSet":"M7054","NewDieSet":"I9926B01"},{"PartName":"208","Series":"9926B-A1A","OldDieSet":"M7054","NewDieSet":"I9926B01"},{"PartName":"237B","Series":"9926B-A1A","OldDieSet":"M7054","NewDieSet":"I9926B01"},{"PartName":"105-1","Series":"9926B-A1C","OldDieSet":"M7448","NewDieSet":"I9926B02"},{"PartName":"208","Series":"9926B-A1C","OldDieSet":"M7448","NewDieSet":"I9926B02"},{"PartName":"106","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"209-53","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"227","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"228","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"229","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"230","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"231","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"232","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"236","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"239","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"311","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"312","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"321","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"322","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"331","Series":"9926B","OldDieSet":"M7806","NewDieSet":"I9926B03"},{"PartName":"205","Series":"13067B","OldDieSet":"M7938","NewDieSet":"I13067B01"},{"PartName":"211-2","Series":"13067B","OldDieSet":"M7938","NewDieSet":"I13067B01"},{"PartName":"VOI PHUN","Series":"13067B","OldDieSet":"M7938","NewDieSet":"I13067B01"},{"PartName":"101","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"102","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"103","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"104","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"105","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"106","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"111","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"201","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"202","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"219","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"403","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"404","Series":"18023S","OldDieSet":"MF0001","NewDieSet":"H18023S01"},{"PartName":"203A","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"203B","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"204A","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"204B","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"206A","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"206B","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"207A","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"207B","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"209A","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"209B","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"210A","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"211","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"212A","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"212B","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"404","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"405","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"406","Series":"18023C","OldDieSet":"MF0002","NewDieSet":"H18023C01"},{"PartName":"205","Series":"13096B","OldDieSet":"MF00028","NewDieSet":"H13096B01"},{"PartName":"206","Series":"13096B","OldDieSet":"MF00028","NewDieSet":"H13096B01"},{"PartName":"303","Series":"13096B","OldDieSet":"MF00028","NewDieSet":"H13096B01"},{"PartName":"304","Series":"13096B","OldDieSet":"MF00028","NewDieSet":"H13096B01"},{"PartName":"103","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"104A","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"104B","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"202","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"204","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"205","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"206","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"207A","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"208","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"209A","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"209B","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"404","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"405","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"406","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"407","Series":"18023E","OldDieSet":"MF0003","NewDieSet":"H18023E01"},{"PartName":"102B","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"109A","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"109B","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"111","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"112","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"113","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"114","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"116","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"118","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"119","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"120","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"121A","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"121B","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"126A","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"131A","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"131B","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"132A","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"132B","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"404","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"405","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"406","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"407","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"408","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"409","Series":"13080B-H5B","OldDieSet":"MF0009","NewDieSet":"H13080B02"},{"PartName":"107","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"109B","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"119A","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"204B","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"209","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"210","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"211","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"301","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"VOI PHUN","Series":"13077B","OldDieSet":"MF00102","NewDieSet":"H13077B01"},{"PartName":"122","Series":"10128S-H5A.F","OldDieSet":"MF00174","NewDieSet":"H10128S01"},{"PartName":"137","Series":"10128S-H5A.F","OldDieSet":"MF00174","NewDieSet":"H10128S01"},{"PartName":"215","Series":"10128S","OldDieSet":"MF00174","NewDieSet":"H10128S01"},{"PartName":"402","Series":"10128S-H5A.F","OldDieSet":"MF00174","NewDieSet":"H10128S01"},{"PartName":"403-1","Series":"10128S-H5A.F","OldDieSet":"MF00174","NewDieSet":"H10128S01"},{"PartName":"404","Series":"10128S-H5A.F","OldDieSet":"MF00174","NewDieSet":"H10128S01"},{"PartName":"511-1","Series":"10128E-H5A","OldDieSet":"MF00175","NewDieSet":"H10128E01"},{"PartName":"514-1A","Series":"10128E-H5A","OldDieSet":"MF00175","NewDieSet":"H10128E01"},{"PartName":"514-1B","Series":"10128E-H5A","OldDieSet":"MF00175","NewDieSet":"H10128E01"},{"PartName":"514-3","Series":"10128E-H5A","OldDieSet":"MF00175","NewDieSet":"H10128E01"},{"PartName":"515B","Series":"10128E-H5A","OldDieSet":"MF00175","NewDieSet":"H10128E01"},{"PartName":"601","Series":"10128E-H5A","OldDieSet":"MF00175","NewDieSet":"H10128E01"},{"PartName":"602","Series":"10128E-H5A","OldDieSet":"MF00175","NewDieSet":"H10128E01"},{"PartName":"604","Series":"10128E-H5A","OldDieSet":"MF00175","NewDieSet":"H10128E01"},{"PartName":"104A-1","Series":"10128B","OldDieSet":"MF00176","NewDieSet":"H10128B01"},{"PartName":"111B","Series":"10128B","OldDieSet":"MF00176","NewDieSet":"H10128B01"},{"PartName":"502","Series":"10128B","OldDieSet":"MF00176","NewDieSet":"H10128B01"},{"PartName":"VOI PHUN","Series":"10128B","OldDieSet":"MF00176","NewDieSet":"H10128B01"},{"PartName":"112-1","Series":"10128C","OldDieSet":"MF00177","NewDieSet":"H10128C01"},{"PartName":"112-2","Series":"10128C","OldDieSet":"MF00177","NewDieSet":"H10128C01"},{"PartName":"113A","Series":"10128C","OldDieSet":"MF00177","NewDieSet":"H10128C01"},{"PartName":"113B","Series":"10128C","OldDieSet":"MF00177","NewDieSet":"H10128C01"},{"PartName":"114A","Series":"10128C","OldDieSet":"MF00177","NewDieSet":"H10128C01"},{"PartName":"114B","Series":"10128C","OldDieSet":"MF00177","NewDieSet":"H10128C01"},{"PartName":"602","Series":"10128C","OldDieSet":"MF00177","NewDieSet":"H10128C01"},{"PartName":"603","Series":"10128C","OldDieSet":"MF00177","NewDieSet":"H10128C01"},{"PartName":"117-1","Series":"10128E-H5B","OldDieSet":"MF00178","NewDieSet":"H10128E02"},{"PartName":"117-2","Series":"10128E-H5B","OldDieSet":"MF00178","NewDieSet":"H10128E02"},{"PartName":"515-2","Series":"10128E-H5B","OldDieSet":"MF00178","NewDieSet":"H10128E02"},{"PartName":"522","Series":"10128E-H5B","OldDieSet":"MF00178","NewDieSet":"H10128E02"},{"PartName":"523","Series":"10128E-H5B","OldDieSet":"MF00178","NewDieSet":"H10128E02"},{"PartName":"601","Series":"10128E-H5B","OldDieSet":"MF00178","NewDieSet":"H10128E02"},{"PartName":"603","Series":"10128E-H5B","OldDieSet":"MF00178","NewDieSet":"H10128E02"},{"PartName":"604","Series":"10128E-H5B","OldDieSet":"MF00178","NewDieSet":"H10128E02"},{"PartName":"203A","Series":"9827S","OldDieSet":"MF00196","NewDieSet":"H9827B08"},{"PartName":"203B","Series":"9827S","OldDieSet":"MF00196","NewDieSet":"H9827B08"},{"PartName":"211A","Series":"9827S","OldDieSet":"MF00197","NewDieSet":"H9827S22"},{"PartName":"211B","Series":"9827S","OldDieSet":"MF00197","NewDieSet":"H9827S22"},{"PartName":"212","Series":"9827S","OldDieSet":"MF00197","NewDieSet":"H9827S22"},{"PartName":"404","Series":"9827S","OldDieSet":"MF00197","NewDieSet":"H9827S22"},{"PartName":"405","Series":"9827S","OldDieSet":"MF00197","NewDieSet":"H9827S22"},{"PartName":"101","Series":"10109S-E1A","OldDieSet":"MF00221","NewDieSet":"H10109S03"},{"PartName":"203","Series":"10109S-E1A","OldDieSet":"MF00221","NewDieSet":"H10109S03"},{"PartName":"204","Series":"10109S-E1A","OldDieSet":"MF00221","NewDieSet":"H10109S03"},{"PartName":"208-1","Series":"10109S-E1A","OldDieSet":"MF00221","NewDieSet":"H10109S03"},{"PartName":"208-2","Series":"10109S-E1A","OldDieSet":"MF00221","NewDieSet":"H10109S03"},{"PartName":"212","Series":"10109S-E1A","OldDieSet":"MF00221","NewDieSet":"H10109S03"},{"PartName":"404","Series":"10109S-E1A","OldDieSet":"MF00221","NewDieSet":"H10109S03"},{"PartName":"102","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"102-1","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"104","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"105A","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"105B","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"106A","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"106B","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"133A","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"206B","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"207B","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"208B","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"213","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"214","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"215","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"221","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"222","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"224","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"606","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"607","Series":"10141S","OldDieSet":"MF00307","NewDieSet":"H10141S01"},{"PartName":"108A","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"108B","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"204","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"217B","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"302B","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"302C","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"302D","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"307A","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"307B","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"307C","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"603","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"604","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"609","Series":"10141C","OldDieSet":"MF00308","NewDieSet":"H10141C01"},{"PartName":"113-1A","Series":"10110C","OldDieSet":"MF00319","NewDieSet":"H10110C02"},{"PartName":"113-1B","Series":"10110C","OldDieSet":"MF00319","NewDieSet":"H10110C02"},{"PartName":"513-1","Series":"10110C","OldDieSet":"MF00319","NewDieSet":"H10110C02"},{"PartName":"513-2","Series":"10110C","OldDieSet":"MF00319","NewDieSet":"H10110C02"},{"PartName":"601","Series":"10110C","OldDieSet":"MF00319","NewDieSet":"H10110C02"},{"PartName":"602","Series":"10110C","OldDieSet":"MF00319","NewDieSet":"H10110C02"},{"PartName":"118A","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"119A","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"119B","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"120B","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"122","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"514-1","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"515-1","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"519-1","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"519-2","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"519-3","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"526-1","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"526-2","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"701","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"711A","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"711B","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"712A","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"712B","Series":"12003S","OldDieSet":"MF00321","NewDieSet":"H12003S04"},{"PartName":"107A-1","Series":"10116B-H5B","OldDieSet":"MF00392","NewDieSet":"H10116B05"},{"PartName":"107A-2","Series":"10116B-H5B","OldDieSet":"MF00392","NewDieSet":"H10116B05"},{"PartName":"107B-1","Series":"10116B-H5B","OldDieSet":"MF00392","NewDieSet":"H10116B05"},{"PartName":"204","Series":"10116B-H5B","OldDieSet":"MF00392","NewDieSet":"H10116B05"},{"PartName":"205","Series":"10116B-H5B","OldDieSet":"MF00392","NewDieSet":"H10116B05"},{"PartName":"208","Series":"10116B-H5B","OldDieSet":"MF00392","NewDieSet":"H10116B05"},{"PartName":"210","Series":"10116B-H5B","OldDieSet":"MF00392","NewDieSet":"H10116B05"},{"PartName":"403","Series":"10116B-H5B","OldDieSet":"MF00392","NewDieSet":"H10116B05"},{"PartName":"202B","Series":"10109C-H5C","OldDieSet":"MF00488","NewDieSet":"MF00488"},{"PartName":"108-1","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"117","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"118","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"215","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"216","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"217","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"218","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"220","Series":"10128S","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"301","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"302","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"405A","Series":"10128S-H5C","OldDieSet":"MF00521","NewDieSet":"H10128S02"},{"PartName":"112","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"119","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"120","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"121","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"123","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"212","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"213","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"214","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"403","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"405","Series":"10109B-E1AA","OldDieSet":"MF00560","NewDieSet":"H10109B22"},{"PartName":"206","Series":"10128S-E1E","OldDieSet":"MF00606","NewDieSet":"0x2a"},{"PartName":"402","Series":"9707B","OldDieSet":"MF00629","NewDieSet":"H9707B07"},{"PartName":"403","Series":"9707B","OldDieSet":"MF00629","NewDieSet":"H9707B07"},{"PartName":"104","Series":"10106S-E1C","OldDieSet":"MF00805","NewDieSet":"H10106S03"},{"PartName":"106","Series":"10106S-E1C","OldDieSet":"MF00805","NewDieSet":"H10106S03"},{"PartName":"113A","Series":"10106S-E1C","OldDieSet":"MF00805","NewDieSet":"H10106S03"},{"PartName":"137","Series":"10106S-E1C","OldDieSet":"MF00805","NewDieSet":"H10106S03"},{"PartName":"139","Series":"10106S-E1C","OldDieSet":"MF00805","NewDieSet":"H10106S03"},{"PartName":"302B-40P","Series":"10106S","OldDieSet":"MF00805","NewDieSet":"H10106S03"},{"PartName":"401","Series":"10106S","OldDieSet":"MF00805","NewDieSet":"H10106S03"},{"PartName":"403","Series":"10106S","OldDieSet":"MF00805","NewDieSet":"H10106S03"},{"PartName":"218","Series":"13080B-H5B","OldDieSet":"MF00849","NewDieSet":"0x2a"},{"PartName":"201","Series":"10116B-H5B","OldDieSet":"MF00907","NewDieSet":"H10116B06"},{"PartName":"400","Series":"10109S-E1A","OldDieSet":"MF00909","NewDieSet":"H10109S17"},{"PartName":"402","Series":"10109S-E1A","OldDieSet":"MF00909","NewDieSet":"H10109S17"},{"PartName":"017D","Series":"9687S","OldDieSet":"MF00929","NewDieSet":"H9687S06"},{"PartName":"210","Series":"9687S","OldDieSet":"MF00929","NewDieSet":"H9687S06"},{"PartName":"109","Series":"10106B-E1J","OldDieSet":"MF00930","NewDieSet":"H10106B09"},{"PartName":"117","Series":"10106B-E1J","OldDieSet":"MF00930","NewDieSet":"H10106B09"},{"PartName":"129","Series":"10106B-E1J","OldDieSet":"MF00930","NewDieSet":"H10106B09"},{"PartName":"202","Series":"10106B-E1J","OldDieSet":"MF00930","NewDieSet":"H10106B09"},{"PartName":"206","Series":"10106B-E1J","OldDieSet":"MF00930","NewDieSet":"H10106B09"},{"PartName":"104A","Series":"10106B-E1L","OldDieSet":"MF00948","NewDieSet":"H10106B10"},{"PartName":"116","Series":"10106B-E1L","OldDieSet":"MF00948","NewDieSet":"H10106B10"},{"PartName":"117","Series":"10106B-E1L","OldDieSet":"MF00948","NewDieSet":"H10106B10"},{"PartName":"212B","Series":"10106B-E1L","OldDieSet":"MF00948","NewDieSet":"H10106B10"},{"PartName":"304-100P","Series":"10106B-E1L","OldDieSet":"MF00948","NewDieSet":"H10106B10"},{"PartName":"404","Series":"10106B-E1L","OldDieSet":"MF00948","NewDieSet":"H10106B10"},{"PartName":"504","Series":"9604S","OldDieSet":"YG001","NewDieSet":"H9604S01"},{"PartName":"505","Series":"9604S","OldDieSet":"YG001","NewDieSet":"H9604S01"},{"PartName":"506","Series":"9604S","OldDieSet":"YG001","NewDieSet":"H9604S01"},{"PartName":"12A","Series":"9604S","OldDieSet":"YG002","NewDieSet":"H9604S02"},{"PartName":"12B","Series":"9604S","OldDieSet":"YG002","NewDieSet":"H9604S02"},{"PartName":"44","Series":"9604S","OldDieSet":"YG002","NewDieSet":"H9604S02"},{"PartName":"44-1","Series":"9604S","OldDieSet":"YG002","NewDieSet":"H9604S02"},{"PartName":"B05B","Series":"9220A","OldDieSet":"YG06015","NewDieSet":"H9220A02"},{"PartName":"B13A","Series":"9220A","OldDieSet":"YG06015","NewDieSet":"H9220A02"},{"PartName":"B29A","Series":"9220A","OldDieSet":"YG06015","NewDieSet":"H9220A02"},{"PartName":"CR24B","Series":"9110S","OldDieSet":"YG08031","NewDieSet":"H9110S02"},{"PartName":"CR28A","Series":"9110S","OldDieSet":"YG08031","NewDieSet":"H9110S02"},{"PartName":"CR13C","Series":"9604S","OldDieSet":"YG08062","NewDieSet":"H9604S03"},{"PartName":"CF27A","Series":"9953B","OldDieSet":"YG09018","NewDieSet":"H9953B01"},{"PartName":"CF27B","Series":"9953B","OldDieSet":"YG09018","NewDieSet":"H9953B01"},{"PartName":"CF28A","Series":"9953B","OldDieSet":"YG09018","NewDieSet":"H9953B01"},{"PartName":"CF28B","Series":"9953B","OldDieSet":"YG09018","NewDieSet":"H9953B01"},{"PartName":"CR27A","Series":"9953B","OldDieSet":"YG09018","NewDieSet":"H9953B01"},{"PartName":"CR27B","Series":"9953B","OldDieSet":"YG09018","NewDieSet":"H9953B01"},{"PartName":"A18","Series":"11001S","OldDieSet":"YW003","NewDieSet":"H11001S02"},{"PartName":"B05-1","Series":"11001S","OldDieSet":"YW003","NewDieSet":"H11001S02"},{"PartName":"TS1","Series":"11001S","OldDieSet":"YW003","NewDieSet":"H11001S02"},{"PartName":"B05-1","Series":"11002S","OldDieSet":"YW004","NewDieSet":"H11002S02"},{"PartName":"B22","Series":"11002S","OldDieSet":"YW004","NewDieSet":"H11002S02"},{"PartName":"B23","Series":"11002S","OldDieSet":"YW004","NewDieSet":"H11002S02"},{"PartName":"B24","Series":"11002S","OldDieSet":"YW004","NewDieSet":"H11002S02"},{"PartName":"B25","Series":"11002S","OldDieSet":"YW004","NewDieSet":"H11002S02"},{"PartName":"A01A","Series":"11001B","OldDieSet":"YW005","NewDieSet":"H11001B02"},{"PartName":"A01B","Series":"11001B","OldDieSet":"YW005","NewDieSet":"H11001B02"},{"PartName":"A02-1","Series":"11001B","OldDieSet":"YW005","NewDieSet":"H11001B02"},{"PartName":"A02-2","Series":"11001B","OldDieSet":"YW005","NewDieSet":"H11001B02"},{"PartName":"A16","Series":"11001S","OldDieSet":"YW005","NewDieSet":"H11001B02"},{"PartName":"B04-5","Series":"11001B","OldDieSet":"YW005","NewDieSet":"H11001B02"},{"PartName":"B05-8","Series":"11001B","OldDieSet":"YW005","NewDieSet":"H11001B02"},{"PartName":"A01-1","Series":"11002B","OldDieSet":"YW006","NewDieSet":"H11002B02"},{"PartName":"A01-2","Series":"11002B","OldDieSet":"YW006","NewDieSet":"H11002B02"},{"PartName":"A02-1","Series":"11002B","OldDieSet":"YW006","NewDieSet":"H11002B02"},{"PartName":"A02-2","Series":"11002B","OldDieSet":"YW006","NewDieSet":"H11002B02"},{"PartName":"B01","Series":"11002B","OldDieSet":"YW006","NewDieSet":"H11002B02"},{"PartName":"B05-8","Series":"11002B","OldDieSet":"YW006","NewDieSet":"H11002B02"}];
+
+    async function loadMasterData() {
+      try {
+        const res = await fetch("ComponentMaster.json");
+        if (res.ok) {
+          masterData = await res.json();
+        }
+      } catch (e) {
+        console.warn("Could not load ComponentMaster.json:", e);
+      }
+      populatePartList();
+    }
+
+    function populatePartList() {
+      const partDatalist = $("partList");
+      const moldDatalist = $("moldList");
+
+      const parts = new Set();
+      const molds = new Set();
+
+      masterData.forEach(item => {
+        if (item.PartName) parts.add(item.PartName);
+        if (item.NewDieSet) molds.add(item.NewDieSet);
+        if (item.OldDieSet) molds.add(item.OldDieSet);
+      });
+      db.replacements.forEach(item => {
+        if (item.Part) parts.add(item.Part);
+        if (item.DieSet) molds.add(item.DieSet);
+      });
+
+      if (partDatalist) {
+        const sortedParts = [...parts].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        partDatalist.innerHTML = sortedParts.map(p => `<option value="${esc(p)}">`).join("");
+      }
+
+      if (moldDatalist) {
+        const sortedMolds = [...molds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        moldDatalist.innerHTML = sortedMolds.map(m => `<option value="${esc(m)}">`).join("");
+      }
+    }
+
+    function normKey(s) {
+      return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
+
+    function autoFillPart() {
+      const rawVal = $("part").value.trim();
+      if (!rawVal) {
+        renderMonth();
+        renderMetrics();
+        return;
+      }
+      const lowerVal = rawVal.toLowerCase();
+      const nVal = normKey(rawVal);
+
+      let match = masterData.find(x => x.PartName && x.PartName.toLowerCase() === lowerVal);
+      if (!match) {
+        match = masterData.find(x => x.PartName && normKey(x.PartName) === nVal);
+      }
+      if (!match) {
+        const rep = [...db.replacements].reverse().find(x => x.Part && (x.Part.toLowerCase() === lowerVal || normKey(x.Part) === nVal));
+        if (rep) {
+          match = { PartName: rep.Part, Series: rep.Series, OldDieSet: rep.DieSet, NewDieSet: rep.DieSet };
+        }
+      }
+
+      if (match) {
+        if (match.Series) $("series").value = match.Series;
+        if (match.OldDieSet) $("dieSet").value = match.OldDieSet;
+        if (match.NewDieSet) $("mold").value = match.NewDieSet;
+      }
+      renderMonth();
+      renderMetrics();
+    }
+
+    function autoFillMold() {
+      const rawVal = $("mold").value.trim();
+      if (!rawVal) {
+        renderMonth();
+        renderMetrics();
+        return;
+      }
+      const lowerVal = rawVal.toLowerCase();
+      const nVal = normKey(rawVal);
+
+      let match = masterData.find(x => 
+        (x.NewDieSet && x.NewDieSet.toLowerCase() === lowerVal) ||
+        (x.NewDieSet && normKey(x.NewDieSet) === nVal)
+      );
+      if (!match) {
+        match = masterData.find(x => 
+          (x.OldDieSet && x.OldDieSet.toLowerCase() === lowerVal) ||
+          (x.OldDieSet && normKey(x.OldDieSet) === nVal)
+        );
+      }
+      if (!match) {
+        const rep = [...db.replacements].reverse().find(x => x.DieSet && (x.DieSet.toLowerCase() === lowerVal || normKey(x.DieSet) === nVal));
+        if (rep) {
+          match = { Series: rep.Series, OldDieSet: rep.DieSet, NewDieSet: rep.DieSet };
+        }
+      }
+
+      if (match) {
+        $("series").value = match.Series || "";
+        $("dieSet").value = match.OldDieSet || "";
+      }
+
+      renderMonth();
+      renderMetrics();
+    }
+
+    function autoLoadMonth() {
+      renderMonth();
+      rebuild(false);
+      renderMetrics();
+    }
+
     document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => switchTab(tab.dataset.tab)));
     ["part", "series", "dieSet", "mold"].forEach(id => $(id).addEventListener("change", () => {
       renderMonth();
       renderMetrics();
     }));
-    $("monthPick").addEventListener("change", renderMonth);
+
+    ["input", "change", "keyup", "paste", "blur"].forEach(evt => {
+      $("part").addEventListener(evt, autoFillPart);
+      $("mold").addEventListener(evt, autoFillMold);
+    });
+    $("monthPick").addEventListener("change", autoLoadMonth);
+
+    function parseMasterCsv(text) {
+      const lines = text.trim().split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) throw Error("Cần header và ít nhất một dòng dữ liệu.");
+      const headers = lines.shift().split(/[,\t]/).map(norm);
+      const find = (...names) => headers.findIndex(h => names.includes(h));
+
+      const partIndex = find("partname", "part", "tenlinhkien", "ten");
+      const seriesIndex = find("series", "masolinhkien");
+      const oldIndex = find("olddieset", "dieset", "moldold", "khuoncu");
+      const newIndex = find("newdieset", "mold", "moldnew", "khuonmoi");
+
+      if (partIndex < 0) throw Error("Thiếu cột PartName trong file CSV/TSV.");
+
+      return lines.map(line => {
+        const parts = line.split(/[,\t]/);
+        return {
+          PartName: String(parts[partIndex] || "").trim(),
+          Series: seriesIndex >= 0 ? String(parts[seriesIndex] || "").trim() : "",
+          OldDieSet: oldIndex >= 0 ? String(parts[oldIndex] || "").trim() : "",
+          NewDieSet: newIndex >= 0 ? String(parts[newIndex] || "").trim() : ""
+        };
+      }).filter(x => x.PartName);
+    }
+
+    function updateMasterData(newList) {
+      if (!Array.isArray(newList) || !newList.length) return;
+      const map = new Map(masterData.map(x => [x.PartName, x]));
+      let added = 0, updated = 0;
+
+      newList.forEach(item => {
+        if (!item.PartName) return;
+        if (map.has(item.PartName)) {
+          updated++;
+        } else {
+          added++;
+        }
+        map.set(item.PartName, item);
+      });
+
+      masterData = [...map.values()];
+      try {
+        localStorage.setItem("componentMasterData", JSON.stringify(masterData));
+      } catch (e) {}
+      populatePartList();
+      renderMonth();
+      renderMetrics();
+    }
+
+    function importMasterFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          let list = [];
+          if (file.name.endsWith(".json")) {
+            list = JSON.parse(reader.result);
+          } else {
+            list = parseMasterCsv(reader.result);
+          }
+          updateMasterData(list);
+          msg(`Đã nạp file Master Data thành công! (${masterData.length} linh kiện)`);
+        } catch (e) {
+          msg(e.message, true);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    async function loadMasterData() {
+      const saved = localStorage.getItem("componentMasterData");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            masterData = parsed;
+          }
+        } catch (e) {}
+      }
+
+      try {
+        const res = await fetch("ComponentMaster.json");
+        if (res.ok) {
+          const remoteList = await res.json();
+          if (Array.isArray(remoteList) && remoteList.length > 0) {
+            updateMasterData(remoteList);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch ComponentMaster.json:", e);
+      }
+      populatePartList();
+    }
+
+    function importShootFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const rows = parseTable(reader.result, "shoot");
+          const map = new Map(db.shoot.map(row => [row.Date + "|" + row.DieSet, row]));
+          let added = 0, updated = 0;
+          rows.forEach(row => {
+            const key = row.Date + "|" + row.DieSet;
+            map.has(key) ? updated++ : added++;
+            map.set(key, row);
+          });
+          db.shoot = [...map.values()].sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+          save();
+          rebuild(false);
+          renderMonth();
+          msg(`Đã nạp Shoot Data: thêm ${added}, cập nhật ${updated} dòng.`);
+        } catch (e) {
+          msg(e.message, true);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    async function autoLoadShootMonth() {
+      try {
+        const res = await fetch("ShootMonth.csv");
+        if (res.ok) {
+          const csvText = await res.text();
+          const rows = parseTable(csvText, "shoot");
+          if (rows.length > 0) {
+            const map = new Map(db.shoot.map(row => [row.Date + "|" + row.DieSet, row]));
+            rows.forEach(row => map.set(row.Date + "|" + row.DieSet, row));
+            db.shoot = [...map.values()].sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+            save();
+            rebuild(false);
+            renderMonth();
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch ShootMonth.csv:", e);
+      }
+    }
 
     buildMonthOptions();
-    fillContextFromData();
     rebuild(false);
-    renderMonth();
+    loadMasterData();
+    autoLoadShootMonth();
+    if ($("mold").value) {
+      autoFillMold();
+    } else if ($("part").value) {
+      autoFillPart();
+    } else {
+      fillContextFromData();
+      renderMonth();
+    }
   </script>
 </body>
 </html>
