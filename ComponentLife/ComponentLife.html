@@ -894,36 +894,36 @@
 
         if (!shots.length) return;
 
-        if (events.length === 1) {
-          const repDate = events[0].ReplaceDate;
-          const totalBefore = shots
-            .filter(row => row.Date < repDate)
+        // 1. Cycle trước mốc thay đầu tiên (nếu có dữ liệu dập trước ngày thay đầu tiên)
+        const firstRepDate = events[0].ReplaceDate;
+        const totalBefore = shots
+          .filter(row => row.Date < firstRepDate)
+          .reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
+
+        if (totalBefore > 0) {
+          cycles.push({
+            Part: part, Series: series, DieSet: dieSet,
+            StartDate: shots[0].Date, EndDate: firstRepDate,
+            CycleShots: totalBefore
+          });
+        }
+
+        // 2. Các cycle giữa các mốc thay liên tiếp
+        for (let i = 0; i < events.length - 1; i++) {
+          const start = events[i].ReplaceDate;
+          const end = events[i + 1].ReplaceDate;
+          if (end <= start) continue;
+
+          const total = shots
+            .filter(row => row.Date >= start && row.Date < end)
             .reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
 
-          if (totalBefore > 0) {
+          if (total > 0) {
             cycles.push({
               Part: part, Series: series, DieSet: dieSet,
-              StartDate: shots[0].Date, EndDate: repDate,
-              CycleShots: totalBefore
+              StartDate: start, EndDate: end,
+              CycleShots: total
             });
-          }
-        } else {
-          for (let i = 0; i < events.length - 1; i++) {
-            const start = events[i].ReplaceDate;
-            const end = events[i + 1].ReplaceDate;
-            if (end <= start) continue;
-
-            const total = shots
-              .filter(row => row.Date >= start && row.Date < end)
-              .reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
-
-            if (total > 0) {
-              cycles.push({
-                Part: part, Series: series, DieSet: dieSet,
-                StartDate: start, EndDate: end,
-                CycleShots: total
-              });
-            }
           }
         }
       });
