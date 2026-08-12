@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mold Life Span</title>
+  <!-- SheetJS -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg: #f6f8fb;
@@ -30,9 +32,10 @@
     }
 
     .app {
-      max-width: 1440px;
+      max-width: 100%;
+      width: 100%;
       margin: 0 auto;
-      padding: 22px;
+      padding: 16px 20px;
     }
 
     .top {
@@ -225,63 +228,76 @@
       font-size: 16px;
       border-bottom: 1px solid var(--line);
       background: linear-gradient(#fdfefe, #f3f7fb);
-      min-width: 1180px;
+      width: 100%;
     }
 
     table.grid {
       border-collapse: collapse;
       table-layout: fixed;
-      min-width: 1180px;
       width: 100%;
-      font-size: 13px;
+      font-size: 12px;
     }
 
     table.grid th, table.grid td {
       border: 1px solid var(--line2);
-      height: 52px;
+      height: 48px;
       text-align: center;
       vertical-align: middle;
-      padding: 0;
+      padding: 0 1px;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     table.grid th.col-part, table.grid td.col-part {
       position: sticky;
       left: 0;
       z-index: 3;
-      width: 120px;
-      min-width: 120px;
+      width: 65px;
+      min-width: 65px;
+      max-width: 65px;
       text-align: left;
-      padding-left: 10px;
+      padding-left: 5px;
       font-weight: 800;
       background: #fff;
       border-right: 1px solid var(--line2);
       vertical-align: middle;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     table.grid th.col-mold, table.grid td.col-mold {
       position: sticky;
-      left: 120px;
+      left: 65px;
       z-index: 3;
-      width: 120px;
-      min-width: 120px;
+      width: 80px;
+      min-width: 80px;
+      max-width: 80px;
       text-align: left;
-      padding-left: 10px;
+      padding-left: 5px;
       font-weight: 700;
       background: #fff;
       border-right: 1px solid var(--line2);
       vertical-align: middle;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     table.grid th.col-type, table.grid td.col-type {
       position: sticky;
-      left: 240px;
+      left: 145px;
       z-index: 3;
-      width: 145px;
-      min-width: 145px;
+      width: 100px;
+      min-width: 100px;
+      max-width: 100px;
       text-align: left;
-      padding-left: 10px;
+      padding-left: 5px;
       font-weight: 600;
       background: #fff;
       border-right: 1px solid #cfd9e7;
       vertical-align: middle;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     table.grid thead th {
@@ -298,13 +314,38 @@
       color: #fff;
     }
 
+    table.grid th.col-total,
+    table.grid td.col-total {
+      background: #f0f4fa;
+      font-weight: 800;
+      color: #0457d8;
+      border-left: 2px solid #cbd5e1;
+    }
+
+    table.grid thead th.col-total {
+      background: linear-gradient(90deg, #1e40af, #3b82f6);
+      color: #fff;
+    }
+
+    .cell.col-total-val {
+      font-weight: 800;
+      color: #0b63e5;
+    }
+
     .cell {
       min-height: 50px;
-      display: grid;
-      place-items: center;
-      padding: 0 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 2px;
       border: 1px solid transparent;
       cursor: text;
+      font-size: 11.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .cell.empty { color: #5c6e86; }
@@ -400,6 +441,38 @@
       .info-grid { grid-template-columns: 1fr; }
       h1 { font-size: 24px; }
     }
+
+    .drop-zone {
+      border: 2px dashed #b0c4de;
+      border-radius: 10px;
+      padding: 45px 20px;
+      text-align: center;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #0f6bff;
+      background: #eef5ff;
+    }
+    .drop-icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    .drop-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .drop-link {
+      color: #0f6bff;
+      text-decoration: underline;
+    }
+    .drop-hint {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -468,35 +541,18 @@
     </section>
 
     <section id="pasteTab" class="below hidden">
-      <article class="panel card">
-        <h2>Dán / Nạp Shoot(Month) Data</h2>
-        <p class="note">Copy từ Excel hoặc Nạp file <b>ShootMonth.csv</b> gồm: Date, PartName/MoldName, Output.</p>
-        <textarea id="shootPaste" placeholder="Date&#9;PartName&#9;MoldName&#9;Output&#10;01/08/2026&#9;218-2&#9;I9926B03&#9;7200"></textarea>
-        <div class="actions">
-          <button onclick="importShoot()">Lưu Shoot Data</button>
-          <button class="secondary" onclick="pasteTo('shootPaste')">Dán clipboard</button>
-          <button class="secondary" onclick="document.getElementById('shootFileInput').click()">Nạp ShootMonth.csv</button>
-          <input class="file" id="shootFileInput" type="file" accept=".csv,.json,.txt" onchange="importShootFile(this.files[0])">
-        </div>
-      </article>
-
-      <article class="panel card">
-        <h2>Dán lịch thay linh kiện</h2>
-        <p class="note">Copy gồm header: Part, Series, Die Set/Mold Name, Replace Date. Cột Code/Lot nếu có sẽ hiển thị trên dòng Replacement.</p>
-        <textarea id="replacementPaste" placeholder="Part&#9;Series&#9;Die Set&#9;Replace Date&#9;Code&#10;M-SLC3&#9;9970B&#9;I9970B01&#9;08/08/2026&#9;H18006501"></textarea>
-        <div class="actions">
-          <button onclick="importReplacement()">Lưu lịch thay</button>
-          <button class="secondary" onclick="pasteTo('replacementPaste')">Dán clipboard</button>
-        </div>
-      </article>
-
       <article class="panel card" style="grid-column: 1 / -1;">
-        <h2>Cập nhật Master Data (ComponentMaster.csv / .json)</h2>
-        <p class="note">Nạp file <b>ComponentMaster.csv</b> hoặc <b>ComponentMaster.json</b> để tự động thêm/cập nhật linh kiện & khuôn mới vào hệ thống.</p>
-        <div class="actions">
-          <button onclick="document.getElementById('masterFileInput').click()">Nạp file ComponentMaster (.csv / .json)</button>
-          <input class="file" id="masterFileInput" type="file" accept=".csv,.json,.txt" onchange="importMasterFile(this.files[0])">
+        <h2>Nạp dữ liệu từ File Excel (.xlsx)</h2>
+        <p class="note">Kéo & thả file Excel (chứa các sheet <b>ShootMonth</b> & <b>ComponentMaster</b>) hoặc file <b>.csv / .json</b> vào đây để nạp tự động.</p>
+        <div class="drop-zone" onclick="document.getElementById('excelFileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="this.classList.remove('drag-over');importExcelFile(event.dataTransfer.files[0]);event.preventDefault()">
+          <div class="drop-icon">📊</div>
+          <div class="drop-label">Kéo & thả file <b>.xlsx</b> vào đây hoặc <span class="drop-link">bấm để chọn file</span></div>
+          <div class="drop-hint">Hỗ trợ: ShootMonth_ComponentMaster.xlsx · ShootMonth.csv · ComponentMaster.csv / .json</div>
         </div>
+        <input class="file" id="excelFileInput" type="file" accept=".xlsx,.xls,.csv,.json,.txt" onchange="importExcelFile(this.files[0])">
       </article>
     </section>
 
@@ -533,44 +589,37 @@
     const $ = id => document.getElementById(id);
     const KEY = "componentLifeData";
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const defaultShootData = [
-      { Date: "2026-06-30", DieSet: "H9111B01", Output: 8800 },
-      { Date: "2026-06-30", DieSet: "H9665S02", Output: 31000 },
-      { Date: "2026-06-30", DieSet: "H10141S01", Output: 4100 },
-      { Date: "2026-06-30", DieSet: "H12003C02", Output: 10500 },
-      { Date: "2026-06-30", DieSet: "H10109C25", Output: 19000 },
-      { Date: "2026-06-30", DieSet: "H13036B02", Output: 3500 },
-      { Date: "2026-06-30", DieSet: "H12003S02", Output: 8400 },
-      { Date: "2026-06-30", DieSet: "H10106B06", Output: 3600 },
-      { Date: "2026-06-30", DieSet: "H10128S01", Output: 8960 },
-      { Date: "2026-06-30", DieSet: "H10141C01", Output: 3400 },
-      { Date: "2026-06-30", DieSet: "H13066B01", Output: 1800 },
-      { Date: "2026-06-30", DieSet: "H13077B02", Output: 2240 },
-      { Date: "2026-06-30", DieSet: "H9685C02", Output: 24000 },
-      { Date: "2026-06-30", DieSet: "H13030B01", Output: 5750 },
-      { Date: "2026-06-30", DieSet: "H9827S12", Output: 8400 },
-      { Date: "2026-06-30", DieSet: "MF01200", Output: 8800 },
-      { Date: "2026-06-30", DieSet: "H18015C01", Output: 12000 },
-      { Date: "2026-06-30", DieSet: "H9637C13", Output: 33000 },
-      { Date: "2026-06-30", DieSet: "H18006S01", Output: 7800 },
-      { Date: "2026-06-30", DieSet: "H10128C01", Output: 9660 },
-      { Date: "2026-06-30", DieSet: "H12003C04", Output: 22000 },
-      { Date: "2026-06-30", DieSet: "H10109C08", Output: 13000 }
-    ];
+    const defaultShootData = [];
 
     let db = JSON.parse(localStorage.getItem(KEY) || '{"shoot":[],"replacements":[]}');
-    const existingShootKeys = new Set(db.shoot.map(r => r.Date + "|" + r.DieSet));
-    defaultShootData.forEach(r => {
-      if (!existingShootKeys.has(r.Date + "|" + r.DieSet)) {
-        db.shoot.push(r);
-      }
-    });
     db.shoot.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
     localStorage.setItem(KEY, JSON.stringify(db));
     let result = { cycles: [], summary: [], errors: [] };
 
     function save() {
-      localStorage.setItem(KEY, JSON.stringify(db));
+      try {
+        localStorage.setItem(KEY, JSON.stringify(db));
+      } catch (e) {}
+      syncToJsonFiles();
+    }
+
+    async function syncToJsonFiles() {
+      try {
+        if (db.replacements && db.replacements.length > 0) {
+          fetch("/api/import/replacements", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rows: db.replacements })
+          }).catch(() => {});
+        }
+        if (db.shoot && db.shoot.length > 0) {
+          fetch("/api/import/shoot", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rows: db.shoot })
+          }).catch(() => {});
+        }
+      } catch (e) {}
     }
 
     function msg(text, bad = false) {
@@ -590,12 +639,124 @@
     }
 
     function toIso(value) {
-      const s = String(value || "").trim();
-      let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-      if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-      m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-      if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-      throw Error("Ngày không hợp lệ: " + s);
+      if (value === null || value === undefined) return "";
+
+      // 1. Đối tượng JavaScript Date từ SheetJS
+      if (value instanceof Date) {
+        if (isNaN(value.getTime())) return "";
+        const y = value.getUTCFullYear();
+        const m = String(value.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(value.getUTCDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+
+      const s = String(value).trim();
+      if (!s) return "";
+
+      // 2. Số đếm ngày Excel (40000 - 60000)
+      if (/^\d{5,6}$/.test(s)) {
+        const days = parseInt(s, 10);
+        const date = new Date(Date.UTC(1899, 11, 30));
+        date.setUTCDate(date.getUTCDate() + days);
+        const y = date.getUTCFullYear();
+        const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(date.getUTCDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+
+      // 3. Định dạng ISO YYYY-MM-DD
+      if (s.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(s)) {
+        return s.slice(0, 10);
+      }
+
+      // 4. Tách theo dấu / hoặc -
+      const parts = s.split(/[/-]/);
+      if (parts.length === 3) {
+        let p0 = parts[0].trim();
+        let p1 = parts[1].trim();
+        let p2 = parts[2].trim();
+
+        if (p0.length === 4) {
+          return `${p0}-${p1.padStart(2, "0")}-${p2.padStart(2, "0")}`;
+        }
+
+        let year = p2;
+        if (year.length === 2) year = "20" + year;
+
+        let v0 = parseInt(p0, 10);
+        let v1 = parseInt(p1, 10);
+        let nY = parseInt(year, 10);
+
+        if (!isNaN(v0) && !isNaN(v1) && !isNaN(nY) && nY > 1900 && nY < 2100) {
+          let day = v0;
+          let month = v1;
+
+          // Nếu v0 <= 12 và v1 > 12 -> chắc chắn p0 là Tháng (MM), p1 là Ngày (DD) (Định dạng Mỹ M/D/YYYY)
+          if (v0 <= 12 && v1 > 12) {
+            month = v0;
+            day = v1;
+          }
+
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            return `${nY}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          }
+        }
+      }
+
+      return "";
+    }
+
+    function parseSheetMatrix(ws, type) {
+      if (typeof XLSX === 'undefined') return [];
+      const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, cellDates: true, raw: true });
+      if (!matrix || matrix.length < 2) return [];
+
+      const headers = (matrix.shift() || []).map(h => norm(String(h || "")));
+      const find = (...names) => headers.findIndex(header => names.includes(header));
+
+      if (type === "shoot") {
+        const dateIndex = find("date", "ngay", "month");
+        const dieIndex = find("dieset", "moldname", "khuon", "mold", "moldnew", "olddieset");
+        const partIndex = find("part", "partname", "tenlinhkien", "ten");
+        const outputIndex = find("output", "shootnumber", "shoot", "pcs", "outputpcs", "shotcount");
+        if (dateIndex < 0 || outputIndex < 0) throw Error("Header Shoot chưa đúng. Cần cột Date và Output/ShootNumber.");
+
+        return matrix.map(row => {
+          if (!row || !row.length) return null;
+          const pName = partIndex >= 0 ? String(row[partIndex] || "").trim() : "";
+          let die = dieIndex >= 0 ? String(row[dieIndex] || "").trim() : "";
+          if (!die && pName) {
+            const m = masterData.find(x => x.PartName && x.PartName.toLowerCase() === pName.toLowerCase());
+            if (m) die = m.NewDieSet || m.OldDieSet;
+          }
+          const rawDate = row[dateIndex];
+          const isoDate = toIso(rawDate);
+          const outVal = Number(String(row[outputIndex] || "0").replace(/,/g, ""));
+          return {
+            Date: isoDate,
+            DieSet: die || pName || "Unknown",
+            Output: isNaN(outVal) ? 0 : outVal
+          };
+        }).filter(row => row && row.Date && row.DieSet);
+      }
+
+      const partIndex = find("part", "partname", "ten");
+      const seriesIndex = find("series", "masolinhkien");
+      const dieIndex = find("dieset", "moldname", "khuon", "mold");
+      const dateIndex = find("replacedate", "ngaythay", "date");
+      const labelIndex = find("code", "lot", "serial", "replacement", "linhkien", "component");
+      if ([partIndex, seriesIndex, dieIndex, dateIndex].some(i => i < 0)) throw Error("Header lịch thay chưa đúng.");
+
+      return matrix.map(row => {
+        if (!row || !row.length) return null;
+        return {
+          Part: String(row[partIndex] || "").trim(),
+          Series: String(row[seriesIndex] || "").trim(),
+          DieSet: String(row[dieIndex] || "").trim(),
+          ReplaceDate: toIso(row[dateIndex]),
+          Label: labelIndex >= 0 ? String(row[labelIndex] || "").trim() : ""
+        };
+      }).filter(row => row && row.Part && row.DieSet && row.ReplaceDate);
     }
 
     function monthKey(date) {
@@ -712,32 +873,58 @@
       const cycles = [];
       const errors = [];
       const groups = {};
+
       db.replacements.forEach(row => {
-        const key = [row.Part, row.Series, row.DieSet].join("|");
+        const key = [(row.Part || "").trim(), (row.Series || "").trim(), (row.DieSet || "").trim()].join("|");
         (groups[key] ||= []).push(row);
       });
 
       Object.entries(groups).forEach(([key, events]) => {
         events.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
-        if (events.length < 2) return;
         const [part, series, dieSet] = key.split("|");
-        const shots = db.shoot.filter(row => row.DieSet === dieSet);
-        if (!shots.length) {
-          errors.push({ part, series, dieSet });
-          return;
-        }
 
-        for (let i = 0; i < events.length - 1; i++) {
-          const start = events[i].ReplaceDate;
-          const end = events[i + 1].ReplaceDate;
-          if (end <= start) {
-            errors.push({ part, series, dieSet });
-            continue;
+        // Chỉ tích lũy ngầm từ những ngày có Shoot Number thực tế (> 0)
+        const shots = db.shoot.filter(row => {
+          if (!row.Output || Number(row.Output) <= 0) return false;
+          const rDie = String(row.DieSet || "").toLowerCase().trim();
+          const dDie = String(dieSet || "").toLowerCase().trim();
+          const pName = String(part || "").toLowerCase().trim();
+          return (pName && rDie === pName) || (dDie && rDie === dDie);
+        }).sort((a, b) => a.Date.localeCompare(b.Date));
+
+        if (!shots.length) return;
+
+        if (events.length === 1) {
+          const repDate = events[0].ReplaceDate;
+          const totalBefore = shots
+            .filter(row => row.Date < repDate)
+            .reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
+
+          if (totalBefore > 0) {
+            cycles.push({
+              Part: part, Series: series, DieSet: dieSet,
+              StartDate: shots[0].Date, EndDate: repDate,
+              CycleShots: totalBefore
+            });
           }
-          const total = shots
-            .filter(row => row.Date >= start && row.Date < end)
-            .reduce((sum, row) => sum + row.Output, 0);
-          cycles.push({ Part: part, Series: series, DieSet: dieSet, StartDate: start, EndDate: end, CycleShots: total });
+        } else {
+          for (let i = 0; i < events.length - 1; i++) {
+            const start = events[i].ReplaceDate;
+            const end = events[i + 1].ReplaceDate;
+            if (end <= start) continue;
+
+            const total = shots
+              .filter(row => row.Date >= start && row.Date < end)
+              .reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
+
+            if (total > 0) {
+              cycles.push({
+                Part: part, Series: series, DieSet: dieSet,
+                StartDate: start, EndDate: end,
+                CycleShots: total
+              });
+            }
+          }
         }
       });
 
@@ -746,6 +933,7 @@
         const key = [row.Part, row.Series, row.DieSet].join("|");
         (summaryMap[key] ||= []).push(row);
       });
+
       const summary = Object.values(summaryMap).map(rows => {
         const values = rows.map(row => row.CycleShots);
         return {
@@ -766,10 +954,41 @@
     }
 
     function renderMetrics() {
-      const dieSet = activeDieSet();
-      const rows = dieSet ? result.summary.filter(row => row.DieSet === dieSet) : result.summary;
-      const min = rows.length ? Math.min(...rows.map(row => row.MinShots)) : 0;
-      const max = rows.length ? Math.max(...rows.map(row => row.MaxShots)) : 0;
+      const activeP = $("part").value.trim().toLowerCase();
+      const activeM = $("mold").value.trim().toLowerCase();
+
+      // Lọc các cycle hoàn chỉnh theo Part / Mold đã nhập trên ô tìm kiếm
+      let summaryRows = result.summary || [];
+      if (activeP) {
+        summaryRows = summaryRows.filter(r => String(r.Part || "").toLowerCase() === activeP || norm(r.Part) === norm(activeP));
+      }
+      if (activeM) {
+        summaryRows = summaryRows.filter(r => String(r.DieSet || "").toLowerCase() === activeM || norm(r.DieSet) === norm(activeM));
+      }
+
+      let min = 0;
+      let max = 0;
+
+      if (summaryRows.length > 0) {
+        min = Math.min(...summaryRows.map(row => row.MinShots));
+        max = Math.max(...summaryRows.map(row => row.MaxShots));
+      } else if (activeP || activeM) {
+        // Nếu chưa có cycle hoàn chỉnh, tính tổng shoot tích lũy của Part / Mold được chọn
+        const partsToRender = getPartsToRender();
+        const dieSetSet = new Set(partsToRender.map(p => (p.moldNew || p.moldOld || p.part).toLowerCase().trim()));
+
+        const shoots = db.shoot.filter(r => {
+          const rDie = String(r.DieSet || "").toLowerCase().trim();
+          return dieSetSet.has(rDie) ||
+                 (activeM && (rDie === activeM || norm(rDie) === norm(activeM))) ||
+                 (activeP && (rDie === activeP || norm(rDie) === norm(activeP)));
+        });
+
+        const currentSum = shoots.reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
+        min = currentSum;
+        max = currentSum;
+      }
+
       $("minCycle").innerHTML = `${min.toLocaleString()}<small>shots</small>`;
       $("maxCycle").innerHTML = `${max.toLocaleString()}<small>shots</small>`;
     }
@@ -822,7 +1041,7 @@
         list = list.filter(x => x.part.toLowerCase() === lowerP || normKey(x.part) === nP);
       }
 
-      if (activeM) {
+if (activeM) {
         const lowerM = activeM.toLowerCase();
         const nM = normKey(activeM);
         list = list.filter(x => 
@@ -834,6 +1053,45 @@
       return list.sort((a, b) => a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' }));
     }
 
+    function formatShootDisplay(val) {
+      const num = Number(val) || 0;
+      if (num === 0) return "·";
+      if (num < 1000) return String(num);
+
+      if (num < 1000000) {
+        const k = num / 1000;
+        const formatted = Number(k.toFixed(2));
+        return `${formatted}k`;
+      }
+
+      const m = num / 1000000;
+      const formatted = Number(m.toFixed(2));
+      return `${formatted}M`;
+    }
+
+    function formatShootHover(val) {
+      const num = Number(val) || 0;
+      return num.toLocaleString("en-US");
+    }
+
+    function parseShootValue(str) {
+      let s = String(str || "").trim().toLowerCase();
+      if (!s || s === "·" || s === "-") return 0;
+      s = s.replace(/,/g, "");
+
+      if (s.endsWith("k")) {
+        const v = parseFloat(s.slice(0, -1));
+        return isNaN(v) ? 0 : Math.round(v * 1000);
+      }
+      if (s.endsWith("m")) {
+        const v = parseFloat(s.slice(0, -1));
+        return isNaN(v) ? 0 : Math.round(v * 1000000);
+      }
+
+      const v = parseFloat(s);
+      return isNaN(v) ? 0 : Math.round(v);
+    }
+
     function renderMonth() {
       const ym = selectedMonth();
       const [year, month] = ym.split("-").map(Number);
@@ -841,20 +1099,21 @@
       $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
 
       $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-mold">Mold (new)</th><th class="col-type">Loại</th>` + 
-        Array.from({ length: days }, (_, i) => `<th>${String(i + 1).padStart(2, "0")}</th>`).join("") + "</tr>";
+        Array.from({ length: days }, (_, i) => `<th>${String(i + 1).padStart(2, "0")}</th>`).join("") +
+        `<th class="col-total">Total</th></tr>`;
 
       const partsList = getPartsToRender();
       let bodyHtml = "";
 
       if (partsList.length === 0) {
-        bodyHtml = `<tr><td colspan="${days + 3}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
+        bodyHtml = `<tr><td colspan="${days + 4}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
       } else {
         partsList.forEach(item => {
           const dieSet = item.moldNew || item.moldOld || item.part;
           const partName = item.part;
 
           const replacementMap = new Map(db.replacements
-            .filter(row => monthKey(row.ReplaceDate) === ym && (row.DieSet === dieSet || row.Part === partName))
+            .filter(row => monthKey(row.ReplaceDate) === ym && (row.Part ? row.Part === partName : row.DieSet === dieSet))
             .map(row => [Number(row.ReplaceDate.slice(8, 10)), row]));
 
           const shootMap = new Map(db.shoot
@@ -868,6 +1127,10 @@
             })
             .map(row => [Number(row.Date.slice(8, 10)), row]));
 
+          const totalShoot = Array.from(shootMap.values()).reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
+          const displayTotalShoot = formatShootDisplay(totalShoot);
+          const hoverTotalShoot = formatShootHover(totalShoot);
+
           const makeCell = (day, rowType) => {
             const date = `${ym}-${String(day).padStart(2, "0")}`;
             const weekend = [0, 6].includes(new Date(year, month - 1, day).getDay());
@@ -877,10 +1140,13 @@
               const cls = repItem ? "cell replacement" : "cell empty";
               return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="replacement" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}">${esc(value)}</div></td>`;
             }
+
             const shot = shootMap.get(day);
-            const value = shot ? shot.Output : 0;
-            const cls = value ? "cell has-output" : "cell zero";
-            return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="shoot" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}">${value}</div></td>`;
+            const rawVal = shot ? Number(shot.Output) || 0 : 0;
+            const displayVal = rawVal > 0 ? formatShootDisplay(rawVal) : "·";
+            const hoverVal = formatShootHover(rawVal);
+            const cls = rawVal > 0 ? "cell has-output" : "cell zero";
+            return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="shoot" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${hoverVal}">${displayVal}</div></td>`;
           };
 
           bodyHtml += `
@@ -889,10 +1155,12 @@
               <td class="col-mold" rowspan="2">${esc(item.moldNew || item.moldOld || '-')}</td>
               <td class="col-type">Replacement time <span class="row-icon">i</span></td>
               ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}
+              <td class="col-total"><div class="cell empty" title="Tổng số lần thay: ${replacementMap.size}">${replacementMap.size > 0 ? replacementMap.size : '-'}</div></td>
             </tr>
             <tr>
               <td class="col-type">Shoot Number <span class="row-icon">i</span></td>
               ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}
+              <td class="col-total"><div class="cell col-total-val" title="Tổng Shoot tháng: ${hoverTotalShoot}">${displayTotalShoot}</div></td>
             </tr>
           `;
         });
@@ -925,15 +1193,13 @@
       }
 
       if (type === "shoot") {
-        const value = Number(text.replace(/,/g, ""));
-        if (!Number.isFinite(value)) {
-          renderMonth();
-          return msg("Shoot Number phải là số.", true);
-        }
+        const value = parseShootValue(text);
         db.shoot = db.shoot.filter(row => !(row.Date === date && row.DieSet === dieSet));
-        db.shoot.push({ Date: date, DieSet: dieSet, Output: value });
+        if (value > 0) {
+          db.shoot.push({ Date: date, DieSet: dieSet, Output: value });
+        }
       } else {
-        db.replacements = db.replacements.filter(row => !(row.ReplaceDate === date && row.DieSet === dieSet));
+        db.replacements = db.replacements.filter(row => !(row.ReplaceDate === date && (row.Part ? row.Part === partName : row.DieSet === dieSet)));
         if (text && text !== "-") {
           db.replacements.push({
             Part: partName,
@@ -989,13 +1255,18 @@
         return `<option value="${ym}">${monthNames[month - 1]} ${year}</option>`;
       }).join("");
 
-      let defaultYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-      if (db.shoot && db.shoot.length > 0) {
-        const shootMonth = db.shoot[db.shoot.length - 1].Date.slice(0, 7);
-        if (months.has(shootMonth)) defaultYm = shootMonth;
+      // Chọn tháng mặc định: Ưu tiên tháng mới nhất có dữ liệu Shoot Data thực tế
+      const dataMonths = [...new Set(db.shoot.map(r => r.Date ? r.Date.slice(0, 7) : "").filter(Boolean))].sort();
+      const latestDataMonth = dataMonths.length ? dataMonths[dataMonths.length - 1] : "";
+      const systemYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
+      if (db.shoot.some(r => r.Date && r.Date.startsWith(systemYm))) {
+        select.value = systemYm;
+      } else if (latestDataMonth && months.has(latestDataMonth)) {
+        select.value = latestDataMonth;
+      } else {
+        select.value = months.has(systemYm) ? systemYm : "2026-07";
       }
-      select.value = months.has(defaultYm) ? defaultYm : `${startYear}-06`;
-      if (!select.value && select.options.length > 0) select.selectedIndex = 0;
     }
 
     function fillContextFromData() {
@@ -1264,18 +1535,9 @@
     }
 
     async function loadMasterData() {
-      const saved = localStorage.getItem("componentMasterData");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            masterData = parsed;
-          }
-        } catch (e) {}
-      }
-
+      const cacheBust = "?t=" + Date.now();
       try {
-        const res = await fetch("ComponentMaster.json");
+        const res = await fetch("ComponentMaster.json" + cacheBust);
         if (res.ok) {
           const remoteList = await res.json();
           if (Array.isArray(remoteList) && remoteList.length > 0) {
@@ -1284,67 +1546,126 @@
         }
       } catch (e) {
         console.warn("Could not fetch ComponentMaster.json:", e);
+        const saved = localStorage.getItem("componentMasterData");
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              masterData = parsed;
+            }
+          } catch (err) {}
+        }
       }
       populatePartList();
     }
 
-    function importShootFile(file) {
+    function importExcelFile(file) {
       if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      if (ext === 'csv' || ext === 'txt') {
+        importShootFile(file);
+        return;
+      }
+      if (ext === 'json') {
+        loadBackup(file);
+        return;
+      }
+
+      if (typeof XLSX === 'undefined') {
+        msg("Thư viện SheetJS chưa sẵn sàng, vui lòng thử lại sau vài giây.", true);
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = (e) => {
         try {
-          const rows = parseTable(reader.result, "shoot");
-          const map = new Map(db.shoot.map(row => [row.Date + "|" + row.DieSet, row]));
-          let added = 0, updated = 0;
-          rows.forEach(row => {
-            const key = row.Date + "|" + row.DieSet;
-            map.has(key) ? updated++ : added++;
-            map.set(key, row);
-          });
-          db.shoot = [...map.values()].sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          const messages = [];
+
+          // 1. Parse sheet ShootMonth hoặc ShootNumber
+          const shootSheetName = workbook.SheetNames.find(n => /shoot/i.test(n));
+          if (shootSheetName) {
+            const ws = workbook.Sheets[shootSheetName];
+            const rows = parseSheetMatrix(ws, 'shoot');
+            if (rows.length > 0) {
+              // Thay thế hoàn toàn db.shoot bằng dữ liệu mới nhất vừa nạp từ Excel (loại bỏ dữ liệu cũ tồn đọng)
+              db.shoot = rows.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+              messages.push(`Shoot Data: ${rows.length} dòng sản lượng`);
+            }
+          }
+
+          // 2. Parse sheet ComponentMaster hoặc PartList
+          const masterSheetName = workbook.SheetNames.find(n => /master|component|part/i.test(n));
+          if (masterSheetName) {
+            const ws = workbook.Sheets[masterSheetName];
+            const csvText = XLSX.utils.sheet_to_csv(ws);
+            const rawLines = csvText.trim().split(/\r?\n/).filter(Boolean);
+            if (rawLines.length >= 2) {
+              const list = parseMasterCsv(csvText);
+              if (list.length > 0) {
+                updateMasterData(list);
+                messages.push(`ComponentMaster: ${list.length} linh kiện`);
+              }
+            }
+          }
+
+          if (messages.length === 0) {
+            msg("Không tìm thấy sheet sản lượng hoặc linh kiện trong file Excel!", true);
+            return;
+          }
+
           save();
+          buildMonthOptions();
           rebuild(false);
           renderMonth();
-          msg(`Đã nạp Shoot Data: thêm ${added}, cập nhật ${updated} dòng.`);
-        } catch (e) {
-          msg(e.message, true);
+          renderMetrics();
+          msg("✅ Đã nạp & kiểm tra lại dữ liệu từ Excel: " + messages.join(" · "));
+        } catch (err) {
+          msg("Lỗi đọc Excel: " + err.message, true);
         }
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     }
 
     async function autoLoadShootMonth() {
+      const cacheBust = "?t=" + Date.now();
       try {
-        const res = await fetch("ShootMonth.csv");
+        const res = await fetch("data/shoot-data.json" + cacheBust);
         if (res.ok) {
-          const csvText = await res.text();
-          const rows = parseTable(csvText, "shoot");
-          if (rows.length > 0) {
-            const map = new Map(db.shoot.map(row => [row.Date + "|" + row.DieSet, row]));
-            rows.forEach(row => map.set(row.Date + "|" + row.DieSet, row));
-            db.shoot = [...map.values()].sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
-            save();
-            rebuild(false);
-            renderMonth();
+          const list = await res.json();
+          if (Array.isArray(list)) {
+            db.shoot = list.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
           }
         }
       } catch (e) {
-        console.warn("Could not fetch ShootMonth.csv:", e);
+        console.warn("Could not fetch data/shoot-data.json:", e);
       }
-    }
 
-    buildMonthOptions();
-    rebuild(false);
-    loadMasterData();
-    autoLoadShootMonth();
-    if ($("mold").value) {
-      autoFillMold();
-    } else if ($("part").value) {
-      autoFillPart();
-    } else {
-      fillContextFromData();
+      try {
+        const resRep = await fetch("data/replacement-log.json" + cacheBust);
+        if (resRep.ok) {
+          const repList = await resRep.json();
+          if (Array.isArray(repList)) {
+            db.replacements = repList;
+          }
+        }
+      } catch (e) {}
+
+      buildMonthOptions();
+      rebuild(false);
       renderMonth();
     }
+
+    // Mặc định các ô tìm kiếm trống khi mở ứng dụng
+    $("part").value = "";
+    $("series").value = "";
+    $("dieSet").value = "";
+    $("mold").value = "";
+
+    loadMasterData();
+    autoLoadShootMonth();
   </script>
 </body>
 </html>
