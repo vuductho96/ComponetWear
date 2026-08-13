@@ -75,26 +75,225 @@
       color: #a83d2d;
     }
 
-    .toolbar {
+    /* ===== CONTROL BAR ===== */
+    .control-bar {
       display: grid;
-      grid-template-columns: minmax(310px, 1fr) 240px 240px;
-      gap: 20px;
-      align-items: stretch;
-      margin-bottom: 18px;
+      grid-template-columns: auto auto 1fr auto auto auto auto;
+      gap: 12px;
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 14px 20px;
+      margin-bottom: 14px;
     }
+
+    .control-bar .cb-month {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 180px;
+    }
+
+    .control-bar .cb-month label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin: 0;
+    }
+
+    .control-bar .cb-month select {
+      height: 40px;
+      font-size: 14px;
+      font-weight: 700;
+      border: 1.5px solid #d1dbe8;
+      border-radius: 8px;
+      padding: 0 12px;
+    }
+
+    .cb-divider {
+      width: 1px;
+      height: 44px;
+      background: var(--line);
+      flex-shrink: 0;
+    }
+
+    .cb-search-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .cb-search-wrap .cb-search-icon {
+      position: absolute;
+      left: 13px;
+      font-size: 15px;
+      color: var(--muted);
+      pointer-events: none;
+      line-height: 1;
+    }
+
+    .cb-search-wrap input#globalSearch {
+      height: 40px;
+      padding: 0 14px 0 38px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1.5px solid #d1dbe8;
+      border-radius: 8px;
+      width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+      background: #f8fafc;
+    }
+
+    .cb-search-wrap input#globalSearch:focus {
+      border-color: var(--blue);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(15,107,255,.12);
+    }
+
+    .cb-search-wrap input#globalSearch::placeholder {
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    .cb-metrics {
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+      align-items: stretch;
+    }
+
+    .cb-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #eff6ff;
+      border: 2px solid #93c5fd;
+      border-radius: 12px;
+      padding: 12px 22px;
+      min-width: 148px;
+      text-align: center;
+    }
+
+    .cb-metric.is-max {
+      background: #f0fdf4;
+      border-color: #6ee7b7;
+    }
+
+    .cb-metric .cb-metric-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #1d4ed8;
+      margin-bottom: 4px;
+      line-height: 1;
+    }
+
+    .cb-metric.is-max .cb-metric-label { color: #15803d; }
+
+    .cb-metric .cb-metric-val {
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1;
+      color: #1e3a8a;
+      letter-spacing: -0.5px;
+    }
+
+    .cb-metric.is-max .cb-metric-val { color: #166534; }
+
+    .cb-metric .cb-metric-shots {
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748b;
+      margin-top: 3px;
+    }
+
+    .cb-update-btn {
+      flex-shrink: 0;
+      height: 40px;
+      padding: 0 16px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #00994d, #007a3d);
+      color: #fff;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,140,60,.2);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+
+    .cb-update-btn:hover { opacity: 0.88; background: linear-gradient(135deg, #00994d, #007a3d); }
+
+    /* Drop zone inside control bar */
+    .cb-drop-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .cb-drop-zone {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      height: 40px;
+      padding: 0 14px;
+      border: 1.5px dashed #b0bec5;
+      border-radius: 8px;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .cb-drop-zone:hover,
+    .cb-drop-zone.cb-drag-over {
+      border-color: var(--blue);
+      background: #eff6ff;
+    }
+
+    .cb-drop-zone.cb-drag-over {
+      border-style: solid;
+      box-shadow: 0 0 0 3px rgba(15,107,255,.12);
+    }
+
+    .cb-drop-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .cb-drop-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: #64748b;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cb-drop-link {
+      color: var(--blue);
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* legacy compat */
+    .toolbar, .month-panel { display: none; }
 
     .panel {
       background: rgba(255, 255, 255, .9);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-    }
-
-    .month-panel {
-      display: flex;
-      align-items: end;
-      gap: 22px;
-      padding: 18px 20px;
     }
 
     label {
@@ -152,31 +351,7 @@
       box-shadow: none;
     }
 
-    .metric {
-      padding: 18px 22px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    .metric .label {
-      color: var(--green);
-      font-size: 14px;
-      font-weight: 800;
-    }
-
-    .metric.max .label { color: #062452; }
-
-    .metric .number {
-      margin-top: 6px;
-      font-size: 36px;
-      line-height: 1;
-      font-weight: 800;
-      color: var(--green);
-    }
-
-    .metric.max .number { color: #0067ea; }
-    .metric small { margin-left: 6px; font-size: 13px; font-weight: 500; color: #10284a; }
+    .metric { display: none; }
 
     .info-grid {
       display: grid;
@@ -486,48 +661,66 @@
 
     <div id="status" class="status"></div>
 
-    <section class="toolbar">
-      <div class="panel month-panel">
-        <div style="flex: 1;">
-          <label for="monthPick">Month</label>
-          <select id="monthPick"></select>
-        </div>
-        <button id="updateBtn" onclick="updateBackend()" style="height: 46px; background: linear-gradient(#00994d, #007a3d); color: #fff; border: none; font-weight: 700; cursor: pointer; padding: 0 18px; border-radius: var(--radius); flex-shrink: 0;" title="Gửi dữ liệu sang backend PowerShell để tính toán & lưu trữ">🔄 Update (Test Backend)</button>
+    <!-- ===== UNIFIED CONTROL BAR ===== -->
+    <div class="control-bar">
+      <!-- Month picker -->
+      <div class="cb-month">
+        <label for="monthPick">THÁNG</label>
+        <select id="monthPick"></select>
       </div>
-      <div class="panel metric">
-        <span class="label">MIN Cycle</span>
-        <span class="number" id="minCycle">0<small>shots</small></span>
-      </div>
-      <div class="panel metric max">
-        <span class="label">MAX Cycle</span>
-        <span class="number" id="maxCycle">0<small>shots</small></span>
-      </div>
-    </section>
 
-    <section class="panel info-grid">
-      <div>
-        <label for="part">Part</label>
-        <input id="part" placeholder="M-SLC3" list="partList" autocomplete="off">
-        <datalist id="partList"></datalist>
+      <div class="cb-divider"></div>
+
+      <!-- Drop zone embedded in control bar -->
+      <div class="cb-drop-wrap">
+        <div class="cb-drop-zone" id="cbDropZone"
+             onclick="document.getElementById('excelFileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('cb-drag-over')"
+             ondragleave="this.classList.remove('cb-drag-over')"
+             ondrop="this.classList.remove('cb-drag-over');importExcelFile(event.dataTransfer.files[0]);event.preventDefault()">
+          <span class="cb-drop-icon">📂</span>
+          <span class="cb-drop-text">Kéo &amp; thả file <b>.xlsx</b> / .csv / .json hoặc <span class="cb-drop-link">bấm để chọn</span></span>
+        </div>
       </div>
-      <div>
-        <label for="series">Series</label>
-        <input id="series" placeholder="9970B">
+
+      <div class="cb-divider"></div>
+
+      <!-- All-in-one search -->
+      <div class="cb-search-wrap">
+        <span class="cb-search-icon">🔍</span>
+        <input id="globalSearch"
+               placeholder="Tìm Part list, mã Series, khuôn cũ hoặc mới..."
+               list="searchList"
+               autocomplete="off">
+        <datalist id="searchList"></datalist>
       </div>
-      <div>
-        <label for="dieSet">Mold (old)</label>
-        <input id="dieSet" placeholder="M0341">
+
+      <!-- Metrics -->
+      <div class="cb-metrics">
+        <div class="cb-metric">
+          <span class="cb-metric-label">MIN CYCLE</span>
+          <span class="cb-metric-val" id="minCycle">0</span>
+          <span class="cb-metric-shots">shots</span>
+        </div>
+        <div class="cb-metric is-max">
+          <span class="cb-metric-label">MAX CYCLE</span>
+          <span class="cb-metric-val" id="maxCycle">0</span>
+          <span class="cb-metric-shots">shots</span>
+        </div>
       </div>
-      <div>
-        <label for="mold">Mold (new)</label>
-        <input id="mold" placeholder="I9970B01" list="moldList" autocomplete="off">
-        <datalist id="moldList"></datalist>
-      </div>
-    </section>
+
+      <!-- Update button -->
+      <button class="cb-update-btn" id="updateBtn" onclick="updateBackend()" title="Gửi dữ liệu sang backend PowerShell để tính toán & lưu trữ">🔄 Update</button>
+    </div>
+
+    <!-- Hidden inputs: backward compat with internal scripts -->
+    <input type="hidden" id="part" value="">
+    <input type="hidden" id="series" value="">
+    <input type="hidden" id="dieSet" value="">
+    <input type="hidden" id="mold" value="">
 
     <nav class="tabs">
       <button class="tab active" data-tab="month">Month Sheet</button>
-      <button class="tab" data-tab="paste">Paste Data</button>
       <button class="tab" data-tab="summary">Cycle Summary</button>
     </nav>
 
@@ -541,7 +734,7 @@
       </div>
     </section>
 
-    <section id="pasteTab" class="below hidden">
+    <section id="pasteTab" class="below hidden" style="display:none!important">
       <article class="panel card" style="grid-column: 1 / -1;">
         <h2>Nạp dữ liệu từ File Excel (.xlsx)</h2>
         <p class="note">Kéo & thả file Excel (chứa các sheet <b>ShootMonth</b> & <b>ComponentMaster</b>) hoặc file <b>.csv / .json</b> vào đây để nạp tự động.</p>
@@ -1007,16 +1200,25 @@
     }
 
     function renderMetrics() {
-      const activeP = $("part").value.trim().toLowerCase();
-      const activeM = $("mold").value.trim().toLowerCase();
+      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
+      const activeP = $("part") ? $("part").value.trim().toLowerCase() : "";
+      const activeM = $("mold") ? $("mold").value.trim().toLowerCase() : "";
 
-      // Lọc các cycle hoàn chỉnh theo Part / Mold đã nhập trên ô tìm kiếm
       let summaryRows = result.summary || [];
+      if (q) {
+        const normQ = normKey(q);
+        summaryRows = summaryRows.filter(r => {
+          const p = (r.Part || "").toLowerCase();
+          const s = (r.Series || "").toLowerCase();
+          const m = (r.DieSet || "").toLowerCase();
+          return p.includes(q) || normKey(p).includes(normQ) || s.includes(q) || m.includes(q) || normKey(m).includes(normQ);
+        });
+      }
       if (activeP) {
-        summaryRows = summaryRows.filter(r => String(r.Part || "").toLowerCase() === activeP || norm(r.Part) === norm(activeP));
+        summaryRows = summaryRows.filter(r => String(r.Part || "").toLowerCase() === activeP || normKey(r.Part) === normKey(activeP));
       }
       if (activeM) {
-        summaryRows = summaryRows.filter(r => String(r.DieSet || "").toLowerCase() === activeM || norm(r.DieSet) === norm(activeM));
+        summaryRows = summaryRows.filter(r => String(r.DieSet || "").toLowerCase() === activeM || normKey(r.DieSet) === normKey(activeM));
       }
 
       let min = 0;
@@ -1025,16 +1227,14 @@
       if (summaryRows.length > 0) {
         min = Math.min(...summaryRows.map(row => row.MinShots));
         max = Math.max(...summaryRows.map(row => row.MaxShots));
-      } else if (activeP || activeM) {
-        // Nếu chưa có cycle hoàn chỉnh, tính tổng shoot tích lũy của Part / Mold được chọn
+      } else if (q || activeP || activeM) {
         const partsToRender = getPartsToRender();
         const dieSetSet = new Set(partsToRender.map(p => (p.moldNew || p.moldOld || p.part).toLowerCase().trim()));
 
         const shoots = db.shoot.filter(r => {
           const rDie = String(r.DieSet || "").toLowerCase().trim();
-          return dieSetSet.has(rDie) ||
-                 (activeM && (rDie === activeM || norm(rDie) === norm(activeM))) ||
-                 (activeP && (rDie === activeP || norm(rDie) === norm(activeP)));
+          const rPart = String(r.Part || "").toLowerCase().trim();
+          return dieSetSet.has(rDie) || dieSetSet.has(rPart);
         });
 
         const currentSum = shoots.reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
@@ -1047,14 +1247,31 @@
     }
 
     function renderSummary() {
-      $("summaryRows").innerHTML = result.summary.length
-        ? result.summary.map(row => `<tr><td>${esc(row.Part)}</td><td>${esc(row.Series)}</td><td>${esc(row.DieSet)}</td><td>${row.CompletedCycles}</td><td>${row.MinShots.toLocaleString()}</td><td>${row.MaxShots.toLocaleString()}</td><td>${row.AverageShots.toLocaleString()}</td></tr>`).join("")
-        : '<tr><td colspan="7">Chưa có cycle hoàn chỉnh. Cần ít nhất 2 mốc thay cho cùng Part + Series + Die Set.</td></tr>';
+      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
+      let rows = result.summary || [];
+      if (q) {
+        const normQ = normKey(q);
+        rows = rows.filter(r => {
+          const p = (r.Part || "").toLowerCase();
+          const s = (r.Series || "").toLowerCase();
+          const m = (r.DieSet || "").toLowerCase();
+          return p.includes(q) || normKey(p).includes(normQ) || s.includes(q) || m.includes(q) || normKey(m).includes(normQ);
+        });
+      }
+
+      $("summaryRows").innerHTML = rows.length
+        ? rows.map(row => {
+            const seriesVal = getSeriesForPart(row.Part, row.DieSet) || row.Series || "-";
+            return `<tr><td>${esc(row.Part)}</td><td>${esc(seriesVal)}</td><td>${esc(row.DieSet)}</td><td>${row.CompletedCycles}</td><td>${row.MinShots.toLocaleString()}</td><td>${row.MaxShots.toLocaleString()}</td><td>${row.AverageShots.toLocaleString()}</td></tr>`;
+          }).join("")
+        : '<tr><td colspan="7">Chưa có cycle hoàn chỉnh phù hợp với từ khóa tìm kiếm.</td></tr>';
     }
 
     function getPartsToRender() {
-      const activeP = $("part").value.trim();
-      const activeM = $("mold").value.trim();
+      const globalQuery = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
+      const activeP = $("part") ? $("part").value.trim().toLowerCase() : "";
+      const activeM = $("mold") ? $("mold").value.trim().toLowerCase() : "";
+      const activeS = $("series") ? $("series").value.trim().toLowerCase() : "";
 
       const partsMap = new Map();
 
@@ -1072,13 +1289,14 @@
         }
       });
 
-      db.replacements.forEach(item => {
-        if (item.Part) {
-          const key = item.Part + "|" + (item.DieSet || "");
+      db.shoot.forEach(item => {
+        const pName = item.Part || item.DieSet;
+        if (pName) {
+          const key = pName + "|" + (item.DieSet || "");
           if (!partsMap.has(key)) {
             partsMap.set(key, {
-              part: item.Part,
-              series: item.Series || "",
+              part: pName,
+              series: getSeriesForPart(pName, item.DieSet),
               moldOld: item.DieSet || "",
               moldNew: item.DieSet || ""
             });
@@ -1088,19 +1306,31 @@
 
       let list = Array.from(partsMap.values());
 
-      if (activeP) {
-        const lowerP = activeP.toLowerCase();
-        const nP = normKey(activeP);
-        list = list.filter(x => x.part.toLowerCase() === lowerP || normKey(x.part) === nP);
+      if (globalQuery) {
+        const normQ = normKey(globalQuery);
+        list = list.filter(x => {
+          const p = (x.part || "").toLowerCase();
+          const s = (x.series || "").toLowerCase();
+          const mNew = (x.moldNew || "").toLowerCase();
+          const mOld = (x.moldOld || "").toLowerCase();
+          return p.includes(globalQuery) || normKey(x.part).includes(normQ) ||
+                 s.includes(globalQuery) ||
+                 mNew.includes(globalQuery) || normKey(x.moldNew).includes(normQ) ||
+                 mOld.includes(globalQuery) || normKey(x.moldOld).includes(normQ);
+        });
       }
 
-if (activeM) {
-        const lowerM = activeM.toLowerCase();
-        const nM = normKey(activeM);
+      if (activeP) {
+        list = list.filter(x => x.part.toLowerCase().includes(activeP) || normKey(x.part).includes(normKey(activeP)));
+      }
+      if (activeM) {
         list = list.filter(x => 
-          (x.moldNew && (x.moldNew.toLowerCase() === lowerM || normKey(x.moldNew) === nM)) ||
-          (x.moldOld && (x.moldOld.toLowerCase() === lowerM || normKey(x.moldOld) === nM))
+          (x.moldNew && (x.moldNew.toLowerCase().includes(activeM) || normKey(x.moldNew).includes(normKey(activeM)))) ||
+          (x.moldOld && (x.moldOld.toLowerCase().includes(activeM) || normKey(x.moldOld).includes(normKey(activeM))))
         );
+      }
+      if (activeS) {
+        list = list.filter(x => x.series && x.series.toLowerCase().includes(activeS));
       }
 
       return list.sort((a, b) => a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' }));
@@ -1523,18 +1753,26 @@ if (activeM) {
     function populatePartList() {
       const partDatalist = $("partList");
       const moldDatalist = $("moldList");
+      const searchDatalist = $("searchList");
 
       const parts = new Set();
       const molds = new Set();
+      const allSearchItems = new Set();
 
-      masterData.forEach(item => {
-        if (item.PartName) parts.add(item.PartName);
-        if (item.NewDieSet) molds.add(item.NewDieSet);
-        if (item.OldDieSet) molds.add(item.OldDieSet);
+      (masterData || []).forEach(item => {
+        if (item.PartName) { parts.add(item.PartName); allSearchItems.add(item.PartName); }
+        if (item.Series) allSearchItems.add(item.Series);
+        if (item.NewDieSet) { molds.add(item.NewDieSet); allSearchItems.add(item.NewDieSet); }
+        if (item.OldDieSet) { molds.add(item.OldDieSet); allSearchItems.add(item.OldDieSet); }
       });
-      db.replacements.forEach(item => {
-        if (item.Part) parts.add(item.Part);
-        if (item.DieSet) molds.add(item.DieSet);
+      (db.replacements || []).forEach(item => {
+        if (item.Part) { parts.add(item.Part); allSearchItems.add(item.Part); }
+        if (item.Series) allSearchItems.add(item.Series);
+        if (item.DieSet) { molds.add(item.DieSet); allSearchItems.add(item.DieSet); }
+      });
+      (db.shoot || []).forEach(item => {
+        if (item.Part) { parts.add(item.Part); allSearchItems.add(item.Part); }
+        if (item.DieSet) { molds.add(item.DieSet); allSearchItems.add(item.DieSet); }
       });
 
       if (partDatalist) {
@@ -1546,6 +1784,26 @@ if (activeM) {
         const sortedMolds = [...molds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
         moldDatalist.innerHTML = sortedMolds.map(m => `<option value="${esc(m)}">`).join("");
       }
+
+      if (searchDatalist) {
+        const sortedSearch = [...allSearchItems].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        searchDatalist.innerHTML = sortedSearch.map(s => `<option value="${esc(s)}">`).join("");
+      }
+    }
+
+    function getSeriesForPart(partName, dieSet) {
+      if (!partName && !dieSet) return "";
+      const p = (partName || "").toLowerCase();
+      const d = (dieSet || "").toLowerCase();
+      const match = (masterData || []).find(x =>
+        (x.PartName && x.PartName.toLowerCase() === p) &&
+        (
+          (x.NewDieSet && x.NewDieSet.toLowerCase() === d) ||
+          (x.OldDieSet && x.OldDieSet.toLowerCase() === d) ||
+          !dieSet
+        )
+      ) || (masterData || []).find(x => x.PartName && x.PartName.toLowerCase() === p);
+      return match ? (match.Series || "") : "";
     }
 
     function normKey(s) {
@@ -1868,11 +2126,62 @@ if (activeM) {
       }
     }
 
+    let _searchDebounceTimer = null;
+
+    function onGlobalSearchInput() {
+      // Debounce: chỉ render sau khi user ngừng gõ 250ms → mượt, không khựng
+      clearTimeout(_searchDebounceTimer);
+      _searchDebounceTimer = setTimeout(() => {
+        const rawVal = $("globalSearch") ? $("globalSearch").value.trim() : "";
+
+        if (!rawVal) {
+          // Xóa search → reset hết về full list
+          if ($("part")) $("part").value = "";
+          if ($("series")) $("series").value = "";
+          if ($("dieSet")) $("dieSet").value = "";
+          if ($("mold")) $("mold").value = "";
+        } else {
+          autoFillFromGlobalSearch(rawVal);
+        }
+
+        renderMonth();
+        renderSummary();
+        renderMetrics();
+      }, 250);
+    }
+
+    function autoFillFromGlobalSearch(rawVal) {
+      if (!rawVal || !masterData) return;
+      const lowerVal = rawVal.toLowerCase();
+      const nVal = normKey(rawVal);
+
+      let match = masterData.find(x => 
+        (x.PartName && (x.PartName.toLowerCase() === lowerVal || normKey(x.PartName) === nVal)) ||
+        (x.NewDieSet && (x.NewDieSet.toLowerCase() === lowerVal || normKey(x.NewDieSet) === nVal)) ||
+        (x.OldDieSet && (x.OldDieSet.toLowerCase() === lowerVal || normKey(x.OldDieSet) === nVal)) ||
+        (x.Series && x.Series.toLowerCase() === lowerVal)
+      );
+
+      if (match) {
+        if (match.PartName && $("part")) $("part").value = match.PartName;
+        if (match.Series && $("series")) $("series").value = match.Series;
+        if (match.OldDieSet && $("dieSet")) $("dieSet").value = match.OldDieSet;
+        if (match.NewDieSet && $("mold")) $("mold").value = match.NewDieSet;
+      }
+    }
+
+    if ($("globalSearch")) {
+      ["input", "change", "keyup", "paste"].forEach(evt => {
+        $("globalSearch").addEventListener(evt, onGlobalSearchInput);
+      });
+    }
+
     // Mặc định các ô tìm kiếm trống khi mở ứng dụng
-    $("part").value = "";
-    $("series").value = "";
-    $("dieSet").value = "";
-    $("mold").value = "";
+    if ($("globalSearch")) $("globalSearch").value = "";
+    if ($("part")) $("part").value = "";
+    if ($("series")) $("series").value = "";
+    if ($("dieSet")) $("dieSet").value = "";
+    if ($("mold")) $("mold").value = "";
 
     loadMasterData();
     autoLoadShootMonth();
