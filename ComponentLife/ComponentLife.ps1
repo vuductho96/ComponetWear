@@ -97,21 +97,20 @@ try {
             }
             elseif ($path -eq '/api/import/shoot' -and $method -eq 'POST') {
                 $body = $bodyText | ConvertFrom-Json
-                $existing = @(if (Test-Path $ShootFile) { Get-Content $ShootFile -Raw -Encoding UTF8 | ConvertFrom-Json } else { @() })
-                $map = @{}
-                foreach ($row in $existing) { $map["$($row.Date)|$($row.DieSet)"] = $row }
-                $added = 0; $updated = 0
+                $map = [ordered]@{}
                 foreach ($row in @($body.rows)) {
+                    if ($null -eq $row.Output -or [string]$row.Output -eq "") { continue }
+                    $outVal = [decimal]$row.Output
+                    if ($outVal -le 0) { continue }
                     $key = "$($row.Date)|$($row.DieSet)"
-                    if ($map.ContainsKey($key)) { $updated++ } else { $added++ }
-                    $map[$key] = [pscustomobject]@{ Date=$row.Date; DieSet=$row.DieSet; Output=[decimal]$row.Output }
+                    $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; DieSet=[string]$row.DieSet; Output=$outVal }
                 }
                 $cleanList = @($map.Values | Sort-Object Date, DieSet)
                 $jsonStr = $cleanList | ConvertTo-Json -Depth 8
                 if ($cleanList.Count -eq 0) { $jsonStr = "[]" }
                 elseif ($cleanList.Count -eq 1 -and -not $jsonStr.Trim().StartsWith("[")) { $jsonStr = "[$jsonStr]" }
                 [System.IO.File]::WriteAllText($ShootFile, $jsonStr, (New-Object System.Text.UTF8Encoding($false)))
-                $resObj = [pscustomobject]@{ added=$added; updated=$updated }
+                $resObj = [pscustomobject]@{ success=$true; count=$cleanList.Count }
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                 $contentType = "application/json; charset=utf-8"
             }
@@ -124,6 +123,184 @@ try {
                 [System.IO.File]::WriteAllText($ReplacementFile, $jsonStr, (New-Object System.Text.UTF8Encoding($false)))
                 $resObj = [pscustomobject]@{ count=$items.Count }
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
+            }
+            elseif ($path -eq '/api/update' -and $method -eq 'POST') {
+                $body = if ($bodyText) { $bodyText | ConvertFrom-Json } else { $null }
+
+                # Use rawShoot from request if provided by client, otherwise load from ShootFile on disk
+                if ($body -and ($null -ne $body.rawShoot)) {
+                    $map = [ordered]@{}
+                    foreach ($row in @($body.rawShoot)) {
+                        if ($null -eq $row.Output -or [string]$row.Output -eq "") { continue }
+                        $outVal = [decimal]$row.Output
+                        if ($outVal -le 0) { continue }
+                        $key = "$($row.Date)|$($row.DieSet)"
+                        $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; DieSet=[string]$row.DieSet; Output=$outVal }
+                    }
+                    $rawShootList = @($map.Values | Sort-Object Date, DieSet)
+                    $jsonStr = $rawShootList | ConvertTo-Json -Depth 8
+                    if ($rawShootList.Count -eq 0) { $jsonStr = "[]" }
+                    elseif ($rawShootList.Count -eq 1 -and -not $jsonStr.Trim().StartsWith("[")) { $jsonStr = "[$jsonStr]" }
+                    [System.IO.File]::WriteAllText($ShootFile, $jsonStr, (New-Object System.Text.UTF8Encoding($false)))
+                } elseif (Test-Path $ShootFile) {
+                    $rawShootList = @(Get-Content $ShootFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+                } else {
+                    $rawShootList = @()
+                }
+                $repList = if ($body -and ($null -ne $body.replacements)) { @($body.replacements) } elseif (Test-Path $ReplacementFile) { @(Get-Content $ReplacementFile -Raw -Encoding UTF8 | ConvertFrom-Json) } else { @() }
+
+                # Build in-memory shoot map for calculations & display
+                $shootMap = [ordered]@{}
+                foreach ($s in $rawShootList) {
+                    $key = "$($s.Date)|$($s.DieSet)"
+                    $outVal = [decimal]($s.Output)
+                    if ($outVal -gt 0) {
+                        $shootMap[$key] = [pscustomobject]@{ Date = [string]$s.Date; DieSet = [string]$s.DieSet; Output = $outVal }
+                    }
+                }
+
+                # Shift shoot outputs on replacement dates (skip '0', '-', '·', empty)
+                foreach ($r in $repList) {
+                    $repDate = [string]$r.ReplaceDate
+                    $dieSet = [string]$r.DieSet
+                    $part = [string]$r.Part
+                    $lbl = if ($r.Label) { [string]$r.Label.Trim() } else { "" }
+                    if (-not $repDate -or $lbl -eq "" -or $lbl -eq "0" -or $lbl -eq "-" -or $lbl -eq "·") { continue }
+
+                    $targetKeys = @($shootMap.Keys | Where-Object {
+                        $kDate, $kDie = $_.Split('|')
+                        if ($kDate -eq $repDate) {
+                            if ($dieSet -and $kDie -eq $dieSet) { return $true }
+                            if ($part -and $kDie -eq $part) { return $true }
+                        }
+                        return $false
+                    })
+
+                    foreach ($tk in $targetKeys) {
+                        $shootRow = $shootMap[$tk]
+                        if ($shootRow -and $shootRow.Output -gt 0) {
+                            $valToShift = $shootRow.Output
+                            $shootMap.Remove($tk)
+
+                            $dt = [datetime]::ParseExact($repDate, "yyyy-MM-dd", $null)
+                            $nextDate = $dt.AddDays(1).ToString("yyyy-MM-dd")
+                            $nextKey = "$nextDate|$($shootRow.DieSet)"
+
+                            if ($shootMap.Contains($nextKey)) {
+                                $shootMap[$nextKey].Output += $valToShift
+                            } else {
+                                $shootMap[$nextKey] = [pscustomobject]@{ Date = $nextDate; DieSet = $shootRow.DieSet; Output = $valToShift }
+                            }
+                        }
+                    }
+                }
+
+                $cleanShoot = @($shootMap.Values | Sort-Object Date, DieSet)
+                $cleanRep = @($repList | Where-Object {
+                    $lbl = if ($_.Label) { [string]$_.Label.Trim() } else { "" }
+                    $lbl -ne "" -and $lbl -ne "0" -and $lbl -ne "-" -and $lbl -ne "·"
+                } | Sort-Object ReplaceDate)
+
+                $repJson = $cleanRep | ConvertTo-Json -Depth 8
+                if ($cleanRep.Count -eq 0) { $repJson = "[]" }
+                elseif ($cleanRep.Count -eq 1 -and -not $repJson.Trim().StartsWith("[")) { $repJson = "[$repJson]" }
+                [System.IO.File]::WriteAllText($ReplacementFile, $repJson, (New-Object System.Text.UTF8Encoding($false)))
+
+                # Calculate Cycles & Summary in PowerShell
+                $cycles = @()
+                $groups = @{}
+                foreach ($r in $cleanRep) {
+                    $gKey = "$($r.Part)|$($r.Series)|$($r.DieSet)"
+                    if (-not $groups.ContainsKey($gKey)) { $groups[$gKey] = @() }
+                    $groups[$gKey] += $r
+                }
+
+                foreach ($gKey in $groups.Keys) {
+                    $events = @($groups[$gKey] | Sort-Object ReplaceDate)
+                    $pParts = $gKey.Split('|')
+                    $part = $pParts[0]; $series = $pParts[1]; $dieSet = $pParts[2]
+
+                    $shots = @($cleanShoot | Where-Object {
+                        $_.Output -gt 0 -and (($dieSet -and $_.DieSet -eq $dieSet) -or ($part -and $_.DieSet -eq $part))
+                    } | Sort-Object Date)
+
+                    if ($shots.Count -gt 0 -and $events.Count -gt 0) {
+                        $firstRepDate = $events[0].ReplaceDate
+                        $beforeShots = @($shots | Where-Object { $_.Date -lt $firstRepDate })
+                        $totalBefore = 0
+                        foreach ($bs in $beforeShots) { $totalBefore += $bs.Output }
+
+                        if ($totalBefore -gt 0) {
+                            $cycles += [pscustomobject]@{
+                                Part = $part; Series = $series; DieSet = $dieSet
+                                StartDate = $shots[0].Date; EndDate = $firstRepDate
+                                CycleShots = $totalBefore
+                            }
+                        }
+
+                        for ($i = 0; $i -lt $events.Count - 1; $i++) {
+                            $st = $events[$i].ReplaceDate
+                            $en = $events[$i + 1].ReplaceDate
+                            if ($en -le $st) { continue }
+
+                            $betweenShots = @($shots | Where-Object { $_.Date -ge $st -and $_.Date -lt $en })
+                            $totalBetween = 0
+                            foreach ($bts in $betweenShots) { $totalBetween += $bts.Output }
+
+                            if ($totalBetween -gt 0) {
+                                $cycles += [pscustomobject]@{
+                                    Part = $part; Series = $series; DieSet = $dieSet
+                                    StartDate = $st; EndDate = $en
+                                    CycleShots = $totalBetween
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $summaryMap = @{}
+                foreach ($c in $cycles) {
+                    $sKey = "$($c.Part)|$($c.Series)|$($c.DieSet)"
+                    if (-not $summaryMap.ContainsKey($sKey)) { $summaryMap[$sKey] = @() }
+                    $summaryMap[$sKey] += $c
+                }
+
+                $summaryList = @()
+                foreach ($sKey in $summaryMap.Keys) {
+                    $cList = @($summaryMap[$sKey])
+                    $vals = @($cList | ForEach-Object { [double]$_.CycleShots })
+                    $sumVal = 0
+                    foreach ($v in $vals) { $sumVal += $v }
+                    $minVal = ($vals | Measure-Object -Minimum).Minimum
+                    $maxVal = ($vals | Measure-Object -Maximum).Maximum
+                    $avgVal = [math]::Round($sumVal / $vals.Count)
+
+                    $firstItem = $cList[0]
+                    $summaryList += [pscustomobject]@{
+                        Part = $firstItem.Part
+                        Series = $firstItem.Series
+                        DieSet = $firstItem.DieSet
+                        CompletedCycles = $cList.Count
+                        MinShots = $minVal
+                        MaxShots = $maxVal
+                        AverageShots = $avgVal
+                    }
+                }
+
+                $shiftList = if ($body -and $body.shifts) { @($body.shifts) } else { @() }
+
+                $resObj = [pscustomobject]@{
+                    success = $true
+                    message = "Backend đã tính toán và cập nhật thành công!"
+                    shoot = $cleanShoot
+                    replacements = $cleanRep
+                    shifts = $shiftList
+                    cycles = $cycles
+                    summary = $summaryList
+                }
+
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Depth 8))
                 $contentType = "application/json; charset=utf-8"
             }
             else {

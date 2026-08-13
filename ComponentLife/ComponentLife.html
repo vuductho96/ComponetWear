@@ -488,10 +488,11 @@
 
     <section class="toolbar">
       <div class="panel month-panel">
-        <div style="width: 100%;">
+        <div style="flex: 1;">
           <label for="monthPick">Month</label>
           <select id="monthPick"></select>
         </div>
+        <button id="updateBtn" onclick="updateBackend()" style="height: 46px; background: linear-gradient(#00994d, #007a3d); color: #fff; border: none; font-weight: 700; cursor: pointer; padding: 0 18px; border-radius: var(--radius); flex-shrink: 0;" title="Gửi dữ liệu sang backend PowerShell để tính toán & lưu trữ">🔄 Update (Test Backend)</button>
       </div>
       <div class="panel metric">
         <span class="label">MIN Cycle</span>
@@ -591,32 +592,36 @@
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const defaultShootData = [];
 
-    let db = JSON.parse(localStorage.getItem(KEY) || '{"shoot":[],"replacements":[]}');
-    db.shoot.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
-    localStorage.setItem(KEY, JSON.stringify(db));
+    let db = { shoot: [], replacements: [], rawShoot: [] };
     let result = { cycles: [], summary: [], errors: [] };
 
     function save() {
       try {
-        localStorage.setItem(KEY, JSON.stringify(db));
+        const rawList = Array.isArray(db.rawShoot) ? db.rawShoot : (db.shoot || []);
+        const toSave = {
+          shoot: rawList,
+          rawShoot: rawList,
+          replacements: db.replacements || []
+        };
+        localStorage.setItem(KEY, JSON.stringify(toSave));
       } catch (e) {}
       syncToJsonFiles();
     }
 
     async function syncToJsonFiles() {
       try {
-        if (db.replacements && db.replacements.length > 0) {
+        if (db.replacements !== undefined) {
           fetch("/api/import/replacements", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rows: db.replacements })
+            body: JSON.stringify({ rows: db.replacements || [] })
           }).catch(() => {});
         }
-        if (db.shoot && db.shoot.length > 0) {
+        if (Array.isArray(db.rawShoot)) {
           fetch("/api/import/shoot", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rows: db.shoot })
+            body: JSON.stringify({ rows: db.rawShoot })
           }).catch(() => {});
         }
       } catch (e) {}
@@ -846,6 +851,7 @@
           map.set(key, row);
         });
         db.shoot = [...map.values()].sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+        db.rawShoot = JSON.parse(JSON.stringify(db.shoot));
         save();
         rebuild(false);
         renderMonth();
@@ -874,7 +880,10 @@
       const errors = [];
       const groups = {};
 
-      db.replacements.forEach(row => {
+      db.replacements.filter(row => {
+        const lbl = String(row.Label || "").trim();
+        return lbl && lbl !== "-" && lbl !== "0" && lbl !== "·";
+      }).forEach(row => {
         const key = [(row.Part || "").trim(), (row.Series || "").trim(), (row.DieSet || "").trim()].join("|");
         (groups[key] ||= []).push(row);
       });
@@ -1180,6 +1189,61 @@ if (activeM) {
       renderMetrics();
     }
 
+    function getNextDateStr(dateStr) {
+      const d = new Date(dateStr + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function getPrevDateStr(dateStr) {
+      const d = new Date(dateStr + "T00:00:00");
+      d.setDate(d.getDate() - 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function isReplacementDate(dateStr, dieSet, partName) {
+      const dDie = String(dieSet || "").toLowerCase().trim();
+      const pPart = String(partName || "").toLowerCase().trim();
+      return (db.replacements || []).some(row => {
+        if (row.ReplaceDate !== dateStr) return false;
+        const rDie = String(row.DieSet || "").toLowerCase().trim();
+        const rPart = String(row.Part || "").toLowerCase().trim();
+        const lbl = String(row.Label || "").trim();
+        const isValid = lbl && lbl !== "-" && lbl !== "0" && lbl !== "·";
+        return isValid && ((dDie && rDie === dDie) || (pPart && (rPart === pPart || rDie === pPart)));
+      });
+    }
+
+    function clearRawShootForDateAndShiftChain(dateStr, dieSet, partName) {
+      const dDie = String(dieSet || "").toLowerCase().trim();
+      const pPart = String(partName || "").toLowerCase().trim();
+
+      const isTargetRow = row => {
+        const rDie = String(row.DieSet || "").toLowerCase().trim();
+        return (dDie && rDie === dDie) || (pPart && rDie === pPart);
+      };
+
+      db.shoot = db.shoot.filter(row => !(row.Date === dateStr && isTargetRow(row)));
+      db.rawShoot = (db.rawShoot || []).filter(row => !(row.Date === dateStr && isTargetRow(row)));
+
+      let curr = dateStr;
+      while (true) {
+        const prev = getPrevDateStr(curr);
+        if (!isReplacementDate(prev, dieSet, partName)) {
+          break;
+        }
+        db.shoot = db.shoot.filter(row => !(row.Date === prev && isTargetRow(row)));
+        db.rawShoot = (db.rawShoot || []).filter(row => !(row.Date === prev && isTargetRow(row)));
+        curr = prev;
+      }
+    }
+
     function updateCell(cell) {
       const type = cell.dataset.type;
       const date = cell.dataset.date;
@@ -1188,19 +1252,33 @@ if (activeM) {
       const text = cell.textContent.trim();
 
       if (!dieSet) {
-        renderMonth();
         return msg("Cần chọn linh kiện hoặc nhập Mold trước khi sửa.", true);
       }
 
       if (type === "shoot") {
         const value = parseShootValue(text);
-        db.shoot = db.shoot.filter(row => !(row.Date === date && row.DieSet === dieSet));
+
+        clearRawShootForDateAndShiftChain(date, dieSet, partName);
+
         if (value > 0) {
           db.shoot.push({ Date: date, DieSet: dieSet, Output: value });
+          db.rawShoot.push({ Date: date, DieSet: dieSet, Output: value });
         }
       } else {
-        db.replacements = db.replacements.filter(row => !(row.ReplaceDate === date && (row.Part ? row.Part === partName : row.DieSet === dieSet)));
-        if (text && text !== "-") {
+        db.replacements = db.replacements.filter(row => {
+          const sameDate = row.ReplaceDate === date;
+          const rDie = String(row.DieSet || "").toLowerCase().trim();
+          const dDie = String(dieSet || "").toLowerCase().trim();
+          const rPart = String(row.Part || "").toLowerCase().trim();
+          const pPart = String(partName || "").toLowerCase().trim();
+          const sameDieOrPart = (dDie && rDie === dDie) || (pPart && (rPart === pPart || rDie === pPart));
+          return !(sameDate && sameDieOrPart);
+        });
+
+        const cleanVal = text.trim();
+        const isReplacement = cleanVal && cleanVal !== "-" && cleanVal !== "0" && cleanVal !== "·";
+
+        if (isReplacement) {
           db.replacements.push({
             Part: partName,
             Series: getContext().series || "",
@@ -1208,6 +1286,11 @@ if (activeM) {
             ReplaceDate: date,
             Label: text
           });
+          cell.classList.remove("empty");
+          cell.classList.add("replacement");
+        } else {
+          cell.classList.remove("replacement");
+          cell.classList.add("empty");
         }
       }
 
@@ -1313,6 +1396,9 @@ if (activeM) {
           const data = JSON.parse(reader.result);
           if (!Array.isArray(data.shoot) || !Array.isArray(data.replacements)) throw Error("Sai định dạng backup.");
           db = data;
+          if (!Array.isArray(db.rawShoot) && Array.isArray(db.shoot)) {
+            db.rawShoot = JSON.parse(JSON.stringify(db.shoot));
+          }
           save();
           buildMonthOptions();
           fillContextFromData();
@@ -1581,7 +1667,7 @@ if (activeM) {
       reader.onload = (e) => {
         try {
           const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          const workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: false });
           const messages = [];
 
           // 1. Parse sheet ShootMonth hoặc ShootNumber
@@ -1592,6 +1678,7 @@ if (activeM) {
             if (rows.length > 0) {
               // Thay thế hoàn toàn db.shoot bằng dữ liệu mới nhất vừa nạp từ Excel (loại bỏ dữ liệu cũ tồn đọng)
               db.shoot = rows.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+              db.rawShoot = JSON.parse(JSON.stringify(db.shoot));
               messages.push(`Shoot Data: ${rows.length} dòng sản lượng`);
             }
           }
@@ -1636,6 +1723,7 @@ if (activeM) {
         if (res.ok) {
           const list = await res.json();
           if (Array.isArray(list)) {
+            db.rawShoot = JSON.parse(JSON.stringify(list));
             db.shoot = list.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
           }
         }
@@ -1654,8 +1742,49 @@ if (activeM) {
       } catch (e) {}
 
       buildMonthOptions();
-      rebuild(false);
-      renderMonth();
+      if (db.replacements && db.replacements.length > 0) {
+        await updateBackend();
+      } else {
+        rebuild(false);
+        renderMonth();
+      }
+    }
+
+    async function updateBackend() {
+      const btn = $("updateBtn");
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = "⏳ Đang cập nhật...";
+      }
+      try {
+        const baseShoot = Array.isArray(db.rawShoot) ? db.rawShoot : (db.shoot || []);
+        const res = await fetch("/api/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ rawShoot: baseShoot, replacements: db.replacements })
+        });
+        if (!res.ok) throw Error("Server error: " + res.statusText);
+        const data = await res.json();
+
+        if (data.shoot && Array.isArray(data.shoot)) {
+          db.shoot = data.shoot.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+        }
+        if (data.replacements && Array.isArray(data.replacements)) {
+          db.replacements = data.replacements.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+        }
+        save();
+        rebuild(false);
+        renderMonth();
+        renderMetrics();
+        msg(`✅ Backend đã tính toán và cập nhật thành công! (${(data.cycles || []).length} cycle hoàn chỉnh)`);
+      } catch (err) {
+        msg("Lỗi kết nối Backend: " + err.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = "🔄 Update (Test Backend)";
+        }
+      }
     }
 
     // Mặc định các ô tìm kiếm trống khi mở ứng dụng

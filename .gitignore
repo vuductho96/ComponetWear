@@ -9,7 +9,8 @@ ComponentLife/reports/*.csv
 ComponentLife/reports/*.xlsx
 !ComponentLife/reports/.gitkeep
 
-# System / OS files
+# System / OS / Archive files
+*.rar
 Thumbs.db
 Desktop.ini
 .DS_Store
