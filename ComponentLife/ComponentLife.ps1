@@ -192,8 +192,11 @@ try {
                 # Calculate Cycles & Summary in PowerShell
                 $cycles = @()
                 $groups = @{}
+                $groups = @{}
                 foreach ($r in $cleanRep) {
-                    $gKey = "$($r.Part)|$($r.Series)|$($r.DieSet)"
+                    $pName = [string]$r.Part
+                    $dSet = [string]$r.DieSet
+                    $gKey = if ($pName) { "$pName|$dSet" } else { $dSet }
                     if (-not $groups.ContainsKey($gKey)) { $groups[$gKey] = @() }
                     $groups[$gKey] += $r
                 }
@@ -201,21 +204,32 @@ try {
                 foreach ($gKey in $groups.Keys) {
                     $events = @($groups[$gKey] | Sort-Object ReplaceDate)
                     $pParts = $gKey.Split('|')
-                    $part = $pParts[0]; $series = $pParts[1]; $dieSet = $pParts[2]
+                    $part = if ($pParts.Count -gt 1) { $pParts[0] } else { [string]$events[0].Part }
+                    $dieSet = if ($pParts.Count -gt 1) { $pParts[1] } else { $pParts[0] }
+
+                    $bestSeries = ""
+                    foreach ($e in $events) {
+                        if ($e.Series -and [string]$e.Series.Trim().Length -gt $bestSeries.Length) {
+                            $bestSeries = [string]$e.Series.Trim()
+                        }
+                    }
 
                     $shots = @($cleanShoot | Where-Object {
-                        $_.Output -gt 0 -and (($dieSet -and $_.DieSet -eq $dieSet) -or ($part -and $_.DieSet -eq $part))
+                        $_.Output -gt 0 -and (
+                            ($part -and $_.Part -and [string]$_.Part.Trim().ToLower() -eq $part.ToLower()) -or
+                            (-not $_.Part -and (($dieSet -and [string]$_.DieSet.Trim().ToLower() -eq $dieSet.ToLower()) -or ($part -and [string]$_.DieSet.Trim().ToLower() -eq $part.ToLower())))
+                        )
                     } | Sort-Object Date)
 
                     if ($shots.Count -gt 0 -and $events.Count -gt 0) {
                         $firstRepDate = $events[0].ReplaceDate
                         $beforeShots = @($shots | Where-Object { $_.Date -lt $firstRepDate })
                         $totalBefore = 0
-                        foreach ($bs in $beforeShots) { $totalBefore += $bs.Output }
+                        foreach ($bs in $beforeShots) { $totalBefore += [decimal]$bs.Output }
 
                         if ($totalBefore -gt 0) {
                             $cycles += [pscustomobject]@{
-                                Part = $part; Series = $series; DieSet = $dieSet
+                                Part = $part; Series = $bestSeries; DieSet = $dieSet
                                 StartDate = $shots[0].Date; EndDate = $firstRepDate
                                 CycleShots = $totalBefore
                             }
@@ -228,11 +242,11 @@ try {
 
                             $betweenShots = @($shots | Where-Object { $_.Date -ge $st -and $_.Date -lt $en })
                             $totalBetween = 0
-                            foreach ($bts in $betweenShots) { $totalBetween += $bts.Output }
+                            foreach ($bts in $betweenShots) { $totalBetween += [decimal]$bts.Output }
 
                             if ($totalBetween -gt 0) {
                                 $cycles += [pscustomobject]@{
-                                    Part = $part; Series = $series; DieSet = $dieSet
+                                    Part = $part; Series = $bestSeries; DieSet = $dieSet
                                     StartDate = $st; EndDate = $en
                                     CycleShots = $totalBetween
                                 }
@@ -243,7 +257,9 @@ try {
 
                 $summaryMap = @{}
                 foreach ($c in $cycles) {
-                    $sKey = "$($c.Part)|$($c.Series)|$($c.DieSet)"
+                    $pName = [string]$c.Part
+                    $dSet = [string]$c.DieSet
+                    $sKey = if ($pName) { "$pName|$dSet" } else { $dSet }
                     if (-not $summaryMap.ContainsKey($sKey)) { $summaryMap[$sKey] = @() }
                     $summaryMap[$sKey] += $c
                 }
@@ -259,9 +275,16 @@ try {
                     $avgVal = [math]::Round($sumVal / $vals.Count)
 
                     $firstItem = $cList[0]
+                    $bestSeries = ""
+                    foreach ($item in $cList) {
+                        if ($item.Series -and [string]$item.Series.Trim().Length -gt $bestSeries.Length) {
+                            $bestSeries = [string]$item.Series.Trim()
+                        }
+                    }
+
                     $summaryList += [pscustomobject]@{
                         Part = $firstItem.Part
-                        Series = $firstItem.Series
+                        Series = $bestSeries
                         DieSet = $firstItem.DieSet
                         CompletedCycles = $cList.Count
                         MinShots = $minVal

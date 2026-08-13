@@ -573,7 +573,7 @@
             <tr>
               <th>Part</th>
               <th>Series</th>
-              <th>Mold (old)</th>
+              <th>Mold (new)</th>
               <th>Cycles</th>
               <th>MIN</th>
               <th>MAX</th>
@@ -904,20 +904,41 @@
         const lbl = String(row.Label || "").trim();
         return lbl && lbl !== "-" && lbl !== "0" && lbl !== "·";
       }).forEach(row => {
-        const key = [(row.Part || "").trim(), (row.Series || "").trim(), (row.DieSet || "").trim()].join("|");
+        const part = (row.Part || "").trim();
+        const dieSet = (row.DieSet || "").trim();
+        const key = part ? (part + "|" + dieSet) : dieSet;
         (groups[key] ||= []).push(row);
       });
 
       Object.entries(groups).forEach(([key, events]) => {
         events.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
-        const [part, series, dieSet] = key.split("|");
+        const parts = key.split("|");
+        const part = parts.length > 1 ? parts[0] : (events[0].Part || "");
+        const dieSet = parts.length > 1 ? parts[1] : parts[0];
+
+        // Tìm Series đầy đủ từ các event, ô tìm kiếm hoặc Master Data
+        let series = events.find(e => e.Series && e.Series.trim())?.Series || $("series").value.trim();
+        if (!series && typeof masterData !== "undefined" && Array.isArray(masterData)) {
+          const pLower = part.toLowerCase();
+          const dLower = dieSet.toLowerCase();
+          const m = masterData.find(x => 
+            (pLower && x.PartName && String(x.PartName).toLowerCase().trim() === pLower) ||
+            (dLower && x.NewDieSet && String(x.NewDieSet).toLowerCase().trim() === dLower) ||
+            (dLower && x.OldDieSet && String(x.OldDieSet).toLowerCase().trim() === dLower)
+          );
+          if (m && m.Series) series = m.Series;
+        }
 
         // Chỉ tích lũy ngầm từ những ngày có Shoot Number thực tế (> 0)
         const shots = db.shoot.filter(row => {
           if (!row.Output || Number(row.Output) <= 0) return false;
+          const rPart = String(row.Part || "").toLowerCase().trim();
           const rDie = String(row.DieSet || "").toLowerCase().trim();
           const dDie = String(dieSet || "").toLowerCase().trim();
           const pName = String(part || "").toLowerCase().trim();
+          if (rPart && pName) {
+            return rPart === pName;
+          }
           return (pName && rDie === pName) || (dDie && rDie === dDie);
         }).sort((a, b) => a.Date.localeCompare(b.Date));
 
@@ -959,15 +980,18 @@
 
       const summaryMap = {};
       cycles.forEach(row => {
-        const key = [row.Part, row.Series, row.DieSet].join("|");
+        const p = (row.Part || "").trim();
+        const d = (row.DieSet || "").trim();
+        const key = p ? (p + "|" + d) : d;
         (summaryMap[key] ||= []).push(row);
       });
 
       const summary = Object.values(summaryMap).map(rows => {
         const values = rows.map(row => row.CycleShots);
+        const bestSeries = rows.find(r => r.Series && r.Series.trim())?.Series || "";
         return {
           Part: rows[0].Part,
-          Series: rows[0].Series,
+          Series: bestSeries,
           DieSet: rows[0].DieSet,
           CompletedCycles: rows.length,
           MinShots: Math.min(...values),
@@ -1802,12 +1826,9 @@ if (activeM) {
       } catch (e) {}
 
       buildMonthOptions();
-      if (db.replacements && db.replacements.length > 0) {
-        await updateBackend();
-      } else {
-        rebuild(false);
-        renderMonth();
-      }
+      rebuild(false);
+      renderMonth();
+      renderMetrics();
     }
 
     async function updateBackend() {
