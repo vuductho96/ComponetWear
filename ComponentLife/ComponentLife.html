@@ -1062,25 +1062,25 @@
 
       <!-- Metrics KPI Dashboard on Header Right -->
       <div class="header-metrics">
-        <div class="cb-metric is-parts" title="TOTAL COMPONENTS: Tổng số linh kiện đang quản lý trong phạm vi hiển thị">
+        <div class="cb-metric is-parts" title="TOTAL COMPONENTS: Tổng số linh kiện đang quản lý">
           <span class="cb-metric-label">TOTAL COMPONENTS</span>
           <span class="cb-metric-val" id="totalPartsVal">0</span>
           <span class="cb-metric-shots">mã lk</span>
         </div>
-        <div class="cb-metric is-shots" title="ACTIVE COMPONENTS: Số linh kiện hiện đang sử dụng sản xuất">
+        <div class="cb-metric is-shots" title="ACTIVE COMPONENTS: Số linh kiện đang sử dụng sản xuất">
           <span class="cb-metric-label">ACTIVE COMPONENTS</span>
           <span class="cb-metric-val" id="activePartsVal">0</span>
           <span class="cb-metric-shots">mã active</span>
         </div>
-        <div class="cb-metric is-min" title="AT RISK: Số linh kiện có dấu hiệu mòn/rủi ro cần lưu ý">
+        <div class="cb-metric is-min" title="AT RISK: Số linh kiện có dấu hiệu rủi ro/cần thay">
           <span class="cb-metric-label">AT RISK</span>
           <span class="cb-metric-val" id="atRiskVal" style="color:#c2410c;">0</span>
           <span class="cb-metric-shots">rủi ro</span>
         </div>
-        <div class="cb-metric is-max" title="PREDICTED REPLACEMENTS: Số linh kiện dự kiến cần thay trong thời gian sắp tới">
-          <span class="cb-metric-label">PREDICTED</span>
-          <span class="cb-metric-val" id="predictedVal" style="color:#dc2626;">0</span>
-          <span class="cb-metric-shots">dự kiến thay</span>
+        <div class="cb-metric is-max" title="SHORT LIFE EVENTS: Số lần phát hiện cycle hỏng sớm bất thường">
+          <span class="cb-metric-label">SHORT LIFE EVENTS</span>
+          <span class="cb-metric-val" id="shortLifeEventsVal" style="color:#dc2626;">0</span>
+          <span class="cb-metric-shots">sự cố</span>
         </div>
       </div>
     </header>
@@ -1212,8 +1212,8 @@
       <div id="chartsContainer" class="summary-charts-grid" style="display:grid;">
         <div class="chart-card">
           <div class="chart-header">
-            <span class="chart-title">🏆 Top Linh Kiện Sản Lượng MAX Shots Cao Nhất</span>
-            <span class="chart-subtitle">So sánh mốc dập tối đa giữa các linh kiện</span>
+            <span class="chart-title">🏆 Top Components – Maximum / Typical Life</span>
+            <span class="chart-subtitle">So sánh mốc sản lượng MAX và mốc tuổi thọ điển hình (Typical Life)</span>
           </div>
           <div class="chart-body">
             <canvas id="topMaxChart"></canvas>
@@ -1222,8 +1222,8 @@
 
         <div class="chart-card">
           <div class="chart-header">
-            <span class="chart-title">📊 So Sánh MIN - AVERAGE - MAX Shots theo Linh Kiện</span>
-            <span class="chart-subtitle">Phân tích chênh lệch sản lượng dập giữa các mốc cycle</span>
+            <span class="chart-title">📊 MIN vs MEDIAN vs MAX Life</span>
+            <span class="chart-subtitle">So sánh các khoảng tuổi thọ tối thiểu, trung vị và tối đa</span>
           </div>
           <div class="chart-body">
             <canvas id="compareBarChart"></canvas>
@@ -1982,12 +1982,12 @@
       const totalPartsCount = summaryList.length;
       const activePartsCount = summaryList.filter(s => s.CurrentLife > 0 || s.CompletedCycles > 0).length;
       const atRiskCount = summaryList.filter(s => s.RiskLevel !== 'NORMAL').length;
-      const predictedCount = summaryList.filter(s => s.CurrentLife > 0 && (s.RemainingShots <= 0.15 * (s.TypicalLife || 1) || (s.EstimatedDays !== null && s.EstimatedDays <= 7))).length;
+      const shortLifeCountTotal = summaryList.reduce((sum, s) => sum + (s.ShortLifeCount || 0), 0);
 
       if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
       if ($("activePartsVal")) $("activePartsVal").textContent = activePartsCount.toLocaleString();
       if ($("atRiskVal")) $("atRiskVal").textContent = atRiskCount.toLocaleString();
-      if ($("predictedVal")) $("predictedVal").textContent = predictedCount.toLocaleString();
+      if ($("shortLifeEventsVal")) $("shortLifeEventsVal").textContent = shortLifeCountTotal.toLocaleString();
 
       // Render Top At Risk Banner
       const atRiskRows = summaryList
@@ -2056,10 +2056,11 @@
         return;
       }
 
-      // Chart 1: Top MAX Shots Horizontal Bar Chart
+      // Chart 1: Top Components - Maximum / Typical Life
       const sortedByMax = [...rows].sort((a, b) => b.MaxShots - a.MaxShots).slice(0, 6);
       const maxLabels = sortedByMax.map(r => r.Part);
       const maxData = sortedByMax.map(r => r.MaxShots);
+      const typicalData = sortedByMax.map(r => r.TypicalLife);
 
       const ctxMax = document.getElementById("topMaxChart");
       if (ctxMax) {
@@ -2068,25 +2069,37 @@
           type: 'bar',
           data: {
             labels: maxLabels,
-            datasets: [{
-              label: 'MAX Shots',
-              data: maxData,
-              backgroundColor: 'rgba(79, 70, 229, 0.85)',
-              borderColor: '#4338ca',
-              borderWidth: 1,
-              borderRadius: 6,
-              borderSkipped: false
-            }]
+            datasets: [
+              {
+                label: 'MAX Life',
+                data: maxData,
+                backgroundColor: 'rgba(79, 70, 229, 0.85)',
+                borderColor: '#4338ca',
+                borderWidth: 1,
+                borderRadius: 4
+              },
+              {
+                label: 'Typical Life',
+                data: typicalData,
+                backgroundColor: 'rgba(245, 158, 11, 0.85)',
+                borderColor: '#d97706',
+                borderWidth: 1,
+                borderRadius: 4
+              }
+            ]
           },
           options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-              legend: { display: false },
+              legend: {
+                position: 'top',
+                labels: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' }, boxWidth: 12 }
+              },
               tooltip: {
                 callbacks: {
-                  label: (ctx) => ` MAX Shots: ${ctx.raw.toLocaleString()} shots`
+                  label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} shots`
                 }
               }
             },
@@ -2107,11 +2120,11 @@
         });
       }
 
-      // Chart 2: MIN vs AVERAGE vs MAX Grouped Bar Chart
+      // Chart 2: MIN vs MEDIAN vs MAX Life Grouped Bar Chart
       const topRows = [...rows].sort((a, b) => b.MaxShots - a.MaxShots).slice(0, 5);
       const compLabels = topRows.map(r => r.Part);
       const minData = topRows.map(r => r.MinShots);
-      const avgData = topRows.map(r => r.AverageShots);
+      const medianData = topRows.map(r => r.MedianShots);
       const maxCompData = topRows.map(r => r.MaxShots);
 
       const ctxComp = document.getElementById("compareBarChart");
@@ -2123,7 +2136,7 @@
             labels: compLabels,
             datasets: [
               {
-                label: 'MIN Shots',
+                label: 'MIN Life',
                 data: minData,
                 backgroundColor: 'rgba(16, 185, 129, 0.85)',
                 borderColor: '#059669',
@@ -2131,15 +2144,15 @@
                 borderRadius: 4
               },
               {
-                label: 'AVERAGE Shots',
-                data: avgData,
+                label: 'MEDIAN Life',
+                data: medianData,
                 backgroundColor: 'rgba(99, 102, 241, 0.85)',
                 borderColor: '#4f46e5',
                 borderWidth: 1,
                 borderRadius: 4
               },
               {
-                label: 'MAX Shots',
+                label: 'MAX Life',
                 data: maxCompData,
                 backgroundColor: 'rgba(59, 130, 246, 0.85)',
                 borderColor: '#2563eb',
@@ -2158,6 +2171,26 @@
               },
               tooltip: {
                 callbacks: {
+                  label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} shots`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' } }
+              },
+              y: {
+                grid: { color: '#f1f5f9' },
+                ticks: {
+                  callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val,
+                  font: { family: 'Plus Jakarta Sans', size: 10 }
+                }
+              }
+            }
+          }
+        });
+      }
                   label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} shots`
                 }
               }
