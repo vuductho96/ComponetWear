@@ -726,8 +726,9 @@
         const outputIndex = find("output", "shootnumber", "shoot", "pcs", "outputpcs", "shotcount");
         if (dateIndex < 0 || outputIndex < 0) throw Error("Header Shoot chưa đúng. Cần cột Date và Output/ShootNumber.");
 
-        return matrix.map(row => {
-          if (!row || !row.length) return null;
+        const shootMap = new Map();
+        matrix.forEach(row => {
+          if (!row || !row.length) return;
           const pName = partIndex >= 0 ? String(row[partIndex] || "").trim() : "";
           let die = dieIndex >= 0 ? String(row[dieIndex] || "").trim() : "";
           if (!die && pName) {
@@ -737,12 +738,15 @@
           const rawDate = row[dateIndex];
           const isoDate = toIso(rawDate);
           const outVal = Number(String(row[outputIndex] || "0").replace(/,/g, ""));
-          return {
-            Date: isoDate,
-            DieSet: die || pName || "Unknown",
-            Output: isNaN(outVal) ? 0 : outVal
-          };
-        }).filter(row => row && row.Date && row.DieSet);
+          if (!isoDate || (!die && !pName) || isNaN(outVal) || outVal <= 0) return;
+
+          const key = isoDate + "|" + (die || pName);
+          const existing = shootMap.get(key) || { Date: isoDate, DieSet: die || pName || "Unknown", Output: 0 };
+          existing.Output += outVal;
+          shootMap.set(key, existing);
+        });
+
+        return Array.from(shootMap.values());
       }
 
       const partIndex = find("part", "partname", "ten");
@@ -800,19 +804,25 @@
         const partIndex = find("part", "partname", "tenlinhkien", "ten");
         const outputIndex = find("output", "shootnumber", "shoot", "pcs", "outputpcs", "shotcount");
         if (dateIndex < 0 || outputIndex < 0) throw Error("Header Shoot chưa đúng. Cần cột Date và Output/ShootNumber.");
-        return rows.map(row => {
+        const shootMap = new Map();
+        rows.forEach(row => {
           const pName = partIndex >= 0 ? String(row[partIndex] || "").trim() : "";
           let die = dieIndex >= 0 ? String(row[dieIndex] || "").trim() : "";
           if (!die && pName) {
             const m = masterData.find(x => x.PartName && x.PartName.toLowerCase() === pName.toLowerCase());
             if (m) die = m.NewDieSet || m.OldDieSet;
           }
-          return {
-            Date: toIso(row[dateIndex]),
-            DieSet: die || pName || "Unknown",
-            Output: Number(String(row[outputIndex] || "0").replace(/,/g, ""))
-          };
-        }).filter(row => row.Date && row.DieSet);
+          const isoDate = toIso(row[dateIndex]);
+          const outVal = Number(String(row[outputIndex] || "0").replace(/,/g, ""));
+          if (!isoDate || (!die && !pName) || isNaN(outVal) || outVal <= 0) return;
+
+          const key = isoDate + "|" + (die || pName);
+          const existing = shootMap.get(key) || { Date: isoDate, DieSet: die || pName || "Unknown", Output: 0 };
+          existing.Output += outVal;
+          shootMap.set(key, existing);
+        });
+
+        return Array.from(shootMap.values());
       }
 
       const partIndex = find("part", "partname", "ten");
@@ -841,14 +851,24 @@
     function importShoot() {
       try {
         const rows = parseTable($("shootPaste").value, "shoot");
-        const map = new Map(db.shoot.map(row => [row.Date + "|" + row.DieSet, row]));
+        const map = new Map();
+        db.shoot.forEach(row => {
+          const key = row.Date + "|" + row.DieSet;
+          map.set(key, { Date: row.Date, DieSet: row.DieSet, Output: Number(row.Output) || 0 });
+        });
+
         let added = 0;
         let updated = 0;
         rows.forEach(row => {
           if (!Number.isFinite(row.Output)) throw Error("Output phải là số.");
           const key = row.Date + "|" + row.DieSet;
-          map.has(key) ? updated++ : added++;
-          map.set(key, row);
+          if (map.has(key)) {
+            updated++;
+            map.get(key).Output += row.Output;
+          } else {
+            added++;
+            map.set(key, { Date: row.Date, DieSet: row.DieSet, Output: row.Output });
+          }
         });
         db.shoot = [...map.values()].sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
         db.rawShoot = JSON.parse(JSON.stringify(db.shoot));
@@ -1125,7 +1145,8 @@ if (activeM) {
             .filter(row => monthKey(row.ReplaceDate) === ym && (row.Part ? row.Part === partName : row.DieSet === dieSet))
             .map(row => [Number(row.ReplaceDate.slice(8, 10)), row]));
 
-          const shootMap = new Map(db.shoot
+          const shootMap = new Map();
+          db.shoot
             .filter(row => {
               if (monthKey(row.Date) !== ym) return false;
               const rDie = String(row.DieSet || "").toLowerCase().trim();
@@ -1134,7 +1155,12 @@ if (activeM) {
               const pName = String(item.part || "").toLowerCase().trim();
               return (mNew && rDie === mNew) || (mOld && rDie === mOld) || (pName && rDie === pName);
             })
-            .map(row => [Number(row.Date.slice(8, 10)), row]));
+            .forEach(row => {
+              const dayNum = Number(row.Date.slice(8, 10));
+              const existing = shootMap.get(dayNum) || { Date: row.Date, DieSet: dieSet, Output: 0 };
+              existing.Output += (Number(row.Output) || 0);
+              shootMap.set(dayNum, existing);
+            });
 
           const totalShoot = Array.from(shootMap.values()).reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
           const displayTotalShoot = formatShootDisplay(totalShoot);

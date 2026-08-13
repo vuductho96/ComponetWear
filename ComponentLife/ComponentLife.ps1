@@ -103,7 +103,11 @@ try {
                     $outVal = [decimal]$row.Output
                     if ($outVal -le 0) { continue }
                     $key = "$($row.Date)|$($row.DieSet)"
-                    $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; DieSet=[string]$row.DieSet; Output=$outVal }
+                    if ($map.Contains($key)) {
+                        $map[$key].Output += $outVal
+                    } else {
+                        $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; DieSet=[string]$row.DieSet; Output=$outVal }
+                    }
                 }
                 $cleanList = @($map.Values | Sort-Object Date, DieSet)
                 $jsonStr = $cleanList | ConvertTo-Json -Depth 8
@@ -136,7 +140,11 @@ try {
                         $outVal = [decimal]$row.Output
                         if ($outVal -le 0) { continue }
                         $key = "$($row.Date)|$($row.DieSet)"
-                        $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; DieSet=[string]$row.DieSet; Output=$outVal }
+                        if ($map.Contains($key)) {
+                            $map[$key].Output += $outVal
+                        } else {
+                            $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; DieSet=[string]$row.DieSet; Output=$outVal }
+                        }
                     }
                     $rawShootList = @($map.Values | Sort-Object Date, DieSet)
                     $jsonStr = $rawShootList | ConvertTo-Json -Depth 8
@@ -156,7 +164,11 @@ try {
                     $key = "$($s.Date)|$($s.DieSet)"
                     $outVal = [decimal]($s.Output)
                     if ($outVal -gt 0) {
-                        $shootMap[$key] = [pscustomobject]@{ Date = [string]$s.Date; DieSet = [string]$s.DieSet; Output = $outVal }
+                        if ($shootMap.Contains($key)) {
+                            $shootMap[$key].Output += $outVal
+                        } else {
+                            $shootMap[$key] = [pscustomobject]@{ Date = [string]$s.Date; DieSet = [string]$s.DieSet; Output = $outVal }
+                        }
                     }
                 }
 
