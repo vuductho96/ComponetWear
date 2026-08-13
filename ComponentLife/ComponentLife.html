@@ -1062,25 +1062,25 @@
 
       <!-- Metrics KPI Dashboard on Header Right -->
       <div class="header-metrics">
-        <div class="cb-metric is-parts" title="TOTAL COMPONENTS: Tổng số linh kiện đang quản lý">
+        <div class="cb-metric is-parts" title="TOTAL COMPONENTS: Tổng số linh kiện đang quản lý trong phạm vi hiển thị">
           <span class="cb-metric-label">TOTAL COMPONENTS</span>
           <span class="cb-metric-val" id="totalPartsVal">0</span>
           <span class="cb-metric-shots">mã lk</span>
         </div>
-        <div class="cb-metric is-shots" title="ACTIVE COMPONENTS: Số linh kiện đang sử dụng sản xuất">
+        <div class="cb-metric is-shots" title="ACTIVE COMPONENTS: Số linh kiện hiện đang sử dụng sản xuất">
           <span class="cb-metric-label">ACTIVE COMPONENTS</span>
           <span class="cb-metric-val" id="activePartsVal">0</span>
           <span class="cb-metric-shots">mã active</span>
         </div>
-        <div class="cb-metric is-min" title="AT RISK: Số linh kiện có dấu hiệu rủi ro/cần thay">
+        <div class="cb-metric is-min" title="AT RISK: Số linh kiện có dấu hiệu mòn/rủi ro cần lưu ý">
           <span class="cb-metric-label">AT RISK</span>
           <span class="cb-metric-val" id="atRiskVal" style="color:#c2410c;">0</span>
           <span class="cb-metric-shots">rủi ro</span>
         </div>
-        <div class="cb-metric is-max" title="SHORT LIFE EVENTS: Số lần phát hiện cycle hỏng sớm bất thường">
-          <span class="cb-metric-label">SHORT LIFE EVENTS</span>
-          <span class="cb-metric-val" id="shortLifeEventsVal" style="color:#dc2626;">0</span>
-          <span class="cb-metric-shots">sự cố</span>
+        <div class="cb-metric is-max" title="PREDICTED REPLACEMENTS: Số linh kiện dự kiến cần thay trong thời gian sắp tới">
+          <span class="cb-metric-label">PREDICTED</span>
+          <span class="cb-metric-val" id="predictedVal" style="color:#dc2626;">0</span>
+          <span class="cb-metric-shots">dự kiến thay</span>
         </div>
       </div>
     </header>
@@ -1166,11 +1166,9 @@
     </section>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="month">📅 Month Sheet</button>
-      <button class="tab" data-tab="summary">📊 Cycle Summary</button>
-      <button class="tab" data-tab="wear">🔬 Wear Analysis</button>
-      <button class="tab" data-tab="prediction">🔮 Prediction</button>
-      <button class="tab" data-tab="report">📋 Management Report</button>
+      <button class="tab active" data-tab="month">📅 Month Sheet (Lưới Theo Dõi)</button>
+      <button class="tab" data-tab="summary">📊 Thống Kê &amp; Dự Báo Tuổi Thọ</button>
+      <button class="tab" data-tab="report">🚨 Báo Cáo Rủi Ro &amp; Sức Khỏe Khuôn</button>
     </nav>
 
     <section id="monthTab">
@@ -1212,8 +1210,8 @@
       <div id="chartsContainer" class="summary-charts-grid" style="display:grid;">
         <div class="chart-card">
           <div class="chart-header">
-            <span class="chart-title">🏆 Top Components – Maximum / Typical Life</span>
-            <span class="chart-subtitle">So sánh mốc sản lượng MAX và mốc tuổi thọ điển hình (Typical Life)</span>
+            <span class="chart-title">🏆 Top Linh Kiện Sản Lượng MAX Shots Cao Nhất</span>
+            <span class="chart-subtitle">So sánh mốc dập tối đa giữa các linh kiện</span>
           </div>
           <div class="chart-body">
             <canvas id="topMaxChart"></canvas>
@@ -1222,8 +1220,8 @@
 
         <div class="chart-card">
           <div class="chart-header">
-            <span class="chart-title">📊 MIN vs MEDIAN vs MAX Life</span>
-            <span class="chart-subtitle">So sánh các khoảng tuổi thọ tối thiểu, trung vị và tối đa</span>
+            <span class="chart-title">📊 So Sánh MIN - AVERAGE - MAX Shots theo Linh Kiện</span>
+            <span class="chart-subtitle">Phân tích chênh lệch sản lượng dập giữa các mốc cycle</span>
           </div>
           <div class="chart-body">
             <canvas id="compareBarChart"></canvas>
@@ -1253,123 +1251,27 @@
           <tbody id="summaryRows"></tbody>
         </table>
       </div>
-    </section>
 
-    <!-- Tab 3: Wear Analysis -->
-    <section id="wearTab" class="panel card hidden">
-      <h2>Component Wear Analysis</h2>
-      <p class="note">Phân tích chuyên sâu độ mòn, xu hướng tuổi thọ và phát hiện các cycle bất thường.</p>
-      
-      <!-- A. Life Distribution -->
-      <div style="margin-top: 18px;">
-        <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">A. Cycle Life Distribution (Phân bố Tuổi Thọ)</h3>
-        <div class="distribution-grid">
-          <div class="dist-box">
-            <div class="dist-count" id="distUnder20k">0</div>
-            <div class="dist-label">&lt; 20,000 shots</div>
-          </div>
-          <div class="dist-box">
-            <div class="dist-count" id="dist20to50k">0</div>
-            <div class="dist-label">20,000 – 50,000 shots</div>
-          </div>
-          <div class="dist-box">
-            <div class="dist-count" id="dist50to100k">0</div>
-            <div class="dist-label">50,000 – 100,000 shots</div>
-          </div>
-          <div class="dist-box">
-            <div class="dist-count" id="dist100to300k">0</div>
-            <div class="dist-label">100,000 – 300,000 shots</div>
-          </div>
-          <div class="dist-box">
-            <div class="dist-count" id="distOver300k">0</div>
-            <div class="dist-label">&gt; 300,000 shots</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- B & C. Trend & Short Life Detection -->
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; margin-top: 20px;">
-        <!-- B. Life Trend Analysis -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <span class="chart-title">📈 B. Life Trend (Xu Hướng Tuổi Thọ Theo Thời Gian)</span>
-            <span class="chart-subtitle">Theo dõi diễn biến tuổi thọ trung bình qua các tháng</span>
-          </div>
-          <div class="summary-box" style="margin-top: 8px;">
-            <table class="summary">
-              <thead>
-                <tr>
-                  <th>Part</th>
-                  <th>Mold</th>
-                  <th style="text-align:center;">Trend</th>
-                  <th style="text-align:right;">Recent Avg</th>
-                  <th style="text-align:right;">Historical Avg</th>
-                </tr>
-              </thead>
-              <tbody id="lifeTrendRows"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- C. Short Life Detection -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <span class="chart-title">⚡ C. Short Life Detection (Cycle Hỏng Sớm Bất Thường)</span>
-            <span class="chart-subtitle">Cảnh báo cycle có tuổi thọ &lt; 65% mốc trung vị</span>
-          </div>
-          <div class="summary-box" style="margin-top: 8px;">
-            <table class="summary">
-              <thead>
-                <tr>
-                  <th>Part</th>
-                  <th>Mold</th>
-                  <th style="text-align:right;">Short Cycle</th>
-                  <th style="text-align:right;">Median Life</th>
-                  <th style="text-align:center;">Status</th>
-                </tr>
-              </thead>
-              <tbody id="shortLifeRows"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- D. Part Comparison across Molds -->
-      <div style="margin-top: 20px;">
-        <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">D. Part Comparison across Molds (So sánh linh kiện trên các khuôn)</h3>
-        <div class="summary-box">
-          <table class="summary">
-            <thead>
-              <tr>
-                <th>Part</th>
-                <th>Mold (DieSet)</th>
-                <th style="text-align:center;">Completed Cycles</th>
-                <th style="text-align:right;">AVG Life</th>
-                <th style="text-align:right;">MEDIAN Life</th>
-                <th style="text-align:center;">Comparison Status</th>
-              </tr>
-            </thead>
-            <tbody id="partCompareRows"></tbody>
-          </table>
-        </div>
+      <!-- Prediction Grid for Active Components -->
+      <div style="margin-top: 24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--ink); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+          <span>🔮 Dự Báo Sản Lượng Còn Lại &amp; Thời Gian Cần Thay (Active Components)</span>
+        </h3>
+        <div class="prediction-grid" id="predictionGrid"></div>
       </div>
     </section>
 
-    <!-- Tab 4: Prediction -->
-    <section id="predictionTab" class="panel card hidden">
-      <h2>Component Life &amp; Replacement Prediction</h2>
-      <p class="note">Dự báo sản lượng shot còn lại và thời gian dự kiến cần thay thế linh kiện active.</p>
-
-      <div class="prediction-grid" id="predictionGrid"></div>
-    </section>
-
-    <!-- Tab 5: Management Report -->
+    <!-- Tab 3: Management Risk & Report -->
     <section id="reportTab" class="panel card hidden">
-      <h2>Executive Management Report</h2>
-      <p class="note">Báo cáo tổng hợp dành cho quản lý, QA và Mold Engineering.</p>
+      <h2>🚨 Báo Cáo Rủi Ro &amp; Chỉ Số Sức Khỏe Khuôn</h2>
+      <p class="note">Báo cáo tổng hợp dành cho quản lý, QA và Kỹ thuật Mold Engineering.</p>
+      
+      <div class="actions" style="margin-bottom: 16px;">
+        <button onclick="exportExcelFull()">📊 Export Excel Báo cáo 5-Sheet</button>
+      </div>
 
       <!-- Mold Health Scorecards -->
-      <div style="margin-top: 16px;">
+      <div style="margin-top: 12px;">
         <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">🏆 Mold Health Scorecard (Chỉ số Sức Khỏe Khuôn Mẫu)</h3>
         <div class="scorecard-grid" id="moldScorecardGrid"></div>
       </div>
@@ -1982,12 +1884,12 @@
       const totalPartsCount = summaryList.length;
       const activePartsCount = summaryList.filter(s => s.CurrentLife > 0 || s.CompletedCycles > 0).length;
       const atRiskCount = summaryList.filter(s => s.RiskLevel !== 'NORMAL').length;
-      const shortLifeCountTotal = summaryList.reduce((sum, s) => sum + (s.ShortLifeCount || 0), 0);
+      const predictedCount = summaryList.filter(s => s.CurrentLife > 0 && (s.RemainingShots <= 0.15 * (s.TypicalLife || 1) || (s.EstimatedDays !== null && s.EstimatedDays <= 7))).length;
 
       if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
       if ($("activePartsVal")) $("activePartsVal").textContent = activePartsCount.toLocaleString();
       if ($("atRiskVal")) $("atRiskVal").textContent = atRiskCount.toLocaleString();
-      if ($("shortLifeEventsVal")) $("shortLifeEventsVal").textContent = shortLifeCountTotal.toLocaleString();
+      if ($("predictedVal")) $("predictedVal").textContent = predictedCount.toLocaleString();
 
       // Render Top At Risk Banner
       const atRiskRows = summaryList
@@ -2056,11 +1958,10 @@
         return;
       }
 
-      // Chart 1: Top Components - Maximum / Typical Life
+      // Chart 1: Top MAX Shots Horizontal Bar Chart
       const sortedByMax = [...rows].sort((a, b) => b.MaxShots - a.MaxShots).slice(0, 6);
       const maxLabels = sortedByMax.map(r => r.Part);
       const maxData = sortedByMax.map(r => r.MaxShots);
-      const typicalData = sortedByMax.map(r => r.TypicalLife);
 
       const ctxMax = document.getElementById("topMaxChart");
       if (ctxMax) {
@@ -2069,37 +1970,25 @@
           type: 'bar',
           data: {
             labels: maxLabels,
-            datasets: [
-              {
-                label: 'MAX Life',
-                data: maxData,
-                backgroundColor: 'rgba(79, 70, 229, 0.85)',
-                borderColor: '#4338ca',
-                borderWidth: 1,
-                borderRadius: 4
-              },
-              {
-                label: 'Typical Life',
-                data: typicalData,
-                backgroundColor: 'rgba(245, 158, 11, 0.85)',
-                borderColor: '#d97706',
-                borderWidth: 1,
-                borderRadius: 4
-              }
-            ]
+            datasets: [{
+              label: 'MAX Shots',
+              data: maxData,
+              backgroundColor: 'rgba(79, 70, 229, 0.85)',
+              borderColor: '#4338ca',
+              borderWidth: 1,
+              borderRadius: 6,
+              borderSkipped: false
+            }]
           },
           options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-              legend: {
-                position: 'top',
-                labels: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' }, boxWidth: 12 }
-              },
+              legend: { display: false },
               tooltip: {
                 callbacks: {
-                  label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} shots`
+                  label: (ctx) => ` MAX Shots: ${ctx.raw.toLocaleString()} shots`
                 }
               }
             },
@@ -2120,11 +2009,11 @@
         });
       }
 
-      // Chart 2: MIN vs MEDIAN vs MAX Life Grouped Bar Chart
+      // Chart 2: MIN vs AVERAGE vs MAX Grouped Bar Chart
       const topRows = [...rows].sort((a, b) => b.MaxShots - a.MaxShots).slice(0, 5);
       const compLabels = topRows.map(r => r.Part);
       const minData = topRows.map(r => r.MinShots);
-      const medianData = topRows.map(r => r.MedianShots);
+      const avgData = topRows.map(r => r.AverageShots);
       const maxCompData = topRows.map(r => r.MaxShots);
 
       const ctxComp = document.getElementById("compareBarChart");
@@ -2136,7 +2025,7 @@
             labels: compLabels,
             datasets: [
               {
-                label: 'MIN Life',
+                label: 'MIN Shots',
                 data: minData,
                 backgroundColor: 'rgba(16, 185, 129, 0.85)',
                 borderColor: '#059669',
@@ -2144,15 +2033,15 @@
                 borderRadius: 4
               },
               {
-                label: 'MEDIAN Life',
-                data: medianData,
+                label: 'AVERAGE Shots',
+                data: avgData,
                 backgroundColor: 'rgba(99, 102, 241, 0.85)',
                 borderColor: '#4f46e5',
                 borderWidth: 1,
                 borderRadius: 4
               },
               {
-                label: 'MAX Life',
+                label: 'MAX Shots',
                 data: maxCompData,
                 backgroundColor: 'rgba(59, 130, 246, 0.85)',
                 borderColor: '#2563eb',
@@ -2171,26 +2060,6 @@
               },
               tooltip: {
                 callbacks: {
-                  label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} shots`
-                }
-              }
-            },
-            scales: {
-              x: {
-                grid: { display: false },
-                ticks: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' } }
-              },
-              y: {
-                grid: { color: '#f1f5f9' },
-                ticks: {
-                  callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val,
-                  font: { family: 'Plus Jakarta Sans', size: 10 }
-                }
-              }
-            }
-          }
-        });
-      }
                   label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} shots`
                 }
               }
