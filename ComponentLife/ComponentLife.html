@@ -740,8 +740,8 @@
           const outVal = Number(String(row[outputIndex] || "0").replace(/,/g, ""));
           if (!isoDate || (!die && !pName) || isNaN(outVal) || outVal <= 0) return;
 
-          const key = isoDate + "|" + (die || pName);
-          const existing = shootMap.get(key) || { Date: isoDate, DieSet: die || pName || "Unknown", Output: 0 };
+          const key = isoDate + "|" + pName + "|" + (die || pName);
+          const existing = shootMap.get(key) || { Date: isoDate, Part: pName, DieSet: die || pName || "Unknown", Output: 0 };
           existing.Output += outVal;
           shootMap.set(key, existing);
         });
@@ -816,8 +816,8 @@
           const outVal = Number(String(row[outputIndex] || "0").replace(/,/g, ""));
           if (!isoDate || (!die && !pName) || isNaN(outVal) || outVal <= 0) return;
 
-          const key = isoDate + "|" + (die || pName);
-          const existing = shootMap.get(key) || { Date: isoDate, DieSet: die || pName || "Unknown", Output: 0 };
+          const key = isoDate + "|" + pName + "|" + (die || pName);
+          const existing = shootMap.get(key) || { Date: isoDate, Part: pName, DieSet: die || pName || "Unknown", Output: 0 };
           existing.Output += outVal;
           shootMap.set(key, existing);
         });
@@ -853,21 +853,21 @@
         const rows = parseTable($("shootPaste").value, "shoot");
         const map = new Map();
         db.shoot.forEach(row => {
-          const key = row.Date + "|" + row.DieSet;
-          map.set(key, { Date: row.Date, DieSet: row.DieSet, Output: Number(row.Output) || 0 });
+          const key = row.Date + "|" + (row.Part || "") + "|" + row.DieSet;
+          map.set(key, { Date: row.Date, Part: row.Part || "", DieSet: row.DieSet, Output: Number(row.Output) || 0 });
         });
 
         let added = 0;
         let updated = 0;
         rows.forEach(row => {
           if (!Number.isFinite(row.Output)) throw Error("Output phải là số.");
-          const key = row.Date + "|" + row.DieSet;
+          const key = row.Date + "|" + (row.Part || "") + "|" + row.DieSet;
           if (map.has(key)) {
             updated++;
             map.get(key).Output += row.Output;
           } else {
             added++;
-            map.set(key, { Date: row.Date, DieSet: row.DieSet, Output: row.Output });
+            map.set(key, { Date: row.Date, Part: row.Part || "", DieSet: row.DieSet, Output: row.Output });
           }
         });
         db.shoot = [...map.values()].sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
@@ -1142,27 +1142,62 @@ if (activeM) {
           const partName = item.part;
 
           const replacementMap = new Map(db.replacements
-            .filter(row => monthKey(row.ReplaceDate) === ym && (row.Part ? row.Part === partName : row.DieSet === dieSet))
+            .filter(row => {
+              if (monthKey(row.ReplaceDate) !== ym) return false;
+              const rPart = String(row.Part || "").toLowerCase().trim();
+              const rDie = String(row.DieSet || "").toLowerCase().trim();
+              const pName = String(partName || "").toLowerCase().trim();
+              const dDie = String(dieSet || "").toLowerCase().trim();
+
+              if (rPart && pName) {
+                return rPart === pName;
+              }
+              return (dDie && rDie === dDie) || (pName && rDie === pName);
+            })
             .map(row => [Number(row.ReplaceDate.slice(8, 10)), row]));
 
           const shootMap = new Map();
           db.shoot
             .filter(row => {
               if (monthKey(row.Date) !== ym) return false;
+              const rPart = String(row.Part || "").toLowerCase().trim();
               const rDie = String(row.DieSet || "").toLowerCase().trim();
               const mNew = String(item.moldNew || "").toLowerCase().trim();
               const mOld = String(item.moldOld || "").toLowerCase().trim();
               const pName = String(item.part || "").toLowerCase().trim();
+
+              if (rPart && pName) {
+                return rPart === pName;
+              }
               return (mNew && rDie === mNew) || (mOld && rDie === mOld) || (pName && rDie === pName);
             })
             .forEach(row => {
               const dayNum = Number(row.Date.slice(8, 10));
-              const existing = shootMap.get(dayNum) || { Date: row.Date, DieSet: dieSet, Output: 0 };
+              const existing = shootMap.get(dayNum) || { Date: row.Date, Part: partName, DieSet: dieSet, Output: 0 };
               existing.Output += (Number(row.Output) || 0);
               shootMap.set(dayNum, existing);
             });
 
-          const totalShoot = Array.from(shootMap.values()).reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
+          // Apply replacement date shifting FOR THIS SPECIFIC PART ONLY
+          const displayShootMap = new Map();
+          shootMap.forEach((valObj, dayNum) => {
+            if (valObj.Output > 0) {
+              displayShootMap.set(dayNum, valObj.Output);
+            }
+          });
+
+          replacementMap.forEach((repRow, repDay) => {
+            if (displayShootMap.has(repDay)) {
+              const valToShift = displayShootMap.get(repDay);
+              if (valToShift > 0) {
+                displayShootMap.delete(repDay);
+                const nextDay = repDay + 1;
+                displayShootMap.set(nextDay, (displayShootMap.get(nextDay) || 0) + valToShift);
+              }
+            }
+          });
+
+          const totalShoot = Array.from(displayShootMap.values()).reduce((sum, val) => sum + (Number(val) || 0), 0);
           const displayTotalShoot = formatShootDisplay(totalShoot);
           const hoverTotalShoot = formatShootHover(totalShoot);
 
@@ -1176,8 +1211,7 @@ if (activeM) {
               return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="replacement" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}">${esc(value)}</div></td>`;
             }
 
-            const shot = shootMap.get(day);
-            const rawVal = shot ? Number(shot.Output) || 0 : 0;
+            const rawVal = displayShootMap.get(day) || 0;
             const displayVal = rawVal > 0 ? formatShootDisplay(rawVal) : "·";
             const hoverVal = formatShootHover(rawVal);
             const cls = rawVal > 0 ? "cell has-output" : "cell zero";

@@ -102,14 +102,16 @@ try {
                     if ($null -eq $row.Output -or [string]$row.Output -eq "") { continue }
                     $outVal = [decimal]$row.Output
                     if ($outVal -le 0) { continue }
-                    $key = "$($row.Date)|$($row.DieSet)"
+                    $partStr = if ($row.Part) { [string]$row.Part } else { "" }
+                    $dieStr = if ($row.DieSet) { [string]$row.DieSet } else { "" }
+                    $key = "$($row.Date)|$partStr|$dieStr"
                     if ($map.Contains($key)) {
                         $map[$key].Output += $outVal
                     } else {
-                        $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; DieSet=[string]$row.DieSet; Output=$outVal }
+                        $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; Part=$partStr; DieSet=$dieStr; Output=$outVal }
                     }
                 }
-                $cleanList = @($map.Values | Sort-Object Date, DieSet)
+                $cleanList = @($map.Values | Sort-Object Date, Part, DieSet)
                 $jsonStr = $cleanList | ConvertTo-Json -Depth 8
                 if ($cleanList.Count -eq 0) { $jsonStr = "[]" }
                 elseif ($cleanList.Count -eq 1 -and -not $jsonStr.Trim().StartsWith("[")) { $jsonStr = "[$jsonStr]" }
@@ -139,14 +141,16 @@ try {
                         if ($null -eq $row.Output -or [string]$row.Output -eq "") { continue }
                         $outVal = [decimal]$row.Output
                         if ($outVal -le 0) { continue }
-                        $key = "$($row.Date)|$($row.DieSet)"
+                        $partStr = if ($row.Part) { [string]$row.Part } else { "" }
+                        $dieStr = if ($row.DieSet) { [string]$row.DieSet } else { "" }
+                        $key = "$($row.Date)|$partStr|$dieStr"
                         if ($map.Contains($key)) {
                             $map[$key].Output += $outVal
                         } else {
-                            $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; DieSet=[string]$row.DieSet; Output=$outVal }
+                            $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; Part=$partStr; DieSet=$dieStr; Output=$outVal }
                         }
                     }
-                    $rawShootList = @($map.Values | Sort-Object Date, DieSet)
+                    $rawShootList = @($map.Values | Sort-Object Date, Part, DieSet)
                     $jsonStr = $rawShootList | ConvertTo-Json -Depth 8
                     if ($rawShootList.Count -eq 0) { $jsonStr = "[]" }
                     elseif ($rawShootList.Count -eq 1 -and -not $jsonStr.Trim().StartsWith("[")) { $jsonStr = "[$jsonStr]" }
@@ -161,54 +165,20 @@ try {
                 # Build in-memory shoot map for calculations & display
                 $shootMap = [ordered]@{}
                 foreach ($s in $rawShootList) {
-                    $key = "$($s.Date)|$($s.DieSet)"
+                    $partStr = if ($s.Part) { [string]$s.Part } else { "" }
+                    $dieStr = if ($s.DieSet) { [string]$s.DieSet } else { "" }
+                    $key = "$($s.Date)|$partStr|$dieStr"
                     $outVal = [decimal]($s.Output)
                     if ($outVal -gt 0) {
                         if ($shootMap.Contains($key)) {
                             $shootMap[$key].Output += $outVal
                         } else {
-                            $shootMap[$key] = [pscustomobject]@{ Date = [string]$s.Date; DieSet = [string]$s.DieSet; Output = $outVal }
+                            $shootMap[$key] = [pscustomobject]@{ Date = [string]$s.Date; Part = $partStr; DieSet = $dieStr; Output = $outVal }
                         }
                     }
                 }
 
-                # Shift shoot outputs on replacement dates (skip '0', '-', '·', empty)
-                foreach ($r in $repList) {
-                    $repDate = [string]$r.ReplaceDate
-                    $dieSet = [string]$r.DieSet
-                    $part = [string]$r.Part
-                    $lbl = if ($r.Label) { [string]$r.Label.Trim() } else { "" }
-                    if (-not $repDate -or $lbl -eq "" -or $lbl -eq "0" -or $lbl -eq "-" -or $lbl -eq "·") { continue }
-
-                    $targetKeys = @($shootMap.Keys | Where-Object {
-                        $kDate, $kDie = $_.Split('|')
-                        if ($kDate -eq $repDate) {
-                            if ($dieSet -and $kDie -eq $dieSet) { return $true }
-                            if ($part -and $kDie -eq $part) { return $true }
-                        }
-                        return $false
-                    })
-
-                    foreach ($tk in $targetKeys) {
-                        $shootRow = $shootMap[$tk]
-                        if ($shootRow -and $shootRow.Output -gt 0) {
-                            $valToShift = $shootRow.Output
-                            $shootMap.Remove($tk)
-
-                            $dt = [datetime]::ParseExact($repDate, "yyyy-MM-dd", $null)
-                            $nextDate = $dt.AddDays(1).ToString("yyyy-MM-dd")
-                            $nextKey = "$nextDate|$($shootRow.DieSet)"
-
-                            if ($shootMap.Contains($nextKey)) {
-                                $shootMap[$nextKey].Output += $valToShift
-                            } else {
-                                $shootMap[$nextKey] = [pscustomobject]@{ Date = $nextDate; DieSet = $shootRow.DieSet; Output = $valToShift }
-                            }
-                        }
-                    }
-                }
-
-                $cleanShoot = @($shootMap.Values | Sort-Object Date, DieSet)
+                $cleanShoot = @($shootMap.Values | Sort-Object Date, Part, DieSet)
                 $cleanRep = @($repList | Where-Object {
                     $lbl = if ($_.Label) { [string]$_.Label.Trim() } else { "" }
                     $lbl -ne "" -and $lbl -ne "0" -and $lbl -ne "-" -and $lbl -ne "·"
