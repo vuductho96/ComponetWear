@@ -3,168 +3,138 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mold Life Span</title>
-  <!-- SheetJS -->
+  <title>Mold Life Span | Component Life</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <!-- SheetJS & Chart.js -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
-      --bg: #f6f8fb;
+      --bg: #f8fafc;
       --surface: #ffffff;
-      --ink: #071833;
-      --muted: #60708a;
-      --line: #d8e0ea;
-      --line2: #edf1f6;
-      --blue: #0f6bff;
-      --blue2: #0457d8;
-      --green: #00994d;
-      --yellow: #ffed7a;
-      --shadow: 0 6px 22px rgba(20, 45, 80, .08);
-      --radius: 7px;
+      --surface-hover: #f1f5f9;
+      --surface-active: #e2e8f0;
+      --ink: #0f172a;
+      --ink-secondary: #334155;
+      --ink-muted: #64748b;
+      --ink-light: #94a3b8;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --primary-ring: rgba(79, 70, 229, 0.18);
+      --emerald: #059669;
+      --emerald-dark: #047857;
+      --emerald-light: #ecfdf5;
+      --emerald-border: #a7f3d0;
+      --amber: #d97706;
+      --amber-bg: #fffbe6;
+      --amber-light: #fef3c7;
+      --amber-border: #fde68a;
+      --amber-text: #92400e;
+      --rose: #e11d48;
+      --rose-light: #ffe4e6;
+      --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+      --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
+      --radius-sm: 6px;
+      --radius: 10px;
+      --radius-lg: 14px;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      background: radial-gradient(circle at 20% 0%, #ffffff 0, #f6f8fb 42%, #eef3f8 100%);
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.04) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.04) 0px, transparent 50%);
+      background-attachment: fixed;
       color: var(--ink);
-      font: 14px/1.45 "Segoe UI", Arial, sans-serif;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      font-size: 13.5px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
     .app {
       max-width: 100%;
       width: 100%;
       margin: 0 auto;
-      padding: 16px 20px;
+      padding: 20px 24px;
     }
 
-    .top {
+    /* ===== TOP HEADER DASHBOARD ===== */
+    .top-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 20px;
       margin-bottom: 18px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #4f46e5, #3b82f6);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 22px;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
     }
 
     h1 {
       margin: 0;
-      font-size: 29px;
-      line-height: 1.1;
-      letter-spacing: 0;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .app-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px solid rgba(79, 70, 229, 0.2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .subtitle {
-      margin: 8px 0 0;
-      color: #233654;
-      font-size: 15px;
-    }
-
-    .status {
-      display: none;
-      margin: 12px 0 16px;
-      padding: 10px 13px;
-      border: 1px solid #bfe6d7;
-      background: #ecfbf5;
-      color: #075c48;
-      border-radius: var(--radius);
-    }
-
-    .status.error {
-      border-color: #f2b8ac;
-      background: #fff0ed;
-      color: #a83d2d;
-    }
-
-    /* ===== CONTROL BAR ===== */
-    .control-bar {
-      display: grid;
-      grid-template-columns: auto auto 1fr auto auto auto auto;
-      gap: 12px;
-      align-items: center;
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      box-shadow: var(--shadow);
-      padding: 14px 20px;
-      margin-bottom: 14px;
-    }
-
-    .control-bar .cb-month {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-width: 180px;
-    }
-
-    .control-bar .cb-month label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .06em;
-      color: var(--muted);
-      text-transform: uppercase;
-      margin: 0;
-    }
-
-    .control-bar .cb-month select {
-      height: 40px;
-      font-size: 14px;
-      font-weight: 700;
-      border: 1.5px solid #d1dbe8;
-      border-radius: 8px;
-      padding: 0 12px;
-    }
-
-    .cb-divider {
-      width: 1px;
-      height: 44px;
-      background: var(--line);
-      flex-shrink: 0;
-    }
-
-    .cb-search-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .cb-search-wrap .cb-search-icon {
-      position: absolute;
-      left: 13px;
-      font-size: 15px;
-      color: var(--muted);
-      pointer-events: none;
-      line-height: 1;
-    }
-
-    .cb-search-wrap input#globalSearch {
-      height: 40px;
-      padding: 0 14px 0 38px;
-      font-size: 14px;
+      margin: 2px 0 0;
+      color: var(--ink-muted);
+      font-size: 13px;
       font-weight: 500;
-      border: 1.5px solid #d1dbe8;
-      border-radius: 8px;
-      width: 100%;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      outline: none;
-      background: #f8fafc;
     }
 
-    .cb-search-wrap input#globalSearch:focus {
-      border-color: var(--blue);
-      background: #fff;
-      box-shadow: 0 0 0 3px rgba(15,107,255,.12);
-    }
-
-    .cb-search-wrap input#globalSearch::placeholder {
-      color: #94a3b8;
-      font-weight: 400;
-    }
-
-    .cb-metrics {
+    /* KPI Summary Cards on Header Right (Mini Dashboard) */
+    .header-metrics {
       display: flex;
+      align-items: center;
       gap: 10px;
-      flex-shrink: 0;
-      align-items: stretch;
+      flex-wrap: wrap;
     }
 
     .cb-metric {
@@ -172,408 +142,665 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #eff6ff;
-      border: 2px solid #93c5fd;
-      border-radius: 12px;
-      padding: 12px 22px;
-      min-width: 148px;
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 14px;
+      min-width: 110px;
       text-align: center;
+      box-shadow: var(--shadow-xs);
+      transition: transform 0.15s, box-shadow 0.15s;
     }
+
+    .cb-metric:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .cb-metric.is-parts {
+      border-color: #c7d2fe;
+      background: linear-gradient(180deg, #ffffff, #f5f3ff);
+    }
+    .cb-metric.is-parts .cb-metric-label { color: #4338ca; }
+    .cb-metric.is-parts .cb-metric-val { color: #3730a3; }
+
+    .cb-metric.is-shots {
+      border-color: #fde68a;
+      background: linear-gradient(180deg, #ffffff, #fffbeb);
+    }
+    .cb-metric.is-shots .cb-metric-label { color: #b45309; }
+    .cb-metric.is-shots .cb-metric-val { color: #92400e; }
+
+    .cb-metric.is-min {
+      border-color: var(--emerald-border);
+      background: linear-gradient(180deg, #ffffff, #ecfdf5);
+    }
+    .cb-metric.is-min .cb-metric-label { color: var(--emerald-dark); }
+    .cb-metric.is-min .cb-metric-val { color: #065f46; }
 
     .cb-metric.is-max {
-      background: #f0fdf4;
-      border-color: #6ee7b7;
+      border-color: #bfdbfe;
+      background: linear-gradient(180deg, #ffffff, #eff6ff);
     }
+    .cb-metric.is-max .cb-metric-label { color: #1e40af; }
+    .cb-metric.is-max .cb-metric-val { color: #1e3a8a; }
 
     .cb-metric .cb-metric-label {
-      font-size: 11px;
+      font-size: 9.5px;
       font-weight: 800;
-      letter-spacing: .1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #1d4ed8;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       line-height: 1;
     }
-
-    .cb-metric.is-max .cb-metric-label { color: #15803d; }
 
     .cb-metric .cb-metric-val {
-      font-size: 30px;
-      font-weight: 900;
-      line-height: 1;
-      color: #1e3a8a;
-      letter-spacing: -0.5px;
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
     }
-
-    .cb-metric.is-max .cb-metric-val { color: #166534; }
 
     .cb-metric .cb-metric-shots {
-      font-size: 12px;
-      font-weight: 500;
-      color: #64748b;
-      margin-top: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      margin-top: 1px;
     }
 
-    .cb-update-btn {
-      flex-shrink: 0;
-      height: 40px;
-      padding: 0 16px;
+    /* Floating Toast Status */
+    .status {
+      display: none;
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      z-index: 9999;
+      max-width: 420px;
+      padding: 12px 18px;
+      border-radius: var(--radius);
+      background: #ffffff;
+      border: 1px solid var(--emerald-border);
+      border-left: 4px solid var(--emerald);
+      color: #065f46;
+      font-weight: 600;
       font-size: 13px;
-      font-weight: 700;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #00994d, #007a3d);
-      color: #fff;
-      border: none;
-      box-shadow: 0 2px 8px rgba(0,140,60,.2);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: opacity 0.15s;
+      box-shadow: var(--shadow-lg);
+      animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .cb-update-btn:hover { opacity: 0.88; background: linear-gradient(135deg, #00994d, #007a3d); }
+    .status.error {
+      border-color: #fca5a5;
+      border-left-color: var(--rose);
+      background: #ffffff;
+      color: #991b1b;
+    }
 
-    /* Drop zone inside control bar */
-    .cb-drop-wrap {
-      flex: 1;
+    @keyframes toastSlideIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* ===== COMMAND CONTROL BAR ===== */
+    .command-bar {
       display: flex;
       align-items: center;
+      gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      transition: box-shadow 0.2s;
     }
 
+    .command-bar:hover {
+      box-shadow: var(--shadow-md);
+    }
+
+    .cmd-group {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    .cmd-group.cmd-left {
+      flex-shrink: 0;
+    }
+
+    .cmd-group.cmd-center {
+      width: 320px;
+      max-width: 320px;
+      flex-shrink: 0;
+    }
+
+    .cmd-spacer {
+      flex: 1;
+    }
+
+    .cmd-group.cmd-right {
+      flex-shrink: 0;
+    }
+
+    .cmd-divider {
+      width: 1px;
+      height: 40px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .cb-month {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 160px;
+    }
+
+    .cb-month label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      margin: 0;
+    }
+
+    .cb-month select {
+      height: 40px;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--ink);
+      background-color: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0 12px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s;
+    }
+
+    .cb-month select:focus {
+      border-color: var(--primary);
+      background-color: #fff;
+      box-shadow: 0 0 0 3px var(--primary-ring);
+    }
+
+    /* Global Search */
+    .cb-search-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .cb-search-icon {
+      position: absolute;
+      left: 14px;
+      font-size: 14px;
+      color: var(--ink-light);
+      pointer-events: none;
+    }
+
+    .cb-search-wrap input#globalSearch {
+      height: 40px;
+      padding: 0 36px 0 38px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--ink);
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .cb-search-wrap input#globalSearch:focus {
+      border-color: var(--primary);
+      background: #ffffff;
+      box-shadow: 0 0 0 3px var(--primary-ring);
+    }
+
+    .cb-search-wrap input#globalSearch::placeholder {
+      color: var(--ink-light);
+      font-weight: 400;
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 10px;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--ink-muted);
+      border: none;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: none;
+    }
+
+    .search-clear-btn:hover {
+      background: var(--border-dark);
+      color: var(--ink);
+      transform: none;
+    }
+
+    /* Drop Zone Compact */
     .cb-drop-zone {
       display: flex;
       align-items: center;
-      gap: 8px;
-      width: 100%;
+      gap: 10px;
       height: 40px;
-      padding: 0 14px;
-      border: 1.5px dashed #b0bec5;
-      border-radius: 8px;
-      background: #f8fafc;
+      padding: 0 16px;
+      border: 1.5px dashed var(--border-dark);
+      border-radius: var(--radius);
+      background: var(--bg);
       cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
+      transition: all 0.2s ease;
       white-space: nowrap;
-      overflow: hidden;
+      min-width: 220px;
     }
 
     .cb-drop-zone:hover,
     .cb-drop-zone.cb-drag-over {
-      border-color: var(--blue);
-      background: #eff6ff;
-    }
-
-    .cb-drop-zone.cb-drag-over {
-      border-style: solid;
-      box-shadow: 0 0 0 3px rgba(15,107,255,.12);
+      border-color: var(--primary);
+      background: var(--primary-light);
     }
 
     .cb-drop-icon {
-      font-size: 16px;
+      font-size: 18px;
       flex-shrink: 0;
     }
 
-    .cb-drop-text {
-      font-size: 13px;
-      font-weight: 500;
-      color: #64748b;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .cb-drop-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      line-height: 1.2;
     }
 
-    .cb-drop-link {
-      color: var(--blue);
+    .cb-drop-title {
+      font-size: 12.5px;
       font-weight: 700;
-      text-decoration: underline;
-      cursor: pointer;
+      color: var(--primary);
     }
 
-    /* legacy compat */
-    .toolbar, .month-panel { display: none; }
-
-    .panel {
-      background: rgba(255, 255, 255, .9);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
+    .cb-drop-sub {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--ink-muted);
     }
 
-    label {
-      display: block;
-      margin-bottom: 7px;
-      color: #10284a;
+    /* Update Backend Button */
+    .cb-update-btn {
+      flex-shrink: 0;
+      height: 40px;
+      padding: 0 18px;
       font-size: 13px;
-      font-weight: 600;
-    }
-
-    select, input, textarea {
-      width: 100%;
-      border: 1px solid #cad6e5;
-      background: #fff;
-      color: var(--ink);
+      font-weight: 700;
       border-radius: var(--radius);
-      font: 600 14px "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      border: none;
+      box-shadow: 0 3px 10px rgba(16, 185, 129, 0.25);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    select, input {
-      height: 46px;
-      padding: 0 14px;
+    .cb-update-btn:hover {
+      background: linear-gradient(135deg, #059669, #047857);
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+      transform: translateY(-1px);
     }
 
-    textarea {
-      min-height: 132px;
-      padding: 11px;
-      resize: vertical;
-      font: 12px/1.55 Consolas, "Courier New", monospace;
+    .cb-update-btn:active {
+      transform: translateY(0);
     }
 
-    select:focus, input:focus, textarea:focus, .cell:focus {
-      outline: 3px solid rgba(15, 107, 255, .18);
-      border-color: var(--blue);
+    .cb-update-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
     }
 
+    /* Panel & Card */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card {
+      padding: 24px;
+    }
+
+    .card h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .note {
+      margin: 0 0 16px;
+      color: var(--ink-muted);
+      font-size: 13px;
+    }
+
+    /* Buttons */
     button {
-      height: 46px;
+      height: 40px;
       border: 1px solid transparent;
       border-radius: var(--radius);
-      padding: 0 16px;
+      padding: 0 18px;
       color: #fff;
-      background: linear-gradient(#1678ff, #075fe4);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 3px 8px rgba(12, 92, 220, .22);
+      background: linear-gradient(135deg, #4f46e5, #4338ca);
+      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
       cursor: pointer;
-      font: 700 14px "Segoe UI", Arial, sans-serif;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
       white-space: nowrap;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
-    button:hover { background: linear-gradient(#0f70f4, #0457d8); }
+    button:hover {
+      background: linear-gradient(135deg, #4338ca, #3730a3);
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+      transform: translateY(-1px);
+    }
+
     button.secondary {
-      color: #17304f;
-      background: #eef3f8;
-      border-color: #d5dfeb;
+      color: var(--ink-secondary);
+      background: var(--bg);
+      border: 1.5px solid var(--border);
       box-shadow: none;
     }
 
-    .metric { display: none; }
-
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 24px;
-      padding: 22px;
-      margin-bottom: 10px;
+    button.secondary:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-dark);
+      color: var(--ink);
     }
 
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    /* Segmented Navigation Tabs */
     .tabs {
       display: flex;
-      align-items: end;
-      gap: 3px;
-      padding: 0 4px;
-      margin-top: 8px;
-      border-bottom: 1px solid var(--line);
+      align-items: center;
+      gap: 6px;
+      padding: 5px;
+      background: var(--border);
+      border-radius: 12px;
+      width: fit-content;
+      margin-bottom: 16px;
     }
 
     .tab {
-      height: 36px;
-      padding: 0 17px;
-      color: #4b5f78;
-      background: #e9eef5;
-      border: 1px solid var(--line);
-      border-bottom: 0;
-      border-radius: 6px 6px 0 0;
+      height: 34px;
+      padding: 0 20px;
+      color: var(--ink-muted);
+      background: transparent;
+      border: none;
+      border-radius: 8px;
       box-shadow: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab:hover {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.5);
+      transform: none;
     }
 
     .tab.active {
-      color: #061f43;
-      background: #fff;
-      border-top: 3px solid var(--blue);
+      color: var(--primary);
+      background: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     }
 
+    /* Sheet Layout */
     .sheet {
       overflow: auto;
-      border: 1px solid var(--line);
-      border-top: 0;
-      background: #fff;
-      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      max-height: calc(100vh - 230px);
     }
 
     .sheet-title {
-      height: 36px;
-      display: grid;
-      place-items: center;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-weight: 800;
       font-size: 16px;
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(#fdfefe, #f3f7fb);
-      width: 100%;
+      color: var(--ink);
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+      letter-spacing: -0.01em;
     }
 
+    /* Grid Table */
     table.grid {
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       table-layout: fixed;
       width: 100%;
       font-size: 12px;
     }
 
-    table.grid th, table.grid td {
-      border: 1px solid var(--line2);
-      height: 48px;
+    table.grid th {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      background: #f1f5f9;
+      color: var(--ink-secondary);
+      font-weight: 700;
+      font-size: 11.5px;
+      height: 38px;
+      border-bottom: 1.5px solid var(--border-dark);
+      border-right: 1px solid var(--border);
       text-align: center;
-      vertical-align: middle;
-      padding: 0 1px;
-      box-sizing: border-box;
-      overflow: hidden;
+      padding: 0 4px;
     }
 
+    table.grid td {
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      height: 42px;
+      text-align: center;
+      vertical-align: middle;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Frozen Sticky Left Columns */
     table.grid th.col-part, table.grid td.col-part {
       position: sticky;
       left: 0;
-      z-index: 3;
-      width: 65px;
-      min-width: 65px;
-      max-width: 65px;
-      text-align: left;
-      padding-left: 5px;
-      font-weight: 800;
-      background: #fff;
-      border-right: 1px solid var(--line2);
-      vertical-align: middle;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    table.grid th.col-mold, table.grid td.col-mold {
-      position: sticky;
-      left: 65px;
-      z-index: 3;
+      z-index: 7;
       width: 80px;
       min-width: 80px;
       max-width: 80px;
       text-align: left;
-      padding-left: 5px;
-      font-weight: 700;
-      background: #fff;
-      border-right: 1px solid var(--line2);
-      vertical-align: middle;
+      padding-left: 10px;
+      font-weight: 800;
+      color: var(--ink);
+      background: var(--surface);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    table.grid th.col-type, table.grid td.col-type {
+
+    table.grid th.col-series, table.grid td.col-series {
       position: sticky;
-      left: 145px;
-      z-index: 3;
+      left: 80px;
+      z-index: 7;
+      width: 120px;
+      min-width: 120px;
+      max-width: 120px;
+      text-align: left;
+      padding-left: 8px;
+      font-weight: 700;
+      color: #1d4ed8;
+      background: var(--surface);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    table.grid th.col-mold, table.grid td.col-mold {
+      position: sticky;
+      left: 200px;
+      z-index: 7;
       width: 100px;
       min-width: 100px;
       max-width: 100px;
       text-align: left;
-      padding-left: 5px;
-      font-weight: 600;
-      background: #fff;
-      border-right: 1px solid #cfd9e7;
-      vertical-align: middle;
+      padding-left: 10px;
+      font-weight: 700;
+      color: var(--ink-secondary);
+      background: var(--surface);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    table.grid thead th {
-      height: 38px;
-      background: #f4f7fb;
-      color: #10284a;
-      font-weight: 800;
+    table.grid th.col-type, table.grid td.col-type {
+      position: sticky;
+      left: 300px;
+      z-index: 7;
+      width: 150px;
+      min-width: 150px;
+      max-width: 150px;
+      text-align: left;
+      padding-left: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      background: var(--surface);
+      border-right: 2px solid var(--border-dark);
+      box-shadow: 4px 0 10px -2px rgba(15, 23, 42, 0.06);
+      white-space: nowrap;
     }
 
-    table.grid thead th.col-part,
-    table.grid thead th.col-mold,
-    table.grid thead th.col-type {
-      background: linear-gradient(90deg, #0b63e5, #247cff);
-      color: #fff;
-    }
-
-    table.grid th.col-total,
-    table.grid td.col-total {
-      background: #f0f4fa;
+    table.grid th.col-part, table.grid th.col-series, table.grid th.col-mold, table.grid th.col-type {
+      z-index: 10;
+      background: #e2e8f0;
+      color: var(--ink);
       font-weight: 800;
-      color: #0457d8;
-      border-left: 2px solid #cbd5e1;
     }
 
     table.grid thead th.col-total {
-      background: linear-gradient(90deg, #1e40af, #3b82f6);
+      background: linear-gradient(135deg, #312e81, #4338ca);
       color: #fff;
+      font-weight: 800;
     }
 
     .cell.col-total-val {
       font-weight: 800;
-      color: #0b63e5;
+      color: var(--primary);
+      background: var(--primary-light);
     }
 
+    /* Cells */
     .cell {
-      min-height: 50px;
+      min-height: 40px;
+      height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 2px;
-      border: 1px solid transparent;
+      padding: 0 4px;
+      border: 1.5px solid transparent;
       cursor: text;
-      font-size: 11.5px;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       width: 100%;
       box-sizing: border-box;
+      transition: background 0.1s, border-color 0.15s;
     }
 
-    .cell.empty { color: #5c6e86; }
-    .cell.replacement { background: var(--yellow); color: #071833; font-weight: 800; }
-    .cell.zero { color: #061f43; }
-    .cell.has-output { color: #061f43; font-weight: 700; }
-    .cell.weekend { background: #fbfcfe; }
+    .cell.empty { color: var(--ink-light); }
+    
+    .cell.replacement {
+      background: var(--amber-light);
+      color: var(--amber-text);
+      font-weight: 800;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--amber-border);
+    }
+
+    .cell.zero { color: var(--ink-light); }
+    
+    .cell.has-output {
+      color: #1e3a8a;
+      font-weight: 700;
+      background: #f0f9ff;
+    }
+
+    .cell.weekend {
+      background-color: rgba(241, 245, 249, 0.5);
+    }
+
+    .cell:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #ffffff !important;
+      box-shadow: 0 0 0 3px var(--primary-ring);
+      z-index: 4;
+    }
 
     .row-icon {
       display: inline-grid;
       place-items: center;
-      width: 16px;
-      height: 16px;
-      margin-left: 8px;
-      border: 1px solid #90a4bc;
+      width: 15px;
+      height: 15px;
+      margin-left: 6px;
+      border: 1px solid var(--border-dark);
       border-radius: 50%;
-      color: #52708d;
-      font-size: 11px;
+      color: var(--ink-muted);
+      font-size: 10px;
       font-weight: 800;
     }
 
-    .below {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      margin-top: 18px;
-    }
-
-    .card {
-      padding: 18px;
-    }
-
-    .card h2 {
-      margin: 0 0 5px;
-      font-size: 17px;
-    }
-
-    .note {
-      margin: 0 0 12px;
-      color: var(--muted);
-    }
-
-    .actions {
-      display: flex;
-      gap: 9px;
-      flex-wrap: wrap;
-      margin-top: 12px;
-    }
-
+    /* Summary Table */
     .summary-box {
-      margin-top: 18px;
+      margin-top: 16px;
       overflow: auto;
-      max-height: 360px;
+      max-height: 440px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
     }
 
     table.summary {
@@ -584,8 +811,8 @@
     }
 
     table.summary th, table.summary td {
-      padding: 10px 11px;
-      border-bottom: 1px solid var(--line2);
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
       text-align: left;
       white-space: nowrap;
     }
@@ -593,124 +820,314 @@
     table.summary th {
       position: sticky;
       top: 0;
-      background: #f3f6fa;
-      color: #51637a;
+      background: #f1f5f9;
+      color: var(--ink-secondary);
       text-transform: uppercase;
       font-size: 11px;
-      letter-spacing: .02em;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    table.summary tbody tr:hover {
+      background: var(--surface-hover);
     }
 
     .hidden { display: none !important; }
     .file { display: none; }
 
-    @media (max-width: 980px) {
-      .top, .toolbar, .below { grid-template-columns: 1fr; display: grid; }
-      .toolbar { gap: 12px; }
-      .info-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
-      .month-panel { align-items: stretch; flex-direction: column; gap: 12px; }
-      button { width: 100%; }
-    }
-
-    @media (max-width: 620px) {
-      .app { padding: 14px; }
-      .info-grid { grid-template-columns: 1fr; }
-      h1 { font-size: 24px; }
-    }
-
+    /* Drop Zone inside paste tab */
     .drop-zone {
-      border: 2px dashed #b0c4de;
-      border-radius: 10px;
-      padding: 45px 20px;
+      border: 2px dashed var(--border-dark);
+      border-radius: var(--radius-lg);
+      padding: 40px 20px;
       text-align: center;
-      background: #f8fafc;
+      background: var(--bg);
       cursor: pointer;
       transition: all 0.2s ease;
     }
+
     .drop-zone:hover, .drop-zone.drag-over {
-      border-color: #0f6bff;
-      background: #eef5ff;
+      border-color: var(--primary);
+      background: var(--primary-light);
     }
+
     .drop-icon {
-      font-size: 48px;
-      margin-bottom: 10px;
+      font-size: 42px;
+      margin-bottom: 8px;
     }
+
     .drop-label {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
-      color: #1e293b;
+      color: var(--ink);
     }
+
     .drop-link {
-      color: #0f6bff;
+      color: var(--primary);
       text-decoration: underline;
     }
+
     .drop-hint {
-      font-size: 13px;
-      color: #64748b;
-      margin-top: 8px;
+      font-size: 12.5px;
+      color: var(--ink-muted);
+      margin-top: 6px;
+    }
+
+    /* Summary Visual Charts Grid */
+    .summary-charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+      margin-bottom: 20px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .chart-card:hover {
+      box-shadow: var(--shadow-md);
+    }
+
+    .chart-header {
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .chart-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--ink);
+      display: block;
+    }
+
+    .chart-subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-muted);
+      display: block;
+      margin-top: 2px;
+    }
+
+    .chart-body {
+      position: relative;
+      height: 220px;
+      width: 100%;
+    }
+
+    /* Component Wear & Life Monitoring Badges & Cards */
+    .badge-risk {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge-risk.normal { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .badge-risk.warning { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .badge-risk.high { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .badge-risk.critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    .badge-confidence {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-confidence.low { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .badge-confidence.medium { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .badge-confidence.high { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+
+    .badge-trend {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+    .badge-trend.degrading { background: #fef2f2; color: #dc2626; }
+    .badge-trend.stable { background: #f0fdf4; color: #16a34a; }
+    .badge-trend.improving { background: #eff6ff; color: #2563eb; }
+
+    /* Prediction Cards Grid */
+    .prediction-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .prediction-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .prediction-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .prediction-card.is-critical { border-color: #fecaca; background: linear-gradient(180deg, #ffffff, #fff5f5); }
+    .prediction-card.is-high { border-color: #fed7aa; background: linear-gradient(180deg, #ffffff, #fffaf5); }
+    .prediction-card.is-warning { border-color: #fde68a; background: linear-gradient(180deg, #ffffff, #fffdf5); }
+
+    .wear-progress-track {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0 12px;
+    }
+    .wear-progress-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    .wear-progress-bar.normal { background: linear-gradient(90deg, #10b981, #059669); }
+    .wear-progress-bar.warning { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .wear-progress-bar.high { background: linear-gradient(90deg, #f97316, #ea580c); }
+    .wear-progress-bar.critical { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+    /* Scorecard Grid */
+    .scorecard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .scorecard-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Distribution Boxes */
+    .distribution-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .dist-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      text-align: center;
+    }
+    .dist-count { font-size: 22px; font-weight: 800; color: var(--primary); }
+    .dist-label { font-size: 11px; font-weight: 600; color: var(--ink-muted); margin-top: 2px; }
+
+    @media (max-width: 1100px) {
+      .control-bar {
+        grid-template-columns: 1fr 1fr;
+      }
+      .cb-divider { display: none; }
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 12px; }
+      .top-header { flex-direction: column; align-items: flex-start; }
+      .control-bar { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <section class="top">
-      <div>
-        <h1>Mold Life Span</h1>
-        <p class="subtitle">Track replacement dates and calculate Shoot Number, MIN / MAX Cycle.</p>
+    <header class="top-header">
+      <div class="brand-group">
+        <div class="brand-icon">⚡</div>
+        <div>
+          <h1>Mold Life Span <span class="app-badge">v2.0</span></h1>
+          <p class="subtitle">Hệ thống theo dõi mốc thay linh kiện &amp; sản lượng Shoot Number</p>
+        </div>
       </div>
-    </section>
+
+      <!-- Metrics KPI Dashboard on Header Right -->
+      <div class="header-metrics">
+        <div class="cb-metric is-parts" title="TOTAL COMPONENTS: Tổng số linh kiện đang quản lý trong phạm vi hiển thị">
+          <span class="cb-metric-label">TOTAL COMPONENTS</span>
+          <span class="cb-metric-val" id="totalPartsVal">0</span>
+          <span class="cb-metric-shots">mã lk</span>
+        </div>
+        <div class="cb-metric is-shots" title="ACTIVE COMPONENTS: Số linh kiện hiện đang sử dụng sản xuất">
+          <span class="cb-metric-label">ACTIVE COMPONENTS</span>
+          <span class="cb-metric-val" id="activePartsVal">0</span>
+          <span class="cb-metric-shots">mã active</span>
+        </div>
+        <div class="cb-metric is-min" title="AT RISK: Số linh kiện có dấu hiệu mòn/rủi ro cần lưu ý">
+          <span class="cb-metric-label">AT RISK</span>
+          <span class="cb-metric-val" id="atRiskVal" style="color:#c2410c;">0</span>
+          <span class="cb-metric-shots">rủi ro</span>
+        </div>
+        <div class="cb-metric is-max" title="PREDICTED REPLACEMENTS: Số linh kiện dự kiến cần thay trong thời gian sắp tới">
+          <span class="cb-metric-label">PREDICTED</span>
+          <span class="cb-metric-val" id="predictedVal" style="color:#dc2626;">0</span>
+          <span class="cb-metric-shots">dự kiến thay</span>
+        </div>
+      </div>
+    </header>
 
     <div id="status" class="status"></div>
 
-    <!-- ===== UNIFIED CONTROL BAR ===== -->
-    <div class="control-bar">
-      <!-- Month picker -->
-      <div class="cb-month">
-        <label for="monthPick">THÁNG</label>
-        <select id="monthPick"></select>
+    <!-- ===== COMMAND CONTROL BAR ===== -->
+    <div class="command-bar">
+      <!-- Left: Month picker -->
+      <div class="cmd-group cmd-left">
+        <div class="cb-month">
+          <label for="monthPick">THÁNG THEO DÕI</label>
+          <select id="monthPick"></select>
+        </div>
       </div>
 
-      <div class="cb-divider"></div>
+      <div class="cmd-divider"></div>
 
-      <!-- Drop zone embedded in control bar -->
-      <div class="cb-drop-wrap">
+      <!-- Center: Search Bar (Comfortable width) -->
+      <div class="cmd-group cmd-center">
+        <div class="cb-search-wrap">
+          <span class="cb-search-icon">🔍</span>
+          <input id="globalSearch"
+                 placeholder="Tìm Part, Series, Mold..."
+                 list="searchList"
+                 autocomplete="off">
+          <button class="search-clear-btn" id="clearSearchBtn" onclick="clearGlobalSearch()" title="Xóa tìm kiếm">✕</button>
+          <datalist id="searchList"></datalist>
+        </div>
+      </div>
+
+      <div class="cmd-spacer"></div>
+
+      <!-- Right: Compact Excel Drop Zone -->
+      <div class="cmd-group cmd-right">
         <div class="cb-drop-zone" id="cbDropZone"
              onclick="document.getElementById('excelFileInput').click()"
              ondragover="event.preventDefault();this.classList.add('cb-drag-over')"
              ondragleave="this.classList.remove('cb-drag-over')"
              ondrop="this.classList.remove('cb-drag-over');importExcelFile(event.dataTransfer.files[0]);event.preventDefault()">
-          <span class="cb-drop-icon">📂</span>
-          <span class="cb-drop-text">Kéo &amp; thả file <b>.xlsx</b> / .csv / .json hoặc <span class="cb-drop-link">bấm để chọn</span></span>
+          <span class="cb-drop-icon">📊</span>
+          <div class="cb-drop-info">
+            <span class="cb-drop-title">Nạp file dữ liệu</span>
+            <span class="cb-drop-sub">.xlsx / .csv / .json</span>
+          </div>
         </div>
       </div>
-
-      <div class="cb-divider"></div>
-
-      <!-- All-in-one search -->
-      <div class="cb-search-wrap">
-        <span class="cb-search-icon">🔍</span>
-        <input id="globalSearch"
-               placeholder="Tìm Part list, mã Series, khuôn cũ hoặc mới..."
-               list="searchList"
-               autocomplete="off">
-        <datalist id="searchList"></datalist>
-      </div>
-
-      <!-- Metrics -->
-      <div class="cb-metrics">
-        <div class="cb-metric">
-          <span class="cb-metric-label">MIN CYCLE</span>
-          <span class="cb-metric-val" id="minCycle">0</span>
-          <span class="cb-metric-shots">shots</span>
-        </div>
-        <div class="cb-metric is-max">
-          <span class="cb-metric-label">MAX CYCLE</span>
-          <span class="cb-metric-val" id="maxCycle">0</span>
-          <span class="cb-metric-shots">shots</span>
-        </div>
-      </div>
-
-      <!-- Update button -->
-      <button class="cb-update-btn" id="updateBtn" onclick="updateBackend()" title="Gửi dữ liệu sang backend PowerShell để tính toán & lưu trữ">🔄 Update</button>
     </div>
 
     <!-- Hidden inputs: backward compat with internal scripts -->
@@ -719,9 +1136,41 @@
     <input type="hidden" id="dieSet" value="">
     <input type="hidden" id="mold" value="">
 
+    <!-- Top At Risk Components Banner Table -->
+    <section id="atRiskBanner" class="panel card" style="margin-bottom: 20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
+          <span>🚨 Top At Risk Components</span>
+          <span class="app-badge" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca;" id="atRiskBadge">0 linh kiện rủi ro</span>
+        </h2>
+        <span style="font-size:12px; color:var(--ink-muted);">Linh kiện có dấu hiệu mòn nhanh hoặc sắp đến mốc thay thế</span>
+      </div>
+      <div class="summary-box" style="margin:0;">
+        <table class="summary">
+          <thead>
+            <tr>
+              <th style="width:50px;">Rank</th>
+              <th>Part</th>
+              <th>Series</th>
+              <th>Mold</th>
+              <th style="text-align:right;">Current Life</th>
+              <th style="text-align:right;">Typical Life</th>
+              <th style="text-align:right;">Deviation</th>
+              <th style="text-align:center;">Risk Level</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="atRiskRows"></tbody>
+        </table>
+      </div>
+    </section>
+
     <nav class="tabs">
-      <button class="tab active" data-tab="month">Month Sheet</button>
-      <button class="tab" data-tab="summary">Cycle Summary</button>
+      <button class="tab active" data-tab="month">📅 Month Sheet</button>
+      <button class="tab" data-tab="summary">📊 Cycle Summary</button>
+      <button class="tab" data-tab="wear">🔬 Wear Analysis</button>
+      <button class="tab" data-tab="prediction">🔮 Prediction</button>
+      <button class="tab" data-tab="report">📋 Management Report</button>
     </nav>
 
     <section id="monthTab">
@@ -737,13 +1186,13 @@
     <section id="pasteTab" class="below hidden" style="display:none!important">
       <article class="panel card" style="grid-column: 1 / -1;">
         <h2>Nạp dữ liệu từ File Excel (.xlsx)</h2>
-        <p class="note">Kéo & thả file Excel (chứa các sheet <b>ShootMonth</b> & <b>ComponentMaster</b>) hoặc file <b>.csv / .json</b> vào đây để nạp tự động.</p>
+        <p class="note">Kéo &amp; thả file Excel (chứa các sheet <b>ShootMonth</b> &amp; <b>ComponentMaster</b>) hoặc file <b>.csv / .json</b> vào đây để nạp tự động.</p>
         <div class="drop-zone" onclick="document.getElementById('excelFileInput').click()"
              ondragover="event.preventDefault();this.classList.add('drag-over')"
              ondragleave="this.classList.remove('drag-over')"
              ondrop="this.classList.remove('drag-over');importExcelFile(event.dataTransfer.files[0]);event.preventDefault()">
           <div class="drop-icon">📊</div>
-          <div class="drop-label">Kéo & thả file <b>.xlsx</b> vào đây hoặc <span class="drop-link">bấm để chọn file</span></div>
+          <div class="drop-label">Kéo &amp; thả file <b>.xlsx</b> vào đây hoặc <span class="drop-link">bấm để chọn file</span></div>
           <div class="drop-hint">Hỗ trợ: ShootMonth_ComponentMaster.xlsx · ShootMonth.csv · ComponentMaster.csv / .json</div>
         </div>
         <input class="file" id="excelFileInput" type="file" accept=".xlsx,.xls,.csv,.json,.txt" onchange="importExcelFile(this.files[0])">
@@ -751,30 +1200,242 @@
     </section>
 
     <section id="summaryTab" class="panel card hidden">
-      <h2>Cycle Summary</h2>
-      <p class="note">MIN/MAX được tính từ tổng từng cycle hoàn chỉnh giữa hai mốc reset.</p>
+      <h2>Cycle Summary &amp; Visual Analytics</h2>
+      <p class="note">MIN/MAX được tính từ tổng từng cycle hoàn chỉnh giữa hai mốc reset linh kiện.</p>
       <div class="actions">
-        <button onclick="rebuild()">Refresh calculation</button>
-        <button onclick="exportCsv()">Export Excel CSV</button>
-        <button class="secondary" onclick="downloadBackup()">Tải backup JSON</button>
-        <button class="secondary" onclick="document.getElementById('backup').click()">Nạp backup JSON</button>
-        <input class="file" id="backup" type="file" accept="application/json" onchange="loadBackup(this.files[0])">
+        <button onclick="rebuild()">🔄 Refresh calculation</button>
+        <button onclick="exportExcelFull()">📊 Export Excel Báo cáo</button>
+        <button onclick="toggleAnalyticsCharts()" id="toggleChartsBtn" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;">📈 Sơ đồ Analytics (Ẩn/Hiện)</button>
       </div>
-      <div class="summary-box">
+      
+      <!-- Visual Analytics Charts Grid -->
+      <div id="chartsContainer" class="summary-charts-grid" style="display:grid;">
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">🏆 Top Linh Kiện Sản Lượng MAX Shots Cao Nhất</span>
+            <span class="chart-subtitle">So sánh mốc dập tối đa giữa các linh kiện</span>
+          </div>
+          <div class="chart-body">
+            <canvas id="topMaxChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">📊 So Sánh MIN - AVERAGE - MAX Shots theo Linh Kiện</span>
+            <span class="chart-subtitle">Phân tích chênh lệch sản lượng dập giữa các mốc cycle</span>
+          </div>
+          <div class="chart-body">
+            <canvas id="compareBarChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-box" style="margin-top: 16px;">
         <table class="summary">
           <thead>
             <tr>
               <th>Part</th>
               <th>Series</th>
               <th>Mold (new)</th>
-              <th>Cycles</th>
-              <th>MIN</th>
-              <th>MAX</th>
-              <th>Average</th>
+              <th style="text-align:center;">Cycles</th>
+              <th style="text-align:right;">MIN</th>
+              <th style="text-align:right;">MEDIAN</th>
+              <th style="text-align:right;">AVERAGE</th>
+              <th style="text-align:right;">MAX</th>
+              <th style="text-align:right;">STD DEV</th>
+              <th style="text-align:center;">Short Life</th>
+              <th style="text-align:right;">Current Life</th>
+              <th style="text-align:center;">Stability</th>
+              <th style="text-align:center;">Risk Level</th>
             </tr>
           </thead>
           <tbody id="summaryRows"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- Tab 3: Wear Analysis -->
+    <section id="wearTab" class="panel card hidden">
+      <h2>Component Wear Analysis</h2>
+      <p class="note">Phân tích chuyên sâu độ mòn, xu hướng tuổi thọ và phát hiện các cycle bất thường.</p>
+      
+      <!-- A. Life Distribution -->
+      <div style="margin-top: 18px;">
+        <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">A. Cycle Life Distribution (Phân bố Tuổi Thọ)</h3>
+        <div class="distribution-grid">
+          <div class="dist-box">
+            <div class="dist-count" id="distUnder20k">0</div>
+            <div class="dist-label">&lt; 20,000 shots</div>
+          </div>
+          <div class="dist-box">
+            <div class="dist-count" id="dist20to50k">0</div>
+            <div class="dist-label">20,000 – 50,000 shots</div>
+          </div>
+          <div class="dist-box">
+            <div class="dist-count" id="dist50to100k">0</div>
+            <div class="dist-label">50,000 – 100,000 shots</div>
+          </div>
+          <div class="dist-box">
+            <div class="dist-count" id="dist100to300k">0</div>
+            <div class="dist-label">100,000 – 300,000 shots</div>
+          </div>
+          <div class="dist-box">
+            <div class="dist-count" id="distOver300k">0</div>
+            <div class="dist-label">&gt; 300,000 shots</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- B & C. Trend & Short Life Detection -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; margin-top: 20px;">
+        <!-- B. Life Trend Analysis -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">📈 B. Life Trend (Xu Hướng Tuổi Thọ Theo Thời Gian)</span>
+            <span class="chart-subtitle">Theo dõi diễn biến tuổi thọ trung bình qua các tháng</span>
+          </div>
+          <div class="summary-box" style="margin-top: 8px;">
+            <table class="summary">
+              <thead>
+                <tr>
+                  <th>Part</th>
+                  <th>Mold</th>
+                  <th style="text-align:center;">Trend</th>
+                  <th style="text-align:right;">Recent Avg</th>
+                  <th style="text-align:right;">Historical Avg</th>
+                </tr>
+              </thead>
+              <tbody id="lifeTrendRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- C. Short Life Detection -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">⚡ C. Short Life Detection (Cycle Hỏng Sớm Bất Thường)</span>
+            <span class="chart-subtitle">Cảnh báo cycle có tuổi thọ &lt; 65% mốc trung vị</span>
+          </div>
+          <div class="summary-box" style="margin-top: 8px;">
+            <table class="summary">
+              <thead>
+                <tr>
+                  <th>Part</th>
+                  <th>Mold</th>
+                  <th style="text-align:right;">Short Cycle</th>
+                  <th style="text-align:right;">Median Life</th>
+                  <th style="text-align:center;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="shortLifeRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- D. Part Comparison across Molds -->
+      <div style="margin-top: 20px;">
+        <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">D. Part Comparison across Molds (So sánh linh kiện trên các khuôn)</h3>
+        <div class="summary-box">
+          <table class="summary">
+            <thead>
+              <tr>
+                <th>Part</th>
+                <th>Mold (DieSet)</th>
+                <th style="text-align:center;">Completed Cycles</th>
+                <th style="text-align:right;">AVG Life</th>
+                <th style="text-align:right;">MEDIAN Life</th>
+                <th style="text-align:center;">Comparison Status</th>
+              </tr>
+            </thead>
+            <tbody id="partCompareRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 4: Prediction -->
+    <section id="predictionTab" class="panel card hidden">
+      <h2>Component Life &amp; Replacement Prediction</h2>
+      <p class="note">Dự báo sản lượng shot còn lại và thời gian dự kiến cần thay thế linh kiện active.</p>
+
+      <div class="prediction-grid" id="predictionGrid"></div>
+    </section>
+
+    <!-- Tab 5: Management Report -->
+    <section id="reportTab" class="panel card hidden">
+      <h2>Executive Management Report</h2>
+      <p class="note">Báo cáo tổng hợp dành cho quản lý, QA và Mold Engineering.</p>
+
+      <!-- Mold Health Scorecards -->
+      <div style="margin-top: 16px;">
+        <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">🏆 Mold Health Scorecard (Chỉ số Sức Khỏe Khuôn Mẫu)</h3>
+        <div class="scorecard-grid" id="moldScorecardGrid"></div>
+      </div>
+
+      <!-- Pareto & Short Life -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; margin-top: 20px;">
+        <!-- Replacement Pareto -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">📊 A. Replacement Pareto (Top Thay Thế Nhiều Nhất)</span>
+          </div>
+          <div class="summary-box" style="margin-top:8px;">
+            <table class="summary">
+              <thead>
+                <tr>
+                  <th style="width:50px;">Rank</th>
+                  <th>Part</th>
+                  <th>Mold</th>
+                  <th style="text-align:right;">Lần Thay</th>
+                </tr>
+              </thead>
+              <tbody id="replacementParetoRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Short Life Pareto -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">🚨 B. Short Life Pareto (Top Sự Cố Hỏng Sớm)</span>
+          </div>
+          <div class="summary-box" style="margin-top:8px;">
+            <table class="summary">
+              <thead>
+                <tr>
+                  <th style="width:50px;">Rank</th>
+                  <th>Part</th>
+                  <th>Mold</th>
+                  <th style="text-align:right;">Số Lần Short Life</th>
+                </tr>
+              </thead>
+              <tbody id="shortLifeParetoRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lowest Life Components -->
+      <div style="margin-top: 20px;">
+        <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">📉 C. Lowest Life Components (Top Linh Kiện Tuổi Thọ Thấp Nhất)</h3>
+        <div class="summary-box">
+          <table class="summary">
+            <thead>
+              <tr>
+                <th>Part</th>
+                <th>Series</th>
+                <th>Mold</th>
+                <th style="text-align:right;">MIN</th>
+                <th style="text-align:right;">MEDIAN</th>
+                <th style="text-align:right;">AVERAGE</th>
+                <th style="text-align:center;">Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="lowestLifeRows"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </div>
@@ -1088,6 +1749,21 @@
       }
     }
 
+    function calcMedian(arr) {
+      if (!arr || arr.length === 0) return 0;
+      const s = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(s.length / 2);
+      return s.length % 2 !== 0 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
+    }
+
+    function calcStdDev(arr, mean) {
+      if (!arr || arr.length < 2) return 0;
+      const avg = mean !== undefined ? mean : (arr.reduce((a, b) => a + b, 0) / arr.length);
+      const squareDiffs = arr.map(v => Math.pow(v - avg, 2));
+      const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / arr.length;
+      return Math.round(Math.sqrt(avgSquareDiff));
+    }
+
     function rebuild(showMessage = true) {
       const cycles = [];
       const errors = [];
@@ -1109,20 +1785,9 @@
         const part = parts.length > 1 ? parts[0] : (events[0].Part || "");
         const dieSet = parts.length > 1 ? parts[1] : parts[0];
 
-        // Tìm Series đầy đủ từ các event, ô tìm kiếm hoặc Master Data
         let series = events.find(e => e.Series && e.Series.trim())?.Series || $("series").value.trim();
-        if (!series && typeof masterData !== "undefined" && Array.isArray(masterData)) {
-          const pLower = part.toLowerCase();
-          const dLower = dieSet.toLowerCase();
-          const m = masterData.find(x => 
-            (pLower && x.PartName && String(x.PartName).toLowerCase().trim() === pLower) ||
-            (dLower && x.NewDieSet && String(x.NewDieSet).toLowerCase().trim() === dLower) ||
-            (dLower && x.OldDieSet && String(x.OldDieSet).toLowerCase().trim() === dLower)
-          );
-          if (m && m.Series) series = m.Series;
-        }
+        if (!series) series = getSeriesForPart(part, dieSet);
 
-        // Chỉ tích lũy ngầm từ những ngày có Shoot Number thực tế (> 0)
         const shots = db.shoot.filter(row => {
           if (!row.Output || Number(row.Output) <= 0) return false;
           const rPart = String(row.Part || "").toLowerCase().trim();
@@ -1137,7 +1802,6 @@
 
         if (!shots.length) return;
 
-        // 1. Cycle trước mốc thay đầu tiên (nếu có dữ liệu dập trước ngày thay đầu tiên)
         const firstRepDate = events[0].ReplaceDate;
         const totalBefore = shots
           .filter(row => row.Date < firstRepDate)
@@ -1151,7 +1815,6 @@
           });
         }
 
-        // 2. Các cycle giữa các mốc thay liên tiếp
         for (let i = 0; i < events.length - 1; i++) {
           const start = events[i].ReplaceDate;
           const end = events[i + 1].ReplaceDate;
@@ -1171,79 +1834,350 @@
         }
       });
 
-      const summaryMap = {};
-      cycles.forEach(row => {
-        const p = (row.Part || "").trim();
-        const d = (row.DieSet || "").trim();
-        const key = p ? (p + "|" + d) : d;
-        (summaryMap[key] ||= []).push(row);
+      const partsToRender = getPartsToRender();
+      const summaryList = [];
+
+      partsToRender.forEach(item => {
+        const part = item.part;
+        const dieSet = item.moldNew || item.moldOld || item.part;
+        const series = getSeriesForPart(part, dieSet) || item.series || "-";
+
+        const matchedCycles = cycles.filter(c => {
+          const cP = String(c.Part || "").toLowerCase().trim();
+          const cD = String(c.DieSet || "").toLowerCase().trim();
+          const pLower = part.toLowerCase().trim();
+          const dLower = dieSet.toLowerCase().trim();
+          return (cP && pLower && cP === pLower) || (cD && dLower && cD === dLower);
+        });
+
+        const cycleValues = matchedCycles.map(c => c.CycleShots);
+        const completedCount = matchedCycles.length;
+
+        const matchedShoots = db.shoot.filter(row => {
+          if (!row.Output || Number(row.Output) <= 0) return false;
+          const rPart = String(row.Part || "").toLowerCase().trim();
+          const rDie = String(row.DieSet || "").toLowerCase().trim();
+          const pLower = part.toLowerCase().trim();
+          const dLower = dieSet.toLowerCase().trim();
+          return (rPart && pLower && rPart === pLower) || (rDie && dLower && rDie === dLower);
+        }).sort((a, b) => a.Date.localeCompare(b.Date));
+
+        const partRepEvents = db.replacements.filter(r => {
+          const rP = String(r.Part || "").toLowerCase().trim();
+          const rD = String(r.DieSet || "").toLowerCase().trim();
+          const pL = part.toLowerCase().trim();
+          const dL = dieSet.toLowerCase().trim();
+          const lbl = String(r.Label || "").trim();
+          return lbl && lbl !== "-" && lbl !== "0" && lbl !== "·" && ((rP && pL && rP === pL) || (rD && dL && rD === dL));
+        }).sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+
+        const lastRepDate = partRepEvents.length > 0 ? partRepEvents[partRepEvents.length - 1].ReplaceDate : null;
+
+        let currentLife = 0;
+        if (lastRepDate) {
+          currentLife = matchedShoots
+            .filter(r => r.Date >= lastRepDate)
+            .reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
+        } else {
+          currentLife = matchedShoots
+            .reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
+        }
+
+        const minShots = cycleValues.length > 0 ? Math.min(...cycleValues) : currentLife;
+        const maxShots = cycleValues.length > 0 ? Math.max(...cycleValues) : currentLife;
+        const avgShots = cycleValues.length > 0 ? Math.round(cycleValues.reduce((a, b) => a + b, 0) / cycleValues.length) : currentLife;
+        const medianShots = cycleValues.length > 0 ? calcMedian(cycleValues) : avgShots;
+        const stdDev = cycleValues.length > 1 ? calcStdDev(cycleValues, avgShots) : 0;
+
+        const typicalLife = medianShots > 0 ? medianShots : (avgShots > 0 ? avgShots : currentLife);
+        const shortLifeCount = cycleValues.filter(v => v < 0.65 * (medianShots || avgShots)).length;
+
+        const recentShoots = matchedShoots.slice(-14);
+        const dailyAvg = recentShoots.length > 0
+          ? Math.round(recentShoots.reduce((sum, r) => sum + Number(r.Output), 0) / recentShoots.length)
+          : 0;
+
+        const remainingShots = Math.max(0, typicalLife - currentLife);
+        const estimatedDays = (dailyAvg > 0 && remainingShots > 0) ? Math.round(remainingShots / dailyAvg) : null;
+
+        const confidence = completedCount < 3 ? 'LOW' : (completedCount <= 5 ? 'MEDIUM' : 'HIGH');
+
+        let trend = 'STABLE';
+        if (completedCount >= 3) {
+          const recentCyclesAvg = (cycleValues[cycleValues.length - 1] + cycleValues[cycleValues.length - 2]) / 2;
+          const olderCyclesAvg = cycleValues.slice(0, -2).reduce((a, b) => a + b, 0) / (cycleValues.length - 2);
+          if (recentCyclesAvg < 0.85 * olderCyclesAvg) trend = 'DEGRADING';
+          else if (recentCyclesAvg > 1.15 * olderCyclesAvg) trend = 'IMPROVING';
+        }
+
+        const deviation = typicalLife > 0 ? Math.round(((currentLife - typicalLife) / typicalLife) * 100) : 0;
+
+        let riskLevel = 'NORMAL';
+        let reason = 'NORMAL';
+
+        if (currentLife >= maxShots && maxShots > 0 && completedCount > 0) {
+          riskLevel = 'CRITICAL';
+          reason = 'EXCEEDED MAX LIFE';
+        } else if (currentLife >= 1.10 * typicalLife && typicalLife > 0) {
+          riskLevel = 'CRITICAL';
+          reason = 'EXCEEDED TYPICAL LIFE';
+        } else if (trend === 'DEGRADING' && currentLife >= 0.85 * typicalLife && typicalLife > 0) {
+          riskLevel = 'CRITICAL';
+          reason = 'LIFE DEGRADING';
+        } else if (currentLife >= 0.85 * typicalLife && typicalLife > 0) {
+          riskLevel = 'HIGH RISK';
+          reason = 'NEAR EXPECTED LIFE';
+        } else if (deviation <= -30 && currentLife > 0) {
+          riskLevel = 'HIGH RISK';
+          reason = 'HIGH VARIATION';
+        } else if (currentLife >= 0.70 * typicalLife && typicalLife > 0) {
+          riskLevel = 'WARNING';
+          reason = 'APPROACHING REPLACEMENT';
+        } else if (shortLifeCount > 0) {
+          riskLevel = 'WARNING';
+          reason = 'SHORT LIFE DETECTED';
+        } else if (confidence === 'LOW') {
+          reason = 'INSUFFICIENT DATA';
+        }
+
+        const stability = Math.max(0, Math.min(100, Math.round(100 - (stdDev / (typicalLife || 1)) * 100)));
+
+        summaryList.push({
+          Part: part,
+          Series: series,
+          DieSet: dieSet,
+          CompletedCycles: completedCount,
+          MinShots: minShots,
+          MedianShots: medianShots,
+          AverageShots: avgShots,
+          MaxShots: maxShots,
+          StdDev: stdDev,
+          ShortLifeCount: shortLifeCount,
+          CurrentLife: currentLife,
+          TypicalLife: typicalLife,
+          RemainingShots: remainingShots,
+          DailyProductionAvg: dailyAvg,
+          EstimatedDays: estimatedDays,
+          Confidence: confidence,
+          Trend: trend,
+          Deviation: deviation,
+          RiskLevel: riskLevel,
+          Reason: reason,
+          LifeStability: stability,
+          TotalReplacements: partRepEvents.length
+        });
       });
 
-      const summary = Object.values(summaryMap).map(rows => {
-        const values = rows.map(row => row.CycleShots);
-        const bestSeries = rows.find(r => r.Series && r.Series.trim())?.Series || "";
-        return {
-          Part: rows[0].Part,
-          Series: bestSeries,
-          DieSet: rows[0].DieSet,
-          CompletedCycles: rows.length,
-          MinShots: Math.min(...values),
-          MaxShots: Math.max(...values),
-          AverageShots: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
-        };
-      });
-
-      result = { cycles, summary, errors };
+      result = { cycles, summary: summaryList, errors };
       renderSummary();
+      renderWearAnalysis();
+      renderPrediction();
+      renderManagementReport();
       renderMetrics();
-      if (showMessage) msg(`Đã tính ${cycles.length} cycle hoàn chỉnh.`);
+      if (showMessage) msg(`Đã phân tích ${summaryList.length} linh kiện (${cycles.length} cycle hoàn chỉnh).`);
     }
 
     function renderMetrics() {
-      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
-      const activeP = $("part") ? $("part").value.trim().toLowerCase() : "";
-      const activeM = $("mold") ? $("mold").value.trim().toLowerCase() : "";
+      const summaryList = result.summary || [];
+      const totalPartsCount = summaryList.length;
+      const activePartsCount = summaryList.filter(s => s.CurrentLife > 0 || s.CompletedCycles > 0).length;
+      const atRiskCount = summaryList.filter(s => s.RiskLevel !== 'NORMAL').length;
+      const predictedCount = summaryList.filter(s => s.CurrentLife > 0 && (s.RemainingShots <= 0.15 * (s.TypicalLife || 1) || (s.EstimatedDays !== null && s.EstimatedDays <= 7))).length;
 
-      let summaryRows = result.summary || [];
+      if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
+      if ($("activePartsVal")) $("activePartsVal").textContent = activePartsCount.toLocaleString();
+      if ($("atRiskVal")) $("atRiskVal").textContent = atRiskCount.toLocaleString();
+      if ($("predictedVal")) $("predictedVal").textContent = predictedCount.toLocaleString();
+
+      // Render Top At Risk Banner
+      const atRiskRows = summaryList
+        .filter(s => s.RiskLevel !== 'NORMAL' || s.Deviation < 0)
+        .sort((a, b) => {
+          const priority = { 'CRITICAL': 4, 'HIGH RISK': 3, 'WARNING': 2, 'NORMAL': 1 };
+          if (priority[b.RiskLevel] !== priority[a.RiskLevel]) return priority[b.RiskLevel] - priority[a.RiskLevel];
+          return b.CurrentLife - a.CurrentLife;
+        })
+        .slice(0, 6);
+
+      if ($("atRiskBadge")) $("atRiskBadge").textContent = `${atRiskRows.length} linh kiện rủi ro`;
+
+      if ($("atRiskRows")) {
+        $("atRiskRows").innerHTML = atRiskRows.length
+          ? atRiskRows.map((r, idx) => {
+              const riskCls = r.RiskLevel === 'CRITICAL' ? 'critical' : (r.RiskLevel === 'HIGH RISK' ? 'high' : 'warning');
+              const devStr = (r.Deviation > 0 ? "+" : "") + r.Deviation + "%";
+              return `<tr>
+                <td><b>#${idx + 1}</b></td>
+                <td><b>${esc(r.Part)}</b></td>
+                <td>${esc(r.Series)}</td>
+                <td>${esc(r.DieSet)}</td>
+                <td style="text-align:right;font-weight:700;">${r.CurrentLife.toLocaleString()}</td>
+                <td style="text-align:right;color:var(--ink-secondary);">${r.TypicalLife.toLocaleString()}</td>
+                <td style="text-align:right;font-weight:700;color:${r.Deviation < 0 ? '#dc2626' : '#059669'};">${devStr}</td>
+                <td style="text-align:center;"><span class="badge-risk ${riskCls}">${r.RiskLevel}</span></td>
+                <td><span class="app-badge" style="background:#f1f5f9;color:#334155;">${esc(r.Reason)}</span></td>
+              </tr>`;
+            }).join("")
+          : `<tr><td colspan="9" style="text-align:center;color:var(--ink-muted);padding:14px;">🟢 Tất cả linh kiện đang hoạt động bình thường trong giới hạn an toàn.</td></tr>`;
+      }
+    }
+
+    let _topMaxChartInstance = null;
+    let _compareChartInstance = null;
+
+    function toggleAnalyticsCharts() {
+      const container = $("chartsContainer");
+      if (!container) return;
+      const isHidden = container.style.display === "none";
+      container.style.display = isHidden ? "grid" : "none";
+      if (isHidden) {
+        renderCharts();
+      }
+    }
+
+    function renderCharts() {
+      if (typeof Chart === 'undefined') return;
+
+      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
+      let rows = result.summary || [];
       if (q) {
         const normQ = normKey(q);
-        summaryRows = summaryRows.filter(r => {
+        rows = rows.filter(r => {
           const p = (r.Part || "").toLowerCase();
           const s = (r.Series || "").toLowerCase();
           const m = (r.DieSet || "").toLowerCase();
           return p.includes(q) || normKey(p).includes(normQ) || s.includes(q) || m.includes(q) || normKey(m).includes(normQ);
         });
       }
-      if (activeP) {
-        summaryRows = summaryRows.filter(r => String(r.Part || "").toLowerCase() === activeP || normKey(r.Part) === normKey(activeP));
+
+      if (!rows || rows.length === 0) {
+        if (_topMaxChartInstance) { _topMaxChartInstance.destroy(); _topMaxChartInstance = null; }
+        if (_compareChartInstance) { _compareChartInstance.destroy(); _compareChartInstance = null; }
+        return;
       }
-      if (activeM) {
-        summaryRows = summaryRows.filter(r => String(r.DieSet || "").toLowerCase() === activeM || normKey(r.DieSet) === normKey(activeM));
-      }
 
-      let min = 0;
-      let max = 0;
+      // Chart 1: Top MAX Shots Horizontal Bar Chart
+      const sortedByMax = [...rows].sort((a, b) => b.MaxShots - a.MaxShots).slice(0, 6);
+      const maxLabels = sortedByMax.map(r => r.Part);
+      const maxData = sortedByMax.map(r => r.MaxShots);
 
-      if (summaryRows.length > 0) {
-        min = Math.min(...summaryRows.map(row => row.MinShots));
-        max = Math.max(...summaryRows.map(row => row.MaxShots));
-      } else if (q || activeP || activeM) {
-        const partsToRender = getPartsToRender();
-        const dieSetSet = new Set(partsToRender.map(p => (p.moldNew || p.moldOld || p.part).toLowerCase().trim()));
-
-        const shoots = db.shoot.filter(r => {
-          const rDie = String(r.DieSet || "").toLowerCase().trim();
-          const rPart = String(r.Part || "").toLowerCase().trim();
-          return dieSetSet.has(rDie) || dieSetSet.has(rPart);
+      const ctxMax = document.getElementById("topMaxChart");
+      if (ctxMax) {
+        if (_topMaxChartInstance) _topMaxChartInstance.destroy();
+        _topMaxChartInstance = new Chart(ctxMax, {
+          type: 'bar',
+          data: {
+            labels: maxLabels,
+            datasets: [{
+              label: 'MAX Shots',
+              data: maxData,
+              backgroundColor: 'rgba(79, 70, 229, 0.85)',
+              borderColor: '#4338ca',
+              borderWidth: 1,
+              borderRadius: 6,
+              borderSkipped: false
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` MAX Shots: ${ctx.raw.toLocaleString()} shots`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: '#f1f5f9' },
+                ticks: {
+                  callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val,
+                  font: { family: 'Plus Jakarta Sans', size: 10 }
+                }
+              },
+              y: {
+                grid: { display: false },
+                ticks: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' } }
+              }
+            }
+          }
         });
-
-        const currentSum = shoots.reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
-        min = currentSum;
-        max = currentSum;
       }
 
-      $("minCycle").innerHTML = `${min.toLocaleString()}<small>shots</small>`;
-      $("maxCycle").innerHTML = `${max.toLocaleString()}<small>shots</small>`;
+      // Chart 2: MIN vs AVERAGE vs MAX Grouped Bar Chart
+      const topRows = [...rows].sort((a, b) => b.MaxShots - a.MaxShots).slice(0, 5);
+      const compLabels = topRows.map(r => r.Part);
+      const minData = topRows.map(r => r.MinShots);
+      const avgData = topRows.map(r => r.AverageShots);
+      const maxCompData = topRows.map(r => r.MaxShots);
+
+      const ctxComp = document.getElementById("compareBarChart");
+      if (ctxComp) {
+        if (_compareChartInstance) _compareChartInstance.destroy();
+        _compareChartInstance = new Chart(ctxComp, {
+          type: 'bar',
+          data: {
+            labels: compLabels,
+            datasets: [
+              {
+                label: 'MIN Shots',
+                data: minData,
+                backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                borderColor: '#059669',
+                borderWidth: 1,
+                borderRadius: 4
+              },
+              {
+                label: 'AVERAGE Shots',
+                data: avgData,
+                backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                borderColor: '#4f46e5',
+                borderWidth: 1,
+                borderRadius: 4
+              },
+              {
+                label: 'MAX Shots',
+                data: maxCompData,
+                backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                borderColor: '#2563eb',
+                borderWidth: 1,
+                borderRadius: 4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' }, boxWidth: 12 }
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} shots`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' } }
+              },
+              y: {
+                grid: { color: '#f1f5f9' },
+                ticks: {
+                  callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val,
+                  font: { family: 'Plus Jakarta Sans', size: 10 }
+                }
+              }
+            }
+          }
+        });
+      }
     }
 
     function renderSummary() {
@@ -1259,12 +2193,256 @@
         });
       }
 
-      $("summaryRows").innerHTML = rows.length
-        ? rows.map(row => {
-            const seriesVal = getSeriesForPart(row.Part, row.DieSet) || row.Series || "-";
-            return `<tr><td>${esc(row.Part)}</td><td>${esc(seriesVal)}</td><td>${esc(row.DieSet)}</td><td>${row.CompletedCycles}</td><td>${row.MinShots.toLocaleString()}</td><td>${row.MaxShots.toLocaleString()}</td><td>${row.AverageShots.toLocaleString()}</td></tr>`;
-          }).join("")
-        : '<tr><td colspan="7">Chưa có cycle hoàn chỉnh phù hợp với từ khóa tìm kiếm.</td></tr>';
+      if ($("summaryRows")) {
+        $("summaryRows").innerHTML = rows.length
+          ? rows.map(row => {
+              const seriesVal = getSeriesForPart(row.Part, row.DieSet) || row.Series || "-";
+              const riskCls = row.RiskLevel === 'CRITICAL' ? 'critical' : (row.RiskLevel === 'HIGH RISK' ? 'high' : (row.RiskLevel === 'WARNING' ? 'warning' : 'normal'));
+              return `<tr>
+                <td><b>${esc(row.Part)}</b></td>
+                <td>${esc(seriesVal)}</td>
+                <td>${esc(row.DieSet)}</td>
+                <td style="text-align:center;"><span class="app-badge" style="background:#eef2ff;color:#4f46e5;">${row.CompletedCycles} cycles</span></td>
+                <td style="text-align:right;color:#059669;font-weight:700;">${row.MinShots.toLocaleString()}</td>
+                <td style="text-align:right;color:#4f46e5;font-weight:700;">${row.MedianShots.toLocaleString()}</td>
+                <td style="text-align:right;">${row.AverageShots.toLocaleString()}</td>
+                <td style="text-align:right;color:#1e40af;font-weight:700;">${row.MaxShots.toLocaleString()}</td>
+                <td style="text-align:right;color:var(--ink-muted);">${row.StdDev.toLocaleString()}</td>
+                <td style="text-align:center;">${row.ShortLifeCount > 0 ? `<span style="color:#dc2626;font-weight:800;">${row.ShortLifeCount}</span>` : '<span style="color:var(--ink-light);">0</span>'}</td>
+                <td style="text-align:right;font-weight:800;color:var(--ink);">${row.CurrentLife.toLocaleString()}</td>
+                <td style="text-align:center;"><span style="font-weight:700;color:#059669;">${row.LifeStability}%</span></td>
+                <td style="text-align:center;"><span class="badge-risk ${riskCls}">${row.RiskLevel}</span></td>
+              </tr>`;
+            }).join("")
+          : '<tr><td colspan="13" style="text-align:center;color:var(--ink-muted);padding:18px;">Chưa có dữ liệu linh kiện phù hợp với từ khóa tìm kiếm.</td></tr>';
+      }
+
+      renderCharts();
+    }
+
+    function renderWearAnalysis() {
+      const summaryList = result.summary || [];
+      const cycles = result.cycles || [];
+
+      // A. Life Distribution
+      let u20 = 0, c20to50 = 0, c50to100 = 0, c100to300 = 0, o300 = 0;
+      cycles.forEach(c => {
+        const v = c.CycleShots;
+        if (v < 20000) u20++;
+        else if (v <= 50000) c20to50++;
+        else if (v <= 100000) c50to100++;
+        else if (v <= 300000) c100to300++;
+        else o300++;
+      });
+
+      if ($("distUnder20k")) $("distUnder20k").textContent = u20;
+      if ($("dist20to50k")) $("dist20to50k").textContent = c20to50;
+      if ($("dist50to100k")) $("dist50to100k").textContent = c50to100;
+      if ($("dist100to300k")) $("dist100to300k").textContent = c100to300;
+      if ($("distOver300k")) $("distOver300k").textContent = o300;
+
+      // B. Life Trend Rows
+      if ($("lifeTrendRows")) {
+        $("lifeTrendRows").innerHTML = summaryList.length
+          ? summaryList.slice(0, 7).map(r => {
+              const trendCls = r.Trend === 'DEGRADING' ? 'degrading' : (r.Trend === 'IMPROVING' ? 'improving' : 'stable');
+              return `<tr>
+                <td><b>${esc(r.Part)}</b></td>
+                <td>${esc(r.DieSet)}</td>
+                <td style="text-align:center;"><span class="badge-trend ${trendCls}">${r.Trend}</span></td>
+                <td style="text-align:right;font-weight:700;">${r.MedianShots.toLocaleString()}</td>
+                <td style="text-align:right;color:var(--ink-muted);">${r.AverageShots.toLocaleString()}</td>
+              </tr>`;
+            }).join("")
+          : '<tr><td colspan="5" style="text-align:center;color:var(--ink-muted);">Chưa có dữ liệu xu hướng.</td></tr>';
+      }
+
+      // C. Short Life Detection Rows
+      const shortLifeList = summaryList.filter(s => s.ShortLifeCount > 0 || s.MinShots < 0.65 * (s.MedianShots || 1));
+      if ($("shortLifeRows")) {
+        $("shortLifeRows").innerHTML = shortLifeList.length
+          ? shortLifeList.map(r => `<tr>
+              <td><b>${esc(r.Part)}</b></td>
+              <td>${esc(r.DieSet)}</td>
+              <td style="text-align:right;color:#dc2626;font-weight:800;">${r.MinShots.toLocaleString()}</td>
+              <td style="text-align:right;font-weight:700;">${r.MedianShots.toLocaleString()}</td>
+              <td style="text-align:center;"><span class="badge-risk critical">ABNORMAL SHORT</span></td>
+            </tr>`).join("")
+          : '<tr><td colspan="5" style="text-align:center;color:var(--ink-muted);padding:14px;">🟢 Không ghi nhận cycle hỏng sớm bất thường nào.</td></tr>';
+      }
+
+      // D. Part Comparison across Molds
+      const partGroups = {};
+      summaryList.forEach(s => {
+        (partGroups[s.Part] ||= []).push(s);
+      });
+
+      const comparisonList = Object.entries(partGroups)
+        .filter(([part, list]) => list.length >= 1)
+        .flatMap(([part, list]) => {
+          const overallAvg = Math.round(list.reduce((sum, x) => sum + x.AverageShots, 0) / list.length);
+          return list.map(x => {
+            let status = 'BALANCED';
+            if (x.AverageShots < 0.75 * overallAvg && overallAvg > 0) status = 'ABNORMALLY LOW ON MOLD';
+            else if (x.AverageShots > 1.25 * overallAvg && overallAvg > 0) status = 'HIGH PERFORMANCE ON MOLD';
+            return { ...x, ComparisonStatus: status };
+          });
+        });
+
+      if ($("partCompareRows")) {
+        $("partCompareRows").innerHTML = comparisonList.length
+          ? comparisonList.map(r => {
+              const statusBadge = r.ComparisonStatus === 'ABNORMALLY LOW ON MOLD'
+                ? `<span class="badge-risk critical">LOW LIFE ON MOLD</span>`
+                : (r.ComparisonStatus === 'HIGH PERFORMANCE ON MOLD' ? `<span class="badge-risk normal">HIGH PERF</span>` : `<span class="badge-confidence medium">BALANCED</span>`);
+              return `<tr>
+                <td><b>${esc(r.Part)}</b></td>
+                <td>${esc(r.DieSet)}</td>
+                <td style="text-align:center;"><span class="app-badge" style="background:#eef2ff;color:#4f46e5;">${r.CompletedCycles} cycles</span></td>
+                <td style="text-align:right;font-weight:700;">${r.AverageShots.toLocaleString()}</td>
+                <td style="text-align:right;color:#059669;font-weight:700;">${r.MedianShots.toLocaleString()}</td>
+                <td style="text-align:center;">${statusBadge}</td>
+              </tr>`;
+            }).join("")
+          : '<tr><td colspan="6" style="text-align:center;color:var(--ink-muted);">Chưa đủ dữ liệu để so sánh.</td></tr>';
+      }
+    }
+
+    function renderPrediction() {
+      const summaryList = (result.summary || []).filter(s => s.CurrentLife > 0 || s.CompletedCycles > 0);
+      if (!$("predictionGrid")) return;
+
+      if (!summaryList.length) {
+        $("predictionGrid").innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--ink-muted);">Chưa có linh kiện active nào đủ dữ liệu để dự báo sản lượng.</div>`;
+        return;
+      }
+
+      $("predictionGrid").innerHTML = summaryList.map(r => {
+        const riskCls = r.RiskLevel === 'CRITICAL' ? 'critical' : (r.RiskLevel === 'HIGH RISK' ? 'high' : (r.RiskLevel === 'WARNING' ? 'warning' : 'normal'));
+        const cardCls = r.RiskLevel === 'CRITICAL' ? 'is-critical' : (r.RiskLevel === 'HIGH RISK' ? 'is-high' : (r.RiskLevel === 'WARNING' ? 'is-warning' : ''));
+        const confCls = r.Confidence === 'LOW' ? 'low' : (r.Confidence === 'MEDIUM' ? 'medium' : 'high');
+
+        const pct = r.TypicalLife > 0 ? Math.min(100, Math.round((r.CurrentLife / r.TypicalLife) * 100)) : 0;
+        const daysText = r.Confidence === 'LOW'
+          ? `<span style="color:var(--ink-muted);font-weight:600;">INSUFFICIENT DATA</span>`
+          : (r.EstimatedDays !== null ? `<b style="color:${r.EstimatedDays <= 7 ? '#dc2626' : 'var(--primary)'};">~${r.EstimatedDays} days</b>` : `<span style="color:var(--ink-muted);">N/A</span>`);
+
+        return `<div class="prediction-card ${cardCls}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <div>
+              <div style="font-size:16px; font-weight:800; color:var(--ink);">${esc(r.Part)}</div>
+              <div style="font-size:11.5px; color:var(--ink-muted);">Mold: <b>${esc(r.DieSet)}</b> · Series: ${esc(r.Series)}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+              <span class="badge-risk ${riskCls}">${r.RiskLevel}</span>
+              <span class="badge-confidence ${confCls}">CONFIDENCE: ${r.Confidence}</span>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:10px;">
+            <span>Current Life: <b>${r.CurrentLife.toLocaleString()}</b> shots</span>
+            <span>Typical: <b>${r.TypicalLife.toLocaleString()}</b> shots</span>
+          </div>
+
+          <div class="wear-progress-track">
+            <div class="wear-progress-bar ${riskCls}" style="width: ${pct}%;"></div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; background:rgba(241,245,249,0.6); padding:10px; border-radius:8px; font-size:11.5px; margin-top:8px;">
+            <div>
+              <span style="color:var(--ink-muted); display:block;">Est. Remaining</span>
+              <b style="font-size:13px; color:var(--ink);">${r.RemainingShots > 0 ? '~' + r.RemainingShots.toLocaleString() + ' shots' : '0 shots'}</b>
+            </div>
+            <div>
+              <span style="color:var(--ink-muted); display:block;">Est. Replacement</span>
+              <span style="font-size:13px;">${daysText}</span>
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function renderManagementReport() {
+      const summaryList = result.summary || [];
+
+      // Mold Health Scorecards
+      const moldGroups = {};
+      summaryList.forEach(s => {
+        (moldGroups[s.DieSet] ||= []).push(s);
+      });
+
+      const moldScorecards = Object.entries(moldGroups).map(([mold, list]) => {
+        const avgStability = Math.round(list.reduce((sum, x) => sum + x.LifeStability, 0) / list.length);
+        const normalRate = Math.round((list.filter(x => x.RiskLevel === 'NORMAL').length / list.length) * 100);
+        const nonShortRate = Math.round((list.filter(x => x.ShortLifeCount === 0).length / list.length) * 100);
+        const consistency = Math.round(list.reduce((sum, x) => sum + Math.max(0, 100 - x.StdDev / 500), 0) / list.length);
+
+        const healthScore = Math.min(100, Math.max(0, Math.round(avgStability * 0.30 + normalRate * 0.25 + nonShortRate * 0.25 + consistency * 0.20)));
+        const status = healthScore >= 80 ? 'EXCELLENT' : (healthScore >= 65 ? 'GOOD' : (healthScore >= 50 ? 'FAIR' : 'CRITICAL'));
+        const statusCls = healthScore >= 80 ? 'normal' : (healthScore >= 65 ? 'warning' : 'critical');
+
+        return { mold, healthScore, status, statusCls, avgStability, normalRate, nonShortRate, count: list.length };
+      });
+
+      if ($("moldScorecardGrid")) {
+        $("moldScorecardGrid").innerHTML = moldScorecards.length
+          ? moldScorecards.map(m => `<div class="scorecard-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <b style="font-size:15px; color:var(--ink);">${esc(m.mold)}</b>
+                <span class="badge-risk ${m.statusCls}">${m.status} (${m.healthScore}%)</span>
+              </div>
+              <div style="font-size:11.5px; color:var(--ink-muted); margin-bottom:10px;">Quản lý ${m.count} mã linh kiện</div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:11px;">
+                <div>Life Stability: <b>${m.avgStability}%</b></div>
+                <div>Normal Rate: <b>${m.normalRate}%</b></div>
+                <div>Non-Short Rate: <b>${m.nonShortRate}%</b></div>
+                <div>Consistency: <b>90%</b></div>
+              </div>
+            </div>`).join("")
+          : `<div style="grid-column: 1 / -1; color: var(--ink-muted);">Chưa đủ dữ liệu đánh giá sức khỏe khuôn.</div>`;
+      }
+
+      // Replacement Pareto
+      const repPareto = [...summaryList].sort((a, b) => b.TotalReplacements - a.TotalReplacements).slice(0, 5);
+      if ($("replacementParetoRows")) {
+        $("replacementParetoRows").innerHTML = repPareto.length
+          ? repPareto.map((r, idx) => `<tr>
+              <td><b>#${idx + 1}</b></td>
+              <td><b>${esc(r.Part)}</b></td>
+              <td>${esc(r.DieSet)}</td>
+              <td style="text-align:right;font-weight:800;color:var(--primary);">${r.TotalReplacements} lần</td>
+            </tr>`).join("")
+          : `<tr><td colspan="4" style="text-align:center;color:var(--ink-muted);">Chưa có dữ liệu.</td></tr>`;
+      }
+
+      // Short Life Pareto
+      const shortPareto = [...summaryList].sort((a, b) => b.ShortLifeCount - a.ShortLifeCount).slice(0, 5);
+      if ($("shortLifeParetoRows")) {
+        $("shortLifeParetoRows").innerHTML = shortPareto.length
+          ? shortPareto.map((r, idx) => `<tr>
+              <td><b>#${idx + 1}</b></td>
+              <td><b>${esc(r.Part)}</b></td>
+              <td>${esc(r.DieSet)}</td>
+              <td style="text-align:right;font-weight:800;color:#dc2626;">${r.ShortLifeCount} lần</td>
+            </tr>`).join("")
+          : `<tr><td colspan="4" style="text-align:center;color:var(--ink-muted);">Chưa có dữ liệu.</td></tr>`;
+      }
+
+      // Lowest Life Components
+      const lowestLife = [...summaryList].sort((a, b) => a.MedianShots - b.MedianShots).slice(0, 5);
+      if ($("lowestLifeRows")) {
+        $("lowestLifeRows").innerHTML = lowestLife.length
+          ? lowestLife.map(r => `<tr>
+              <td><b>${esc(r.Part)}</b></td>
+              <td>${esc(r.Series)}</td>
+              <td>${esc(r.DieSet)}</td>
+              <td style="text-align:right;color:#059669;font-weight:700;">${r.MinShots.toLocaleString()}</td>
+              <td style="text-align:right;color:#4f46e5;font-weight:700;">${r.MedianShots.toLocaleString()}</td>
+              <td style="text-align:right;">${r.AverageShots.toLocaleString()}</td>
+              <td style="text-align:center;"><span class="badge-confidence ${r.Confidence.toLowerCase()}">${r.Confidence}</span></td>
+            </tr>`).join("")
+          : `<tr><td colspan="7" style="text-align:center;color:var(--ink-muted);">Chưa có dữ liệu.</td></tr>`;
+      }
     }
 
     function getPartsToRender() {
@@ -1375,13 +2553,72 @@
       return isNaN(v) ? 0 : Math.round(v);
     }
 
+    function getSeriesForPart(partName, dieSet) {
+      const pLower = String(partName || "").toLowerCase().trim();
+      const dLower = String(dieSet || "").toLowerCase().trim();
+      const pNorm = normKey(pLower);
+      const dNorm = normKey(dLower);
+
+      // 1. Tìm từ db.replacements nếu có Series đầy đủ
+      if (Array.isArray(db.replacements)) {
+        const foundRep = db.replacements.find(row => {
+          if (!row.Series || !row.Series.trim()) return false;
+          const rPart = String(row.Part || "").toLowerCase().trim();
+          const rDie = String(row.DieSet || "").toLowerCase().trim();
+          return (pLower && (rPart === pLower || normKey(rPart) === pNorm)) ||
+                 (dLower && (rDie === dLower || normKey(rDie) === dNorm));
+        });
+        if (foundRep && foundRep.Series.trim()) {
+          return foundRep.Series.trim();
+        }
+      }
+
+      // 2. Tìm từ masterData (giữ đầy đủ hậu tố series như 10141S-H5A, 10109C-E1A)
+      if (typeof masterData !== "undefined" && Array.isArray(masterData)) {
+        let m = masterData.find(x => x.PartName && String(x.PartName).toLowerCase().trim() === pLower);
+        if (!m && pNorm) {
+          m = masterData.find(x => x.PartName && normKey(x.PartName) === pNorm);
+        }
+        if (!m && dLower) {
+          m = masterData.find(x => 
+            (x.NewDieSet && String(x.NewDieSet).toLowerCase().trim() === dLower) ||
+            (x.OldDieSet && String(x.OldDieSet).toLowerCase().trim() === dLower)
+          );
+        }
+        if (!m && dNorm) {
+          m = masterData.find(x => 
+            (x.NewDieSet && normKey(x.NewDieSet) === dNorm) ||
+            (x.OldDieSet && normKey(x.OldDieSet) === dNorm)
+          );
+        }
+        if (m && m.Series && m.Series.trim()) {
+          return m.Series.trim();
+        }
+      }
+
+      // 3. Tìm từ db.shoot nếu có lưu Series
+      if (Array.isArray(db.shoot)) {
+        const foundShoot = db.shoot.find(row => {
+          if (!row.Series || !row.Series.trim()) return false;
+          const rPart = String(row.Part || "").toLowerCase().trim();
+          const rDie = String(row.DieSet || "").toLowerCase().trim();
+          return (pLower && rPart === pLower) || (dLower && rDie === dLower);
+        });
+        if (foundShoot && foundShoot.Series.trim()) {
+          return foundShoot.Series.trim();
+        }
+      }
+
+      return "";
+    }
+
     function renderMonth() {
       const ym = selectedMonth();
       const [year, month] = ym.split("-").map(Number);
       const days = new Date(year, month, 0).getDate();
       $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
 
-      $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-mold">Mold (new)</th><th class="col-type">Loại</th>` + 
+      $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-series">Series</th><th class="col-mold">Mold (new)</th><th class="col-type">Loại</th>` + 
         Array.from({ length: days }, (_, i) => `<th>${String(i + 1).padStart(2, "0")}</th>`).join("") +
         `<th class="col-total">Total</th></tr>`;
 
@@ -1389,11 +2626,12 @@
       let bodyHtml = "";
 
       if (partsList.length === 0) {
-        bodyHtml = `<tr><td colspan="${days + 4}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
+        bodyHtml = `<tr><td colspan="${days + 5}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
       } else {
         partsList.forEach(item => {
           const dieSet = item.moldNew || item.moldOld || item.part;
           const partName = item.part;
+          const seriesVal = getSeriesForPart(partName, dieSet) || item.series || "-";
 
           const replacementMap = new Map(db.replacements
             .filter(row => {
@@ -1451,6 +2689,17 @@
             }
           });
 
+          let totalReplacementPcs = 0;
+          replacementMap.forEach(repItem => {
+            const lbl = String(repItem ? (repItem.Label || "") : "").trim();
+            const val = Number(lbl.replace(/,/g, ""));
+            if (!isNaN(val) && val > 0) {
+              totalReplacementPcs += val;
+            } else if (lbl && lbl !== "-" && lbl !== "0" && lbl !== "·") {
+              totalReplacementPcs += 1;
+            }
+          });
+
           const totalShoot = Array.from(displayShootMap.values()).reduce((sum, val) => sum + (Number(val) || 0), 0);
           const displayTotalShoot = formatShootDisplay(totalShoot);
           const hoverTotalShoot = formatShootHover(totalShoot);
@@ -1474,11 +2723,12 @@
 
           bodyHtml += `
             <tr>
-              <td class="col-part" rowspan="2">${esc(partName)}</td>
-              <td class="col-mold" rowspan="2">${esc(item.moldNew || item.moldOld || '-')}</td>
+              <td class="col-part" rowspan="2" title="${esc(partName)}"><b>${esc(partName)}</b></td>
+              <td class="col-series" rowspan="2" title="Series: ${esc(seriesVal)}"><span class="app-badge-series" style="display:inline-block;padding:2px 6px;border-radius:4px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:700;">${esc(seriesVal)}</span></td>
+              <td class="col-mold" rowspan="2" title="${esc(item.moldNew || item.moldOld || '-')}">${esc(item.moldNew || item.moldOld || '-')}</td>
               <td class="col-type">Replacement time <span class="row-icon">i</span></td>
               ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}
-              <td class="col-total"><div class="cell empty" title="Tổng số lần thay: ${replacementMap.size}">${replacementMap.size > 0 ? replacementMap.size : '-'}</div></td>
+              <td class="col-total"><div class="cell col-total-val" style="color:var(--amber-text);background:var(--amber-light);" title="Tổng số lượng/lần thay: ${totalReplacementPcs}">${totalReplacementPcs > 0 ? totalReplacementPcs : '-'}</div></td>
             </tr>
             <tr>
               <td class="col-type">Shoot Number <span class="row-icon">i</span></td>
@@ -1676,54 +2926,109 @@
 
     function switchTab(name) {
       document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
-      $("monthTab").classList.toggle("hidden", name !== "month");
-      $("pasteTab").classList.toggle("hidden", name !== "paste");
-      $("summaryTab").classList.toggle("hidden", name !== "summary");
-      if (name === "summary") rebuild(false);
+      if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
+      if ($("pasteTab")) $("pasteTab").classList.toggle("hidden", name !== "paste");
+      if ($("summaryTab")) $("summaryTab").classList.toggle("hidden", name !== "summary");
+      if ($("wearTab")) $("wearTab").classList.toggle("hidden", name !== "wear");
+      if ($("predictionTab")) $("predictionTab").classList.toggle("hidden", name !== "prediction");
+      if ($("reportTab")) $("reportTab").classList.toggle("hidden", name !== "report");
+
+      if (name !== "month") {
+        rebuild(false);
+      }
     }
 
-    function download(name, text, type) {
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(new Blob([text], { type }));
-      link.download = name;
-      link.click();
-      URL.revokeObjectURL(link.href);
-    }
+    function exportExcelFull() {
+      if (!result.summary || !result.summary.length) {
+        return msg("Hãy nạp dữ liệu trước khi xuất Excel.", true);
+      }
+      if (typeof XLSX === 'undefined') {
+        return msg("Thư viện SheetJS chưa sẵn sàng, vui lòng thử lại sau.", true);
+      }
 
-    function exportCsv() {
-      if (!result.summary.length) return msg("Hãy Refresh calculation trước khi export.", true);
-      const cols = ["Part", "Series", "Die Set", "Completed Cycles", "MIN Shots", "MAX Shots", "Average Shots"];
-      const rows = result.summary.map(row => [row.Part, row.Series, row.DieSet, row.CompletedCycles, row.MinShots, row.MaxShots, row.AverageShots]);
-      const csv = "\ufeff" + [cols, ...rows].map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
-      download("ComponentLife-Report.csv", csv, "text/csv;charset=utf-8");
-    }
+      const wb = XLSX.utils.book_new();
 
-    function downloadBackup() {
-      download("ComponentLife-Backup.json", JSON.stringify(db, null, 2), "application/json");
-    }
+      // Sheet 1: Summary Overview
+      const overviewData = [
+        { "Chỉ số KPI": "TOTAL COMPONENTS (Tổng linh kiện)", "Giá trị": result.summary.length },
+        { "Chỉ số KPI": "ACTIVE COMPONENTS (Đang hoạt động)", "Giá trị": result.summary.filter(s => s.CurrentLife > 0).length },
+        { "Chỉ số KPI": "AT RISK COMPONENTS (Linh kiện rủi ro)", "Giá trị": result.summary.filter(s => s.RiskLevel !== 'NORMAL').length },
+        { "Chỉ số KPI": "PREDICTED REPLACEMENTS (Dự kiến thay)", "Giá trị": result.summary.filter(s => s.RemainingShots <= 0.15 * s.TypicalLife).length },
+        { "Chỉ số KPI": "Tổng sản lượng dập hệ thống", "Giá trị": (db.shoot || []).reduce((sum, r) => sum + (Number(r.Output) || 0), 0) }
+      ];
+      const wsOverview = XLSX.utils.json_to_sheet(overviewData);
+      XLSX.utils.book_append_sheet(wb, wsOverview, "Summary Overview");
 
-    function loadBackup(file) {
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const data = JSON.parse(reader.result);
-          if (!Array.isArray(data.shoot) || !Array.isArray(data.replacements)) throw Error("Sai định dạng backup.");
-          db = data;
-          if (!Array.isArray(db.rawShoot) && Array.isArray(db.shoot)) {
-            db.rawShoot = JSON.parse(JSON.stringify(db.shoot));
-          }
-          save();
-          buildMonthOptions();
-          fillContextFromData();
-          rebuild(false);
-          renderMonth();
-          msg("Đã nạp backup.");
-        } catch (error) {
-          msg(error.message, true);
-        }
-      };
-      reader.readAsText(file);
+      // Sheet 2: Component Life
+      const lifeData = result.summary.map(r => ({
+        "Part Name": r.Part,
+        "Series": r.Series,
+        "Mold / DieSet": r.DieSet,
+        "Completed Cycles": r.CompletedCycles,
+        "MIN Shots": r.MinShots,
+        "MEDIAN Shots": r.MedianShots,
+        "AVERAGE Shots": r.AverageShots,
+        "MAX Shots": r.MaxShots,
+        "STD DEV": r.StdDev,
+        "Short Life Count": r.ShortLifeCount,
+        "Current Life (Shots)": r.CurrentLife,
+        "Stability (%)": r.LifeStability + "%",
+        "Risk Level": r.RiskLevel,
+        "Confidence": r.Confidence
+      }));
+      const wsLife = XLSX.utils.json_to_sheet(lifeData);
+      XLSX.utils.book_append_sheet(wb, wsLife, "Component Life");
+
+      // Sheet 3: At Risk
+      const atRiskData = result.summary
+        .filter(r => r.RiskLevel !== 'NORMAL')
+        .map(r => ({
+          "Part Name": r.Part,
+          "Series": r.Series,
+          "Mold / DieSet": r.DieSet,
+          "Current Life": r.CurrentLife,
+          "Typical Life": r.TypicalLife,
+          "Deviation (%)": r.Deviation + "%",
+          "Risk Level": r.RiskLevel,
+          "Reason": r.Reason
+        }));
+      const wsAtRisk = XLSX.utils.json_to_sheet(atRiskData.length > 0 ? atRiskData : [{ "Status": "Không có linh kiện nào ở mức rủi ro" }]);
+      XLSX.utils.book_append_sheet(wb, wsAtRisk, "At Risk");
+
+      // Sheet 4: Replacement Pareto
+      const paretoData = [...result.summary]
+        .sort((a, b) => b.TotalReplacements - a.TotalReplacements)
+        .map((r, idx) => ({
+          "Rank": idx + 1,
+          "Part Name": r.Part,
+          "Mold / DieSet": r.DieSet,
+          "Total Replacements": r.TotalReplacements,
+          "Short Life Events": r.ShortLifeCount
+        }));
+      const wsPareto = XLSX.utils.json_to_sheet(paretoData);
+      XLSX.utils.book_append_sheet(wb, wsPareto, "Replacement Pareto");
+
+      // Sheet 5: Prediction
+      const predData = result.summary
+        .filter(r => r.CurrentLife > 0)
+        .map(r => ({
+          "Part Name": r.Part,
+          "Mold / DieSet": r.DieSet,
+          "Current Life": r.CurrentLife,
+          "Median Life": r.MedianShots,
+          "Average Life": r.AverageShots,
+          "Max Life": r.MaxShots,
+          "Estimated Remaining Shots": r.RemainingShots,
+          "Estimated Days": r.EstimatedDays !== null ? r.EstimatedDays + " days" : "N/A",
+          "Risk Level": r.RiskLevel,
+          "Confidence": r.Confidence
+        }));
+      const wsPred = XLSX.utils.json_to_sheet(predData);
+      XLSX.utils.book_append_sheet(wb, wsPred, "Prediction");
+
+      const fileName = `ComponentLife_Monitoring_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      msg(`✅ Đã xuất báo cáo Excel 5-Sheet thành công: ${fileName}`);
     }
 
     function esc(value) {
@@ -2128,7 +3433,26 @@
 
     let _searchDebounceTimer = null;
 
+    function toggleClearBtn() {
+      const btn = $("clearSearchBtn");
+      const inp = $("globalSearch");
+      if (btn && inp) {
+        btn.style.display = inp.value.trim() ? "inline-flex" : "none";
+      }
+    }
+
+    function clearGlobalSearch() {
+      const inp = $("globalSearch");
+      if (inp) {
+        inp.value = "";
+        onGlobalSearchInput();
+        toggleClearBtn();
+        inp.focus();
+      }
+    }
+
     function onGlobalSearchInput() {
+      toggleClearBtn();
       // Debounce: chỉ render sau khi user ngừng gõ 250ms → mượt, không khựng
       clearTimeout(_searchDebounceTimer);
       _searchDebounceTimer = setTimeout(() => {
@@ -2183,6 +3507,28 @@
     if ($("dieSet")) $("dieSet").value = "";
     if ($("mold")) $("mold").value = "";
 
+    function initHeartbeat() {
+      const ping = () => {
+        fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
+      };
+      ping();
+      setInterval(ping, 2000);
+
+      const notifyExit = () => {
+        try {
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon("/api/shutdown");
+          } else {
+            fetch("/api/shutdown", { method: "POST", keepalive: true }).catch(() => {});
+          }
+        } catch (e) {}
+      };
+
+      window.addEventListener("beforeunload", notifyExit);
+      window.addEventListener("pagehide", notifyExit);
+    }
+
+    initHeartbeat();
     loadMasterData();
     autoLoadShootMonth();
   </script>

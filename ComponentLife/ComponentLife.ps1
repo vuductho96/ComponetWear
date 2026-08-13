@@ -4,6 +4,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# ===== SINGLE INSTANCE CHECK =====
+$createdNew = $false
+$mutex = New-Object System.Threading.Mutex($true, "Global\ComponentLife_SingleInstance_Mutex_v2", [ref]$createdNew)
+if (-not $createdNew) {
+    $url = "http://127.0.0.1:$Port/"
+    if (-not $NoBrowser) { Start-Process $url }
+    exit 0
+}
+
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DataDir = Join-Path $Root 'data'
 $ReportDir = Join-Path $Root 'reports'
@@ -27,6 +37,7 @@ for ($p = $Port; $p -le $Port + 50; $p++) {
 }
 
 if (-not $listener) {
+    if ($mutex) { try { $mutex.ReleaseMutex() } catch {}; try { $mutex.Dispose() } catch {} }
     throw "Khong the khoi dong local server."
 }
 
@@ -34,8 +45,26 @@ $url = "http://127.0.0.1:$boundPort/"
 Write-Host "Component Life đang chay tai $url (nhan Ctrl+C de dung)" -ForegroundColor Green
 if (-not $NoBrowser) { Start-Process $url }
 
+$global:lastHeartbeat = [DateTime]::Now
+$global:hasReceivedHeartbeat = $false
+$global:shouldShutdown = $false
+
 try {
     while ($true) {
+        if ($global:shouldShutdown) {
+            Write-Host "Shutting down ComponentLife server..." -ForegroundColor Yellow
+            break
+        }
+        if ($global:hasReceivedHeartbeat -and ([DateTime]::Now - $global:lastHeartbeat).TotalSeconds -gt 5) {
+            Write-Host "Browser closed (heartbeat timeout). Stopping ComponentLife server..." -ForegroundColor Yellow
+            break
+        }
+
+        if (-not $listener.Pending()) {
+            Start-Sleep -Milliseconds 100
+            continue
+        }
+
         $client = $listener.AcceptTcpClient()
         $stream = $client.GetStream()
         $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
@@ -74,11 +103,31 @@ try {
         $contentType = "text/html; charset=utf-8"
 
         try {
-            if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/ComponentLife.html') {
+            if ($path -eq '/index.html' -or $path -eq '/ComponentLife.html') {
                 $htmlFile = Join-Path $Root 'ComponentLife.html'
                 if (-not (Test-Path $htmlFile)) { $htmlFile = Join-Path $Root 'index.html' }
                 $responseBytes = [System.IO.File]::ReadAllBytes($htmlFile)
                 $contentType = "text/html; charset=utf-8"
+            }
+            elseif ($path -eq '/' -or $path -eq '/api/heartbeat') {
+                if ($path -eq '/') {
+                    $htmlFile = Join-Path $Root 'ComponentLife.html'
+                    if (-not (Test-Path $htmlFile)) { $htmlFile = Join-Path $Root 'index.html' }
+                    $responseBytes = [System.IO.File]::ReadAllBytes($htmlFile)
+                    $contentType = "text/html; charset=utf-8"
+                } else {
+                    $global:lastHeartbeat = [DateTime]::Now
+                    $global:hasReceivedHeartbeat = $true
+                    $resObj = [pscustomobject]@{ status = "ok"; time = $global:lastHeartbeat.ToString("o") }
+                    $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                    $contentType = "application/json; charset=utf-8"
+                }
+            }
+            elseif ($path -eq '/api/shutdown') {
+                $global:shouldShutdown = $true
+                $resObj = [pscustomobject]@{ status = "shutdown_initiated" }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
             }
             elseif ($path.StartsWith("/data/") -or $path.EndsWith(".json") -or $path.EndsWith(".js") -or $path.EndsWith(".css")) {
                 $rel = $path.TrimStart('/').Replace('/', [System.IO.Path]::DirectorySeparatorChar)
@@ -330,5 +379,9 @@ try {
         $client.Close()
     }
 } finally {
-    if ($listener) { $listener.Stop() }
+    if ($listener) { try { $listener.Stop() } catch {} }
+    if ($mutex) {
+        try { $mutex.ReleaseMutex() } catch {}
+        try { $mutex.Dispose() } catch {}
+    }
 }
