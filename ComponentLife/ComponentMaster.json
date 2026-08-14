@@ -4704,30 +4704,6 @@
     "StockLeft": 10
   },
   {
-    "PartName": "214A",
-    "Series": "18015C",
-    "OldDieSet": "M0975",
-    "NewDieSet": "H18015C01",
-    "StandardStock": 2,
-    "StockLeft": 6
-  },
-  {
-    "PartName": "214B",
-    "Series": "18015C",
-    "OldDieSet": "M0975",
-    "NewDieSet": "H18015C01",
-    "StandardStock": 1,
-    "StockLeft": 4
-  },
-  {
-    "PartName": "215",
-    "Series": "18015C",
-    "OldDieSet": "M0975",
-    "NewDieSet": "H18015C01",
-    "StandardStock": 1,
-    "StockLeft": 15
-  },
-  {
     "PartName": "114",
     "Series": "10106B-E1C",
     "OldDieSet": "M1058",
@@ -10256,14 +10232,6 @@
     "StockLeft": 7
   },
   {
-    "PartName": "A02-1",
-    "Series": "11001B",
-    "OldDieSet": "YW005",
-    "NewDieSet": "H11001B02",
-    "StandardStock": 1,
-    "StockLeft": 6
-  },
-  {
     "PartName": "A02-2",
     "Series": "11001B",
     "OldDieSet": "YW005",
@@ -10664,14 +10632,6 @@
     "StockLeft": 2
   },
   {
-    "PartName": "211",
-    "Series": "13077B",
-    "OldDieSet": "MF00102",
-    "NewDieSet": "H13077B01",
-    "StandardStock": 4,
-    "StockLeft": 2
-  },
-  {
     "PartName": "309C",
     "Series": "11603S",
     "OldDieSet": "IRSV-021",
@@ -10702,14 +10662,6 @@
     "NewDieSet": "H11603S04",
     "StandardStock": 2,
     "StockLeft": 20
-  },
-  {
-    "PartName": "104A-1",
-    "Series": "10128B",
-    "OldDieSet": "MF00176",
-    "NewDieSet": "H10128B01",
-    "StandardStock": 5,
-    "StockLeft": 1
   },
   {
     "PartName": "216",
@@ -10920,14 +10872,6 @@
     "StockLeft": 8
   },
   {
-    "PartName": "108-1",
-    "Series": "10128S-H5C",
-    "OldDieSet": "MF00521",
-    "NewDieSet": "H10128S02",
-    "StandardStock": 2,
-    "StockLeft": 2
-  },
-  {
     "PartName": "218",
     "Series": "10121S-E1A",
     "OldDieSet": "M1078",
@@ -11016,28 +10960,12 @@
     "StockLeft": 24
   },
   {
-    "PartName": "406",
-    "Series": "9664S",
-    "OldDieSet": "M1148",
-    "NewDieSet": "H9664S01",
-    "StandardStock": 8,
-    "StockLeft": 6
-  },
-  {
     "PartName": "210A",
     "Series": "11603S",
     "OldDieSet": "IRSV-021",
     "NewDieSet": "H11603S04",
     "StandardStock": 5,
     "StockLeft": 324
-  },
-  {
-    "PartName": "604",
-    "Series": "9640S",
-    "OldDieSet": "M15001",
-    "NewDieSet": "H9640S03",
-    "StandardStock": 2,
-    "StockLeft": 5
   },
   {
     "PartName": "603",
@@ -11201,14 +11129,6 @@
   },
   {
     "PartName": "231",
-    "Series": "9926B",
-    "OldDieSet": "M7806",
-    "NewDieSet": "I9926B03",
-    "StandardStock": 1,
-    "StockLeft": 1
-  },
-  {
-    "PartName": "233",
     "Series": "9926B",
     "OldDieSet": "M7806",
     "NewDieSet": "I9926B03",

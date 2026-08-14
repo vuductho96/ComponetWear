@@ -19,6 +19,7 @@ $DataDir = Join-Path $Root 'data'
 $ReportDir = Join-Path $Root 'reports'
 $ShootFile = Join-Path $DataDir 'shoot-data.json'
 $ReplacementFile = Join-Path $DataDir 'replacement-log.json'
+$StockFile = Join-Path $DataDir 'stock-data.json'
 
 foreach ($folder in @($DataDir, $ReportDir)) { if (-not (Test-Path $folder)) { New-Item -ItemType Directory -Path $folder | Out-Null } }
 
@@ -177,6 +178,15 @@ try {
                 elseif ($items.Count -eq 1 -and -not $jsonStr.Trim().StartsWith("[")) { $jsonStr = "[$jsonStr]" }
                 [System.IO.File]::WriteAllText($ReplacementFile, $jsonStr, (New-Object System.Text.UTF8Encoding($false)))
                 $resObj = [pscustomobject]@{ count=$items.Count }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
+            }
+            elseif ($path -eq '/api/import/stock' -and $method -eq 'POST') {
+                $body = $bodyText | ConvertFrom-Json
+                $jsonStr = $body.stockData | ConvertTo-Json -Depth 8
+                if (-not $jsonStr) { $jsonStr = "{}" }
+                [System.IO.File]::WriteAllText($StockFile, $jsonStr, (New-Object System.Text.UTF8Encoding($false)))
+                $resObj = [pscustomobject]@{ success=$true }
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                 $contentType = "application/json; charset=utf-8"
             }
