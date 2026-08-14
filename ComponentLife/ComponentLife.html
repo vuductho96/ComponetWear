@@ -2782,8 +2782,8 @@
       });
 
       db.shoot.forEach(item => {
-        const pName = item.Part || item.DieSet;
-        if (pName) {
+        const pName = item.Part;
+        if (pName && !pName.startsWith('H') && pName.length < 20) {
           const key = pName + "|" + (item.DieSet || "");
           if (!partsMap.has(key)) {
             partsMap.set(key, {
@@ -2798,7 +2798,7 @@
 
       (db.replacements || []).forEach(item => {
         const pName = item.Part;
-        if (pName) {
+        if (pName && !pName.startsWith('H') && pName.length < 20) {
           const master = findMasterItem(pName, item.DieSet);
           const moldNew = master ? (master.NewDieSet || master.OldDieSet || item.DieSet) : (item.NewDieSet || item.DieSet || "");
           const moldOld = master ? (master.OldDieSet || item.DieSet) : (item.DieSet || "");
@@ -2816,7 +2816,7 @@
 
       Object.keys(_stockData || {}).forEach(key => {
         const [pName, dSet] = key.split("|");
-        if (pName) {
+        if (pName && !pName.startsWith('H') && pName.length < 20) {
           const master = findMasterItem(pName, dSet);
           const moldNew = master ? (master.NewDieSet || master.OldDieSet || dSet) : dSet;
           const moldOld = master ? (master.OldDieSet || dSet) : dSet;
@@ -2838,41 +2838,44 @@
 
       if (globalQuery) {
         const normQ = normKey(globalQuery);
-        list = list.filter(x => {
+
+        // Tier 1: Ưu tiên tìm theo Tên linh kiện (Part Name)
+        const partMatches = list.filter(x => {
           const p = (x.part || "").toLowerCase();
+          const nP = normKey(x.part);
+          return p === globalQuery || nP === normQ ||
+                 p.startsWith(globalQuery) || nP.startsWith(normQ) ||
+                 p.includes(globalQuery) || nP.includes(normQ);
+        });
+
+        if (partMatches.length > 0) {
+          partMatches.sort((a, b) => {
+            const aPart = (a.part || "").toLowerCase();
+            const bPart = (b.part || "").toLowerCase();
+            const aExact = (aPart === globalQuery || normKey(aPart) === normQ) ? 1 : 0;
+            const bExact = (bPart === globalQuery || normKey(bPart) === normQ) ? 1 : 0;
+            if (aExact !== bExact) return bExact - aExact;
+
+            const aStarts = (aPart.startsWith(globalQuery) || normKey(aPart).startsWith(normQ)) ? 1 : 0;
+            const bStarts = (bPart.startsWith(globalQuery) || normKey(bPart).startsWith(normQ)) ? 1 : 0;
+            if (aStarts !== bStarts) return bStarts - aStarts;
+
+            return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+          });
+          return partMatches;
+        }
+
+        // Tier 2: Nếu không khớp Part nào, tìm theo Series hoặc Mã Khuôn (khi gõ Series hoặc Khuôn)
+        const moldSeriesMatches = list.filter(x => {
           const s = (x.series || "").toLowerCase();
           const mNew = (x.moldNew || "").toLowerCase();
           const mOld = (x.moldOld || "").toLowerCase();
-          return p.includes(globalQuery) || normKey(x.part).includes(normQ) ||
-                 s.includes(globalQuery) || normKey(x.series).includes(normQ) ||
+          return s.includes(globalQuery) || normKey(x.series).includes(normQ) ||
                  mNew.includes(globalQuery) || normKey(x.moldNew).includes(normQ) ||
                  mOld.includes(globalQuery) || normKey(x.moldOld).includes(normQ);
         });
 
-        // Smart Prioritized Ranking:
-        // 1. Exact match on Part Name (e.g. Part === '101')
-        // 2. Part Name starts with query (e.g. '101-1', '101A')
-        // 3. Part Name contains query
-        // 4. Series or Mold contains query
-        list.sort((a, b) => {
-          const aPart = (a.part || "").toLowerCase();
-          const bPart = (b.part || "").toLowerCase();
-          const aExact = (aPart === globalQuery || normKey(aPart) === normQ) ? 1 : 0;
-          const bExact = (bPart === globalQuery || normKey(bPart) === normQ) ? 1 : 0;
-          if (aExact !== bExact) return bExact - aExact;
-
-          const aStarts = (aPart.startsWith(globalQuery) || normKey(aPart).startsWith(normQ)) ? 1 : 0;
-          const bStarts = (bPart.startsWith(globalQuery) || normKey(bPart).startsWith(normQ)) ? 1 : 0;
-          if (aStarts !== bStarts) return bStarts - aStarts;
-
-          const aContains = aPart.includes(globalQuery) ? 1 : 0;
-          const bContains = bPart.includes(globalQuery) ? 1 : 0;
-          if (aContains !== bContains) return bContains - aContains;
-
-          return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
-        });
-
-        return list;
+        return moldSeriesMatches.sort((a, b) => a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' }));
       }
 
       if (activeP) {
