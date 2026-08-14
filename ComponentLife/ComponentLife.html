@@ -876,9 +876,9 @@
     /* Summary Visual Charts Grid */
     .summary-charts-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
       gap: 16px;
-      margin-top: 18px;
+      margin-top: 14px;
       margin-bottom: 20px;
     }
 
@@ -896,9 +896,14 @@
     }
 
     .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       margin-bottom: 12px;
       padding-bottom: 8px;
       border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
     }
 
     .chart-title {
@@ -918,122 +923,307 @@
 
     .chart-body {
       position: relative;
-      height: 220px;
+      height: 250px;
       width: 100%;
     }
 
-    /* Component Wear & Life Monitoring Badges & Cards */
-    .badge-risk {
-      display: inline-block;
+    .chart-toggle-group {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .chart-toggle-btn {
+      height: 26px;
+      padding: 0 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-muted);
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: none;
+      transition: all 0.15s;
+    }
+
+    .chart-toggle-btn.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    /* Replacement Frequency Badges */
+    .badge-freq {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       padding: 3px 8px;
       border-radius: 6px;
       font-size: 11px;
       font-weight: 800;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
+      letter-spacing: 0.02em;
       white-space: nowrap;
-    }
-    .badge-risk.normal { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-    .badge-risk.warning { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-    .badge-risk.high { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
-    .badge-risk.critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-
-    .badge-confidence {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 700;
       text-transform: uppercase;
     }
-    .badge-confidence.low { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-    .badge-confidence.medium { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-    .badge-confidence.high { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+    .badge-freq.high { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .badge-freq.medium { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .badge-freq.low { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
 
-    .badge-trend {
+    /* Matrix Milestone Cells */
+    .matrix-val-0 {
+      color: var(--ink-light);
+      font-weight: 500;
+    }
+    .matrix-val-low {
       display: inline-block;
+      min-width: 22px;
       padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10.5px;
+      background: #eff6ff;
+      color: #1e40af;
       font-weight: 700;
+      border-radius: 4px;
+      border: 1px solid #bfdbfe;
     }
-    .badge-trend.degrading { background: #fef2f2; color: #dc2626; }
-    .badge-trend.stable { background: #f0fdf4; color: #16a34a; }
-    .badge-trend.improving { background: #eff6ff; color: #2563eb; }
+    .matrix-val-mid {
+      display: inline-block;
+      min-width: 22px;
+      padding: 2px 6px;
+      background: #fef3c7;
+      color: #92400e;
+      font-weight: 800;
+      border-radius: 4px;
+      border: 1px solid #fde68a;
+    }
+    .matrix-val-high {
+      display: inline-block;
+      min-width: 22px;
+      padding: 2px 6px;
+      background: #fee2e2;
+      color: #991b1b;
+      font-weight: 800;
+      border-radius: 4px;
+      border: 1px solid #fecaca;
+    }
 
-    /* Prediction Cards Grid */
-    .prediction-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 16px;
-      margin-top: 16px;
+    /* Stock Tab Badges & Elements */
+    .badge-stock {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      text-transform: uppercase;
     }
-    .prediction-card {
+    .badge-stock.safe { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .badge-stock.warning { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .badge-stock.critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    .stock-summary-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .stock-kpi-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 16px;
-      box-shadow: var(--shadow-sm);
-      position: relative;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
-    .prediction-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-    }
-    .prediction-card.is-critical { border-color: #fecaca; background: linear-gradient(180deg, #ffffff, #fff5f5); }
-    .prediction-card.is-high { border-color: #fed7aa; background: linear-gradient(180deg, #ffffff, #fffaf5); }
-    .prediction-card.is-warning { border-color: #fde68a; background: linear-gradient(180deg, #ffffff, #fffdf5); }
-
-    .wear-progress-track {
-      width: 100%;
-      height: 8px;
-      background: #e2e8f0;
-      border-radius: 4px;
-      overflow: hidden;
-      margin: 8px 0 12px;
-    }
-    .wear-progress-bar {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.3s ease;
-    }
-    .wear-progress-bar.normal { background: linear-gradient(90deg, #10b981, #059669); }
-    .wear-progress-bar.warning { background: linear-gradient(90deg, #f59e0b, #d97706); }
-    .wear-progress-bar.high { background: linear-gradient(90deg, #f97316, #ea580c); }
-    .wear-progress-bar.critical { background: linear-gradient(90deg, #ef4444, #dc2626); }
-
-    /* Scorecard Grid */
-    .scorecard-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 16px;
-      margin-top: 16px;
-    }
-    .scorecard-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 16px;
-      box-shadow: var(--shadow-sm);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-xs);
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
 
-    /* Distribution Boxes */
-    .distribution-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    .stock-kpi-icon {
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .stock-kpi-val {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--ink);
+      line-height: 1.1;
+    }
+
+    .stock-kpi-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stock-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 12px;
-      margin-top: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
     }
-    .dist-box {
-      background: #f8fafc;
+
+    .stock-filter-group {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .stock-filter-btn {
+      height: 28px;
+      padding: 0 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--ink-muted);
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: none;
+      transition: all 0.15s;
+    }
+
+    .stock-filter-btn.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .stock-qty-input {
+      width: 60px;
+      height: 28px;
+      text-align: center;
+      font-weight: 800;
+      font-size: 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      padding: 0 4px;
+      background: #fff;
+      color: var(--ink);
+      box-sizing: border-box;
+      outline: none;
+    }
+    .stock-qty-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+    }
+
+    .stock-btn-step {
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      font-size: 14px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      cursor: pointer;
+      box-shadow: none;
+      transition: background 0.15s;
+    }
+    .stock-btn-step:hover {
+      background: #e2e8f0;
+    }
+
+    /* Sticky Columns for Milestone Matrix */
+    .table-milestone-wrap {
+      overflow-x: auto;
+      max-height: 520px;
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 12px;
-      text-align: center;
     }
-    .dist-count { font-size: 22px; font-weight: 800; color: var(--primary); }
-    .dist-label { font-size: 11px; font-weight: 600; color: var(--ink-muted); margin-top: 2px; }
+
+    table.matrix-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 12.5px;
+      background: #fff;
+    }
+
+    table.matrix-table th, table.matrix-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    table.matrix-table th {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      background: #f1f5f9;
+      color: var(--ink-secondary);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    table.matrix-table th.col-fixed-part, table.matrix-table td.col-fixed-part {
+      position: sticky;
+      left: 0;
+      z-index: 7;
+      background: #fff;
+      text-align: left;
+      font-weight: 800;
+      color: var(--ink);
+      min-width: 90px;
+    }
+
+    table.matrix-table th.col-fixed-series, table.matrix-table td.col-fixed-series {
+      position: sticky;
+      left: 90px;
+      z-index: 7;
+      background: #fff;
+      text-align: left;
+      font-weight: 600;
+      color: #2563eb;
+      min-width: 100px;
+    }
+
+    table.matrix-table th.col-fixed-mold, table.matrix-table td.col-fixed-mold {
+      position: sticky;
+      left: 190px;
+      z-index: 7;
+      background: #fff;
+      text-align: left;
+      font-weight: 600;
+      color: var(--ink-secondary);
+      border-right: 2px solid var(--border-dark);
+      min-width: 110px;
+    }
+
+    table.matrix-table th.col-fixed-part, table.matrix-table th.col-fixed-series, table.matrix-table th.col-fixed-mold {
+      z-index: 10;
+      background: #e2e8f0;
+    }
+
+    table.matrix-table tbody tr:hover td {
+      background-color: var(--surface-hover);
+    }
+    table.matrix-table tbody tr:hover td.col-fixed-part,
+    table.matrix-table tbody tr:hover td.col-fixed-series,
+    table.matrix-table tbody tr:hover td.col-fixed-mold {
+      background-color: #f1f5f9;
+    }
 
     @media (max-width: 1100px) {
       .control-bar {
@@ -1055,32 +1245,32 @@
       <div class="brand-group">
         <div class="brand-icon">⚡</div>
         <div>
-          <h1>Mold Life Span <span class="app-badge">v2.0</span></h1>
-          <p class="subtitle">Hệ thống theo dõi mốc thay linh kiện &amp; sản lượng Shoot Number</p>
+          <h1>Mold Life Span <span class="app-badge">Wear &amp; Frequency</span></h1>
+          <p class="subtitle">Phân tích độ mòn linh kiện theo mốc Shot &amp; Tần suất thay thế khuôn dập</p>
         </div>
       </div>
 
-      <!-- Metrics KPI Dashboard on Header Right -->
+      <!-- Core KPI Cards on Header Right -->
       <div class="header-metrics">
-        <div class="cb-metric is-parts" title="TOTAL COMPONENTS: Tổng số linh kiện đang quản lý trong phạm vi hiển thị">
-          <span class="cb-metric-label">TOTAL COMPONENTS</span>
+        <div class="cb-metric is-parts" title="TOTAL PARTS: Tổng số mã linh kiện đang theo dõi">
+          <span class="cb-metric-label">TOTAL PARTS</span>
           <span class="cb-metric-val" id="totalPartsVal">0</span>
-          <span class="cb-metric-shots">mã lk</span>
+          <span class="cb-metric-shots">mã linh kiện</span>
         </div>
-        <div class="cb-metric is-shots" title="ACTIVE COMPONENTS: Số linh kiện hiện đang sử dụng sản xuất">
-          <span class="cb-metric-label">ACTIVE COMPONENTS</span>
-          <span class="cb-metric-val" id="activePartsVal">0</span>
-          <span class="cb-metric-shots">mã active</span>
+        <div class="cb-metric is-shots" title="TOTAL REPLACEMENTS: Tổng số lượt thay thế linh kiện đã ghi nhận">
+          <span class="cb-metric-label">TOTAL REPLACEMENTS</span>
+          <span class="cb-metric-val" id="totalReplacementsVal" style="color:#b45309;">0</span>
+          <span class="cb-metric-shots">lượt thay</span>
         </div>
-        <div class="cb-metric is-min" title="AT RISK: Số linh kiện có dấu hiệu mòn/rủi ro cần lưu ý">
-          <span class="cb-metric-label">AT RISK</span>
-          <span class="cb-metric-val" id="atRiskVal" style="color:#c2410c;">0</span>
-          <span class="cb-metric-shots">rủi ro</span>
+        <div class="cb-metric is-min" title="AVERAGE LIFE: Tuổi thọ trung bình trên mỗi chu kỳ thay thế">
+          <span class="cb-metric-label">AVERAGE LIFE</span>
+          <span class="cb-metric-val" id="avgLifeVal" style="color:#047857;">0</span>
+          <span class="cb-metric-shots">shots / cycle</span>
         </div>
-        <div class="cb-metric is-max" title="PREDICTED REPLACEMENTS: Số linh kiện dự kiến cần thay trong thời gian sắp tới">
-          <span class="cb-metric-label">PREDICTED</span>
-          <span class="cb-metric-val" id="predictedVal" style="color:#dc2626;">0</span>
-          <span class="cb-metric-shots">dự kiến thay</span>
+        <div class="cb-metric is-max" title="MOST FREQUENTLY REPLACED: Linh kiện có số lần thay nhiều nhất">
+          <span class="cb-metric-label">MOST FREQUENT PART</span>
+          <span class="cb-metric-val" id="mostReplacedVal" style="color:#dc2626; font-size:15px; text-align:center;">-</span>
+          <span class="cb-metric-shots" id="mostReplacedSub">tần suất cao nhất</span>
         </div>
       </div>
     </header>
@@ -1089,7 +1279,7 @@
 
     <!-- ===== COMMAND CONTROL BAR ===== -->
     <div class="command-bar">
-      <!-- Left: Month picker -->
+      <!-- Left: Month picker (for Month Tab) -->
       <div class="cmd-group cmd-left">
         <div class="cb-month">
           <label for="monthPick">THÁNG THEO DÕI</label>
@@ -1099,7 +1289,7 @@
 
       <div class="cmd-divider"></div>
 
-      <!-- Center: Search Bar (Comfortable width) -->
+      <!-- Center: Global Search Bar -->
       <div class="cmd-group cmd-center">
         <div class="cb-search-wrap">
           <span class="cb-search-icon">🔍</span>
@@ -1114,19 +1304,22 @@
 
       <div class="cmd-spacer"></div>
 
-      <!-- Right: Compact Excel Drop Zone -->
-      <div class="cmd-group cmd-right">
+      <!-- Right: Action Buttons & File Drop Zone -->
+      <div class="cmd-group cmd-right" style="gap:10px;">
+        <button onclick="exportExcelFull()" class="secondary" title="Xuất toàn bộ báo cáo phân tích độ mòn, lịch thay và tồn kho ra file Excel">📊 Xuất Excel</button>
+        <button onclick="rebuild()" class="secondary" title="Tính toán lại toàn bộ dữ liệu">🔄 Refresh</button>
         <div class="cb-drop-zone" id="cbDropZone"
              onclick="document.getElementById('excelFileInput').click()"
              ondragover="event.preventDefault();this.classList.add('cb-drag-over')"
              ondragleave="this.classList.remove('cb-drag-over')"
              ondrop="this.classList.remove('cb-drag-over');importExcelFile(event.dataTransfer.files[0]);event.preventDefault()">
-          <span class="cb-drop-icon">📊</span>
+          <span class="cb-drop-icon">📁</span>
           <div class="cb-drop-info">
             <span class="cb-drop-title">Nạp file dữ liệu</span>
             <span class="cb-drop-sub">.xlsx / .csv / .json</span>
           </div>
         </div>
+        <input class="file" id="excelFileInput" type="file" accept=".xlsx,.xls,.csv,.json,.txt" onchange="importExcelFile(this.files[0])">
       </div>
     </div>
 
@@ -1136,41 +1329,14 @@
     <input type="hidden" id="dieSet" value="">
     <input type="hidden" id="mold" value="">
 
-    <!-- Top At Risk Components Banner Table -->
-    <section id="atRiskBanner" class="panel card" style="margin-bottom: 20px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-        <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
-          <span>🚨 Top At Risk Components</span>
-          <span class="app-badge" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca;" id="atRiskBadge">0 linh kiện rủi ro</span>
-        </h2>
-        <span style="font-size:12px; color:var(--ink-muted);">Linh kiện có dấu hiệu mòn nhanh hoặc sắp đến mốc thay thế</span>
-      </div>
-      <div class="summary-box" style="margin:0;">
-        <table class="summary">
-          <thead>
-            <tr>
-              <th style="width:50px;">Rank</th>
-              <th>Part</th>
-              <th>Series</th>
-              <th>Mold</th>
-              <th style="text-align:right;">Current Life</th>
-              <th style="text-align:right;">Typical Life</th>
-              <th style="text-align:right;">Deviation</th>
-              <th style="text-align:center;">Risk Level</th>
-              <th>Reason</th>
-            </tr>
-          </thead>
-          <tbody id="atRiskRows"></tbody>
-        </table>
-      </div>
-    </section>
-
+    <!-- Navigation Tabs: 1. Month Sheet, 2. Statistic & Analyst, 3. Stock -->
     <nav class="tabs">
-      <button class="tab active" data-tab="month">📅 Month Sheet (Lưới Theo Dõi)</button>
-      <button class="tab" data-tab="summary">📊 Thống Kê &amp; Dự Báo Tuổi Thọ</button>
-      <button class="tab" data-tab="report">🚨 Báo Cáo Rủi Ro &amp; Sức Khỏe Khuôn</button>
+      <button class="tab active" data-tab="month">📅 Month Sheet (Lưới Theo Dõi Ngày)</button>
+      <button class="tab" data-tab="wearDashboard">📊 Thống Kê &amp; Phân Tích Độ Mòn (Statistic &amp; Analyst)</button>
+      <button class="tab" data-tab="stock">📦 Quản Lý Tồn Kho (Stock)</button>
     </nav>
 
+    <!-- TAB 1: MONTH SHEET (GRID THEO DÕI THEO NGÀY - DEFAULT ACTIVE) -->
     <section id="monthTab">
       <div class="sheet">
         <div class="sheet-title" id="sheetTitle">August 2026</div>
@@ -1181,165 +1347,166 @@
       </div>
     </section>
 
-    <section id="pasteTab" class="below hidden" style="display:none!important">
-      <article class="panel card" style="grid-column: 1 / -1;">
-        <h2>Nạp dữ liệu từ File Excel (.xlsx)</h2>
-        <p class="note">Kéo &amp; thả file Excel (chứa các sheet <b>ShootMonth</b> &amp; <b>ComponentMaster</b>) hoặc file <b>.csv / .json</b> vào đây để nạp tự động.</p>
-        <div class="drop-zone" onclick="document.getElementById('excelFileInput').click()"
-             ondragover="event.preventDefault();this.classList.add('drag-over')"
-             ondragleave="this.classList.remove('drag-over')"
-             ondrop="this.classList.remove('drag-over');importExcelFile(event.dataTransfer.files[0]);event.preventDefault()">
-          <div class="drop-icon">📊</div>
-          <div class="drop-label">Kéo &amp; thả file <b>.xlsx</b> vào đây hoặc <span class="drop-link">bấm để chọn file</span></div>
-          <div class="drop-hint">Hỗ trợ: ShootMonth_ComponentMaster.xlsx · ShootMonth.csv · ComponentMaster.csv / .json</div>
-        </div>
-        <input class="file" id="excelFileInput" type="file" accept=".xlsx,.xls,.csv,.json,.txt" onchange="importExcelFile(this.files[0])">
-      </article>
-    </section>
-
-    <section id="summaryTab" class="panel card hidden">
-      <h2>Cycle Summary &amp; Visual Analytics</h2>
-      <p class="note">MIN/MAX được tính từ tổng từng cycle hoàn chỉnh giữa hai mốc reset linh kiện.</p>
-      <div class="actions">
-        <button onclick="rebuild()">🔄 Refresh calculation</button>
-        <button onclick="exportExcelFull()">📊 Export Excel Báo cáo</button>
-        <button onclick="toggleAnalyticsCharts()" id="toggleChartsBtn" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;">📈 Sơ đồ Analytics (Ẩn/Hiện)</button>
-      </div>
-      
-      <!-- Visual Analytics Charts Grid -->
-      <div id="chartsContainer" class="summary-charts-grid" style="display:grid;">
+    <!-- TAB 2: WEAR ANALYSIS & REPLACEMENT FREQUENCY DASHBOARD (STATISTIC & ANALYST) -->
+    <section id="wearDashboardTab" class="hidden">
+      <!-- Charts Grid -->
+      <div class="summary-charts-grid">
+        <!-- Chart 1: Wear by Shot Milestones -->
         <div class="chart-card">
           <div class="chart-header">
-            <span class="chart-title">🏆 Top Linh Kiện Sản Lượng MAX Shots Cao Nhất</span>
-            <span class="chart-subtitle">So sánh mốc dập tối đa giữa các linh kiện</span>
+            <div>
+              <span class="chart-title">📈 1. Wear Analysis theo mốc Shot</span>
+              <span class="chart-subtitle">Số lần replacement tích lũy theo các mốc 50k → 100k → 150k → 200k → 250k...</span>
+            </div>
+            <div class="chart-toggle-group">
+              <button class="chart-toggle-btn active" id="btnLineChart" onclick="setChartType('line')">Line (Tích lũy)</button>
+              <button class="chart-toggle-btn" id="btnBarChart" onclick="setChartType('bar')">Bar (Theo mốc)</button>
+            </div>
           </div>
           <div class="chart-body">
-            <canvas id="topMaxChart"></canvas>
+            <canvas id="wearShotChart"></canvas>
           </div>
         </div>
 
+        <!-- Chart 2: Top Replacement Frequency -->
         <div class="chart-card">
           <div class="chart-header">
-            <span class="chart-title">📊 So Sánh MIN - AVERAGE - MAX Shots theo Linh Kiện</span>
-            <span class="chart-subtitle">Phân tích chênh lệch sản lượng dập giữa các mốc cycle</span>
+            <div>
+              <span class="chart-title">🚨 2. Top Tần Suất Thay Thế (Replacement Frequency)</span>
+              <span class="chart-subtitle">Linh kiện có số lần thay nhiều nhất &amp; tuổi thọ trung bình theo khuôn</span>
+            </div>
           </div>
           <div class="chart-body">
-            <canvas id="compareBarChart"></canvas>
+            <canvas id="freqBarChart"></canvas>
           </div>
         </div>
       </div>
 
-      <div class="summary-box" style="margin-top: 16px;">
-        <table class="summary">
-          <thead>
-            <tr>
-              <th>Part</th>
-              <th>Series</th>
-              <th>Mold (new)</th>
-              <th style="text-align:center;">Cycles</th>
-              <th style="text-align:right;">MIN</th>
-              <th style="text-align:right;">MEDIAN</th>
-              <th style="text-align:right;">AVERAGE</th>
-              <th style="text-align:right;">MAX</th>
-              <th style="text-align:right;">STD DEV</th>
-              <th style="text-align:center;">Short Life</th>
-              <th style="text-align:right;">Current Life</th>
-              <th style="text-align:center;">Stability</th>
-              <th style="text-align:center;">Risk Level</th>
-            </tr>
-          </thead>
-          <tbody id="summaryRows"></tbody>
-        </table>
-      </div>
-
-      <!-- Prediction Grid for Active Components -->
-      <div style="margin-top: 24px;">
-        <h3 style="font-size:14px; font-weight:700; color:var(--ink); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-          <span>🔮 Dự Báo Sản Lượng Còn Lại &amp; Thời Gian Cần Thay (Active Components)</span>
-        </h3>
-        <div class="prediction-grid" id="predictionGrid"></div>
-      </div>
-    </section>
-
-    <!-- Tab 3: Management Risk & Report -->
-    <section id="reportTab" class="panel card hidden">
-      <h2>🚨 Báo Cáo Rủi Ro &amp; Chỉ Số Sức Khỏe Khuôn</h2>
-      <p class="note">Báo cáo tổng hợp dành cho quản lý, QA và Kỹ thuật Mold Engineering.</p>
-      
-      <div class="actions" style="margin-bottom: 16px;">
-        <button onclick="exportExcelFull()">📊 Export Excel Báo cáo 5-Sheet</button>
-      </div>
-
-      <!-- Mold Health Scorecards -->
-      <div style="margin-top: 12px;">
-        <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">🏆 Mold Health Scorecard (Chỉ số Sức Khỏe Khuôn Mẫu)</h3>
-        <div class="scorecard-grid" id="moldScorecardGrid"></div>
-      </div>
-
-      <!-- Pareto & Short Life -->
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; margin-top: 20px;">
-        <!-- Replacement Pareto -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <span class="chart-title">📊 A. Replacement Pareto (Top Thay Thế Nhiều Nhất)</span>
-          </div>
-          <div class="summary-box" style="margin-top:8px;">
-            <table class="summary">
-              <thead>
-                <tr>
-                  <th style="width:50px;">Rank</th>
-                  <th>Part</th>
-                  <th>Mold</th>
-                  <th style="text-align:right;">Lần Thay</th>
-                </tr>
-              </thead>
-              <tbody id="replacementParetoRows"></tbody>
-            </table>
+      <!-- Table 1: Component Wear Summary -->
+      <article class="panel card" style="margin-bottom: 20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
+              <span>📋 1. Bảng Tổng Hợp Độ Mòn &amp; Tần Suất Thay Thế</span>
+              <span class="app-badge" id="wearSummaryBadge" style="background:#eef2ff; color:#4f46e5;">0 linh kiện</span>
+            </h2>
+            <p class="note" style="margin:3px 0 0;">Average Life = Total Life / Number of completed cycles · Tần suất: 🔴 HIGH (thay thường xuyên) · 🟡 MEDIUM · 🟢 LOW (ít phải thay)</p>
           </div>
         </div>
 
-        <!-- Short Life Pareto -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <span class="chart-title">🚨 B. Short Life Pareto (Top Sự Cố Hỏng Sớm)</span>
-          </div>
-          <div class="summary-box" style="margin-top:8px;">
-            <table class="summary">
-              <thead>
-                <tr>
-                  <th style="width:50px;">Rank</th>
-                  <th>Part</th>
-                  <th>Mold</th>
-                  <th style="text-align:right;">Số Lần Short Life</th>
-                </tr>
-              </thead>
-              <tbody id="shortLifeParetoRows"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lowest Life Components -->
-      <div style="margin-top: 20px;">
-        <h3 style="font-size:14px; margin-bottom:8px; color:var(--ink);">📉 C. Lowest Life Components (Top Linh Kiện Tuổi Thọ Thấp Nhất)</h3>
-        <div class="summary-box">
+        <div class="summary-box" style="margin:0;">
           <table class="summary">
             <thead>
               <tr>
-                <th>Part</th>
-                <th>Series</th>
-                <th>Mold</th>
-                <th style="text-align:right;">MIN</th>
-                <th style="text-align:right;">MEDIAN</th>
-                <th style="text-align:right;">AVERAGE</th>
-                <th style="text-align:center;">Confidence</th>
+                <th style="width:100px;">Part</th>
+                <th style="width:110px;">Series</th>
+                <th style="width:120px;">Mold</th>
+                <th style="text-align:center; width:80px;">Cycles</th>
+                <th style="text-align:right; width:110px;">Total Shots</th>
+                <th style="text-align:center; width:110px;">Replacements</th>
+                <th style="text-align:right; width:120px;">Avg Life / Cycle</th>
+                <th style="text-align:center; width:130px;">Tần Suất Thay</th>
+                <th style="text-align:center; width:130px;">Mốc Thay Đầu Tiên</th>
               </tr>
             </thead>
-            <tbody id="lowestLifeRows"></tbody>
+            <tbody id="wearSummaryRows"></tbody>
           </table>
         </div>
-      </div>
+      </article>
+
+      <!-- Table 2: Wear Analysis Matrix by Shot Milestone -->
+      <article class="panel card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
+              <span>🎯 2. Ma Trận Độ Mòn Theo Mốc Shot (Wear by Shot Milestones)</span>
+            </h2>
+            <p class="note" style="margin:3px 0 0;">Số lần replacement tích lũy tại các mốc 50k, 100k, 150k... (tự động mở rộng theo dữ liệu thực tế)</p>
+          </div>
+        </div>
+
+        <div class="table-milestone-wrap">
+          <table class="matrix-table">
+            <thead id="milestoneMatrixHead"></thead>
+            <tbody id="milestoneMatrixRows"></tbody>
+          </table>
+        </div>
+      </article>
     </section>
+
+    <!-- TAB 3: STOCK MANAGEMENT (QUẢN LÝ TỒN KHO LINH KIỆN) -->
+    <section id="stockTab" class="hidden">
+      <!-- Stock KPI Summary Cards -->
+      <div class="stock-summary-bar">
+        <div class="stock-kpi-card">
+          <div class="stock-kpi-icon">📦</div>
+          <div>
+            <div class="stock-kpi-val" id="stockTotalParts">0</div>
+            <div class="stock-kpi-label">Tổng mã linh kiện</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-color:#a7f3d0;">
+          <div class="stock-kpi-icon">🟢</div>
+          <div>
+            <div class="stock-kpi-val" id="stockSafeCount" style="color:#047857;">0</div>
+            <div class="stock-kpi-label">Đủ tồn kho an toàn</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-color:#fde68a;">
+          <div class="stock-kpi-icon">🟡</div>
+          <div>
+            <div class="stock-kpi-val" id="stockWarningCount" style="color:#b45309;">0</div>
+            <div class="stock-kpi-label">Cảnh báo sắp hết (≤ Min)</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-color:#fecaca;">
+          <div class="stock-kpi-icon">🔴</div>
+          <div>
+            <div class="stock-kpi-val" id="stockCriticalCount" style="color:#dc2626;">0</div>
+            <div class="stock-kpi-label">Hết hàng / Cần đặt gấp</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stock Table Card -->
+      <article class="panel card">
+        <div class="stock-toolbar">
+          <div>
+            <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
+              <span>📦 Bảng Theo Dõi &amp; Quản Lý Tồn Kho Linh Kiện (Stock Inventory)</span>
+            </h2>
+            <p class="note" style="margin:3px 0 0;">Tự động đối chiếu số lượng thay thực tế và quản lý mức dự phòng linh kiện theo từng khuôn</p>
+          </div>
+
+          <!-- Stock Filter Chips -->
+          <div class="stock-filter-group">
+            <button class="stock-filter-btn active" id="stockFilterAll" onclick="setStockFilter('all')">Tất cả (<span id="cntAll">0</span>)</button>
+            <button class="stock-filter-btn" id="stockFilterCritical" onclick="setStockFilter('critical')">🔴 Hết hàng (<span id="cntCritical">0</span>)</button>
+            <button class="stock-filter-btn" id="stockFilterWarning" onclick="setStockFilter('warning')">🟡 Sắp hết (<span id="cntWarning">0</span>)</button>
+            <button class="stock-filter-btn" id="stockFilterSafe" onclick="setStockFilter('safe')">🟢 An toàn (<span id="cntSafe">0</span>)</button>
+          </div>
+        </div>
+
+        <div class="summary-box" style="margin:0;">
+          <table class="summary">
+            <thead>
+              <tr>
+                <th style="width:110px;">Part</th>
+                <th style="width:110px;">Series</th>
+                <th style="width:120px;">Mold</th>
+                <th style="text-align:center; width:160px;">Tồn Kho Hiện Tại</th>
+                <th style="text-align:center; width:110px;">Mức Min</th>
+                <th style="text-align:center; width:110px;">Đã Thay (Used)</th>
+                <th style="text-align:center; width:130px;">Trạng Thái</th>
+                <th style="text-align:center; width:140px;">Thao Tác Nhanh</th>
+              </tr>
+            </thead>
+            <tbody id="stockRows"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </div>
   </div>
 
   <script>
@@ -1666,11 +1833,23 @@
       return Math.round(Math.sqrt(avgSquareDiff));
     }
 
+    let _chartType = 'line';
+    let _wearChartInstance = null;
+    let _freqChartInstance = null;
+
+    function setChartType(type) {
+      _chartType = type;
+      if ($("btnLineChart")) $("btnLineChart").classList.toggle("active", type === 'line');
+      if ($("btnBarChart")) $("btnBarChart").classList.toggle("active", type === 'bar');
+      renderWearCharts();
+    }
+
     function rebuild(showMessage = true) {
       const cycles = [];
       const errors = [];
       const groups = {};
 
+      // 1. Group valid replacements by Part & DieSet
       db.replacements.filter(row => {
         const lbl = String(row.Label || "").trim();
         return lbl && lbl !== "-" && lbl !== "0" && lbl !== "·";
@@ -1681,6 +1860,7 @@
         (groups[key] ||= []).push(row);
       });
 
+      // 2. Build cycles for each group
       Object.entries(groups).forEach(([key, events]) => {
         events.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
         const parts = key.split("|");
@@ -1736,8 +1916,10 @@
         }
       });
 
+      // 3. Process all parts for Summary & Wear Milestones
       const partsToRender = getPartsToRender();
-      const summaryList = [];
+      const rawSummaryList = [];
+      let maxCumShotAll = 0;
 
       partsToRender.forEach(item => {
         const part = item.part;
@@ -1764,6 +1946,9 @@
           return (rPart && pLower && rPart === pLower) || (rDie && dLower && rDie === dLower);
         }).sort((a, b) => a.Date.localeCompare(b.Date));
 
+        const totalShots = matchedShoots.reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
+        if (totalShots > maxCumShotAll) maxCumShotAll = totalShots;
+
         const partRepEvents = db.replacements.filter(r => {
           const rP = String(r.Part || "").toLowerCase().trim();
           const rD = String(r.DieSet || "").toLowerCase().trim();
@@ -1773,175 +1958,130 @@
           return lbl && lbl !== "-" && lbl !== "0" && lbl !== "·" && ((rP && pL && rP === pL) || (rD && dL && rD === dL));
         }).sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
 
-        const lastRepDate = partRepEvents.length > 0 ? partRepEvents[partRepEvents.length - 1].ReplaceDate : null;
+        const repCount = partRepEvents.length;
 
-        let currentLife = 0;
-        if (lastRepDate) {
-          currentLife = matchedShoots
-            .filter(r => r.Date >= lastRepDate)
+        // Cumulative shots at each replacement date
+        const repCumulativeShots = partRepEvents.map(e => {
+          return matchedShoots
+            .filter(r => r.Date < e.ReplaceDate)
             .reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
-        } else {
-          currentLife = matchedShoots
-            .reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
-        }
+        });
 
-        const minShots = cycleValues.length > 0 ? Math.min(...cycleValues) : currentLife;
-        const maxShots = cycleValues.length > 0 ? Math.max(...cycleValues) : currentLife;
-        const avgShots = cycleValues.length > 0 ? Math.round(cycleValues.reduce((a, b) => a + b, 0) / cycleValues.length) : currentLife;
-        const medianShots = cycleValues.length > 0 ? calcMedian(cycleValues) : avgShots;
-        const stdDev = cycleValues.length > 1 ? calcStdDev(cycleValues, avgShots) : 0;
+        const totalCycleLife = cycleValues.reduce((a, b) => a + b, 0);
+        const avgLife = completedCount > 0 ? Math.round(totalCycleLife / completedCount) : totalShots;
+        const minShots = cycleValues.length > 0 ? Math.min(...cycleValues) : totalShots;
+        const maxShots = cycleValues.length > 0 ? Math.max(...cycleValues) : totalShots;
 
-        const typicalLife = medianShots > 0 ? medianShots : (avgShots > 0 ? avgShots : currentLife);
-        const shortLifeCount = cycleValues.filter(v => v < 0.65 * (medianShots || avgShots)).length;
-
-        const recentShoots = matchedShoots.slice(-14);
-        const dailyAvg = recentShoots.length > 0
-          ? Math.round(recentShoots.reduce((sum, r) => sum + Number(r.Output), 0) / recentShoots.length)
-          : 0;
-
-        const remainingShots = Math.max(0, typicalLife - currentLife);
-        const estimatedDays = (dailyAvg > 0 && remainingShots > 0) ? Math.round(remainingShots / dailyAvg) : null;
-
-        const confidence = completedCount < 3 ? 'LOW' : (completedCount <= 5 ? 'MEDIUM' : 'HIGH');
-
-        let trend = 'STABLE';
-        if (completedCount >= 3) {
-          const recentCyclesAvg = (cycleValues[cycleValues.length - 1] + cycleValues[cycleValues.length - 2]) / 2;
-          const olderCyclesAvg = cycleValues.slice(0, -2).reduce((a, b) => a + b, 0) / (cycleValues.length - 2);
-          if (recentCyclesAvg < 0.85 * olderCyclesAvg) trend = 'DEGRADING';
-          else if (recentCyclesAvg > 1.15 * olderCyclesAvg) trend = 'IMPROVING';
-        }
-
-        const deviation = typicalLife > 0 ? Math.round(((currentLife - typicalLife) / typicalLife) * 100) : 0;
-
-        let riskLevel = 'NORMAL';
-        let reason = 'NORMAL';
-
-        if (currentLife >= maxShots && maxShots > 0 && completedCount > 0) {
-          riskLevel = 'CRITICAL';
-          reason = 'EXCEEDED MAX LIFE';
-        } else if (currentLife >= 1.10 * typicalLife && typicalLife > 0) {
-          riskLevel = 'CRITICAL';
-          reason = 'EXCEEDED TYPICAL LIFE';
-        } else if (trend === 'DEGRADING' && currentLife >= 0.85 * typicalLife && typicalLife > 0) {
-          riskLevel = 'CRITICAL';
-          reason = 'LIFE DEGRADING';
-        } else if (currentLife >= 0.85 * typicalLife && typicalLife > 0) {
-          riskLevel = 'HIGH RISK';
-          reason = 'NEAR EXPECTED LIFE';
-        } else if (deviation <= -30 && currentLife > 0) {
-          riskLevel = 'HIGH RISK';
-          reason = 'HIGH VARIATION';
-        } else if (currentLife >= 0.70 * typicalLife && typicalLife > 0) {
-          riskLevel = 'WARNING';
-          reason = 'APPROACHING REPLACEMENT';
-        } else if (shortLifeCount > 0) {
-          riskLevel = 'WARNING';
-          reason = 'SHORT LIFE DETECTED';
-        } else if (confidence === 'LOW') {
-          reason = 'INSUFFICIENT DATA';
-        }
-
-        const stability = Math.max(0, Math.min(100, Math.round(100 - (stdDev / (typicalLife || 1)) * 100)));
-
-        summaryList.push({
+        rawSummaryList.push({
           Part: part,
           Series: series,
           DieSet: dieSet,
           CompletedCycles: completedCount,
+          TotalShots: totalShots,
+          TotalReplacements: repCount,
           MinShots: minShots,
-          MedianShots: medianShots,
-          AverageShots: avgShots,
           MaxShots: maxShots,
-          StdDev: stdDev,
-          ShortLifeCount: shortLifeCount,
-          CurrentLife: currentLife,
-          TypicalLife: typicalLife,
-          RemainingShots: remainingShots,
-          DailyProductionAvg: dailyAvg,
-          EstimatedDays: estimatedDays,
-          Confidence: confidence,
-          Trend: trend,
-          Deviation: deviation,
-          RiskLevel: riskLevel,
-          Reason: reason,
-          LifeStability: stability,
-          TotalReplacements: partRepEvents.length
+          AverageShots: avgLife,
+          RepCumulativeShots: repCumulativeShots
         });
       });
 
-      result = { cycles, summary: summaryList, errors };
-      renderSummary();
-      renderWearAnalysis();
-      renderPrediction();
-      renderManagementReport();
+      // 4. Generate dynamic 50k milestones
+      const step = 50000;
+      const maxMilestone = Math.max(250000, Math.ceil(maxCumShotAll / step) * step);
+      const milestones = [];
+      for (let m = step; m <= maxMilestone; m += step) {
+        milestones.push(m);
+      }
+
+      // 5. Calculate distribution-based Replacement Frequency (33rd & 67th percentile)
+      const validAvgLives = rawSummaryList
+        .filter(s => s.CompletedCycles > 0 || s.TotalReplacements > 0)
+        .map(s => s.AverageShots)
+        .filter(v => v > 0)
+        .sort((a, b) => a - b);
+
+      let p33 = 70000;
+      let p67 = 150000;
+      if (validAvgLives.length >= 3) {
+        p33 = validAvgLives[Math.floor(validAvgLives.length * 0.33)];
+        p67 = validAvgLives[Math.floor(validAvgLives.length * 0.67)];
+      }
+
+      const summaryList = rawSummaryList.map(item => {
+        let freq = "LOW";
+        if (item.TotalReplacements >= 5 || (item.AverageShots > 0 && item.AverageShots <= p33 && item.TotalReplacements >= 1)) {
+          freq = "HIGH";
+        } else if (item.TotalReplacements >= 2 || (item.AverageShots > 0 && item.AverageShots <= p67 && item.TotalReplacements >= 1)) {
+          freq = "MEDIUM";
+        }
+
+        const milestoneCounts = {};
+        let firstMilestone = null;
+
+        milestones.forEach(mVal => {
+          const kLabel = (mVal / 1000) + "k";
+          const cnt = item.RepCumulativeShots.filter(rcs => rcs <= mVal).length;
+          milestoneCounts[kLabel] = cnt;
+          if (cnt > 0 && !firstMilestone) {
+            firstMilestone = kLabel;
+          }
+        });
+
+        return {
+          ...item,
+          ReplacementFrequency: freq,
+          MilestoneCounts: milestoneCounts,
+          FirstReplaceMilestone: firstMilestone || "-"
+        };
+      });
+
+      result = { cycles, summary: summaryList, milestones, errors };
       renderMetrics();
+      renderWearCharts();
+      renderSummaryTable();
+      renderMilestoneMatrixTable();
+
       if (showMessage) msg(`Đã phân tích ${summaryList.length} linh kiện (${cycles.length} cycle hoàn chỉnh).`);
     }
 
     function renderMetrics() {
       const summaryList = result.summary || [];
       const totalPartsCount = summaryList.length;
-      const activePartsCount = summaryList.filter(s => s.CurrentLife > 0 || s.CompletedCycles > 0).length;
-      const atRiskCount = summaryList.filter(s => s.RiskLevel !== 'NORMAL').length;
-      const predictedCount = summaryList.filter(s => s.CurrentLife > 0 && (s.RemainingShots <= 0.15 * (s.TypicalLife || 1) || (s.EstimatedDays !== null && s.EstimatedDays <= 7))).length;
+      const totalRepsCount = summaryList.reduce((sum, r) => sum + r.TotalReplacements, 0);
+
+      const partsWithCycles = summaryList.filter(s => s.CompletedCycles > 0);
+      const avgLifeVal = partsWithCycles.length > 0
+        ? Math.round(partsWithCycles.reduce((sum, r) => sum + r.AverageShots, 0) / partsWithCycles.length)
+        : 0;
+
+      // Find top replaced part
+      const sortedByRep = [...summaryList].sort((a, b) => b.TotalReplacements - a.TotalReplacements);
+      const topPart = sortedByRep.length > 0 && sortedByRep[0].TotalReplacements > 0 ? sortedByRep[0] : null;
 
       if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
-      if ($("activePartsVal")) $("activePartsVal").textContent = activePartsCount.toLocaleString();
-      if ($("atRiskVal")) $("atRiskVal").textContent = atRiskCount.toLocaleString();
-      if ($("predictedVal")) $("predictedVal").textContent = predictedCount.toLocaleString();
+      if ($("totalReplacementsVal")) $("totalReplacementsVal").textContent = totalRepsCount.toLocaleString();
+      if ($("avgLifeVal")) $("avgLifeVal").textContent = avgLifeVal > 0 ? (avgLifeVal >= 1000 ? Math.round(avgLifeVal / 1000) + "k" : avgLifeVal) : "-";
 
-      // Render Top At Risk Banner
-      const atRiskRows = summaryList
-        .filter(s => s.RiskLevel !== 'NORMAL' || s.Deviation < 0)
-        .sort((a, b) => {
-          const priority = { 'CRITICAL': 4, 'HIGH RISK': 3, 'WARNING': 2, 'NORMAL': 1 };
-          if (priority[b.RiskLevel] !== priority[a.RiskLevel]) return priority[b.RiskLevel] - priority[a.RiskLevel];
-          return b.CurrentLife - a.CurrentLife;
-        })
-        .slice(0, 6);
-
-      if ($("atRiskBadge")) $("atRiskBadge").textContent = `${atRiskRows.length} linh kiện rủi ro`;
-
-      if ($("atRiskRows")) {
-        $("atRiskRows").innerHTML = atRiskRows.length
-          ? atRiskRows.map((r, idx) => {
-              const riskCls = r.RiskLevel === 'CRITICAL' ? 'critical' : (r.RiskLevel === 'HIGH RISK' ? 'high' : 'warning');
-              const devStr = (r.Deviation > 0 ? "+" : "") + r.Deviation + "%";
-              return `<tr>
-                <td><b>#${idx + 1}</b></td>
-                <td><b>${esc(r.Part)}</b></td>
-                <td>${esc(r.Series)}</td>
-                <td>${esc(r.DieSet)}</td>
-                <td style="text-align:right;font-weight:700;">${r.CurrentLife.toLocaleString()}</td>
-                <td style="text-align:right;color:var(--ink-secondary);">${r.TypicalLife.toLocaleString()}</td>
-                <td style="text-align:right;font-weight:700;color:${r.Deviation < 0 ? '#dc2626' : '#059669'};">${devStr}</td>
-                <td style="text-align:center;"><span class="badge-risk ${riskCls}">${r.RiskLevel}</span></td>
-                <td><span class="app-badge" style="background:#f1f5f9;color:#334155;">${esc(r.Reason)}</span></td>
-              </tr>`;
-            }).join("")
-          : `<tr><td colspan="9" style="text-align:center;color:var(--ink-muted);padding:14px;">🟢 Tất cả linh kiện đang hoạt động bình thường trong giới hạn an toàn.</td></tr>`;
+      if ($("mostReplacedVal")) {
+        if (topPart) {
+          $("mostReplacedVal").textContent = `${topPart.Part} (${topPart.DieSet})`;
+          if ($("mostReplacedSub")) $("mostReplacedSub").textContent = `${topPart.TotalReplacements} lần thay · Avg: ${(topPart.AverageShots / 1000).toFixed(0)}k`;
+        } else {
+          $("mostReplacedVal").textContent = "Chưa có";
+          if ($("mostReplacedSub")) $("mostReplacedSub").textContent = "0 lượt thay";
+        }
       }
     }
 
-    let _topMaxChartInstance = null;
-    let _compareChartInstance = null;
-
-    function toggleAnalyticsCharts() {
-      const container = $("chartsContainer");
-      if (!container) return;
-      const isHidden = container.style.display === "none";
-      container.style.display = isHidden ? "grid" : "none";
-      if (isHidden) {
-        renderCharts();
-      }
-    }
-
-    function renderCharts() {
+    function renderWearCharts() {
       if (typeof Chart === 'undefined') return;
 
       const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
       let rows = result.summary || [];
+      const milestones = result.milestones || [50000, 100000, 150000, 200000, 250000];
+      const milestoneLabels = milestones.map(m => (m / 1000) + "k");
+
       if (q) {
         const normQ = normKey(q);
         rows = rows.filter(r => {
@@ -1952,30 +2092,157 @@
         });
       }
 
-      if (!rows || rows.length === 0) {
-        if (_topMaxChartInstance) { _topMaxChartInstance.destroy(); _topMaxChartInstance = null; }
-        if (_compareChartInstance) { _compareChartInstance.destroy(); _compareChartInstance = null; }
-        return;
+      // -------------------------------------------------------------
+      // CHART 1: WEAR BY SHOT MILESTONES (Line / Bar)
+      // -------------------------------------------------------------
+      const ctxWear = document.getElementById("wearShotChart");
+      if (ctxWear) {
+        if (_wearChartInstance) _wearChartInstance.destroy();
+
+        const colorPalette = [
+          { border: '#4f46e5', bg: 'rgba(79, 70, 229, 0.15)' },
+          { border: '#dc2626', bg: 'rgba(220, 38, 38, 0.15)' },
+          { border: '#d97706', bg: 'rgba(217, 119, 6, 0.15)' },
+          { border: '#059669', bg: 'rgba(5, 150, 105, 0.15)' },
+          { border: '#0284c7', bg: 'rgba(2, 132, 199, 0.15)' },
+          { border: '#9333ea', bg: 'rgba(147, 51, 234, 0.15)' }
+        ];
+
+        let targetParts = [];
+        if (q && rows.length > 0) {
+          targetParts = rows.slice(0, 6);
+        } else {
+          // Top 5 parts with most replacements + active
+          targetParts = [...rows]
+            .filter(r => r.TotalReplacements > 0)
+            .sort((a, b) => b.TotalReplacements - a.TotalReplacements)
+            .slice(0, 5);
+        }
+
+        const datasets = targetParts.map((item, idx) => {
+          const col = colorPalette[idx % colorPalette.length];
+          const dataPoints = milestones.map(mVal => {
+            const kLabel = (mVal / 1000) + "k";
+            if (_chartType === 'line') {
+              // Cumulative count
+              return item.MilestoneCounts[kLabel] || 0;
+            } else {
+              // Interval count in range (mVal - 50k, mVal]
+              const lowerBound = mVal - 50000;
+              return item.RepCumulativeShots.filter(rcs => rcs > lowerBound && rcs <= mVal).length;
+            }
+          });
+
+          return {
+            label: `${item.Part} (${item.DieSet})`,
+            data: dataPoints,
+            borderColor: col.border,
+            backgroundColor: _chartType === 'line' ? col.bg : col.border,
+            borderWidth: 2,
+            tension: 0.3,
+            fill: _chartType === 'line',
+            pointRadius: 4,
+            pointHoverRadius: 6
+          };
+        });
+
+        // Add System Total / Average line if multiple parts shown
+        if (!q && rows.length > 0 && _chartType === 'line') {
+          const totalAtMilestones = milestones.map(mVal => {
+            const kLabel = (mVal / 1000) + "k";
+            return rows.reduce((sum, r) => sum + (r.MilestoneCounts[kLabel] || 0), 0);
+          });
+
+          if (totalAtMilestones.some(v => v > 0)) {
+            datasets.unshift({
+              label: 'Tổng hệ thống (Tất cả linh kiện)',
+              data: totalAtMilestones,
+              borderColor: '#0f172a',
+              backgroundColor: 'transparent',
+              borderWidth: 2.5,
+              borderDash: [5, 5],
+              pointRadius: 3,
+              fill: false
+            });
+          }
+        }
+
+        _wearChartInstance = new Chart(ctxWear, {
+          type: _chartType === 'line' ? 'line' : 'bar',
+          data: {
+            labels: milestoneLabels,
+            datasets: datasets.length > 0 ? datasets : [{
+              label: 'Chưa có dữ liệu thay thế',
+              data: milestoneLabels.map(() => 0),
+              borderColor: '#cbd5e1'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: { font: { family: 'Plus Jakarta Sans', size: 10.5, weight: '700' }, boxWidth: 12 }
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw} lần thay`
+                }
+              }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: 'Mốc Shot (Sản lượng dập)', font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } },
+                grid: { color: '#f1f5f9' },
+                ticks: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' } }
+              },
+              y: {
+                title: { display: true, text: _chartType === 'line' ? 'Số lần thay tích lũy' : 'Số lần thay trong mốc', font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } },
+                beginAtZero: true,
+                grid: { color: '#f1f5f9' },
+                ticks: { stepSize: 1, font: { family: 'Plus Jakarta Sans', size: 10 } }
+              }
+            }
+          }
+        });
       }
 
-      // Chart 1: Top MAX Shots Horizontal Bar Chart
-      const sortedByMax = [...rows].sort((a, b) => b.MaxShots - a.MaxShots).slice(0, 6);
-      const maxLabels = sortedByMax.map(r => r.Part);
-      const maxData = sortedByMax.map(r => r.MaxShots);
+      // -------------------------------------------------------------
+      // CHART 2: REPLACEMENT FREQUENCY (Horizontal Bar Chart)
+      // -------------------------------------------------------------
+      const ctxFreq = document.getElementById("freqBarChart");
+      if (ctxFreq) {
+        if (_freqChartInstance) _freqChartInstance.destroy();
 
-      const ctxMax = document.getElementById("topMaxChart");
-      if (ctxMax) {
-        if (_topMaxChartInstance) _topMaxChartInstance.destroy();
-        _topMaxChartInstance = new Chart(ctxMax, {
+        const topFreqParts = [...rows]
+          .sort((a, b) => b.TotalReplacements - a.TotalReplacements || a.AverageShots - b.AverageShots)
+          .slice(0, 8);
+
+        const labels = topFreqParts.map(r => `${r.Part} (${r.DieSet})`);
+        const repData = topFreqParts.map(r => r.TotalReplacements);
+        const bgColors = topFreqParts.map(r => {
+          if (r.ReplacementFrequency === 'HIGH') return 'rgba(220, 38, 38, 0.85)';
+          if (r.ReplacementFrequency === 'MEDIUM') return 'rgba(217, 119, 6, 0.85)';
+          return 'rgba(5, 150, 105, 0.85)';
+        });
+        const borderColors = topFreqParts.map(r => {
+          if (r.ReplacementFrequency === 'HIGH') return '#b91c1c';
+          if (r.ReplacementFrequency === 'MEDIUM') return '#b45309';
+          return '#047857';
+        });
+
+        _freqChartInstance = new Chart(ctxFreq, {
           type: 'bar',
           data: {
-            labels: maxLabels,
+            labels: labels,
             datasets: [{
-              label: 'MAX Shots',
-              data: maxData,
-              backgroundColor: 'rgba(79, 70, 229, 0.85)',
-              borderColor: '#4338ca',
-              borderWidth: 1,
+              label: 'Số lần thay',
+              data: repData,
+              backgroundColor: bgColors,
+              borderColor: borderColors,
+              borderWidth: 1.5,
               borderRadius: 6,
               borderSkipped: false
             }]
@@ -1988,93 +2255,29 @@
               legend: { display: false },
               tooltip: {
                 callbacks: {
-                  label: (ctx) => ` MAX Shots: ${ctx.raw.toLocaleString()} shots`
+                  label: (ctx) => {
+                    const r = topFreqParts[ctx.dataIndex];
+                    return [
+                      ` Số lần thay: ${r.TotalReplacements} lần`,
+                      ` Tần suất: ${r.ReplacementFrequency}`,
+                      ` Avg Life/Cycle: ${r.AverageShots.toLocaleString()} shots`,
+                      ` Cycles: ${r.CompletedCycles}`,
+                      ` Total Shots: ${r.TotalShots.toLocaleString()} shots`
+                    ];
+                  }
                 }
               }
             },
             scales: {
               x: {
+                beginAtZero: true,
+                title: { display: true, text: 'Tổng số lần thay thế (Replacements)', font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } },
                 grid: { color: '#f1f5f9' },
-                ticks: {
-                  callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val,
-                  font: { family: 'Plus Jakarta Sans', size: 10 }
-                }
+                ticks: { stepSize: 1, font: { family: 'Plus Jakarta Sans', size: 10 } }
               },
               y: {
                 grid: { display: false },
-                ticks: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' } }
-              }
-            }
-          }
-        });
-      }
-
-      // Chart 2: MIN vs AVERAGE vs MAX Grouped Bar Chart
-      const topRows = [...rows].sort((a, b) => b.MaxShots - a.MaxShots).slice(0, 5);
-      const compLabels = topRows.map(r => r.Part);
-      const minData = topRows.map(r => r.MinShots);
-      const avgData = topRows.map(r => r.AverageShots);
-      const maxCompData = topRows.map(r => r.MaxShots);
-
-      const ctxComp = document.getElementById("compareBarChart");
-      if (ctxComp) {
-        if (_compareChartInstance) _compareChartInstance.destroy();
-        _compareChartInstance = new Chart(ctxComp, {
-          type: 'bar',
-          data: {
-            labels: compLabels,
-            datasets: [
-              {
-                label: 'MIN Shots',
-                data: minData,
-                backgroundColor: 'rgba(16, 185, 129, 0.85)',
-                borderColor: '#059669',
-                borderWidth: 1,
-                borderRadius: 4
-              },
-              {
-                label: 'AVERAGE Shots',
-                data: avgData,
-                backgroundColor: 'rgba(99, 102, 241, 0.85)',
-                borderColor: '#4f46e5',
-                borderWidth: 1,
-                borderRadius: 4
-              },
-              {
-                label: 'MAX Shots',
-                data: maxCompData,
-                backgroundColor: 'rgba(59, 130, 246, 0.85)',
-                borderColor: '#2563eb',
-                borderWidth: 1,
-                borderRadius: 4
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'top',
-                labels: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' }, boxWidth: 12 }
-              },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} shots`
-                }
-              }
-            },
-            scales: {
-              x: {
-                grid: { display: false },
-                ticks: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' } }
-              },
-              y: {
-                grid: { color: '#f1f5f9' },
-                ticks: {
-                  callback: (val) => val >= 1000 ? (val / 1000) + 'k' : val,
-                  font: { family: 'Plus Jakarta Sans', size: 10 }
-                }
+                ticks: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } }
               }
             }
           }
@@ -2082,9 +2285,10 @@
       }
     }
 
-    function renderSummary() {
+    function renderSummaryTable() {
       const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
       let rows = result.summary || [];
+
       if (q) {
         const normQ = normKey(q);
         rows = rows.filter(r => {
@@ -2095,255 +2299,256 @@
         });
       }
 
-      if ($("summaryRows")) {
-        $("summaryRows").innerHTML = rows.length
+      if ($("wearSummaryBadge")) {
+        $("wearSummaryBadge").textContent = `${rows.length} linh kiện`;
+      }
+
+      if ($("wearSummaryRows")) {
+        $("wearSummaryRows").innerHTML = rows.length
           ? rows.map(row => {
-              const seriesVal = getSeriesForPart(row.Part, row.DieSet) || row.Series || "-";
-              const riskCls = row.RiskLevel === 'CRITICAL' ? 'critical' : (row.RiskLevel === 'HIGH RISK' ? 'high' : (row.RiskLevel === 'WARNING' ? 'warning' : 'normal'));
+              const freqCls = row.ReplacementFrequency === 'HIGH' ? 'high' : (row.ReplacementFrequency === 'MEDIUM' ? 'medium' : 'low');
+              const freqText = row.ReplacementFrequency === 'HIGH' ? '🔴 HIGH' : (row.ReplacementFrequency === 'MEDIUM' ? '🟡 MEDIUM' : '🟢 LOW');
+              const firstM = row.FirstReplaceMilestone !== "-" ? `<span class="app-badge" style="background:#eff6ff;color:#1e40af;font-weight:700;">${row.FirstReplaceMilestone}</span>` : `<span style="color:var(--ink-light);">-</span>`;
+
               return `<tr>
                 <td><b>${esc(row.Part)}</b></td>
-                <td>${esc(seriesVal)}</td>
-                <td>${esc(row.DieSet)}</td>
-                <td style="text-align:center;"><span class="app-badge" style="background:#eef2ff;color:#4f46e5;">${row.CompletedCycles} cycles</span></td>
-                <td style="text-align:right;color:#059669;font-weight:700;">${row.MinShots.toLocaleString()}</td>
-                <td style="text-align:right;color:#4f46e5;font-weight:700;">${row.MedianShots.toLocaleString()}</td>
-                <td style="text-align:right;">${row.AverageShots.toLocaleString()}</td>
-                <td style="text-align:right;color:#1e40af;font-weight:700;">${row.MaxShots.toLocaleString()}</td>
-                <td style="text-align:right;color:var(--ink-muted);">${row.StdDev.toLocaleString()}</td>
-                <td style="text-align:center;">${row.ShortLifeCount > 0 ? `<span style="color:#dc2626;font-weight:800;">${row.ShortLifeCount}</span>` : '<span style="color:var(--ink-light);">0</span>'}</td>
-                <td style="text-align:right;font-weight:800;color:var(--ink);">${row.CurrentLife.toLocaleString()}</td>
-                <td style="text-align:center;"><span style="font-weight:700;color:#059669;">${row.LifeStability}%</span></td>
-                <td style="text-align:center;"><span class="badge-risk ${riskCls}">${row.RiskLevel}</span></td>
+                <td><span style="color:#2563eb;font-weight:600;">${esc(row.Series)}</span></td>
+                <td><b>${esc(row.DieSet)}</b></td>
+                <td style="text-align:center;"><span class="app-badge" style="background:#f1f5f9;color:var(--ink);">${row.CompletedCycles}</span></td>
+                <td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">${row.TotalShots.toLocaleString()}</td>
+                <td style="text-align:center;">${row.TotalReplacements > 0 ? `<b style="color:#b45309;font-size:13.5px;">${row.TotalReplacements}</b>` : '<span style="color:var(--ink-light);">0</span>'}</td>
+                <td style="text-align:right;color:#059669;font-weight:800;font-variant-numeric:tabular-nums;">${row.AverageShots.toLocaleString()}</td>
+                <td style="text-align:center;"><span class="badge-freq ${freqCls}">${freqText}</span></td>
+                <td style="text-align:center;">${firstM}</td>
               </tr>`;
             }).join("")
-          : '<tr><td colspan="13" style="text-align:center;color:var(--ink-muted);padding:18px;">Chưa có dữ liệu linh kiện phù hợp với từ khóa tìm kiếm.</td></tr>';
+          : `<tr><td colspan="9" style="text-align:center;color:var(--ink-muted);padding:24px;">Không tìm thấy linh kiện nào phù hợp với từ khóa tìm kiếm.</td></tr>`;
       }
-
-      renderCharts();
     }
 
-    function renderWearAnalysis() {
-      const summaryList = result.summary || [];
-      const cycles = result.cycles || [];
+    function renderMilestoneMatrixTable() {
+      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
+      let rows = result.summary || [];
+      const milestones = result.milestones || [50000, 100000, 150000, 200000, 250000];
 
-      // A. Life Distribution
-      let u20 = 0, c20to50 = 0, c50to100 = 0, c100to300 = 0, o300 = 0;
-      cycles.forEach(c => {
-        const v = c.CycleShots;
-        if (v < 20000) u20++;
-        else if (v <= 50000) c20to50++;
-        else if (v <= 100000) c50to100++;
-        else if (v <= 300000) c100to300++;
-        else o300++;
-      });
-
-      if ($("distUnder20k")) $("distUnder20k").textContent = u20;
-      if ($("dist20to50k")) $("dist20to50k").textContent = c20to50;
-      if ($("dist50to100k")) $("dist50to100k").textContent = c50to100;
-      if ($("dist100to300k")) $("dist100to300k").textContent = c100to300;
-      if ($("distOver300k")) $("distOver300k").textContent = o300;
-
-      // B. Life Trend Rows
-      if ($("lifeTrendRows")) {
-        $("lifeTrendRows").innerHTML = summaryList.length
-          ? summaryList.slice(0, 7).map(r => {
-              const trendCls = r.Trend === 'DEGRADING' ? 'degrading' : (r.Trend === 'IMPROVING' ? 'improving' : 'stable');
-              return `<tr>
-                <td><b>${esc(r.Part)}</b></td>
-                <td>${esc(r.DieSet)}</td>
-                <td style="text-align:center;"><span class="badge-trend ${trendCls}">${r.Trend}</span></td>
-                <td style="text-align:right;font-weight:700;">${r.MedianShots.toLocaleString()}</td>
-                <td style="text-align:right;color:var(--ink-muted);">${r.AverageShots.toLocaleString()}</td>
-              </tr>`;
-            }).join("")
-          : '<tr><td colspan="5" style="text-align:center;color:var(--ink-muted);">Chưa có dữ liệu xu hướng.</td></tr>';
-      }
-
-      // C. Short Life Detection Rows
-      const shortLifeList = summaryList.filter(s => s.ShortLifeCount > 0 || s.MinShots < 0.65 * (s.MedianShots || 1));
-      if ($("shortLifeRows")) {
-        $("shortLifeRows").innerHTML = shortLifeList.length
-          ? shortLifeList.map(r => `<tr>
-              <td><b>${esc(r.Part)}</b></td>
-              <td>${esc(r.DieSet)}</td>
-              <td style="text-align:right;color:#dc2626;font-weight:800;">${r.MinShots.toLocaleString()}</td>
-              <td style="text-align:right;font-weight:700;">${r.MedianShots.toLocaleString()}</td>
-              <td style="text-align:center;"><span class="badge-risk critical">ABNORMAL SHORT</span></td>
-            </tr>`).join("")
-          : '<tr><td colspan="5" style="text-align:center;color:var(--ink-muted);padding:14px;">🟢 Không ghi nhận cycle hỏng sớm bất thường nào.</td></tr>';
-      }
-
-      // D. Part Comparison across Molds
-      const partGroups = {};
-      summaryList.forEach(s => {
-        (partGroups[s.Part] ||= []).push(s);
-      });
-
-      const comparisonList = Object.entries(partGroups)
-        .filter(([part, list]) => list.length >= 1)
-        .flatMap(([part, list]) => {
-          const overallAvg = Math.round(list.reduce((sum, x) => sum + x.AverageShots, 0) / list.length);
-          return list.map(x => {
-            let status = 'BALANCED';
-            if (x.AverageShots < 0.75 * overallAvg && overallAvg > 0) status = 'ABNORMALLY LOW ON MOLD';
-            else if (x.AverageShots > 1.25 * overallAvg && overallAvg > 0) status = 'HIGH PERFORMANCE ON MOLD';
-            return { ...x, ComparisonStatus: status };
-          });
+      if (q) {
+        const normQ = normKey(q);
+        rows = rows.filter(r => {
+          const p = (r.Part || "").toLowerCase();
+          const s = (r.Series || "").toLowerCase();
+          const m = (r.DieSet || "").toLowerCase();
+          return p.includes(q) || normKey(p).includes(normQ) || s.includes(q) || m.includes(q) || normKey(m).includes(normQ);
         });
+      }
 
-      if ($("partCompareRows")) {
-        $("partCompareRows").innerHTML = comparisonList.length
-          ? comparisonList.map(r => {
-              const statusBadge = r.ComparisonStatus === 'ABNORMALLY LOW ON MOLD'
-                ? `<span class="badge-risk critical">LOW LIFE ON MOLD</span>`
-                : (r.ComparisonStatus === 'HIGH PERFORMANCE ON MOLD' ? `<span class="badge-risk normal">HIGH PERF</span>` : `<span class="badge-confidence medium">BALANCED</span>`);
+      // Render Dynamic Head
+      if ($("milestoneMatrixHead")) {
+        const milestoneThs = milestones.map(mVal => `<th>${mVal / 1000}k</th>`).join("");
+        $("milestoneMatrixHead").innerHTML = `<tr>
+          <th class="col-fixed-part">Part</th>
+          <th class="col-fixed-series">Series</th>
+          <th class="col-fixed-mold">Mold</th>
+          ${milestoneThs}
+          <th style="background:#1e1b4b;color:#fff;font-weight:800;">Total Reps</th>
+        </tr>`;
+      }
+
+      // Render Rows
+      if ($("milestoneMatrixRows")) {
+        $("milestoneMatrixRows").innerHTML = rows.length
+          ? rows.map(row => {
+              const cells = milestones.map(mVal => {
+                const kLabel = (mVal / 1000) + "k";
+                const cnt = row.MilestoneCounts[kLabel] || 0;
+                if (cnt === 0) return `<td><span class="matrix-val-0">0</span></td>`;
+                if (cnt <= 2) return `<td><span class="matrix-val-low">${cnt}</span></td>`;
+                if (cnt <= 5) return `<td><span class="matrix-val-mid">${cnt}</span></td>`;
+                return `<td><span class="matrix-val-high">${cnt}</span></td>`;
+              }).join("");
+
               return `<tr>
-                <td><b>${esc(r.Part)}</b></td>
-                <td>${esc(r.DieSet)}</td>
-                <td style="text-align:center;"><span class="app-badge" style="background:#eef2ff;color:#4f46e5;">${r.CompletedCycles} cycles</span></td>
-                <td style="text-align:right;font-weight:700;">${r.AverageShots.toLocaleString()}</td>
-                <td style="text-align:right;color:#059669;font-weight:700;">${r.MedianShots.toLocaleString()}</td>
-                <td style="text-align:center;">${statusBadge}</td>
+                <td class="col-fixed-part"><b>${esc(row.Part)}</b></td>
+                <td class="col-fixed-series">${esc(row.Series)}</td>
+                <td class="col-fixed-mold"><b>${esc(row.DieSet)}</b></td>
+                ${cells}
+                <td style="font-weight:800;color:var(--primary);text-align:center;">${row.TotalReplacements}</td>
               </tr>`;
             }).join("")
-          : '<tr><td colspan="6" style="text-align:center;color:var(--ink-muted);">Chưa đủ dữ liệu để so sánh.</td></tr>';
+          : `<tr><td colspan="${milestones.length + 4}" style="text-align:center;color:var(--ink-muted);padding:24px;">Không có dữ liệu phù hợp.</td></tr>`;
       }
     }
 
-    function renderPrediction() {
-      const summaryList = (result.summary || []).filter(s => s.CurrentLife > 0 || s.CompletedCycles > 0);
-      if (!$("predictionGrid")) return;
+    // ==========================================
+    // STOCK INVENTORY MANAGEMENT (QUẢN LÝ TỒN KHO)
+    // ==========================================
+    let _stockFilter = 'all';
+    let _stockData = loadStockData();
 
-      if (!summaryList.length) {
-        $("predictionGrid").innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--ink-muted);">Chưa có linh kiện active nào đủ dữ liệu để dự báo sản lượng.</div>`;
-        return;
-      }
-
-      $("predictionGrid").innerHTML = summaryList.map(r => {
-        const riskCls = r.RiskLevel === 'CRITICAL' ? 'critical' : (r.RiskLevel === 'HIGH RISK' ? 'high' : (r.RiskLevel === 'WARNING' ? 'warning' : 'normal'));
-        const cardCls = r.RiskLevel === 'CRITICAL' ? 'is-critical' : (r.RiskLevel === 'HIGH RISK' ? 'is-high' : (r.RiskLevel === 'WARNING' ? 'is-warning' : ''));
-        const confCls = r.Confidence === 'LOW' ? 'low' : (r.Confidence === 'MEDIUM' ? 'medium' : 'high');
-
-        const pct = r.TypicalLife > 0 ? Math.min(100, Math.round((r.CurrentLife / r.TypicalLife) * 100)) : 0;
-        const daysText = r.Confidence === 'LOW'
-          ? `<span style="color:var(--ink-muted);font-weight:600;">INSUFFICIENT DATA</span>`
-          : (r.EstimatedDays !== null ? `<b style="color:${r.EstimatedDays <= 7 ? '#dc2626' : 'var(--primary)'};">~${r.EstimatedDays} days</b>` : `<span style="color:var(--ink-muted);">N/A</span>`);
-
-        return `<div class="prediction-card ${cardCls}">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-            <div>
-              <div style="font-size:16px; font-weight:800; color:var(--ink);">${esc(r.Part)}</div>
-              <div style="font-size:11.5px; color:var(--ink-muted);">Mold: <b>${esc(r.DieSet)}</b> · Series: ${esc(r.Series)}</div>
-            </div>
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-              <span class="badge-risk ${riskCls}">${r.RiskLevel}</span>
-              <span class="badge-confidence ${confCls}">CONFIDENCE: ${r.Confidence}</span>
-            </div>
-          </div>
-
-          <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:10px;">
-            <span>Current Life: <b>${r.CurrentLife.toLocaleString()}</b> shots</span>
-            <span>Typical: <b>${r.TypicalLife.toLocaleString()}</b> shots</span>
-          </div>
-
-          <div class="wear-progress-track">
-            <div class="wear-progress-bar ${riskCls}" style="width: ${pct}%;"></div>
-          </div>
-
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; background:rgba(241,245,249,0.6); padding:10px; border-radius:8px; font-size:11.5px; margin-top:8px;">
-            <div>
-              <span style="color:var(--ink-muted); display:block;">Est. Remaining</span>
-              <b style="font-size:13px; color:var(--ink);">${r.RemainingShots > 0 ? '~' + r.RemainingShots.toLocaleString() + ' shots' : '0 shots'}</b>
-            </div>
-            <div>
-              <span style="color:var(--ink-muted); display:block;">Est. Replacement</span>
-              <span style="font-size:13px;">${daysText}</span>
-            </div>
-          </div>
-        </div>`;
-      }).join("");
+    function loadStockData() {
+      try {
+        const saved = localStorage.getItem("componentLifeStockData");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch (e) {}
+      return {};
     }
 
-    function renderManagementReport() {
-      const summaryList = result.summary || [];
+    function saveStockData() {
+      try {
+        localStorage.setItem("componentLifeStockData", JSON.stringify(_stockData));
+      } catch (e) {}
+    }
 
-      // Mold Health Scorecards
-      const moldGroups = {};
-      summaryList.forEach(s => {
-        (moldGroups[s.DieSet] ||= []).push(s);
+    function getStockItemKey(part, dieSet) {
+      return `${(part || '').trim()}|${(dieSet || '').trim()}`;
+    }
+
+    function getStockItem(part, dieSet) {
+      const key = getStockItemKey(part, dieSet);
+      if (!_stockData[key]) {
+        _stockData[key] = { stock: 2, minStock: 1 };
+      }
+      return _stockData[key];
+    }
+
+    function setStockFilter(filter) {
+      _stockFilter = filter;
+      document.querySelectorAll(".stock-filter-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.id === `stockFilter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
+      });
+      renderStockTable();
+    }
+
+    function updateStockQty(part, dieSet, delta) {
+      const item = getStockItem(part, dieSet);
+      const current = Number(item.stock) || 0;
+      item.stock = Math.max(0, current + delta);
+      saveStockData();
+      renderStockTable();
+    }
+
+    function setStockQtyDirect(part, dieSet, val) {
+      const item = getStockItem(part, dieSet);
+      const num = parseInt(val, 10);
+      item.stock = isNaN(num) ? 0 : Math.max(0, num);
+      saveStockData();
+      renderStockTable();
+    }
+
+    function setMinStockQtyDirect(part, dieSet, val) {
+      const item = getStockItem(part, dieSet);
+      const num = parseInt(val, 10);
+      item.minStock = isNaN(num) ? 0 : Math.max(0, num);
+      saveStockData();
+      renderStockTable();
+    }
+
+    function renderStockTable() {
+      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
+      const allParts = getPartsToRender();
+
+      // Count used replacements per part/mold
+      const repCounts = {};
+      (db.replacements || []).forEach(r => {
+        const lbl = String(r.Label || "").trim();
+        if (lbl && lbl !== "-" && lbl !== "0" && lbl !== "·") {
+          const key = getStockItemKey(r.Part, r.DieSet);
+          repCounts[key] = (repCounts[key] || 0) + 1;
+        }
       });
 
-      const moldScorecards = Object.entries(moldGroups).map(([mold, list]) => {
-        const avgStability = Math.round(list.reduce((sum, x) => sum + x.LifeStability, 0) / list.length);
-        const normalRate = Math.round((list.filter(x => x.RiskLevel === 'NORMAL').length / list.length) * 100);
-        const nonShortRate = Math.round((list.filter(x => x.ShortLifeCount === 0).length / list.length) * 100);
-        const consistency = Math.round(list.reduce((sum, x) => sum + Math.max(0, 100 - x.StdDev / 500), 0) / list.length);
+      let totalCount = 0;
+      let safeCount = 0;
+      let warningCount = 0;
+      let criticalCount = 0;
 
-        const healthScore = Math.min(100, Math.max(0, Math.round(avgStability * 0.30 + normalRate * 0.25 + nonShortRate * 0.25 + consistency * 0.20)));
-        const status = healthScore >= 80 ? 'EXCELLENT' : (healthScore >= 65 ? 'GOOD' : (healthScore >= 50 ? 'FAIR' : 'CRITICAL'));
-        const statusCls = healthScore >= 80 ? 'normal' : (healthScore >= 65 ? 'warning' : 'critical');
+      const processedList = allParts.map(item => {
+        const part = item.part;
+        const mold = item.moldNew || item.moldOld || item.part;
+        const series = getSeriesForPart(part, mold) || item.series || "-";
+        const key = getStockItemKey(part, mold);
+        const st = getStockItem(part, mold);
+        const stock = Number(st.stock) || 0;
+        const minStock = Number(st.minStock) || 1;
+        const used = repCounts[key] || 0;
 
-        return { mold, healthScore, status, statusCls, avgStability, normalRate, nonShortRate, count: list.length };
+        let status = 'SAFE';
+        if (stock <= 0) {
+          status = 'CRITICAL';
+          criticalCount++;
+        } else if (stock <= minStock) {
+          status = 'WARNING';
+          warningCount++;
+        } else {
+          safeCount++;
+        }
+        totalCount++;
+
+        return {
+          part, series, mold, key, stock, minStock, used, status
+        };
       });
 
-      if ($("moldScorecardGrid")) {
-        $("moldScorecardGrid").innerHTML = moldScorecards.length
-          ? moldScorecards.map(m => `<div class="scorecard-card">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <b style="font-size:15px; color:var(--ink);">${esc(m.mold)}</b>
-                <span class="badge-risk ${m.statusCls}">${m.status} (${m.healthScore}%)</span>
-              </div>
-              <div style="font-size:11.5px; color:var(--ink-muted); margin-bottom:10px;">Quản lý ${m.count} mã linh kiện</div>
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:11px;">
-                <div>Life Stability: <b>${m.avgStability}%</b></div>
-                <div>Normal Rate: <b>${m.normalRate}%</b></div>
-                <div>Non-Short Rate: <b>${m.nonShortRate}%</b></div>
-                <div>Consistency: <b>90%</b></div>
-              </div>
-            </div>`).join("")
-          : `<div style="grid-column: 1 / -1; color: var(--ink-muted);">Chưa đủ dữ liệu đánh giá sức khỏe khuôn.</div>`;
-      }
+      // Update KPI Counter Cards & Badges
+      if ($("stockTotalParts")) $("stockTotalParts").textContent = totalCount.toLocaleString();
+      if ($("stockSafeCount")) $("stockSafeCount").textContent = safeCount.toLocaleString();
+      if ($("stockWarningCount")) $("stockWarningCount").textContent = warningCount.toLocaleString();
+      if ($("stockCriticalCount")) $("stockCriticalCount").textContent = criticalCount.toLocaleString();
 
-      // Replacement Pareto
-      const repPareto = [...summaryList].sort((a, b) => b.TotalReplacements - a.TotalReplacements).slice(0, 5);
-      if ($("replacementParetoRows")) {
-        $("replacementParetoRows").innerHTML = repPareto.length
-          ? repPareto.map((r, idx) => `<tr>
-              <td><b>#${idx + 1}</b></td>
-              <td><b>${esc(r.Part)}</b></td>
-              <td>${esc(r.DieSet)}</td>
-              <td style="text-align:right;font-weight:800;color:var(--primary);">${r.TotalReplacements} lần</td>
-            </tr>`).join("")
-          : `<tr><td colspan="4" style="text-align:center;color:var(--ink-muted);">Chưa có dữ liệu.</td></tr>`;
-      }
+      if ($("cntAll")) $("cntAll").textContent = totalCount;
+      if ($("cntSafe")) $("cntSafe").textContent = safeCount;
+      if ($("cntWarning")) $("cntWarning").textContent = warningCount;
+      if ($("cntCritical")) $("cntCritical").textContent = criticalCount;
 
-      // Short Life Pareto
-      const shortPareto = [...summaryList].sort((a, b) => b.ShortLifeCount - a.ShortLifeCount).slice(0, 5);
-      if ($("shortLifeParetoRows")) {
-        $("shortLifeParetoRows").innerHTML = shortPareto.length
-          ? shortPareto.map((r, idx) => `<tr>
-              <td><b>#${idx + 1}</b></td>
-              <td><b>${esc(r.Part)}</b></td>
-              <td>${esc(r.DieSet)}</td>
-              <td style="text-align:right;font-weight:800;color:#dc2626;">${r.ShortLifeCount} lần</td>
-            </tr>`).join("")
-          : `<tr><td colspan="4" style="text-align:center;color:var(--ink-muted);">Chưa có dữ liệu.</td></tr>`;
-      }
+      // Filter rows
+      let filtered = processedList;
+      if (_stockFilter === 'critical') filtered = filtered.filter(x => x.status === 'CRITICAL');
+      else if (_stockFilter === 'warning') filtered = filtered.filter(x => x.status === 'WARNING');
+      else if (_stockFilter === 'safe') filtered = filtered.filter(x => x.status === 'SAFE');
 
-      // Lowest Life Components
-      const lowestLife = [...summaryList].sort((a, b) => a.MedianShots - b.MedianShots).slice(0, 5);
-      if ($("lowestLifeRows")) {
-        $("lowestLifeRows").innerHTML = lowestLife.length
-          ? lowestLife.map(r => `<tr>
-              <td><b>${esc(r.Part)}</b></td>
-              <td>${esc(r.Series)}</td>
-              <td>${esc(r.DieSet)}</td>
-              <td style="text-align:right;color:#059669;font-weight:700;">${r.MinShots.toLocaleString()}</td>
-              <td style="text-align:right;color:#4f46e5;font-weight:700;">${r.MedianShots.toLocaleString()}</td>
-              <td style="text-align:right;">${r.AverageShots.toLocaleString()}</td>
-              <td style="text-align:center;"><span class="badge-confidence ${r.Confidence.toLowerCase()}">${r.Confidence}</span></td>
-            </tr>`).join("")
-          : `<tr><td colspan="7" style="text-align:center;color:var(--ink-muted);">Chưa có dữ liệu.</td></tr>`;
+      if ($("stockRows")) {
+        $("stockRows").innerHTML = filtered.length
+          ? filtered.map(row => {
+              const statusBadge = row.status === 'CRITICAL'
+                ? `<span class="badge-stock critical">🔴 Hết hàng</span>`
+                : (row.status === 'WARNING'
+                  ? `<span class="badge-stock warning">🟡 Sắp hết</span>`
+                  : `<span class="badge-stock safe">🟢 An toàn</span>`);
+
+              const pEnc = encodeURIComponent(row.part);
+              const mEnc = encodeURIComponent(row.mold);
+
+              return `<tr>
+                <td><b>${esc(row.part)}</b></td>
+                <td><span style="color:#2563eb;font-weight:600;">${esc(row.series)}</span></td>
+                <td><b>${esc(row.mold)}</b></td>
+                <td style="text-align:center;">
+                  <div style="display:inline-flex; align-items:center; gap:6px;">
+                    <button class="stock-btn-step" onclick="updateStockQty(decodeURIComponent('${pEnc}'), decodeURIComponent('${mEnc}'), -1)" title="Giảm 1">－</button>
+                    <input type="number" min="0" class="stock-qty-input" value="${row.stock}" 
+                           onchange="setStockQtyDirect(decodeURIComponent('${pEnc}'), decodeURIComponent('${mEnc}'), this.value)">
+                    <button class="stock-btn-step" onclick="updateStockQty(decodeURIComponent('${pEnc}'), decodeURIComponent('${mEnc}'), 1)" title="Tăng 1">＋</button>
+                  </div>
+                </td>
+                <td style="text-align:center;">
+                  <input type="number" min="0" class="stock-qty-input" style="width:50px;color:var(--ink-secondary);" value="${row.minStock}" 
+                         onchange="setMinStockQtyDirect(decodeURIComponent('${pEnc}'), decodeURIComponent('${mEnc}'), this.value)">
+                </td>
+                <td style="text-align:center;">
+                  ${row.used > 0 ? `<b style="color:#b45309;">${row.used}</b>` : '<span style="color:var(--ink-light);">0</span>'}
+                </td>
+                <td style="text-align:center;">${statusBadge}</td>
+                <td style="text-align:center;">
+                  <div style="display:inline-flex; gap:4px;">
+                    <button class="small secondary" onclick="updateStockQty(decodeURIComponent('${pEnc}'), decodeURIComponent('${mEnc}'), 5)" title="Nhập thêm 5 cái">+5</button>
+                    <button class="small secondary" onclick="updateStockQty(decodeURIComponent('${pEnc}'), decodeURIComponent('${mEnc}'), 10)" title="Nhập thêm 10 cái">+10</button>
+                  </div>
+                </td>
+              </tr>`;
+            }).join("")
+          : `<tr><td colspan="8" style="text-align:center;color:var(--ink-muted);padding:24px;">Không có linh kiện nào trong danh mục tồn kho này.</td></tr>`;
       }
     }
 
@@ -2829,14 +3034,15 @@
     function switchTab(name) {
       document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
       if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
-      if ($("pasteTab")) $("pasteTab").classList.toggle("hidden", name !== "paste");
-      if ($("summaryTab")) $("summaryTab").classList.toggle("hidden", name !== "summary");
-      if ($("wearTab")) $("wearTab").classList.toggle("hidden", name !== "wear");
-      if ($("predictionTab")) $("predictionTab").classList.toggle("hidden", name !== "prediction");
-      if ($("reportTab")) $("reportTab").classList.toggle("hidden", name !== "report");
+      if ($("wearDashboardTab")) $("wearDashboardTab").classList.toggle("hidden", name !== "wearDashboard");
+      if ($("stockTab")) $("stockTab").classList.toggle("hidden", name !== "stock");
 
-      if (name !== "month") {
+      if (name === "month") {
+        renderMonth();
+      } else if (name === "wearDashboard") {
         rebuild(false);
+      } else if (name === "stock") {
+        renderStockTable();
       }
     }
 
@@ -2849,88 +3055,99 @@
       }
 
       const wb = XLSX.utils.book_new();
+      const milestones = result.milestones || [50000, 100000, 150000, 200000, 250000];
 
-      // Sheet 1: Summary Overview
-      const overviewData = [
-        { "Chỉ số KPI": "TOTAL COMPONENTS (Tổng linh kiện)", "Giá trị": result.summary.length },
-        { "Chỉ số KPI": "ACTIVE COMPONENTS (Đang hoạt động)", "Giá trị": result.summary.filter(s => s.CurrentLife > 0).length },
-        { "Chỉ số KPI": "AT RISK COMPONENTS (Linh kiện rủi ro)", "Giá trị": result.summary.filter(s => s.RiskLevel !== 'NORMAL').length },
-        { "Chỉ số KPI": "PREDICTED REPLACEMENTS (Dự kiến thay)", "Giá trị": result.summary.filter(s => s.RemainingShots <= 0.15 * s.TypicalLife).length },
-        { "Chỉ số KPI": "Tổng sản lượng dập hệ thống", "Giá trị": (db.shoot || []).reduce((sum, r) => sum + (Number(r.Output) || 0), 0) }
-      ];
-      const wsOverview = XLSX.utils.json_to_sheet(overviewData);
-      XLSX.utils.book_append_sheet(wb, wsOverview, "Summary Overview");
-
-      // Sheet 2: Component Life
-      const lifeData = result.summary.map(r => ({
-        "Part Name": r.Part,
+      // Sheet 1: Wear Summary (Component Wear & Frequency)
+      const summaryData = result.summary.map(r => ({
+        "Part": r.Part,
         "Series": r.Series,
-        "Mold / DieSet": r.DieSet,
+        "Mold": r.DieSet,
         "Completed Cycles": r.CompletedCycles,
-        "MIN Shots": r.MinShots,
-        "MEDIAN Shots": r.MedianShots,
-        "AVERAGE Shots": r.AverageShots,
-        "MAX Shots": r.MaxShots,
-        "STD DEV": r.StdDev,
-        "Short Life Count": r.ShortLifeCount,
-        "Current Life (Shots)": r.CurrentLife,
-        "Stability (%)": r.LifeStability + "%",
-        "Risk Level": r.RiskLevel,
-        "Confidence": r.Confidence
+        "Total Shots": r.TotalShots,
+        "Total Replacements": r.TotalReplacements,
+        "Avg Life / Cycle": r.AverageShots,
+        "Min Shots": r.MinShots,
+        "Max Shots": r.MaxShots,
+        "Replacement Frequency": r.ReplacementFrequency,
+        "First Replace Milestone": r.FirstReplaceMilestone
       }));
-      const wsLife = XLSX.utils.json_to_sheet(lifeData);
-      XLSX.utils.book_append_sheet(wb, wsLife, "Component Life");
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Wear Summary");
 
-      // Sheet 3: At Risk
-      const atRiskData = result.summary
-        .filter(r => r.RiskLevel !== 'NORMAL')
-        .map(r => ({
-          "Part Name": r.Part,
+      // Sheet 2: Wear by Milestones (Breakdown by 50k, 100k, ...)
+      const milestoneData = result.summary.map(r => {
+        const row = {
+          "Part": r.Part,
           "Series": r.Series,
-          "Mold / DieSet": r.DieSet,
-          "Current Life": r.CurrentLife,
-          "Typical Life": r.TypicalLife,
-          "Deviation (%)": r.Deviation + "%",
-          "Risk Level": r.RiskLevel,
-          "Reason": r.Reason
-        }));
-      const wsAtRisk = XLSX.utils.json_to_sheet(atRiskData.length > 0 ? atRiskData : [{ "Status": "Không có linh kiện nào ở mức rủi ro" }]);
-      XLSX.utils.book_append_sheet(wb, wsAtRisk, "At Risk");
+          "Mold": r.DieSet
+        };
+        milestones.forEach(mVal => {
+          const kLabel = (mVal / 1000) + "k";
+          row[kLabel] = r.MilestoneCounts[kLabel] || 0;
+        });
+        row["Total Replacements"] = r.TotalReplacements;
+        return row;
+      });
+      const wsMilestones = XLSX.utils.json_to_sheet(milestoneData);
+      XLSX.utils.book_append_sheet(wb, wsMilestones, "Wear by Milestones");
 
-      // Sheet 4: Replacement Pareto
-      const paretoData = [...result.summary]
-        .sort((a, b) => b.TotalReplacements - a.TotalReplacements)
-        .map((r, idx) => ({
-          "Rank": idx + 1,
-          "Part Name": r.Part,
-          "Mold / DieSet": r.DieSet,
-          "Total Replacements": r.TotalReplacements,
-          "Short Life Events": r.ShortLifeCount
-        }));
-      const wsPareto = XLSX.utils.json_to_sheet(paretoData);
-      XLSX.utils.book_append_sheet(wb, wsPareto, "Replacement Pareto");
+      // Sheet 3: Replacement History
+      const repData = (db.replacements || []).map(r => ({
+        "Replace Date": r.ReplaceDate,
+        "Part": r.Part || "",
+        "Series": r.Series || "",
+        "Mold": r.DieSet || "",
+        "Label / Reason": r.Label || ""
+      }));
+      const wsReps = XLSX.utils.json_to_sheet(repData.length > 0 ? repData : [{ "Status": "Chưa có lịch sử thay thế" }]);
+      XLSX.utils.book_append_sheet(wb, wsReps, "Replacement History");
 
-      // Sheet 5: Prediction
-      const predData = result.summary
-        .filter(r => r.CurrentLife > 0)
-        .map(r => ({
-          "Part Name": r.Part,
-          "Mold / DieSet": r.DieSet,
-          "Current Life": r.CurrentLife,
-          "Median Life": r.MedianShots,
-          "Average Life": r.AverageShots,
-          "Max Life": r.MaxShots,
-          "Estimated Remaining Shots": r.RemainingShots,
-          "Estimated Days": r.EstimatedDays !== null ? r.EstimatedDays + " days" : "N/A",
-          "Risk Level": r.RiskLevel,
-          "Confidence": r.Confidence
-        }));
-      const wsPred = XLSX.utils.json_to_sheet(predData);
-      XLSX.utils.book_append_sheet(wb, wsPred, "Prediction");
+      // Sheet 4: Shoot Production Data
+      const shootData = (db.shoot || []).map(r => ({
+        "Date": r.Date,
+        "Part": r.Part || "",
+        "Mold": r.DieSet || "",
+        "Output (Shots)": Number(r.Output) || 0
+      }));
+      const wsShoot = XLSX.utils.json_to_sheet(shootData.length > 0 ? shootData.slice(0, 10000) : [{ "Status": "Chưa có dữ liệu Shoot" }]);
+      XLSX.utils.book_append_sheet(wb, wsShoot, "Shoot Data");
 
-      const fileName = `ComponentLife_Monitoring_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      // Sheet 5: Stock (Tồn kho linh kiện)
+      const allParts = getPartsToRender();
+      const repCounts = {};
+      (db.replacements || []).forEach(r => {
+        const lbl = String(r.Label || "").trim();
+        if (lbl && lbl !== "-" && lbl !== "0" && lbl !== "·") {
+          const key = getStockItemKey(r.Part, r.DieSet);
+          repCounts[key] = (repCounts[key] || 0) + 1;
+        }
+      });
+      const stockDataExcel = allParts.map(item => {
+        const part = item.part;
+        const mold = item.moldNew || item.moldOld || item.part;
+        const series = getSeriesForPart(part, mold) || item.series || "-";
+        const key = getStockItemKey(part, mold);
+        const st = getStockItem(part, mold);
+        const stock = Number(st.stock) || 0;
+        const minStock = Number(st.minStock) || 1;
+        const used = repCounts[key] || 0;
+        const status = stock <= 0 ? "HẾT HÀNG (CRITICAL)" : (stock <= minStock ? "SẮP HẾT (WARNING)" : "AN TOÀN (SAFE)");
+        return {
+          "Part": part,
+          "Series": series,
+          "Mold": mold,
+          "Tồn Kho Hiện Tại": stock,
+          "Mức Min An Toàn": minStock,
+          "Tổng Đã Thay (Used)": used,
+          "Trạng Thái Tồn Kho": status
+        };
+      });
+      const wsStock = XLSX.utils.json_to_sheet(stockDataExcel);
+      XLSX.utils.book_append_sheet(wb, wsStock, "Stock");
+
+      const fileName = `Mold_Wear_Frequency_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
       XLSX.writeFile(wb, fileName);
-      msg(`✅ Đã xuất báo cáo Excel 5-Sheet thành công: ${fileName}`);
+      msg(`✅ Đã xuất báo cáo Excel 5-Sheet (Wear, Milestones & Stock) thành công: ${fileName}`);
     }
 
     function esc(value) {
@@ -3257,6 +3474,7 @@
           rebuild(false);
           renderMonth();
           renderMetrics();
+          renderStockTable();
           msg("✅ Đã nạp & kiểm tra lại dữ liệu từ Excel: " + messages.join(" · "));
         } catch (err) {
           msg("Lỗi đọc Excel: " + err.message, true);
@@ -3294,6 +3512,7 @@
       rebuild(false);
       renderMonth();
       renderMetrics();
+      renderStockTable();
     }
 
     async function updateBackend() {
@@ -3322,6 +3541,7 @@
         rebuild(false);
         renderMonth();
         renderMetrics();
+        renderStockTable();
         msg(`✅ Backend đã tính toán và cập nhật thành công! (${(data.cycles || []).length} cycle hoàn chỉnh)`);
       } catch (err) {
         msg("Lỗi kết nối Backend: " + err.message, true);
@@ -3371,7 +3591,10 @@
         }
 
         renderMonth();
-        renderSummary();
+        renderWearCharts();
+        renderSummaryTable();
+        renderMilestoneMatrixTable();
+        renderStockTable();
         renderMetrics();
       }, 250);
     }

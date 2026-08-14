@@ -238,9 +238,8 @@ try {
                 elseif ($cleanRep.Count -eq 1 -and -not $repJson.Trim().StartsWith("[")) { $repJson = "[$repJson]" }
                 [System.IO.File]::WriteAllText($ReplacementFile, $repJson, (New-Object System.Text.UTF8Encoding($false)))
 
-                # Calculate Cycles & Summary in PowerShell
+                # Calculate Cycles, Total Shots, Wear Milestones & Replacement Frequency in PowerShell
                 $cycles = @()
-                $groups = @{}
                 $groups = @{}
                 foreach ($r in $cleanRep) {
                     $pName = [string]$r.Part
@@ -249,6 +248,9 @@ try {
                     if (-not $groups.ContainsKey($gKey)) { $groups[$gKey] = @() }
                     $groups[$gKey] += $r
                 }
+
+                $partStats = @{}
+                $maxCumulativeShot = 0
 
                 foreach ($gKey in $groups.Keys) {
                     $events = @($groups[$gKey] | Sort-Object ReplaceDate)
@@ -269,6 +271,20 @@ try {
                             (-not $_.Part -and (($dieSet -and [string]$_.DieSet.Trim().ToLower() -eq $dieSet.ToLower()) -or ($part -and [string]$_.DieSet.Trim().ToLower() -eq $part.ToLower())))
                         )
                     } | Sort-Object Date)
+
+                    $totalShotsForPart = 0
+                    foreach ($s in $shots) { $totalShotsForPart += [decimal]$s.Output }
+                    if ($totalShotsForPart -gt $maxCumulativeShot) { $maxCumulativeShot = $totalShotsForPart }
+
+                    $repCumulativeShots = @()
+                    foreach ($e in $events) {
+                        $eDate = $e.ReplaceDate
+                        $cumBefore = 0
+                        foreach ($s in $shots) {
+                            if ($s.Date -lt $eDate) { $cumBefore += [decimal]$s.Output }
+                        }
+                        $repCumulativeShots += $cumBefore
+                    }
 
                     if ($shots.Count -gt 0 -and $events.Count -gt 0) {
                         $firstRepDate = $events[0].ReplaceDate
@@ -302,6 +318,23 @@ try {
                             }
                         }
                     }
+
+                    $partStats[$gKey] = [pscustomobject]@{
+                        Part = $part
+                        Series = $bestSeries
+                        DieSet = $dieSet
+                        TotalShots = $totalShotsForPart
+                        TotalReplacements = $events.Count
+                        RepCumulativeShots = $repCumulativeShots
+                    }
+                }
+
+                # Determine dynamic 50k milestones
+                $milestoneStep = 50000
+                $maxMilestone = [math]::Max(250000, [math]::Ceiling($maxCumulativeShot / $milestoneStep) * $milestoneStep)
+                $milestones = @()
+                for ($m = $milestoneStep; $m -le $maxMilestone; $m += $milestoneStep) {
+                    $milestones += $m
                 }
 
                 $summaryMap = @{}
@@ -313,32 +346,85 @@ try {
                     $summaryMap[$sKey] += $c
                 }
 
+                $allAvgLives = @()
+                foreach ($sKey in $partStats.Keys) {
+                    $stat = $partStats[$sKey]
+                    $cList = if ($summaryMap.ContainsKey($sKey)) { @($summaryMap[$sKey]) } else { @() }
+                    if ($cList.Count -gt 0) {
+                        $sumVal = 0
+                        foreach ($c in $cList) { $sumVal += [double]$c.CycleShots }
+                        $avg = [math]::Round($sumVal / $cList.Count)
+                        if ($avg -gt 0) { $allAvgLives += $avg }
+                    }
+                }
+
+                # Percentiles for Replacement Frequency
+                $sortedAvgLives = @($allAvgLives | Sort-Object)
+                $p33 = 70000
+                $p67 = 150000
+                if ($sortedAvgLives.Count -ge 3) {
+                    $idx33 = [math]::Floor($sortedAvgLives.Count * 0.33)
+                    $idx67 = [math]::Floor($sortedAvgLives.Count * 0.67)
+                    $p33 = $sortedAvgLives[$idx33]
+                    $p67 = $sortedAvgLives[$idx67]
+                }
+
                 $summaryList = @()
-                foreach ($sKey in $summaryMap.Keys) {
-                    $cList = @($summaryMap[$sKey])
+                $wearMatrix = @()
+
+                foreach ($sKey in $partStats.Keys) {
+                    $stat = $partStats[$sKey]
+                    $cList = if ($summaryMap.ContainsKey($sKey)) { @($summaryMap[$sKey]) } else { @() }
+                    $compCount = $cList.Count
                     $vals = @($cList | ForEach-Object { [double]$_.CycleShots })
                     $sumVal = 0
                     foreach ($v in $vals) { $sumVal += $v }
-                    $minVal = ($vals | Measure-Object -Minimum).Minimum
-                    $maxVal = ($vals | Measure-Object -Maximum).Maximum
-                    $avgVal = [math]::Round($sumVal / $vals.Count)
+                    $minVal = if ($vals.Count -gt 0) { ($vals | Measure-Object -Minimum).Minimum } else { $stat.TotalShots }
+                    $maxVal = if ($vals.Count -gt 0) { ($vals | Measure-Object -Maximum).Maximum } else { $stat.TotalShots }
+                    $avgVal = if ($vals.Count -gt 0) { [math]::Round($sumVal / $vals.Count) } else { $stat.TotalShots }
 
-                    $firstItem = $cList[0]
-                    $bestSeries = ""
-                    foreach ($item in $cList) {
-                        if ($item.Series -and [string]$item.Series.Trim().Length -gt $bestSeries.Length) {
-                            $bestSeries = [string]$item.Series.Trim()
+                    # Replacement frequency rating
+                    $freq = "LOW"
+                    if ($stat.TotalReplacements -ge 5 -or ($avgVal -gt 0 -and $avgVal -le $p33)) {
+                        $freq = "HIGH"
+                    } elseif ($stat.TotalReplacements -ge 2 -or ($avgVal -gt 0 -and $avgVal -le $p67)) {
+                        $freq = "MEDIUM"
+                    }
+
+                    # Milestone breakdown: cumulative replacements at <= milestone
+                    $milestoneCounts = [ordered]@{}
+                    $firstMilestone = $null
+                    foreach ($mVal in $milestones) {
+                        $cnt = 0
+                        foreach ($rcs in $stat.RepCumulativeShots) {
+                            if ($rcs -le $mVal) { $cnt++ }
+                        }
+                        $milestoneCounts["$($mVal / 1000)k"] = $cnt
+                        if ($cnt -gt 0 -and $null -eq $firstMilestone) {
+                            $firstMilestone = "$($mVal / 1000)k"
                         }
                     }
 
                     $summaryList += [pscustomobject]@{
-                        Part = $firstItem.Part
-                        Series = $bestSeries
-                        DieSet = $firstItem.DieSet
-                        CompletedCycles = $cList.Count
+                        Part = $stat.Part
+                        Series = $stat.Series
+                        DieSet = $stat.DieSet
+                        CompletedCycles = $compCount
+                        TotalShots = $stat.TotalShots
+                        TotalReplacements = $stat.TotalReplacements
                         MinShots = $minVal
                         MaxShots = $maxVal
                         AverageShots = $avgVal
+                        ReplacementFrequency = $freq
+                        FirstReplaceMilestone = if ($firstMilestone) { $firstMilestone } else { "-" }
+                    }
+
+                    $wearMatrix += [pscustomobject]@{
+                        Part = $stat.Part
+                        Series = $stat.Series
+                        DieSet = $stat.DieSet
+                        Milestones = $milestoneCounts
+                        TotalReplacements = $stat.TotalReplacements
                     }
                 }
 
@@ -346,11 +432,13 @@ try {
 
                 $resObj = [pscustomobject]@{
                     success = $true
-                    message = "Backend đã tính toán và cập nhật thành công!"
+                    message = "Backend đã tính toán Wear Analysis & Replacement Frequency thành công!"
                     shoot = $cleanShoot
                     replacements = $cleanRep
                     shifts = $shiftList
                     cycles = $cycles
+                    milestones = $milestones
+                    wearMatrix = $wearMatrix
                     summary = $summaryList
                 }
 
