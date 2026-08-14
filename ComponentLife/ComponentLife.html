@@ -1374,7 +1374,7 @@
             <span class="cb-drop-sub">.xlsx / .csv / .json</span>
           </div>
         </div>
-        <input class="file" id="excelFileInput" type="file" accept=".xlsx,.xls,.csv,.json,.txt" onchange="importExcelFile(this.files[0])">
+        <input class="file" id="excelFileInput" type="file" accept=".xlsx,.xls,.csv,.json,.txt" onchange="if(this.files &amp;&amp; this.files[0]){ importExcelFile(this.files[0]); this.value = ''; }">
       </div>
     </div>
 
@@ -3772,7 +3772,7 @@
         }
       }
 
-      // Format 3: Text patterns like "Thang 6-2026", "Thang 06 2026", "T06-2026", "Month 6 2026", "Jun 2026"
+      // Format 3: Text patterns like "Thang 6-2026", "Thang 06 2026", "T06-2026", "Month 6 2026", "T7_2026"
       m = s.match(/(?:tháng|thang|month|t)?\s*(\d{1,2})\s*[-_\/.\s]\s*(\d{4})/i);
       if (m) {
         const month = parseInt(m[1], 10);
@@ -3782,11 +3782,29 @@
         }
       }
 
+      // Format 4: English month names (e.g. "Jul 2026", "July 2026", "07_Jul_2026", "Jun-26", "August 2026")
+      const engMonths = {
+        jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
+        apr: 4, april: 4, may: 5, jun: 6, june: 6,
+        jul: 7, july: 7, aug: 8, august: 8, sep: 9, september: 9,
+        oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12
+      };
+      const engMatch = s.match(/(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[-_\s]*(\d{2,4})/i);
+      if (engMatch) {
+        const monStr = engMatch[1].toLowerCase();
+        let yNum = parseInt(engMatch[2], 10);
+        if (yNum < 100) yNum += 2000;
+        const month = engMonths[monStr];
+        if (month && yNum >= 2000 && yNum <= 2100) {
+          return { month, year: yNum, ym: `${yNum}-${String(month).padStart(2, '0')}` };
+        }
+      }
+
       return null;
     }
 
     function parseMonthYearFromHeaderRow(matrix) {
-      for (let r = 0; r < Math.min(10, matrix.length); r++) {
+      for (let r = 0; r < Math.min(12, matrix.length); r++) {
         const row = matrix[r];
         if (!row) continue;
         for (let c = 0; c < row.length; c++) {
@@ -3806,16 +3824,25 @@
 
     function isSppControlSheet(ws, sheetName) {
       if (!ws) return false;
-      if (parseMonthYearFromSheetName(sheetName)) return true;
+      const ym = parseMonthYearFromSheetName(sheetName);
       const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
-      if (!matrix || matrix.length < 5) return false;
+      if (!matrix || matrix.length < 3) return false;
       for (let r = 0; r < Math.min(15, matrix.length); r++) {
         const rowStr = (matrix[r] || []).join(' ').toUpperCase();
-        if (rowStr.includes('PART') && (rowStr.includes('STANDARD') || rowStr.includes('TỒN') || rowStr.includes('TON') || rowStr.includes('OUT SPARE') || rowStr.includes('LẤY LINH KIỆN'))) {
+        if (rowStr.includes('PART') && (
+            rowStr.includes('STANDARD') || 
+            rowStr.includes('TỒN') || 
+            rowStr.includes('TON') || 
+            rowStr.includes('OUT SPARE') || 
+            rowStr.includes('LẤY LINH KIỆN') ||
+            rowStr.includes('OLD STOCK') ||
+            rowStr.includes('BUY') ||
+            rowStr.includes('MUA')
+        )) {
           return true;
         }
       }
-      return false;
+      return !!ym;
     }
 
     function parseSppControlSheet(ws, sheetName) {
@@ -4264,22 +4291,19 @@
 
     function onGlobalSearchInput() {
       toggleClearBtn();
-      // Debounce: render sau khi user ngừng gõ 150ms → mượt, không khựng
-      clearTimeout(_searchDebounceTimer);
-      _searchDebounceTimer = setTimeout(() => {
-        // Reset single-field inputs so the global search multi-filter controls the view
-        if ($("part")) $("part").value = "";
-        if ($("series")) $("series").value = "";
-        if ($("dieSet")) $("dieSet").value = "";
-        if ($("mold")) $("mold").value = "";
+      // Reset single-field inputs so the global search multi-filter controls the view
+      if ($("part")) $("part").value = "";
+      if ($("series")) $("series").value = "";
+      if ($("dieSet")) $("dieSet").value = "";
+      if ($("mold")) $("mold").value = "";
 
-        renderMonth();
-        renderWearCharts();
-        renderSummaryTable();
-        renderMilestoneMatrixTable();
-        renderStockTable();
-        renderMetrics();
-      }, 150);
+      // Immediate 0-delay execution for instant real-time response
+      renderMonth();
+      renderWearCharts();
+      renderSummaryTable();
+      renderMilestoneMatrixTable();
+      renderStockTable();
+      renderMetrics();
     }
 
     if ($("globalSearch")) {
