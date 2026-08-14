@@ -190,6 +190,18 @@ try {
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                 $contentType = "application/json; charset=utf-8"
             }
+            elseif ($path -eq '/api/import/master' -and $method -eq 'POST') {
+                $body = $bodyText | ConvertFrom-Json
+                $items = @($body.rows | ForEach-Object { [pscustomobject]@{ PartName=[string]$_.PartName; Series=[string]$_.Series; OldDieSet=[string]$_.OldDieSet; NewDieSet=[string]$_.NewDieSet } })
+                $masterFile = Join-Path $Root 'ComponentMaster.json'
+                $jsonStr = $items | ConvertTo-Json -Depth 8
+                if ($items.Count -eq 0) { $jsonStr = "[]" }
+                elseif ($items.Count -eq 1 -and -not $jsonStr.Trim().StartsWith("[")) { $jsonStr = "[$jsonStr]" }
+                [System.IO.File]::WriteAllText($masterFile, $jsonStr, (New-Object System.Text.UTF8Encoding($false)))
+                $resObj = [pscustomobject]@{ count=$items.Count }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
+            }
             elseif ($path -eq '/api/update' -and $method -eq 'POST') {
                 $body = if ($bodyText) { $bodyText | ConvertFrom-Json } else { $null }
 

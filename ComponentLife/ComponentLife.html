@@ -1572,6 +1572,20 @@
             body: JSON.stringify({ rows: db.rawShoot })
           }).catch(() => {});
         }
+        if (Array.isArray(masterData) && masterData.length > 0) {
+          fetch("/api/import/master", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rows: masterData })
+          }).catch(() => {});
+        }
+        if (typeof _stockData === 'object' && _stockData && Object.keys(_stockData).length > 0) {
+          fetch("/api/import/stock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stockData: _stockData })
+          }).catch(() => {});
+        }
       } catch (e) {}
     }
 
