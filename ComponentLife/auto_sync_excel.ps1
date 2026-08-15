@@ -521,13 +521,14 @@ foreach ($excelPath in $candidateFiles) {
                             if ($shootMap.Contains($sKey)) {
                                 $shootMap[$sKey].Output += $numOut
                             } else {
-                                $shootMap[$sKey] = [ordered]@{
+                                $shootObj = [ordered]@{
                                     Date = $dtStr
-                                    Machine = $machineRaw
-                                    Part = $partRaw
                                     DieSet = $moldRaw
                                     Output = $numOut
                                 }
+                                if ($machineRaw) { $shootObj["Machine"] = $machineRaw }
+                                if ($partRaw) { $shootObj["Part"] = $partRaw }
+                                $shootMap[$sKey] = $shootObj
                             }
                         }
                     }
@@ -655,32 +656,32 @@ foreach ($excelPath in $candidateFiles) {
 # Transactional Save Master Data (Fix P2-5, P2-7, P2-8)
 if ($masterMap.Count -gt 0) {
     $masterList = @($masterMap.Values)
-    $masterJson = $masterList | ConvertTo-Json -Depth 8
+    $masterJson = $masterList | ConvertTo-Json -Compress -Depth 8
     Save-JsonFileWithBackupAndValidation $MasterFile $masterJson $false
 }
 
 # Transactional Save Shoot Data
 if ($shootMap.Count -gt 0) {
     $shootList = @($shootMap.Values)
-    $shootJson = $shootList | ConvertTo-Json -Depth 8
+    $shootJson = $shootList | ConvertTo-Json -Compress -Depth 8
     Save-JsonFileWithBackupAndValidation $ShootFile $shootJson $false
 }
 
 # Transactional Save Replacement Data
 if ($replacements.Count -gt 0) {
-    $repJson = @($replacements) | ConvertTo-Json -Depth 8
+    $repJson = @($replacements) | ConvertTo-Json -Compress -Depth 8
     Save-JsonFileWithBackupAndValidation $ReplacementFile $repJson $false
 }
 
 # Transactional Save Stock Data (Fix P0-3)
 if ($stockData.Count -gt 0) {
-    $stockJson = $stockData | ConvertTo-Json -Depth 8
+    $stockJson = $stockData | ConvertTo-Json -Compress -Depth 8
     Save-JsonFileWithBackupAndValidation $StockFile $stockJson $true
 }
 
 # Update Cache ONLY after successful writes (Fix P2-6)
 if ($newCache.Count -gt 0) {
-    $cacheJson = $newCache | ConvertTo-Json -Depth 4
+    $cacheJson = $newCache | ConvertTo-Json -Compress -Depth 4
     Save-JsonFileWithBackupAndValidation $CacheFile $cacheJson $true
 }
 

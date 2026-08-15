@@ -894,6 +894,51 @@
     .badge-stock.warning { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
     .badge-stock.critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 
+    /* Wear Analysis Progress Bars & Badges */
+    .wear-bar-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .wear-bar-container {
+      flex: 1;
+      min-width: 80px;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+      position: relative;
+    }
+    .wear-bar-fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .wear-percent-text {
+      font-size: 12px;
+      font-weight: 800;
+      min-width: 42px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .badge-wear {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .badge-wear.safe { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .badge-wear.warning { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .badge-wear.critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .badge-wear.overdue { background: #faf5ff; color: #9333ea; border: 1px solid #e9d5ff; }
+
     .stock-summary-bar {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1181,10 +1226,11 @@
     <input type="hidden" id="dieSet" value="">
     <input type="hidden" id="mold" value="">
 
-    <!-- Navigation Tabs: 1. Month Sheet, 2. Stock -->
+    <!-- Navigation Tabs: 1. Month Sheet, 2. Stock, 3. Wear Analysis -->
     <nav class="tabs">
       <button class="tab active" data-tab="month">📅 Month Sheet (Lưới Theo Dõi Ngày)</button>
       <button class="tab" data-tab="stock">📦 Quản Lý Tồn Kho (Stock)</button>
+      <button class="tab" data-tab="wear">⚙️ Phân Tích Độ Mòn &amp; Tuổi Thọ (Wear Analysis)</button>
     </nav>
 
     <!-- TAB 1: MONTH SHEET (GRID THEO DÕI THEO NGÀY - DEFAULT ACTIVE) -->
@@ -1198,7 +1244,7 @@
       </div>
     </section>
 
-    <!-- TAB 3: STOCK MANAGEMENT (QUẢN LÝ TỒN KHO LINH KIỆN) -->
+    <!-- TAB 2: STOCK MANAGEMENT (QUẢN LÝ TỒN KHO LINH KIỆN) -->
     <section id="stockTab" class="hidden">
       <!-- Stock Table Card -->
       <article class="panel card">
@@ -1258,6 +1304,94 @@
               </tr>
             </thead>
             <tbody id="stockRows"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <!-- TAB 3: WEAR ANALYSIS & LIFECYCLE (PHÂN TÍCH ĐỘ MÒN & TUỔI THỌ) -->
+    <section id="wearTab" class="hidden">
+      <!-- Wear KPI Summary Cards -->
+      <div class="stock-summary-bar" style="margin-bottom: 16px;">
+        <div class="stock-kpi-card" style="border-left: 4px solid #dc2626;">
+          <div class="stock-kpi-icon">🔴</div>
+          <div>
+            <div class="stock-kpi-val" id="kpiWearCritical" style="color:#dc2626;">0</div>
+            <div class="stock-kpi-label">CẦN THAY GẤP (&ge;90%)</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-left: 4px solid #9333ea;">
+          <div class="stock-kpi-icon">🟣</div>
+          <div>
+            <div class="stock-kpi-val" id="kpiWearOverdue" style="color:#9333ea;">0</div>
+            <div class="stock-kpi-label">QUÁ HẠN (&ge;100%)</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-left: 4px solid #d97706;">
+          <div class="stock-kpi-icon">🟡</div>
+          <div>
+            <div class="stock-kpi-val" id="kpiWearWarning" style="color:#d97706;">0</div>
+            <div class="stock-kpi-label">CẢNH BÁO MÒN (70-89%)</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-left: 4px solid #16a34a;">
+          <div class="stock-kpi-icon">🟢</div>
+          <div>
+            <div class="stock-kpi-val" id="kpiWearSafe" style="color:#16a34a;">0</div>
+            <div class="stock-kpi-label">AN TOÀN (&lt;70%)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wear Table Card -->
+      <article class="panel card">
+        <div class="stock-toolbar">
+          <div>
+            <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
+              <span>⚙️ Bảng Phân Tích Độ Mòn &amp; Dự Báo Tuổi Thọ Linh Kiện (Component Wear &amp; Lifecycle)</span>
+            </h2>
+            <p class="note" style="margin:3px 0 0;">Tính toán độ mòn % dựa trên số lần thay thế và số shots đã dập trong các chu kỳ thực tế</p>
+          </div>
+
+          <!-- Wear Filter Chips -->
+          <div class="stock-filter-group">
+            <label class="stock-filter-btn active" id="wearFilterAllLabel" title="Hiển thị tất cả">
+              <input type="checkbox" id="chkWearAll" onchange="toggleWearCheckboxAll(this)" checked style="accent-color:#2563eb; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              Tất cả (<span id="cntWearAll">0</span>)
+            </label>
+            <label class="stock-filter-btn active" id="wearFilterCriticalLabel" style="color:#dc2626;" title="Lọc linh kiện cần thay gấp">
+              <input type="checkbox" id="chkWearCritical" onchange="toggleWearStatusCheckbox()" checked style="accent-color:#dc2626; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              🔴 CẦN THAY (<span id="cntWearCritical">0</span>)
+            </label>
+            <label class="stock-filter-btn active" id="wearFilterWarningLabel" style="color:#d97706;" title="Lọc linh kiện cảnh báo mòn">
+              <input type="checkbox" id="chkWearWarning" onchange="toggleWearStatusCheckbox()" checked style="accent-color:#d97706; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              🟡 CẢNH BÁO (<span id="cntWearWarning">0</span>)
+            </label>
+            <label class="stock-filter-btn active" id="wearFilterSafeLabel" style="color:#16a34a;" title="Lọc linh kiện an toàn">
+              <input type="checkbox" id="chkWearSafe" onchange="toggleWearStatusCheckbox()" checked style="accent-color:#16a34a; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              🟢 AN TOÀN (<span id="cntWearSafe">0</span>)
+            </label>
+          </div>
+        </div>
+
+        <div class="summary-box" style="margin:0;">
+          <table class="summary">
+            <thead>
+              <tr>
+                <th style="width:85px;">Part</th>
+                <th style="width:80px;">Series</th>
+                <th style="width:110px;">Mold (New)</th>
+                <th style="width:110px;">Mold (Old)</th>
+                <th style="text-align:center; width:85px;">Số Lần Thay</th>
+                <th style="text-align:right; width:110px;">Tuổi Thọ TB</th>
+                <th style="text-align:right; width:110px;">Shot Đang Chạy</th>
+                <th style="min-width:180px;">Độ Mòn (%)</th>
+                <th style="text-align:right; width:110px;">Dự Báo Còn Lại</th>
+                <th style="text-align:center; width:105px;">Lần Thay Cuối</th>
+                <th style="text-align:center; width:115px;">Trạng Thái</th>
+              </tr>
+            </thead>
+            <tbody id="wearRows"></tbody>
           </table>
         </div>
       </article>
@@ -2252,6 +2386,304 @@
       }
     }
 
+    let _wearRenderLimit = 35;
+
+    function computeWearAnalysis() {
+      const parts = getPartsToRender('wear');
+
+      // Index shoots by Mold / Part
+      const shootsByMold = new Map();
+      (db.shoot || []).forEach(s => {
+        if (!s.Date || !s.Output || Number(s.Output) <= 0) return;
+        const d = String(s.DieSet || '').toLowerCase().trim();
+        const p = String(s.Part || '').toLowerCase().trim();
+        if (d) {
+          if (!shootsByMold.has(d)) shootsByMold.set(d, []);
+          shootsByMold.get(d).push(s);
+        }
+        if (p && p !== d) {
+          if (!shootsByMold.has(p)) shootsByMold.set(p, []);
+          shootsByMold.get(p).push(s);
+        }
+      });
+
+      // Index replacements by Part & Mold
+      const repsByPartMold = new Map();
+      (db.replacements || []).forEach(r => {
+        const lbl = String(r.Label || '').trim();
+        if (!r.ReplaceDate || lbl === '-' || lbl === '0' || lbl === '·') return;
+        const p = String(r.Part || '').toLowerCase().trim();
+        const d = String(r.DieSet || r.NewDieSet || r.OldDieSet || '').toLowerCase().trim();
+        const key = `${p}|${d}`;
+        if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
+        repsByPartMold.get(key).push(r);
+      });
+
+      const list = [];
+      parts.forEach(item => {
+        const part = item.part;
+        const moldNew = item.moldNew || item.moldOld || item.part;
+        const moldOld = item.moldOld || '';
+        const series = item.series || getSeriesForPart(part, moldNew) || '-';
+
+        const pLower = part.toLowerCase().trim();
+        const dNewLower = moldNew.toLowerCase().trim();
+        const dOldLower = moldOld.toLowerCase().trim();
+
+        // 1. Get all relevant shoot records
+        let allShoots = [];
+        if (shootsByMold.has(dNewLower)) allShoots.push(...shootsByMold.get(dNewLower));
+        if (dOldLower && dOldLower !== dNewLower && shootsByMold.has(dOldLower)) {
+          allShoots.push(...shootsByMold.get(dOldLower));
+        }
+        if (shootsByMold.has(pLower) && !allShoots.length) {
+          allShoots.push(...shootsByMold.get(pLower));
+        }
+
+        // Dedup shoots by Date + Output + DieSet
+        const shootSet = new Set();
+        const sortedShoots = [];
+        allShoots.sort((a, b) => (a.Date || '').localeCompare(b.Date || '')).forEach(s => {
+          const sk = `${s.Date}|${s.Output}|${s.DieSet}`;
+          if (!shootSet.has(sk)) {
+            shootSet.add(sk);
+            sortedShoots.push(s);
+          }
+        });
+
+        // 2. Get all relevant replacement events
+        const k1 = `${pLower}|${dNewLower}`;
+        const k2 = `${pLower}|${dOldLower}`;
+        let allReps = [];
+        if (repsByPartMold.has(k1)) allReps.push(...repsByPartMold.get(k1));
+        if (k2 !== k1 && repsByPartMold.has(k2)) allReps.push(...repsByPartMold.get(k2));
+
+        // Dedup replacements
+        const repSet = new Set();
+        const sortedReps = [];
+        allReps.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
+          const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
+          if (!repSet.has(rk)) {
+            repSet.add(rk);
+            sortedReps.push(r);
+          }
+        });
+
+        const totalLifetimeShots = sortedShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+        const replacementCount = sortedReps.length;
+
+        // 3. Compute Historical Cycles
+        const cycleShotsList = [];
+        if (replacementCount > 0) {
+          const firstRepDate = sortedReps[0].ReplaceDate;
+          const c1 = sortedShoots.filter(s => s.Date < firstRepDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+          if (c1 > 0) cycleShotsList.push(c1);
+
+          for (let i = 0; i < sortedReps.length - 1; i++) {
+            const dStart = sortedReps[i].ReplaceDate;
+            const dEnd = sortedReps[i + 1].ReplaceDate;
+            const cN = sortedShoots.filter(s => s.Date >= dStart && s.Date < dEnd).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+            if (cN > 0) cycleShotsList.push(cN);
+          }
+        }
+
+        // 4. Compute Average Lifespan
+        let avgLifespan = 0;
+        if (cycleShotsList.length > 0) {
+          avgLifespan = Math.round(cycleShotsList.reduce((a, b) => a + b, 0) / cycleShotsList.length);
+        } else if (totalLifetimeShots > 0) {
+          avgLifespan = totalLifetimeShots;
+        } else {
+          avgLifespan = 50000;
+        }
+
+        // 5. Current Running Shots (since last replacement)
+        let currentRunningShots = 0;
+        if (replacementCount > 0) {
+          const lastRepDate = sortedReps[sortedReps.length - 1].ReplaceDate;
+          currentRunningShots = sortedShoots.filter(s => s.Date >= lastRepDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+        } else {
+          currentRunningShots = totalLifetimeShots;
+        }
+
+        // 6. Wear Percentage & Remaining Forecast
+        const wearPercent = avgLifespan > 0 ? Math.round((currentRunningShots / avgLifespan) * 100) : 0;
+        const remainingShots = Math.max(0, avgLifespan - currentRunningShots);
+
+        // 7. Wear Status
+        let status = 'SAFE';
+        let statusLabel = '🟢 AN TOÀN';
+        if (wearPercent >= 100) {
+          status = 'OVERDUE';
+          statusLabel = '🟣 QUÁ HẠN';
+        } else if (wearPercent >= 90) {
+          status = 'CRITICAL';
+          statusLabel = '🔴 CẦN THAY';
+        } else if (wearPercent >= 70) {
+          status = 'WARNING';
+          statusLabel = '🟡 CẢNH BÁO';
+        }
+
+        list.push({
+          part,
+          series,
+          moldNew,
+          moldOld,
+          replacementCount,
+          cycleCount: cycleShotsList.length,
+          totalLifetimeShots,
+          avgLifespan,
+          currentRunningShots,
+          wearPercent,
+          remainingShots,
+          status,
+          statusLabel,
+          lastRepDate: replacementCount > 0 ? sortedReps[sortedReps.length - 1].ReplaceDate : '-'
+        });
+      });
+
+      return list;
+    }
+
+    function toggleWearCheckboxAll(masterCb) {
+      const isChecked = masterCb.checked;
+      const chks = [$('chkWearCritical'), $('chkWearWarning'), $('chkWearSafe')];
+      chks.forEach(chk => { if (chk) chk.checked = isChecked; });
+      updateWearFilterLabels();
+      renderWearTable();
+    }
+
+    function toggleWearStatusCheckbox() {
+      const chks = [$('chkWearCritical'), $('chkWearWarning'), $('chkWearSafe')];
+      const allChecked = chks.every(chk => chk && chk.checked);
+      if ($('chkWearAll')) $('chkWearAll').checked = allChecked;
+      updateWearFilterLabels();
+      renderWearTable();
+    }
+
+    function updateWearFilterLabels() {
+      if ($('wearFilterAllLabel') && $('chkWearAll')) $('wearFilterAllLabel').classList.toggle('active', $('chkWearAll').checked);
+      if ($('wearFilterCriticalLabel') && $('chkWearCritical')) $('wearFilterCriticalLabel').classList.toggle('active', $('chkWearCritical').checked);
+      if ($('wearFilterWarningLabel') && $('chkWearWarning')) $('wearFilterWarningLabel').classList.toggle('active', $('chkWearWarning').checked);
+      if ($('wearFilterSafeLabel') && $('chkWearSafe')) $('wearFilterSafeLabel').classList.toggle('active', $('chkWearSafe').checked);
+    }
+
+    function renderWearTable() {
+      if (!$('wearRows')) return;
+
+      const wearList = computeWearAnalysis();
+      
+      let criticalCount = 0;
+      let overdueCount = 0;
+      let warningCount = 0;
+      let safeCount = 0;
+
+      wearList.forEach(item => {
+        if (item.status === 'OVERDUE') overdueCount++;
+        else if (item.status === 'CRITICAL') criticalCount++;
+        else if (item.status === 'WARNING') warningCount++;
+        else safeCount++;
+      });
+
+      // Update KPIs
+      if ($('kpiWearCritical')) $('kpiWearCritical').textContent = (criticalCount + overdueCount).toLocaleString();
+      if ($('kpiWearOverdue')) $('kpiWearOverdue').textContent = overdueCount.toLocaleString();
+      if ($('kpiWearWarning')) $('kpiWearWarning').textContent = warningCount.toLocaleString();
+      if ($('kpiWearSafe')) $('kpiWearSafe').textContent = safeCount.toLocaleString();
+
+      // Update Filter Button Counters
+      if ($('cntWearAll')) $('cntWearAll').textContent = wearList.length.toLocaleString();
+      if ($('cntWearCritical')) $('cntWearCritical').textContent = (criticalCount + overdueCount).toLocaleString();
+      if ($('cntWearWarning')) $('cntWearWarning').textContent = warningCount.toLocaleString();
+      if ($('cntWearSafe')) $('cntWearSafe').textContent = safeCount.toLocaleString();
+
+      // Filter by checked checkboxes
+      const allowCritical = $('chkWearCritical') ? $('chkWearCritical').checked : true;
+      const allowWarning = $('chkWearWarning') ? $('chkWearWarning').checked : true;
+      const allowSafe = $('chkWearSafe') ? $('chkWearSafe').checked : true;
+
+      const hasGlobalFilter = ($("globalSearch") && $("globalSearch").value.trim()) ||
+                              ($("part") && $("part").value.trim()) ||
+                              ($("mold") && $("mold").value.trim()) ||
+                              ($("series") && $("series").value.trim());
+
+      const filteredList = wearList.filter(item => {
+        if ((item.status === 'CRITICAL' || item.status === 'OVERDUE') && allowCritical) return true;
+        if (item.status === 'WARNING' && allowWarning) return true;
+        if (item.status === 'SAFE' && allowSafe) return true;
+        return false;
+      });
+
+      // Sort: Highest wear % first, then parts with replacements
+      filteredList.sort((a, b) => {
+        if (a.wearPercent !== b.wearPercent) return b.wearPercent - a.wearPercent;
+        if (a.replacementCount !== b.replacementCount) return b.replacementCount - a.replacementCount;
+        return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      const limit = hasGlobalFilter ? filteredList.length : _wearRenderLimit;
+      const visibleList = filteredList.slice(0, limit);
+
+      if (!visibleList.length) {
+        $('wearRows').innerHTML = `<tr><td colspan="11" style="text-align:center; padding:28px; color:var(--ink-muted);">Không tìm thấy linh kiện nào phù hợp với bộ lọc hiện tại.</td></tr>`;
+        return;
+      }
+
+      let html = '';
+      visibleList.forEach(item => {
+        let barColor = '#10b981'; // Green
+        if (item.status === 'OVERDUE') {
+          barColor = '#9333ea'; // Purple
+        } else if (item.status === 'CRITICAL') {
+          barColor = '#ef4444'; // Red
+        } else if (item.status === 'WARNING') {
+          barColor = '#f59e0b'; // Amber
+        }
+
+        const barWidth = Math.min(100, item.wearPercent);
+        const badgeClass = item.status.toLowerCase();
+
+        html += `
+          <tr>
+            <td><b style="font-size:14.5px; color:#0f172a;">${esc(item.part)}</b></td>
+            <td><span style="color:#2563eb;font-weight:700;font-size:13.5px;">${esc(item.series || '-')}</span></td>
+            <td><b style="font-size:13.5px;">${esc(item.moldNew || '-')}</b></td>
+            <td><b style="color:#475569;font-size:13.5px;">${esc(item.moldOld || item.moldNew || '-')}</b></td>
+            <td style="text-align:center;">
+              <span style="font-weight:700; color:${item.replacementCount > 0 ? 'var(--primary)' : 'var(--ink-muted)'}; background:${item.replacementCount > 0 ? 'var(--primary-light)' : 'transparent'}; padding:2px 8px; border-radius:12px; font-size:12px;">${item.replacementCount} lần</span>
+            </td>
+            <td style="text-align:right; font-weight:600; font-size:13px;">${item.avgLifespan.toLocaleString()}</td>
+            <td style="text-align:right; font-weight:700; color:var(--ink); font-size:13px;">${item.currentRunningShots.toLocaleString()}</td>
+            <td>
+              <div class="wear-bar-wrapper">
+                <div class="wear-bar-container" title="Đã chạy: ${item.currentRunningShots.toLocaleString()} / TB: ${item.avgLifespan.toLocaleString()} shots">
+                  <div class="wear-bar-fill" style="width:${barWidth}%; background:${barColor};"></div>
+                </div>
+                <span class="wear-percent-text" style="color:${barColor};">${item.wearPercent}%</span>
+              </div>
+            </td>
+            <td style="text-align:right; font-weight:700; font-size:13px; color:${item.remainingShots <= 0 ? 'var(--rose-600)' : 'var(--emerald-600)'};">
+              ${item.remainingShots > 0 ? item.remainingShots.toLocaleString() : '0 (Hết hạn)'}
+            </td>
+            <td style="text-align:center; font-size:12px; color:var(--ink-secondary); font-weight:600;">${esc(item.lastRepDate)}</td>
+            <td style="text-align:center;">
+              <span class="badge-wear ${badgeClass}">${item.statusLabel}</span>
+            </td>
+          </tr>
+        `;
+      });
+
+      if (filteredList.length > limit) {
+        html += `<tr><td colspan="11" style="text-align:center; padding:16px; background:var(--bg-subtle);">
+          <span style="font-size:14px; color:var(--ink-secondary); margin-right:12px;">Đang hiển thị <b>${limit}</b> / ${filteredList.length.toLocaleString()} linh kiện</span>
+          <button onclick="_wearRenderLimit += 40; renderWearTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
+          <button onclick="_wearRenderLimit = ${filteredList.length}; renderWearTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả</button>
+        </td></tr>`;
+      }
+
+      $('wearRows').innerHTML = html;
+    }
+
     function isValidPartName(name) {
       if (!name) return false;
       const s = String(name).trim();
@@ -2975,12 +3407,15 @@
       document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
       if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
       if ($("stockTab")) $("stockTab").classList.toggle("hidden", name !== "stock");
+      if ($("wearTab")) $("wearTab").classList.toggle("hidden", name !== "wear");
 
       if (name === "month") {
         renderMonth();
         renderMetrics();
       } else if (name === "stock") {
         renderStockTable();
+      } else if (name === "wear") {
+        renderWearTable();
       }
     }
 
@@ -3830,31 +4265,28 @@
     async function autoLoadShootMonth() {
       const cacheBust = "?t=" + Date.now();
       try {
-        const res = await fetch("data/shoot-data.json" + cacheBust, { cache: "no-store" });
-        if (res.ok) {
-          const list = await res.json();
+        const [resShoot, resRep, resStock] = await Promise.all([
+          fetch("data/shoot-data.json" + cacheBust, { cache: "no-store" }).catch(() => null),
+          fetch("data/replacement-log.json" + cacheBust, { cache: "no-store" }).catch(() => null),
+          fetch("data/stock-data.json" + cacheBust, { cache: "no-store" }).catch(() => null)
+        ]);
+
+        if (resShoot && resShoot.ok) {
+          const list = await resShoot.json();
           if (Array.isArray(list)) {
-            db.rawShoot = JSON.parse(JSON.stringify(list));
+            db.rawShoot = list;
             db.shoot = list.sort((a, b) => (a.Date || '').localeCompare(b.Date || '') || (a.DieSet || '').localeCompare(b.DieSet || ''));
           }
         }
-      } catch (e) {
-        console.warn("Could not fetch data/shoot-data.json:", e);
-      }
 
-      try {
-        const resRep = await fetch("data/replacement-log.json" + cacheBust, { cache: "no-store" });
-        if (resRep.ok) {
+        if (resRep && resRep.ok) {
           const repList = await resRep.json();
           if (Array.isArray(repList)) {
             db.replacements = repList;
           }
         }
-      } catch (e) {}
 
-      try {
-        const resStock = await fetch("data/stock-data.json" + cacheBust, { cache: "no-store" });
-        if (resStock.ok) {
+        if (resStock && resStock.ok) {
           const stockJson = await resStock.json();
           if (stockJson && typeof stockJson === 'object' && Object.keys(stockJson).length > 0) {
             _stockData = Object.assign({}, stockJson);
@@ -3863,7 +4295,9 @@
             } catch (e) {}
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("Loi khi tai du lieu song song:", e);
+      }
 
       invalidatePartsCache();
       buildMonthOptions();
@@ -3938,6 +4372,8 @@
         renderMetrics();
       } else if (activeTab === "stock") {
         renderStockTable();
+      } else if (activeTab === "wear") {
+        renderWearTable();
       }
     }
 
