@@ -23,6 +23,17 @@ $StockFile = Join-Path $DataDir 'stock-data.json'
 
 foreach ($folder in @($DataDir, $ReportDir)) { if (-not (Test-Path $folder)) { New-Item -ItemType Directory -Path $folder | Out-Null } }
 
+# ===== AUTO EXCEL DATA SYNC LAYER ON STARTUP =====
+try {
+    $autoSyncScript = Join-Path $Root 'auto_sync_excel.py'
+    if (Test-Path $autoSyncScript) {
+        Write-Host "🔄 Tu dong quet va cap nhat du lieu tu file Excel..." -ForegroundColor Cyan
+        & python $autoSyncScript
+    }
+} catch {
+    Write-Host "⚠️ Khong the tu dong dong bo Excel: $_" -ForegroundColor Yellow
+}
+
 $listener = $null
 $boundPort = $Port
 for ($p = $Port; $p -le $Port + 50; $p++) {

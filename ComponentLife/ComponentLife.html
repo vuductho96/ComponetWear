@@ -808,12 +808,12 @@
     table.summary {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
+      font-size: 14.5px;
       background: #fff;
     }
 
     table.summary th, table.summary td {
-      padding: 10px 14px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       text-align: left;
       vertical-align: middle;
@@ -824,13 +824,13 @@
       position: sticky;
       top: 0;
       z-index: 2;
-      background: #f8fafc;
-      color: var(--ink-secondary);
+      background: #f1f5f9;
+      color: var(--ink);
       text-transform: uppercase;
-      font-size: 11px;
+      font-size: 12.5px;
       font-weight: 800;
       letter-spacing: 0.05em;
-      border-bottom: 2px solid var(--border);
+      border-bottom: 2px solid var(--border-dark);
     }
 
     table.summary tbody tr:hover {
@@ -1334,11 +1334,23 @@
 
     <!-- ===== COMMAND CONTROL BAR ===== -->
     <div class="command-bar">
-      <!-- Left: Month picker (for Month Tab) -->
-      <div class="cmd-group cmd-left">
+      <!-- Left: Day / Month / Year Filter Controls -->
+      <div class="cmd-group cmd-left" style="gap: 8px; align-items: center;">
+        <div class="cb-month">
+          <label for="yearPick">NĂM</label>
+          <select id="yearPick" title="Lọc theo Năm">
+            <option value="">Tất cả năm</option>
+          </select>
+        </div>
         <div class="cb-month">
           <label for="monthPick">THÁNG THEO DÕI</label>
-          <select id="monthPick"></select>
+          <select id="monthPick" title="Lọc theo Tháng"></select>
+        </div>
+        <div class="cb-month">
+          <label for="dayPick">NGÀY</label>
+          <select id="dayPick" title="Lọc theo Ngày trong tháng">
+            <option value="">Tất cả ngày</option>
+          </select>
         </div>
       </div>
 
@@ -1384,10 +1396,9 @@
     <input type="hidden" id="dieSet" value="">
     <input type="hidden" id="mold" value="">
 
-    <!-- Navigation Tabs: 1. Month Sheet, 2. Statistic & Analyst, 3. Stock -->
+    <!-- Navigation Tabs: 1. Month Sheet, 2. Stock -->
     <nav class="tabs">
       <button class="tab active" data-tab="month">📅 Month Sheet (Lưới Theo Dõi Ngày)</button>
-      <button class="tab" data-tab="wearDashboard">📊 Thống Kê &amp; Phân Tích Độ Mòn (Statistic &amp; Analyst)</button>
       <button class="tab" data-tab="stock">📦 Quản Lý Tồn Kho (Stock)</button>
     </nav>
 
@@ -1402,93 +1413,6 @@
       </div>
     </section>
 
-    <!-- TAB 2: WEAR ANALYSIS & REPLACEMENT FREQUENCY DASHBOARD (STATISTIC & ANALYST) -->
-    <section id="wearDashboardTab" class="hidden">
-      <!-- Charts Grid -->
-      <div class="summary-charts-grid">
-        <!-- Chart 1: Wear by Shot Milestones -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <div>
-              <span class="chart-title">📈 1. Wear Analysis theo mốc Shot</span>
-              <span class="chart-subtitle">Số lần replacement tích lũy theo các mốc 50k → 100k → 150k → 200k → 250k...</span>
-            </div>
-            <div class="chart-toggle-group">
-              <button class="chart-toggle-btn active" id="btnLineChart" onclick="setChartType('line')">Line (Tích lũy)</button>
-              <button class="chart-toggle-btn" id="btnBarChart" onclick="setChartType('bar')">Bar (Theo mốc)</button>
-            </div>
-          </div>
-          <div class="chart-body">
-            <canvas id="wearShotChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Chart 2: Top Replacement Frequency -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <div>
-              <span class="chart-title">🚨 2. Top Tần Suất Thay Thế (Replacement Frequency)</span>
-              <span class="chart-subtitle">Linh kiện có số lần thay nhiều nhất &amp; tuổi thọ trung bình theo khuôn</span>
-            </div>
-          </div>
-          <div class="chart-body">
-            <canvas id="freqBarChart"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <!-- Table 1: Component Wear Summary -->
-      <article class="panel card" style="margin-bottom: 20px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-          <div>
-            <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
-              <span>📋 1. Bảng Tổng Hợp Độ Mòn &amp; Tần Suất Thay Thế</span>
-              <span class="app-badge" id="wearSummaryBadge" style="background:#eef2ff; color:#4f46e5;">0 linh kiện</span>
-            </h2>
-            <p class="note" style="margin:3px 0 0;">Average Life = Total Life / Number of completed cycles · Tần suất: 🔴 HIGH (thay thường xuyên) · 🟡 MEDIUM · 🟢 LOW (ít phải thay)</p>
-          </div>
-        </div>
-
-        <div class="summary-box" style="margin:0;">
-          <table class="summary">
-            <thead>
-              <tr>
-                <th style="width:100px;">Part</th>
-                <th style="width:110px;">Series</th>
-                <th style="width:120px;">Mold</th>
-                <th style="text-align:center; width:80px;">Cycles</th>
-                <th style="text-align:right; width:110px;">Total Shots</th>
-                <th style="text-align:center; width:110px;">Replacements</th>
-                <th style="text-align:right; width:120px;">Avg Life / Cycle</th>
-                <th style="text-align:center; width:130px;">Tần Suất Thay</th>
-                <th style="text-align:center; width:130px;">Mốc Thay Đầu Tiên</th>
-              </tr>
-            </thead>
-            <tbody id="wearSummaryRows"></tbody>
-          </table>
-        </div>
-      </article>
-
-      <!-- Table 2: Wear Analysis Matrix by Shot Milestone -->
-      <article class="panel card">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-          <div>
-            <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
-              <span>🎯 2. Ma Trận Độ Mòn Theo Mốc Shot (Wear by Shot Milestones)</span>
-            </h2>
-            <p class="note" style="margin:3px 0 0;">Số lần replacement tích lũy tại các mốc 50k, 100k, 150k... (tự động mở rộng theo dữ liệu thực tế)</p>
-          </div>
-        </div>
-
-        <div class="table-milestone-wrap">
-          <table class="matrix-table">
-            <thead id="milestoneMatrixHead"></thead>
-            <tbody id="milestoneMatrixRows"></tbody>
-          </table>
-        </div>
-      </article>
-    </section>
-
     <!-- TAB 3: STOCK MANAGEMENT (QUẢN LÝ TỒN KHO LINH KIỆN) -->
     <section id="stockTab" class="hidden">
       <!-- Stock Table Card -->
@@ -1498,7 +1422,7 @@
             <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
               <span>📦 Bảng Theo Dõi &amp; Quản Lý Tồn Kho Linh Kiện (Stock Inventory)</span>
             </h2>
-            <p class="note" style="margin:3px 0 0;">Tự động đối chiếu số lượng thay thực tế và quản lý mức dự phòng linh kiện theo từng khuôn</p>
+            <p class="note" id="stockNote" style="margin:3px 0 0;">Tự động đối chiếu số lượng thay thực tế và quản lý mức dự phòng linh kiện theo từng khuôn</p>
           </div>
 
           <!-- Stock Filter Chips -->
@@ -1514,16 +1438,18 @@
           <table class="summary">
             <thead>
               <tr>
-                <th style="width:90px;">Part</th>
-                <th style="width:85px;">Series</th>
-                <th style="width:130px;">Mold</th>
-                <th style="text-align:center; width:100px;">Mức Min</th>
-                <th style="text-align:center; width:125px;">Tồn Kho</th>
-                <th style="text-align:center; width:90px;">Đã Thay</th>
-                <th style="text-align:center; width:85px;">Số Lần</th>
-                <th style="text-align:left; min-width:180px;">Ngày Thay (Số Lượng)</th>
-                <th style="text-align:left; min-width:130px;">ID Request</th>
-                <th style="text-align:center; width:125px;">Trạng Thái</th>
+                <th style="width:85px;">Part</th>
+                <th style="width:80px;">Series</th>
+                <th style="width:110px;">Mold (New)</th>
+                <th style="width:110px;">Mold (Old)</th>
+                <th style="text-align:center; width:85px;">Mức Min</th>
+                <th style="text-align:center; width:95px;">Tồn Kho</th>
+                <th style="text-align:center; width:85px;">Đã Thay</th>
+                <th style="text-align:center; width:75px;">Số Lần</th>
+                <th style="text-align:left; min-width:130px;">Ngày Thay</th>
+                <th style="text-align:left; min-width:130px;">Số Lượng Thay</th>
+                <th style="text-align:left; min-width:115px;">ID Request</th>
+                <th style="text-align:center; width:115px;">Trạng Thái</th>
               </tr>
             </thead>
             <tbody id="stockRows"></tbody>
@@ -1741,7 +1667,7 @@
     }
 
     function monthKey(date) {
-      return date.slice(0, 7);
+      return date ? String(date).slice(0, 7) : "";
     }
 
     function selectedMonth() {
@@ -1894,6 +1820,7 @@
     }
 
     function rebuild(showMessage = true) {
+      invalidatePartsCache();
       const cycles = [];
       const errors = [];
       const groups = {};
@@ -2461,77 +2388,61 @@
       } catch (e) {}
     }
 
-    function findMasterItem(partName, dieSet, series = "") {
-      if (typeof masterData === 'undefined' || !Array.isArray(masterData)) return null;
-      const p = String(partName || "").toLowerCase().trim();
-      const d = String(dieSet || "").toLowerCase().trim();
-      const s = String(series || "").toLowerCase().trim();
-      const pNorm = normKey(p);
-      const dNorm = normKey(d);
-      const sNorm = normKey(s);
+    let _masterLookupMap = null;
 
-      // 1. Exact 3-key match: PartName + Series + DieSet (OldDieSet or NewDieSet)
-      if (p && d && s) {
-        let m = masterData.find(x =>
-          (String(x.PartName || "").toLowerCase().trim() === p || normKey(x.PartName) === pNorm) &&
-          (String(x.Series || "").toLowerCase().trim() === s || normKey(x.Series) === sNorm) &&
-          (
-            String(x.NewDieSet || "").toLowerCase().trim() === d ||
-            String(x.OldDieSet || "").toLowerCase().trim() === d ||
-            normKey(x.NewDieSet) === dNorm ||
-            normKey(x.OldDieSet) === dNorm
-          )
-        );
-        if (m) return m;
-      }
+    function buildMasterLookupMap() {
+      _masterLookupMap = new Map();
+      (masterData || []).forEach(item => {
+        if (!item || !item.PartName) return;
+        const p = String(item.PartName).toLowerCase().trim();
+        const pN = normKey(p);
+        const dNew = String(item.NewDieSet || '').toLowerCase().trim();
+        const dOld = String(item.OldDieSet || '').toLowerCase().trim();
+        const dNewN = normKey(dNew);
+        const dOldN = normKey(dOld);
+        const s = String(item.Series || '').toLowerCase().trim();
+        const sN = normKey(s);
 
-      // 2. 2-key match: PartName + DieSet (OldDieSet or NewDieSet)
+        if (p && dNew) _masterLookupMap.set(`${p}|${dNew}`, item);
+        if (p && dOld) _masterLookupMap.set(`${p}|${dOld}`, item);
+        if (pN && dNewN) _masterLookupMap.set(`${pN}|${dNewN}`, item);
+        if (pN && dOldN) _masterLookupMap.set(`${pN}|${dOldN}`, item);
+        if (p && s) _masterLookupMap.set(`${p}|series:${s}`, item);
+        if (pN && sN) _masterLookupMap.set(`${pN}|series:${sN}`, item);
+        if (p && !_masterLookupMap.has(p)) _masterLookupMap.set(p, item);
+        if (pN && !_masterLookupMap.has(pN)) _masterLookupMap.set(pN, item);
+        if (dNew && !_masterLookupMap.has(`||${dNew}`)) _masterLookupMap.set(`||${dNew}`, item);
+        if (dOld && !_masterLookupMap.has(`||${dOld}`)) _masterLookupMap.set(`||${dOld}`, item);
+        if (dNewN && !_masterLookupMap.has(`||${dNewN}`)) _masterLookupMap.set(`||${dNewN}`, item);
+        if (dOldN && !_masterLookupMap.has(`||${dOldN}`)) _masterLookupMap.set(`||${dOldN}`, item);
+      });
+    }
+
+    function findMasterItem(partName, dieSet, series = '') {
+      if (!_masterLookupMap) buildMasterLookupMap();
+      const p = String(partName || '').trim().toLowerCase();
+      const d = String(dieSet || '').trim().toLowerCase();
+      const s = String(series || '').trim().toLowerCase();
+      const pN = normKey(p);
+      const dN = normKey(d);
+      const sN = normKey(s);
+
       if (p && d) {
-        let m = masterData.find(x =>
-          (String(x.PartName || "").toLowerCase().trim() === p || normKey(x.PartName) === pNorm) &&
-          (
-            String(x.NewDieSet || "").toLowerCase().trim() === d ||
-            String(x.OldDieSet || "").toLowerCase().trim() === d ||
-            normKey(x.NewDieSet) === dNorm ||
-            normKey(x.OldDieSet) === dNorm
-          )
-        );
-        if (m) return m;
+        const direct = _masterLookupMap.get(`${p}|${d}`) || _masterLookupMap.get(`${pN}|${dN}`);
+        if (direct) return direct;
       }
-
-      // 3. 2-key match: PartName + Series
       if (p && s) {
-        let m = masterData.find(x =>
-          (String(x.PartName || "").toLowerCase().trim() === p || normKey(x.PartName) === pNorm) &&
-          (String(x.Series || "").toLowerCase().trim() === s || normKey(x.Series) === sNorm)
-        );
-        if (m) return m;
+        const bySeries = _masterLookupMap.get(`${p}|series:${s}`) || _masterLookupMap.get(`${pN}|series:${sN}`);
+        if (bySeries) return bySeries;
       }
-
-      // 4. Fallback: Mold lookup (OldDieSet -> NewDieSet mapping)
       if (d) {
-        let m = masterData.find(x =>
-          (x.OldDieSet && (String(x.OldDieSet).toLowerCase().trim() === d || normKey(x.OldDieSet) === dNorm)) ||
-          (x.NewDieSet && (String(x.NewDieSet).toLowerCase().trim() === d || normKey(x.NewDieSet) === dNorm))
-        );
-        if (m) {
-          return {
-            PartName: partName,
-            Series: series || m.Series,
-            OldDieSet: m.OldDieSet || dieSet,
-            NewDieSet: m.NewDieSet || dieSet,
-            StandardStock: 1,
-            StockLeft: 0
-          };
-        }
+        const byMold = _masterLookupMap.get(`||${d}`) || _masterLookupMap.get(`||${dN}`);
+        if (byMold) return byMold;
       }
-
-      // 5. Fallback: PartName only
-      if (p) {
-        let m = masterData.find(x => String(x.PartName || "").toLowerCase().trim() === p || normKey(x.PartName) === pNorm);
-        if (m) return m;
+      if (p && !d && !s) {
+        const byPart = _masterLookupMap.get(p) || _masterLookupMap.get(pN);
+        if (byPart) return byPart;
       }
-
       return null;
     }
 
@@ -2625,10 +2536,23 @@
       renderStockTable();
     }
 
+    let _stockRenderLimit = 40;
+
     function renderStockTable() {
       const allParts = getPartsToRender('stock');
+      const currentYm = selectedMonth(); // e.g. "2026-07"
+      const currentDay = selectedDay();   // e.g. "17" or ""
+      const currentYear = selectedYear(); // e.g. "2026" or ""
+
+      // Cập nhật dòng chú thích hiển thị tháng đang tính toán
+      if ($("stockNote") && currentYm) {
+        const [y, m] = currentYm.split("-").map(Number);
+        const mLabel = (monthNames && monthNames[m - 1]) ? `${monthNames[m - 1]} ${y}` : currentYm;
+        $("stockNote").innerHTML = `Thống kê số lượng thay thế thực tế <b>trong tháng ${mLabel}</b>${currentDay ? ` (Ngày ${currentDay})` : ''} &amp; quản lý mức dự phòng linh kiện`;
+      }
 
       // Count used replacements per part/mold (summing total replaced pieces) and collect detailed events
+      // "Tháng nào tính tháng đấy": Lọc chính xác theo tháng đang được chọn trên Header
       const repCounts = {};
       const repEvents = {};
       (db.replacements || []).forEach(r => {
@@ -2638,6 +2562,18 @@
         const p = r.Part;
         const dNew = r.DieSet || r.NewDieSet;
         const dOld = r.OldDieSet;
+
+        if (!repDate) return;
+
+        // Chỉ tính thay thế trong tháng đang chọn (Tháng nào tính tháng đấy)
+        if (currentYm && monthKey(repDate) !== currentYm) {
+          return;
+        }
+
+        // Nếu có chọn ngày cụ thể thì lọc theo ngày đó
+        if (currentDay && repDate.slice(8, 10) !== currentDay) {
+          return;
+        }
 
         const keys = [];
         if (dNew) keys.push(getStockItemKey(p, dNew));
@@ -2676,9 +2612,17 @@
         const st = getStockItem(part, mold);
         const masterItem = findMasterItem(part, mold, series);
         const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
-        const minStock = Number(st.minStock !== undefined ? st.minStock : (masterItem ? masterItem.StandardStock : 1)) || 0;
-        const used = repCounts[key] || 0;
-        const events = repEvents[key] || (moldOld ? repEvents[getStockItemKey(part, moldOld)] : []) || [];
+        let minStock = 1;
+        if (st && st.minStockByMonth && currentYm && st.minStockByMonth[currentYm] !== undefined) {
+          minStock = Number(st.minStockByMonth[currentYm]) || 1;
+        } else if (st && st.minStock !== undefined) {
+          minStock = Number(st.minStock) || 1;
+        } else if (masterItem && masterItem.StandardStock !== undefined) {
+          minStock = Number(masterItem.StandardStock) || 1;
+        }
+        const keyOld = moldOld ? getStockItemKey(part, moldOld) : "";
+        const events = repEvents[key] || (keyOld ? repEvents[keyOld] : []) || [];
+        const used = events.reduce((sum, ev) => sum + (Number(ev.qty) || 0), 0);
         const timesCount = events.length;
 
         let status = 'SAFE';
@@ -2698,6 +2642,15 @@
         };
       });
 
+      // Ưu tiên linh kiện CÓ LẦN THAY (used > 0) lên trên cùng
+      processedList.sort((a, b) => {
+        const aHas = a.used > 0 ? 1 : 0;
+        const bHas = b.used > 0 ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+        if (a.used !== b.used) return b.used - a.used;
+        return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
       // Update Counter Badges
       if ($("cntAll")) $("cntAll").textContent = totalCount.toLocaleString();
       if ($("cntSafe")) $("cntSafe").textContent = safeCount.toLocaleString();
@@ -2710,78 +2663,121 @@
       else if (_stockFilter === 'warning') filtered = filtered.filter(x => x.status === 'WARNING');
       else if (_stockFilter === 'safe') filtered = filtered.filter(x => x.status === 'SAFE');
 
+      const hasFilter = ($("globalSearch") && $("globalSearch").value.trim()) ||
+                        ($("part") && $("part").value.trim()) ||
+                        ($("mold") && $("mold").value.trim()) ||
+                        ($("series") && $("series").value.trim()) ||
+                        _stockFilter !== 'all';
+
+      const limit = hasFilter ? filtered.length : _stockRenderLimit;
+      const visibleList = filtered.slice(0, limit);
+
       if ($("stockRows")) {
-        $("stockRows").innerHTML = filtered.length
-          ? filtered.map(row => {
-              const statusBadge = row.status === 'CRITICAL'
-                ? `<span class="badge-stock critical" title="Tồn kho = 0 (Hết hàng)">🔴 URGENT</span>`
-                : (row.status === 'WARNING'
-                  ? `<span class="badge-stock warning" title="Tồn kho < Min (Cần đặt hàng)">🟡 NEED ORDER</span>`
-                  : `<span class="badge-stock safe" title="Tồn kho ≥ Min (Đủ an toàn)">🟢 NO NEED</span>`);
+        if (!visibleList.length) {
+          $("stockRows").innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--ink-muted);padding:28px;">Không có linh kiện nào trong danh mục tồn kho này.</td></tr>`;
+        } else {
+          let rowsHtml = visibleList.map(row => {
+            const statusBadge = row.status === 'CRITICAL'
+              ? `<span class="badge-stock critical" style="font-size:12.5px;padding:4px 10px;font-weight:700;" title="Tồn kho = 0 (Hết hàng)">🔴 URGENT</span>`
+              : (row.status === 'WARNING'
+                ? `<span class="badge-stock warning" style="font-size:12.5px;padding:4px 10px;font-weight:700;" title="Tồn kho < Min (Cần đặt hàng)">🟡 NEED ORDER</span>`
+                : `<span class="badge-stock safe" style="font-size:12.5px;padding:4px 10px;font-weight:700;" title="Tồn kho ≥ Min (Đủ an toàn)">🟢 NO NEED</span>`);
 
-              const pEnc = encodeURIComponent(row.part);
-              const mEnc = encodeURIComponent(row.mold);
+            const reqIds = Array.from(new Set((row.events || []).map(e => e.requestId).filter(Boolean)));
 
-              const reqIds = Array.from(new Set((row.events || []).map(e => e.requestId).filter(Boolean)));
+            return `<tr>
+              <td><b style="font-size:14.5px; color:#0f172a;">${esc(row.part)}</b></td>
+              <td><span style="color:#2563eb;font-weight:700;font-size:13.5px;">${esc(row.series)}</span></td>
+              <td><b style="font-size:13.5px;">${esc(row.mold)}</b></td>
+              <td><b style="color:#475569;font-size:13.5px;">${esc(row.moldOld || row.mold || '-')}</b></td>
+              <td style="text-align:center;">
+                <b style="color:#475569; font-size:14.5px;">${row.minStock}</b>
+              </td>
+              <td style="text-align:center;">
+                <b style="color:${row.stock <= 0 ? '#dc2626' : (row.stock < row.minStock ? '#d97706' : '#0f172a')}; font-size:15px;">${row.stock}</b>
+              </td>
+              <td style="text-align:center;">
+                ${row.used > 0 ? `<b style="color:#b45309;font-size:14.5px;">${row.used}</b>` : '<span style="color:var(--ink-light);font-size:13.5px;">0</span>'}
+              </td>
+              <td style="text-align:center;">
+                ${row.timesCount > 0 
+                  ? `<span class="stock-pill-count" style="font-size:12.5px;padding:3px 9px;">${row.timesCount}</span>` 
+                  : '<span style="color:var(--ink-light);font-size:12.5px;">0</span>'}
+              </td>
+              <td style="text-align:left; font-size:12.5px;">
+                ${row.events && row.events.length > 0
+                  ? `<div style="display:flex; flex-wrap:wrap; gap:4px;">` +
+                      row.events.map((ev, idx) => {
+                        const dParts = (ev.date || '').split('-');
+                        const shortDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}` : ev.date;
+                        const fullDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : ev.date;
+                        return `<span class="date-chip" style="font-size:12px;padding:3px 8px;font-weight:700;" title="Lần ${idx+1}: Ngày ${fullDate} - ID Request: ${ev.requestId || 'N/A'}">
+                          ${shortDate}
+                        </span>`;
+                      }).join('') +
+                    `</div>`
+                  : '<span style="color:var(--ink-light);font-size:12.5px;">-</span>'
+                }
+              </td>
+              <td style="text-align:left; font-size:12.5px;">
+                ${row.events && row.events.length > 0
+                  ? `<div style="display:flex; flex-wrap:wrap; gap:4px;">` +
+                      row.events.map((ev, idx) => {
+                        const dParts = (ev.date || '').split('-');
+                        const shortDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}` : ev.date;
+                        return `<span class="qty-chip" style="background:#fef3c7; color:#92400e; font-weight:800; padding:3px 8px; border-radius:5px; font-size:12px; border:1px solid #fde68a;" title="Lần ${idx+1} (${shortDate}): Thay ${ev.qty} cái">
+                          ${ev.qty} cái
+                        </span>`;
+                      }).join('') +
+                    `</div>`
+                  : '<span style="color:var(--ink-light);font-size:12.5px;">-</span>'
+                }
+              </td>
+              <td style="text-align:left; font-size:12px;">
+                ${reqIds.length > 0
+                  ? `<div style="display:flex; flex-wrap:wrap; gap:4px;">` +
+                      reqIds.map(id => `<span class="id-chip" style="font-size:12px;padding:3px 8px;font-weight:700;">${esc(id)}</span>`).join('') +
+                    `</div>`
+                  : '<span style="color:var(--ink-light);">-</span>'
+                }
+              </td>
+              <td style="text-align:center;">${statusBadge}</td>
+            </tr>`;
+          }).join("");
 
-              return `<tr>
-                <td><b>${esc(row.part)}</b></td>
-                <td><span style="color:#2563eb;font-weight:600;">${esc(row.series)}</span></td>
-                <td><b>${esc(row.mold)}</b>${row.moldOld && row.moldOld !== row.mold ? ` <span style="font-size:11px;color:var(--ink-secondary);font-weight:normal;">(${esc(row.moldOld)})</span>` : ''}</td>
-                <td style="text-align:center;">
-                  <b style="color:#475569; font-size:13.5px;">${row.minStock}</b>
-                </td>
-                <td style="text-align:center;">
-                  <b style="color:${row.stock <= 0 ? '#dc2626' : (row.stock < row.minStock ? '#d97706' : '#0f172a')}; font-size:14px;">${row.stock}</b>
-                </td>
-                <td style="text-align:center;">
-                  ${row.used > 0 ? `<b style="color:#b45309;font-size:13.5px;">${row.used}</b>` : '<span style="color:var(--ink-light);">0</span>'}
-                </td>
-                <td style="text-align:center;">
-                  ${row.timesCount > 0 
-                    ? `<span class="stock-pill-count">${row.timesCount}</span>` 
-                    : '<span style="color:var(--ink-light);font-size:11px;">0</span>'}
-                </td>
-                <td style="text-align:left; font-size:11.5px;">
-                  ${row.events && row.events.length > 0
-                    ? `<div style="display:flex; flex-wrap:wrap; gap:3px;">` +
-                        row.events.map((ev, idx) => {
-                          const dParts = (ev.date || '').split('-');
-                          const shortDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}` : ev.date;
-                          const fullDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : ev.date;
-                          return `<span class="date-chip" title="Lần ${idx+1}: Ngày ${fullDate} - Thay ${ev.qty} cái - ID Request: ${ev.requestId || 'N/A'}">
-                            ${shortDate}${ev.qty > 1 ? ` <span class="date-chip-qty">${ev.qty}c</span>` : ''}
-                          </span>`;
-                        }).join('') +
-                      `</div>`
-                    : '<span style="color:var(--ink-light);font-size:11px;">-</span>'
-                  }
-                </td>
-                <td style="text-align:left; font-size:11px;">
-                  ${reqIds.length > 0
-                    ? `<div style="display:flex; flex-wrap:wrap; gap:3px;">` +
-                        reqIds.map(id => `<span class="id-chip">${esc(id)}</span>`).join('') +
-                      `</div>`
-                    : '<span style="color:var(--ink-light);">-</span>'
-                  }
-                </td>
-                <td style="text-align:center;">${statusBadge}</td>
-              </tr>`;
-            }).join("")
-          : `<tr><td colspan="10" style="text-align:center;color:var(--ink-muted);padding:28px;">Không có linh kiện nào trong danh mục tồn kho này.</td></tr>`;
+          if (filtered.length > limit) {
+            rowsHtml += `<tr><td colspan="12" style="text-align:center; padding:16px; background:var(--bg-subtle);">
+              <span style="font-size:14px; color:var(--ink-secondary); margin-right:12px;">Đang hiển thị <b>${limit}</b> / ${filtered.length.toLocaleString()} linh kiện</span>
+              <button onclick="_stockRenderLimit += 40; renderStockTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
+              <button onclick="_stockRenderLimit = ${filtered.length}; renderStockTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả</button>
+            </td></tr>`;
+          }
+
+          $("stockRows").innerHTML = rowsHtml;
+        }
       }
     }
 
-    function getPartsToRender(forTab = "") {
-      const globalQuery = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
-      const activeP = $("part") ? $("part").value.trim().toLowerCase() : "";
-      const activeM = $("mold") ? $("mold").value.trim().toLowerCase() : "";
-      const activeS = $("series") ? $("series").value.trim().toLowerCase() : "";
+    function isValidPartName(name) {
+      if (!name) return false;
+      const s = String(name).trim();
+      if (!s || s === '0' || s === '1' || s === '-' || s === '·' || /^(part|no|sum|stt|tổng|total|0\/0|1\/1|0\/0\/0|1\/1\/1)$/i.test(s)) {
+        return false;
+      }
+      return true;
+    }
 
+    let _allPartsCache = null;
+
+    function invalidatePartsCache() {
+      _allPartsCache = null;
+    }
+
+    function buildAllPartsCache() {
       const partsMap = new Map();
 
-      masterData.forEach(item => {
-        if (item.PartName) {
+      (masterData || []).forEach(item => {
+        if (isValidPartName(item.PartName)) {
           const key = item.PartName + "|" + (item.NewDieSet || item.OldDieSet || "");
           if (!partsMap.has(key)) {
             partsMap.set(key, {
@@ -2794,90 +2790,64 @@
         }
       });
 
-      db.shoot.forEach(item => {
-        const pName = item.Part || item.DieSet;
-        if (pName) {
-          const key = pName + "|" + (item.DieSet || "");
-          if (!partsMap.has(key)) {
-            partsMap.set(key, {
-              part: pName,
-              series: getSeriesForPart(pName, item.DieSet),
-              moldOld: item.DieSet || "",
-              moldNew: item.DieSet || ""
-            });
-          }
-        }
-      });
+      _allPartsCache = Array.from(partsMap.values());
+    }
 
-      (db.replacements || []).forEach(item => {
-        const pName = item.Part;
-        if (pName) {
-          const master = findMasterItem(pName, item.DieSet);
-          const moldNew = master ? (master.NewDieSet || master.OldDieSet || item.DieSet) : (item.NewDieSet || item.DieSet || "");
-          const moldOld = master ? (master.OldDieSet || item.DieSet) : (item.DieSet || "");
-          const key = pName + "|" + moldNew;
-          if (!partsMap.has(key)) {
-            partsMap.set(key, {
-              part: pName,
-              series: item.Series || (master ? master.Series : getSeriesForPart(pName, item.DieSet)),
-              moldOld: moldOld || "",
-              moldNew: moldNew || ""
-            });
-          }
-        }
-      });
+    function isSmartMatch(text, query) {
+      if (!text || !query) return false;
+      const t = String(text).trim().toLowerCase();
+      const q = String(query).trim().toLowerCase();
+      if (t === q) return true;
+      if (t.startsWith(q)) return true;
 
-      Object.keys(_stockData || {}).forEach(key => {
-        const [pName, dSet] = key.split("|");
-        if (pName) {
-          const master = findMasterItem(pName, dSet);
-          const moldNew = master ? (master.NewDieSet || master.OldDieSet || dSet) : dSet;
-          const moldOld = master ? (master.OldDieSet || dSet) : dSet;
-          const k = pName + "|" + moldNew;
-          if (!partsMap.has(k)) {
-            const st = _stockData[key];
-            const ser = (st && st.series) ? st.series : (master ? master.Series : getSeriesForPart(pName, dSet));
-            partsMap.set(k, {
-              part: pName,
-              series: ser || "",
-              moldOld: moldOld || "",
-              moldNew: moldNew || ""
-            });
-          }
-        }
-      });
+      const tokens = t.split(/[\s\-_/.]+/);
+      for (const tok of tokens) {
+        if (tok === q || tok.startsWith(q)) return true;
+      }
 
-      let list = Array.from(partsMap.values());
+      if (q.length >= 3 && t.includes(q)) {
+        return true;
+      }
+
+      return false;
+    }
+
+    function getPartsToRender(forTab = "") {
+      const globalQuery = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
+      const activeP = $("part") ? $("part").value.trim().toLowerCase() : "";
+      const activeM = $("mold") ? $("mold").value.trim().toLowerCase() : "";
+      const activeS = $("series") ? $("series").value.trim().toLowerCase() : "";
+
+      if (!_allPartsCache) {
+        buildAllPartsCache();
+      }
+      let list = _allPartsCache;
 
       if (globalQuery) {
-        const normQ = normKey(globalQuery);
+        const q = globalQuery;
         
-        // 1. Lọc theo tên Linh Kiện (PartName)
         let matched = list.filter(x => {
-          const p = (x.part || "").toLowerCase();
-          return p.includes(globalQuery) || normKey(x.part).includes(normQ);
+          return isSmartMatch(x.part, q) || isSmartMatch(x.moldOld, q);
         });
 
-        // 2. Nếu không có linh kiện nào khớp, lọc theo tên Series
-        if (matched.length === 0) {
-          matched = list.filter(x => {
-            const s = (x.series || "").toLowerCase();
-            return s.includes(globalQuery) || normKey(x.series).includes(normQ);
-          });
-        }
-
-        // Sắp xếp ưu tiên linh kiện trùng khớp chính xác lên đầu
         matched.sort((a, b) => {
-          const aPart = (a.part || "").toLowerCase();
-          const bPart = (b.part || "").toLowerCase();
-          const aExact = (aPart === globalQuery || normKey(aPart) === normQ) ? 1 : 0;
-          const bExact = (bPart === globalQuery || normKey(bPart) === normQ) ? 1 : 0;
-          if (aExact !== bExact) return bExact - aExact;
+          const getRank = (item) => {
+            const p = (item.part || "").toLowerCase();
+            if (p === q) return 1;
+            if (p.startsWith(q)) return 2;
+            const pTokens = p.split(/[\s\-_/.]+/);
+            if (pTokens.some(tok => tok === q || tok.startsWith(q))) return 3;
 
-          const aStarts = (aPart.startsWith(globalQuery) || normKey(aPart).startsWith(normQ)) ? 1 : 0;
-          const bStarts = (bPart.startsWith(globalQuery) || normKey(bPart).startsWith(normQ)) ? 1 : 0;
-          if (aStarts !== bStarts) return bStarts - aStarts;
+            const mOld = (item.moldOld || "").toLowerCase();
+            if (mOld === q) return 4;
+            if (mOld.startsWith(q) || isSmartMatch(mOld, q)) return 5;
 
+            return 99;
+          };
+
+          const rA = getRank(a);
+          const rB = getRank(b);
+          if (rA !== rB) return rA - rB;
           return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
         });
 
@@ -2885,16 +2855,13 @@
       }
 
       if (activeP) {
-        list = list.filter(x => x.part.toLowerCase().includes(activeP) || normKey(x.part).includes(normKey(activeP)));
+        list = list.filter(x => isSmartMatch(x.part, activeP));
       }
       if (activeM) {
-        list = list.filter(x => 
-          (x.moldNew && (x.moldNew.toLowerCase().includes(activeM) || normKey(x.moldNew).includes(normKey(activeM)))) ||
-          (x.moldOld && (x.moldOld.toLowerCase().includes(activeM) || normKey(x.moldOld).includes(normKey(activeM))))
-        );
+        list = list.filter(x => isSmartMatch(x.moldNew, activeM) || isSmartMatch(x.moldOld, activeM));
       }
       if (activeS) {
-        list = list.filter(x => x.series && x.series.toLowerCase().includes(activeS));
+        list = list.filter(x => isSmartMatch(x.series, activeS));
       }
 
       return list.sort((a, b) => a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' }));
@@ -2940,213 +2907,257 @@
     }
 
     function getSeriesForPart(partName, dieSet) {
-      const pLower = String(partName || "").toLowerCase().trim();
-      const dLower = String(dieSet || "").toLowerCase().trim();
-      const pNorm = normKey(pLower);
-      const dNorm = normKey(dLower);
-
-      // 1. Tìm từ db.replacements nếu có Series đầy đủ
-      if (Array.isArray(db.replacements)) {
-        const foundRep = db.replacements.find(row => {
-          if (!row.Series || !row.Series.trim()) return false;
-          const rPart = String(row.Part || "").toLowerCase().trim();
-          const rDie = String(row.DieSet || "").toLowerCase().trim();
-          return (pLower && (rPart === pLower || normKey(rPart) === pNorm)) ||
-                 (dLower && (rDie === dLower || normKey(rDie) === dNorm));
-        });
-        if (foundRep && foundRep.Series.trim()) {
-          return foundRep.Series.trim();
-        }
-      }
-
-      // 2. Tìm từ masterData (giữ đầy đủ hậu tố series như 10141S-H5A, 10109C-E1A)
-      if (typeof masterData !== "undefined" && Array.isArray(masterData)) {
-        let m = masterData.find(x => x.PartName && String(x.PartName).toLowerCase().trim() === pLower);
-        if (!m && pNorm) {
-          m = masterData.find(x => x.PartName && normKey(x.PartName) === pNorm);
-        }
-        if (!m && dLower) {
-          m = masterData.find(x => 
-            (x.NewDieSet && String(x.NewDieSet).toLowerCase().trim() === dLower) ||
-            (x.OldDieSet && String(x.OldDieSet).toLowerCase().trim() === dLower)
-          );
-        }
-        if (!m && dNorm) {
-          m = masterData.find(x => 
-            (x.NewDieSet && normKey(x.NewDieSet) === dNorm) ||
-            (x.OldDieSet && normKey(x.OldDieSet) === dNorm)
-          );
-        }
-        if (m && m.Series && m.Series.trim()) {
-          return m.Series.trim();
-        }
-      }
-
-      // 3. Tìm từ db.shoot nếu có lưu Series
-      if (Array.isArray(db.shoot)) {
-        const foundShoot = db.shoot.find(row => {
-          if (!row.Series || !row.Series.trim()) return false;
-          const rPart = String(row.Part || "").toLowerCase().trim();
-          const rDie = String(row.DieSet || "").toLowerCase().trim();
-          return (pLower && rPart === pLower) || (dLower && rDie === dLower);
-        });
-        if (foundShoot && foundShoot.Series.trim()) {
-          return foundShoot.Series.trim();
-        }
-      }
-
+      const m = findMasterItem(partName, dieSet);
+      if (m && m.Series && m.Series.trim()) return m.Series.trim();
       return "";
     }
 
+    let _monthRenderLimit = 30;
+
     function renderMonth() {
       const ym = selectedMonth();
+      const selDayStr = selectedDay();
+      const selDayNum = selDayStr ? parseInt(selDayStr, 10) : 0;
       const [year, month] = ym.split("-").map(Number);
       const days = new Date(year, month, 0).getDate();
       $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
 
-      $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-series">Series</th><th class="col-mold">Mold (new)</th><th class="col-type">Loại</th>` + 
-        Array.from({ length: days }, (_, i) => `<th>${String(i + 1).padStart(2, "0")}</th>`).join("") +
+      $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-series">Series</th><th class="col-mold">Mold (new)</th><th class="col-mold">Mold (old)</th><th class="col-type">Loại</th>` + 
+        Array.from({ length: days }, (_, i) => {
+          const dNum = i + 1;
+          const isSelected = selDayNum === dNum;
+          const style = isSelected ? 'style="background:#2563eb;color:#ffffff;font-weight:900;border-radius:4px;"' : '';
+          return `<th ${style}>${String(dNum).padStart(2, "0")}</th>`;
+        }).join("") +
         `<th class="col-total">Total</th></tr>`;
 
-      const partsList = getPartsToRender();
-      let bodyHtml = "";
+      const allPartsList = getPartsToRender();
+      if (allPartsList.length === 0) {
+        $("dayBody").innerHTML = `<tr><td colspan="${days + 6}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
+        renderMetrics();
+        return;
+      }
 
-      if (partsList.length === 0) {
-        bodyHtml = `<tr><td colspan="${days + 5}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
-      } else {
-        partsList.forEach(item => {
-          const dieSet = item.moldNew || item.moldOld || item.part;
-          const partName = item.part;
-          const seriesVal = getSeriesForPart(partName, dieSet) || item.series || "-";
+      // PRE-INDEX REPLACEMENTS & SHOOTS FOR THIS MONTH (O(M) instead of O(N * M))
+      const repByPartMold = new Map();
+      (db.replacements || []).forEach(r => {
+        if (!r.ReplaceDate || monthKey(r.ReplaceDate) !== ym) return;
+        const rPart = String(r.Part || "").toLowerCase().trim();
+        const rDie = String(r.DieSet || "").toLowerCase().trim();
+        const pNorm = normKey(rPart);
+        const dNorm = normKey(rDie);
 
-          const partReplacements = (db.replacements || []).filter(row => {
-            if (monthKey(row.ReplaceDate) !== ym) return false;
-            const rPart = String(row.Part || "").toLowerCase().trim();
-            const rDie = String(row.DieSet || "").toLowerCase().trim();
-            const pName = String(partName || "").toLowerCase().trim();
-            const dDie = String(dieSet || "").toLowerCase().trim();
-            const mOld = String(item.moldOld || "").toLowerCase().trim();
-            const mNew = String(item.moldNew || "").toLowerCase().trim();
+        const keys = [`${rPart}|${rDie}`, `${pNorm}|${dNorm}`];
+        const master = findMasterItem(rPart, rDie, r.Series);
+        if (master) {
+          const mNew = String(master.NewDieSet || "").toLowerCase().trim();
+          const mOld = String(master.OldDieSet || "").toLowerCase().trim();
+          if (mNew) keys.push(`${rPart}|${mNew}`);
+          if (mOld) keys.push(`${rPart}|${mOld}`);
+        }
 
-            const matchPart = (rPart === pName || normKey(rPart) === normKey(pName));
-            const matchMold = (!rDie && !dDie) || (rDie === dDie || rDie === mOld || rDie === mNew || normKey(rDie) === normKey(dDie));
-
-            return matchPart && matchMold;
-          });
-
-          const replacementMap = new Map();
-          partReplacements.forEach(row => {
-            const dayNum = Number(row.ReplaceDate.slice(8, 10));
-            const lbl = String(row.Label || "").trim();
-            const val = Number(lbl.replace(/,/g, "")) || 1;
-            const existing = replacementMap.get(dayNum) || { day: dayNum, totalQty: 0, rows: [] };
-            existing.totalQty += val;
-            existing.rows.push(row);
-            replacementMap.set(dayNum, existing);
-          });
-
-          const shootMap = new Map();
-          (db.shoot || [])
-            .filter(row => {
-              if (monthKey(row.Date) !== ym) return false;
-              const rPart = String(row.Part || "").toLowerCase().trim();
-              const rDie = String(row.DieSet || "").toLowerCase().trim();
-              const mNew = String(item.moldNew || "").toLowerCase().trim();
-              const mOld = String(item.moldOld || "").toLowerCase().trim();
-              const pName = String(item.part || "").toLowerCase().trim();
-              const dDie = String(dieSet || "").toLowerCase().trim();
-
-              const matchMold = (rDie && (rDie === dDie || rDie === mNew || rDie === mOld || normKey(rDie) === normKey(dDie)));
-              if (rPart && pName) {
-                return (rPart === pName || normKey(rPart) === normKey(pName)) && (matchMold || !rDie);
-              }
-              return matchMold;
-            })
-            .forEach(row => {
-              const dayNum = Number(row.Date.slice(8, 10));
-              const existing = shootMap.get(dayNum) || { Date: row.Date, Part: partName, DieSet: dieSet, Output: 0 };
-              existing.Output += (Number(row.Output) || 0);
-              shootMap.set(dayNum, existing);
-            });
-
-          // Apply replacement date shifting FOR THIS SPECIFIC PART ONLY
-          const displayShootMap = new Map();
-          shootMap.forEach((valObj, dayNum) => {
-            if (valObj.Output > 0) {
-              displayShootMap.set(dayNum, valObj.Output);
-            }
-          });
-
-          replacementMap.forEach((repItem, repDay) => {
-            if (displayShootMap.has(repDay)) {
-              const valToShift = displayShootMap.get(repDay);
-              if (valToShift > 0) {
-                displayShootMap.delete(repDay);
-                const nextDay = repDay + 1;
-                displayShootMap.set(nextDay, (displayShootMap.get(nextDay) || 0) + valToShift);
-              }
-            }
-          });
-
-          let totalReplacementPcs = 0;
-          replacementMap.forEach(repItem => {
-            totalReplacementPcs += repItem.totalQty;
-          });
-
-          const totalShoot = Array.from(displayShootMap.values()).reduce((sum, val) => sum + (Number(val) || 0), 0);
-          const displayTotalShoot = formatShootDisplay(totalShoot);
-          const hoverTotalShoot = formatShootHover(totalShoot);
-
-          const makeCell = (day, rowType) => {
-            const date = `${ym}-${String(day).padStart(2, "0")}`;
-            const weekend = [0, 6].includes(new Date(year, month - 1, day).getDay());
-            if (rowType === "replacement") {
-              const repItem = replacementMap.get(day);
-              const value = repItem ? repItem.totalQty : "-";
-              const cls = repItem ? "cell replacement" : "cell empty";
-              const info = repItem && repItem.rows && repItem.rows.length
-                ? `Ngày: ${date} | Số lượng thay: ${repItem.totalQty} | ID request (Người thay): ${repItem.rows.map(r => r.RequestId || r.Label).filter(Boolean).join(', ')}`
-                : `Ngày: ${date}`;
-              return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="replacement" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${esc(info)}">${esc(value)}</div></td>`;
-            }
-
-            const rawVal = displayShootMap.get(day) || 0;
-            const displayVal = rawVal > 0 ? formatShootDisplay(rawVal) : "·";
-            const hoverVal = formatShootHover(rawVal);
-            const cls = rawVal > 0 ? "cell has-output" : "cell zero";
-            return `<td><div class="${cls}${weekend ? " weekend" : ""}" contenteditable="true" data-type="shoot" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${hoverVal}">${displayVal}</div></td>`;
-          };
-
-          bodyHtml += `
-            <tr>
-              <td class="col-part" rowspan="2" title="${esc(partName)}"><b>${esc(partName)}</b></td>
-              <td class="col-series" rowspan="2" title="Series: ${esc(seriesVal)}"><span class="app-badge-series" style="display:inline-block;padding:2px 6px;border-radius:4px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:700;">${esc(seriesVal)}</span></td>
-              <td class="col-mold" rowspan="2" title="${esc(item.moldNew || item.moldOld || '-')}">${esc(item.moldNew || item.moldOld || '-')}</td>
-              <td class="col-type">Replacement time <span class="row-icon">i</span></td>
-              ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}
-              <td class="col-total"><div class="cell col-total-val" style="color:var(--amber-text);background:var(--amber-light);" title="Tổng số lượng/lần thay: ${totalReplacementPcs}">${totalReplacementPcs > 0 ? totalReplacementPcs : '-'}</div></td>
-            </tr>
-            <tr>
-              <td class="col-type">Shoot Number <span class="row-icon">i</span></td>
-              ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}
-              <td class="col-total"><div class="cell col-total-val" title="Tổng Shoot tháng: ${hoverTotalShoot}">${displayTotalShoot}</div></td>
-            </tr>
-          `;
+        keys.forEach(k => {
+          if (!repByPartMold.has(k)) repByPartMold.set(k, []);
+          repByPartMold.get(k).push(r);
         });
+      });
+
+      const shootByMold = new Map();
+      const shootByPartMold = new Map();
+      (db.shoot || []).forEach(row => {
+        if (!row.Date || monthKey(row.Date) !== ym) return;
+        const rPart = String(row.Part || "").toLowerCase().trim();
+        const rDie = String(row.DieSet || "").toLowerCase().trim();
+        const pNorm = normKey(rPart);
+        const dNorm = normKey(rDie);
+
+        if (rDie) {
+          if (!shootByMold.has(rDie)) shootByMold.set(rDie, []);
+          shootByMold.get(rDie).push(row);
+          if (dNorm && dNorm !== rDie) {
+            if (!shootByMold.has(dNorm)) shootByMold.set(dNorm, []);
+            shootByMold.get(dNorm).push(row);
+          }
+        }
+
+        if (rPart && rDie) {
+          const k1 = `${rPart}|${rDie}`;
+          const k2 = `${pNorm}|${dNorm}`;
+          if (!shootByPartMold.has(k1)) shootByPartMold.set(k1, []);
+          shootByPartMold.get(k1).push(row);
+          if (k2 !== k1 && !shootByPartMold.has(k2)) shootByPartMold.set(k2, shootByPartMold.get(k1));
+        }
+      });
+
+      // Ưu tiên linh kiện CÓ LẦN THAY trong tháng lên trên cùng
+      allPartsList.sort((a, b) => {
+        const pA = (a.part || '').toLowerCase(), dNewA = (a.moldNew || a.moldOld || '').toLowerCase(), dOldA = (a.moldOld || '').toLowerCase();
+        const pB = (b.part || '').toLowerCase(), dNewB = (b.moldNew || b.moldOld || '').toLowerCase(), dOldB = (b.moldOld || '').toLowerCase();
+
+        const kA1 = `${pA}|${dNewA}`, kA2 = `${pA}|${dOldA}`;
+        const kB1 = `${pB}|${dNewB}`, kB2 = `${pB}|${dOldB}`;
+
+        const countA = (repByPartMold.get(kA1) || []).length + (dOldA && dOldA !== dNewA ? (repByPartMold.get(kA2) || []).length : 0) + (repByPartMold.get(pA) || []).length;
+        const countB = (repByPartMold.get(kB1) || []).length + (dOldB && dOldB !== dNewB ? (repByPartMold.get(kB2) || []).length : 0) + (repByPartMold.get(pB) || []).length;
+
+        const hasA = countA > 0 ? 1 : 0;
+        const hasB = countB > 0 ? 1 : 0;
+        if (hasA !== hasB) return hasB - hasA;
+        if (countA !== countB) return countB - countA;
+        return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      const hasFilter = ($("globalSearch") && $("globalSearch").value.trim()) ||
+                        ($("part") && $("part").value.trim()) ||
+                        ($("mold") && $("mold").value.trim()) ||
+                        ($("series") && $("series").value.trim());
+
+      const limit = hasFilter ? allPartsList.length : _monthRenderLimit;
+      const partsList = allPartsList.slice(0, limit);
+
+      let bodyHtml = "";
+      partsList.forEach(item => {
+        const dieSet = item.moldNew || item.moldOld || item.part;
+        const partName = item.part;
+        const seriesVal = item.series || getSeriesForPart(partName, dieSet) || "-";
+
+        const pLower = String(partName || "").toLowerCase().trim();
+        const dLower = String(dieSet || "").toLowerCase().trim();
+        const mOldLower = String(item.moldOld || "").toLowerCase().trim();
+        const mNewLower = String(item.moldNew || "").toLowerCase().trim();
+        const pNorm = normKey(pLower);
+        const dNorm = normKey(dLower);
+
+        // Fast O(1) Replacement Lookup
+        const rawReps = repByPartMold.get(`${pLower}|${dLower}`) ||
+                        (mNewLower ? repByPartMold.get(`${pLower}|${mNewLower}`) : null) ||
+                        (mOldLower ? repByPartMold.get(`${pLower}|${mOldLower}`) : null) ||
+                        repByPartMold.get(`${pNorm}|${dNorm}`) ||
+                        [];
+
+        const replacementMap = new Map();
+        rawReps.forEach(row => {
+          const dayNum = Number(row.ReplaceDate.slice(8, 10));
+          const lbl = String(row.Label || "").trim();
+          const val = Number(lbl.replace(/,/g, "")) || 1;
+          const existing = replacementMap.get(dayNum) || { day: dayNum, totalQty: 0, rows: [] };
+          existing.totalQty += val;
+          existing.rows.push(row);
+          replacementMap.set(dayNum, existing);
+        });
+
+        // Fast O(1) Shoot Lookup
+        const rawShoots = (pLower && dLower ? shootByPartMold.get(`${pLower}|${dLower}`) : null) ||
+                          shootByMold.get(dLower) ||
+                          (mNewLower ? shootByMold.get(mNewLower) : null) ||
+                          (mOldLower ? shootByMold.get(mOldLower) : null) ||
+                          (dNorm ? shootByMold.get(dNorm) : null) ||
+                          [];
+
+        const shootMap = new Map();
+        rawShoots.forEach(row => {
+          const dayNum = Number(row.Date.slice(8, 10));
+          const existing = shootMap.get(dayNum) || { Date: row.Date, Part: partName, DieSet: dieSet, Output: 0 };
+          existing.Output += (Number(row.Output) || 0);
+          shootMap.set(dayNum, existing);
+        });
+
+        // Apply replacement date shifting FOR THIS SPECIFIC PART ONLY
+        const displayShootMap = new Map();
+        shootMap.forEach((valObj, dayNum) => {
+          if (valObj.Output > 0) {
+            displayShootMap.set(dayNum, valObj.Output);
+          }
+        });
+
+        replacementMap.forEach((repItem, repDay) => {
+          if (displayShootMap.has(repDay)) {
+            const valToShift = displayShootMap.get(repDay);
+            if (valToShift > 0) {
+              displayShootMap.delete(repDay);
+              const nextDay = repDay + 1;
+              displayShootMap.set(nextDay, (displayShootMap.get(nextDay) || 0) + valToShift);
+            }
+          }
+        });
+
+        let totalReplacementPcs = 0;
+        replacementMap.forEach(repItem => {
+          totalReplacementPcs += repItem.totalQty;
+        });
+
+        const totalShoot = Array.from(displayShootMap.values()).reduce((sum, val) => sum + (Number(val) || 0), 0);
+        const displayTotalShoot = formatShootDisplay(totalShoot);
+        const hoverTotalShoot = formatShootHover(totalShoot);
+
+        const makeCell = (day, rowType) => {
+          const date = `${ym}-${String(day).padStart(2, "0")}`;
+          const weekend = [0, 6].includes(new Date(year, month - 1, day).getDay());
+          const isSelectedDay = selDayNum === day;
+          const dayStyle = isSelectedDay ? 'style="background:rgba(37,99,235,0.12);border:1.5px solid #2563eb;font-weight:bold;"' : '';
+
+          if (rowType === "replacement") {
+            const repItem = replacementMap.get(day);
+            const value = repItem ? repItem.totalQty : "-";
+            const cls = repItem ? "cell replacement" : "cell empty";
+            const info = repItem && repItem.rows && repItem.rows.length
+              ? `Ngày: ${date} | Số lượng thay: ${repItem.totalQty} | ID request: ${repItem.rows.map(r => r.RequestId || r.Label).filter(Boolean).join(', ')}`
+              : `Ngày: ${date}`;
+            return `<td><div class="${cls}${weekend ? " weekend" : ""}" ${dayStyle} contenteditable="false" style="cursor:default;user-select:none;" data-type="replacement" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${esc(info)}">${esc(value)}</div></td>`;
+          }
+
+          const rawVal = displayShootMap.get(day) || 0;
+          const displayVal = rawVal > 0 ? formatShootDisplay(rawVal) : "·";
+          const hoverVal = formatShootHover(rawVal);
+          const cls = rawVal > 0 ? "cell has-output" : "cell zero";
+          return `<td><div class="${cls}${weekend ? " weekend" : ""}" ${dayStyle} contenteditable="false" style="cursor:default;user-select:none;" data-type="shoot" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${hoverVal}">${displayVal}</div></td>`;
+        };
+
+        bodyHtml += `
+          <tr>
+            <td class="col-part" rowspan="2" title="${esc(partName)}"><b>${esc(partName)}</b></td>
+            <td class="col-series" rowspan="2" title="Series: ${esc(seriesVal)}"><span class="app-badge-series" style="display:inline-block;padding:2px 6px;border-radius:4px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:700;">${esc(seriesVal)}</span></td>
+            <td class="col-mold" rowspan="2" title="Mold (new): ${esc(item.moldNew || item.moldOld || '-')}">${esc(item.moldNew || item.moldOld || '-')}</td>
+            <td class="col-mold" rowspan="2" title="Mold (old): ${esc(item.moldOld || '-')}">${esc(item.moldOld || '-')}</td>
+            <td class="col-type">Replacement time <span class="row-icon">i</span></td>
+            ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}
+            <td class="col-total"><div class="cell col-total-val" style="color:var(--amber-text);background:var(--amber-light);" title="Tổng số lượng/lần thay: ${totalReplacementPcs}">${totalReplacementPcs > 0 ? totalReplacementPcs : '-'}</div></td>
+          </tr>
+          <tr>
+            <td class="col-type">Shoot Number <span class="row-icon">i</span></td>
+            ${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}
+            <td class="col-total"><div class="cell col-total-val" title="Tổng Shoot tháng: ${hoverTotalShoot}">${displayTotalShoot}</div></td>
+          </tr>
+        `;
+      });
+
+      if (allPartsList.length > limit) {
+        bodyHtml += `<tr><td colspan="${days + 6}" style="text-align:center; padding:16px; background:var(--bg-subtle);">
+          <span style="font-size:14px; color:var(--ink-secondary); margin-right:12px;">Đang hiển thị <b>${limit}</b> / ${allPartsList.length.toLocaleString()} linh kiện</span>
+          <button onclick="_monthRenderLimit += 30; renderMonth();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 30 linh kiện tiếp theo</button>
+          <button onclick="_monthRenderLimit = ${allPartsList.length}; renderMonth();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả</button>
+        </td></tr>`;
       }
 
       $("dayBody").innerHTML = bodyHtml;
+      renderMetrics();
+    }
 
-      document.querySelectorAll(".cell").forEach(cell => {
-        cell.addEventListener("blur", () => updateCell(cell));
-        cell.addEventListener("keydown", event => {
-          if (event.key === "Enter") {
+    // EVENT DELEGATION FOR TABLE CELLS (1 single listener instead of 100,000!)
+    if ($("dayBody")) {
+      $("dayBody").addEventListener("focusout", event => {
+        const cell = event.target.closest(".cell[contenteditable='true']");
+        if (cell) updateCell(cell);
+      });
+      $("dayBody").addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          const cell = event.target.closest(".cell[contenteditable='true']");
+          if (cell) {
             event.preventDefault();
             cell.blur();
           }
-        });
+        }
       });
-      renderMetrics();
     }
 
     function getNextDateStr(dateStr) {
@@ -3205,7 +3216,7 @@
     }
 
     function updateCell(cell) {
-      const type = cell.dataset.type;
+      return;
       const date = cell.dataset.date;
       const dieSet = cell.dataset.dieset || activeDieSet();
       const partName = cell.dataset.part || getContext().part || "Unknown";
@@ -3267,8 +3278,22 @@
       msg("Đã load bảng tháng.");
     }
 
+    function selectedYear() {
+      return $("yearPick") ? $("yearPick").value : "";
+    }
+
+    function selectedMonth() {
+      return $("monthPick") ? $("monthPick").value : "2026-08";
+    }
+
+    function selectedDay() {
+      return $("dayPick") ? $("dayPick").value : "";
+    }
+
     function buildMonthOptions(preferredYm = null) {
       const select = $("monthPick");
+      const yearSelect = $("yearPick");
+      const daySelect = $("dayPick");
       const today = new Date();
       const currentYear = today.getFullYear();
       const startYear = 2026;
@@ -3276,15 +3301,41 @@
       let minYear = startYear;
       let maxYear = Math.max(currentYear + 15, startYear + 15);
 
+      const yearsFound = new Set([currentYear, 2026]);
+
       [...db.shoot, ...db.replacements.map(row => ({ Date: row.ReplaceDate }))].forEach(row => {
         if (row.Date && row.Date.length >= 4) {
           const y = parseInt(row.Date.slice(0, 4), 10);
           if (y) {
+            yearsFound.add(y);
             if (y < minYear) minYear = y;
             if (y > maxYear) maxYear = y;
           }
         }
       });
+
+      // Populate Year Select
+      if (yearSelect) {
+        const currY = yearSelect.value;
+        const sortedYears = [...yearsFound].sort((a, b) => b - a);
+        yearSelect.innerHTML = `<option value="">Tất cả năm</option>` +
+          sortedYears.map(y => `<option value="${y}">Năm ${y}</option>`).join("");
+        if (currY && yearsFound.has(Number(currY))) {
+          yearSelect.value = currY;
+        }
+      }
+
+      // Populate Day Select (01 to 31)
+      if (daySelect) {
+        const currD = daySelect.value;
+        let dayHtml = `<option value="">Tất cả ngày</option>`;
+        for (let d = 1; d <= 31; d++) {
+          const dStr = String(d).padStart(2, "0");
+          dayHtml += `<option value="${dStr}">Ngày ${dStr}</option>`;
+        }
+        daySelect.innerHTML = dayHtml;
+        if (currD) daySelect.value = currD;
+      }
 
       const months = new Set();
       for (let y = minYear; y <= maxYear; y++) {
@@ -3300,23 +3351,53 @@
 
       if (preferredYm && months.has(preferredYm)) {
         select.value = preferredYm;
-        return;
-      }
-
-      // Chọn tháng mặc định: Ưu tiên tháng mới nhất có dữ liệu Shoot Data hoặc Thay thế thực tế
-      const repMonths = [...new Set(db.replacements.map(r => r.ReplaceDate ? r.ReplaceDate.slice(0, 7) : "").filter(Boolean))];
-      const shootMonths = [...new Set(db.shoot.map(r => r.Date ? r.Date.slice(0, 7) : "").filter(Boolean))];
-      const allDataMonths = [...new Set([...shootMonths, ...repMonths])].sort();
-      const latestDataMonth = allDataMonths.length ? allDataMonths[allDataMonths.length - 1] : "";
-      const systemYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-
-      if (db.shoot.some(r => r.Date && r.Date.startsWith(systemYm))) {
-        select.value = systemYm;
-      } else if (latestDataMonth && months.has(latestDataMonth)) {
-        select.value = latestDataMonth;
       } else {
-        select.value = months.has(systemYm) ? systemYm : "2026-08";
+        const repMonths = [...new Set(db.replacements.map(r => r.ReplaceDate ? r.ReplaceDate.slice(0, 7) : "").filter(Boolean))];
+        const shootMonths = [...new Set(db.shoot.map(r => r.Date ? r.Date.slice(0, 7) : "").filter(Boolean))];
+        const allDataMonths = [...new Set([...shootMonths, ...repMonths])].sort();
+        const latestDataMonth = allDataMonths.length ? allDataMonths[allDataMonths.length - 1] : "";
+        const systemYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
+        if (db.shoot.some(r => r.Date && r.Date.startsWith(systemYm))) {
+          select.value = systemYm;
+        } else if (latestDataMonth && months.has(latestDataMonth)) {
+          select.value = latestDataMonth;
+        } else {
+          select.value = months.has(systemYm) ? systemYm : "2026-08";
+        }
       }
+
+      if (select.value && select.value.length >= 4 && yearSelect && !yearSelect.value) {
+        yearSelect.value = select.value.slice(0, 4);
+      }
+    }
+
+    function onDateFilterChange(evt) {
+      if (evt && evt.target) {
+        const id = evt.target.id;
+        if (id === "yearPick") {
+          const y = $("yearPick").value;
+          if (y && $("monthPick")) {
+            const currYm = $("monthPick").value;
+            if (!currYm.startsWith(y)) {
+              const matchOpt = Array.from($("monthPick").options).find(opt => opt.value.startsWith(y));
+              if (matchOpt) {
+                $("monthPick").value = matchOpt.value;
+              }
+            }
+          }
+        } else if (id === "monthPick") {
+          const ym = $("monthPick").value;
+          if (ym && ym.length >= 4 && $("yearPick")) {
+            const y = ym.slice(0, 4);
+            if (Array.from($("yearPick").options).some(opt => opt.value === y)) {
+              $("yearPick").value = y;
+            }
+          }
+        }
+      }
+
+      renderActiveTabOnly();
     }
 
     function fillContextFromData() {
@@ -3327,16 +3408,17 @@
       if (!$("mold").value) $("mold").value = last.DieSet || "";
     }
 
+    let currentActiveTab = "month";
+
     function switchTab(name) {
+      currentActiveTab = name;
       document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
       if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
-      if ($("wearDashboardTab")) $("wearDashboardTab").classList.toggle("hidden", name !== "wearDashboard");
       if ($("stockTab")) $("stockTab").classList.toggle("hidden", name !== "stock");
 
       if (name === "month") {
         renderMonth();
-      } else if (name === "wearDashboard") {
-        rebuild(false);
+        renderMetrics();
       } else if (name === "stock") {
         renderStockTable();
       }
@@ -3516,7 +3598,7 @@
       }
 
       if (searchDatalist) {
-        const sortedSearch = [...allSearchItems].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        const sortedSearch = [...allSearchItems].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).slice(0, 150);
         searchDatalist.innerHTML = sortedSearch.map(s => `<option value="${esc(s)}">`).join("");
       }
     }
@@ -3627,11 +3709,13 @@
       renderMetrics();
     }));
 
-    ["input", "change", "keyup", "paste", "blur"].forEach(evt => {
-      $("part").addEventListener(evt, autoFillPart);
-      $("mold").addEventListener(evt, autoFillMold);
+    ["input", "change"].forEach(evt => {
+      if ($("part")) $("part").addEventListener(evt, autoFillPart);
+      if ($("mold")) $("mold").addEventListener(evt, autoFillMold);
     });
-    $("monthPick").addEventListener("change", autoLoadMonth);
+    ["yearPick", "monthPick", "dayPick"].forEach(id => {
+      if ($(id)) $(id).addEventListener("change", onDateFilterChange);
+    });
 
     function parseMasterCsv(text) {
       const lines = text.trim().split(/\r?\n/).filter(Boolean);
@@ -4086,17 +4170,20 @@
                 const moldNew = master ? (master.NewDieSet || st.mold) : st.mold;
                 const seriesVal = st.series || (master ? master.Series : '');
 
-                const stockObj = {
-                  stock: st.stock,
-                  minStock: st.minStock,
-                  oldStock: st.oldStock,
-                  buyQty: st.buyQty,
-                  series: seriesVal
-                };
+                const targetKeys = [`${st.part}|${st.mold}`];
+                if (moldOld && moldOld !== st.mold) targetKeys.push(`${st.part}|${moldOld}`);
+                if (moldNew && moldNew !== st.mold && moldNew !== moldOld) targetKeys.push(`${st.part}|${moldNew}`);
 
-                _stockData[`${st.part}|${st.mold}`] = stockObj;
-                if (moldOld) _stockData[`${st.part}|${moldOld}`] = stockObj;
-                if (moldNew) _stockData[`${st.part}|${moldNew}`] = stockObj;
+                targetKeys.forEach(k => {
+                  if (!_stockData[k]) {
+                    _stockData[k] = { stock: st.stock, minStock: st.minStock, series: seriesVal, minStockByMonth: {} };
+                  }
+                  if (!_stockData[k].minStockByMonth) _stockData[k].minStockByMonth = {};
+                  _stockData[k].minStockByMonth[res.ym] = st.minStock;
+                  _stockData[k].minStock = st.minStock;
+                  _stockData[k].stock = st.stock;
+                  _stockData[k].series = seriesVal;
+                });
                 totalNewStockParts++;
 
                 // Thêm vào masterData nếu chưa có hoặc cập nhật
@@ -4116,15 +4203,22 @@
               });
 
               // B. Cập nhật Tab 1: Month Sheet & Nhật ký thay thế
-              // Thay thế hoàn toàn dữ liệu thay thế của tháng này để tránh duplicate khi nạp lại
-              db.replacements = (db.replacements || []).filter(r => monthKey(r.ReplaceDate) !== res.ym);
-              db.replacements.push(...res.replacements);
+              // Nạp bổ sung & gộp dữ liệu (Incremental Merge) thay vì xóa bỏ dữ liệu đã nạp trước đó
+              const repMap = new Map();
+              (db.replacements || []).forEach(r => {
+                const k = `${r.Part}|${r.DieSet}|${r.ReplaceDate}|${r.Label}|${r.RequestId || ''}`;
+                repMap.set(k, r);
+              });
+              res.replacements.forEach(r => {
+                const k = `${r.Part}|${r.DieSet}|${r.ReplaceDate}|${r.Label}|${r.RequestId || ''}`;
+                repMap.set(k, r);
+              });
+              db.replacements = Array.from(repMap.values());
+              db.replacements.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
               totalNewReplacements += res.replacements.length;
 
               messages.push(`📅 Sheet <b>${esc(res.sheetName)}</b> (Tháng ${esc(res.ym)}): ${res.validRowCount.toLocaleString()} mã LK · ${res.replacements.length} lượt thay`);
             });
-
-            db.replacements.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
           }
 
           // Kiểm tra nếu hoàn toàn không có dữ liệu nào nạp được
@@ -4272,26 +4366,33 @@
       }
     }
 
+    let _searchRAF = null;
+
+    function renderActiveTabOnly() {
+      const activeTab = currentActiveTab || "month";
+      if (activeTab === "month") {
+        renderMonth();
+        renderMetrics();
+      } else if (activeTab === "stock") {
+        renderStockTable();
+      }
+    }
+
     function onGlobalSearchInput() {
       toggleClearBtn();
-      // Phản hồi tức thì ngay khi gõ (0ms delay)
       if ($("part")) $("part").value = "";
       if ($("series")) $("series").value = "";
       if ($("dieSet")) $("dieSet").value = "";
       if ($("mold")) $("mold").value = "";
 
-      renderMonth();
-      renderWearCharts();
-      renderSummaryTable();
-      renderMilestoneMatrixTable();
-      renderStockTable();
-      renderMetrics();
+      if (_searchRAF) cancelAnimationFrame(_searchRAF);
+      _searchRAF = requestAnimationFrame(() => {
+        renderActiveTabOnly();
+      });
     }
 
     if ($("globalSearch")) {
-      ["input", "change", "keyup", "paste"].forEach(evt => {
-        $("globalSearch").addEventListener(evt, onGlobalSearchInput);
-      });
+      $("globalSearch").addEventListener("input", onGlobalSearchInput);
     }
 
     // Mặc định các ô tìm kiếm trống khi mở ứng dụng
