@@ -516,11 +516,20 @@ foreach ($excelPath in $candidateFiles) {
                             if ($oldStock -gt 0 -and -not $masterMap[$mKey].StockLeft) { $masterMap[$mKey].StockLeft = $oldStock }
                         }
 
-                        $outCols = @((7,8,9), (11,12,13), (15,16,17), (19,20,21), (23,24,25))
-                        foreach ($g in $outCols) {
-                            $qtyRaw = if ($rDict.ContainsKey($g[0])) { $rDict[$g[0]].Trim() } else { "" }
-                            $idRaw = if ($rDict.ContainsKey($g[1])) { $rDict[$g[1]].Trim() } else { "" }
-                            $dateRaw = if ($rDict.ContainsKey($g[2])) { $rDict[$g[2]].Trim() } else { "" }
+                        # Dynamic unlimited replacement blocks: Lần 1 (7), Lần 2 (11), Lần 3 (15), Lần 4 (19), Lần 5 (23), Lần 6 (27)... unlimited
+                        for ($cStart = 7; $cStart -le 300; $cStart += 4) {
+                            $cQty = $cStart
+                            $cId = $cStart + 1
+                            $cDate = $cStart + 2
+
+                            if (-not $rDict.ContainsKey($cQty) -and -not $rDict.ContainsKey($cId) -and -not $rDict.ContainsKey($cDate)) {
+                                if ($cStart -gt 40) { break }
+                                continue
+                            }
+
+                            $qtyRaw = if ($rDict.ContainsKey($cQty)) { $rDict[$cQty].Trim() } else { "" }
+                            $idRaw = if ($rDict.ContainsKey($cId)) { $rDict[$cId].Trim() } else { "" }
+                            $dateRaw = if ($rDict.ContainsKey($cDate)) { $rDict[$cDate].Trim() } else { "" }
 
                             if ($qtyRaw -or $idRaw -or $dateRaw) {
                                 # Fix P1-7: Validate quantity (must be valid numeric > 0)
@@ -547,7 +556,7 @@ foreach ($excelPath in $candidateFiles) {
                                 # Fix P1-8: Deduplicate replacements by RequestId & composite key
                                 $dedupKey = "$partName|$mold|$fullDate|$idRaw"
                                 if ($seenRequests.Add($dedupKey)) {
-                                    $replacements.Add([ordered]@{
+                                    [void]$replacements.Add([ordered]@{
                                         Part = $partName
                                         Series = $series
                                         DieSet = $mold
@@ -556,7 +565,7 @@ foreach ($excelPath in $candidateFiles) {
                                         ReplaceDate = $fullDate
                                         Label = [string]$qtyVal
                                         RequestId = $idRaw
-                                    }) | Out-Null
+                                    })
                                 }
                             }
                         }
