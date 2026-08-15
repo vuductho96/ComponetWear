@@ -1797,16 +1797,9 @@
     // STOCK INVENTORY MANAGEMENT (QUẢN LÝ TỒN KHO)
     // ==========================================
     let _stockFilter = 'all';
-    let _stockData = loadStockData();
+    let _stockData = {};
 
     function loadStockData() {
-      try {
-        const saved = localStorage.getItem("componentLifeStockData");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && typeof parsed === 'object') return parsed;
-        }
-      } catch (e) {}
       return {};
     }
 
@@ -3350,27 +3343,18 @@
     async function loadMasterData() {
       const cacheBust = "?t=" + Date.now();
       try {
-        const res = await fetch("ComponentMaster.json" + cacheBust);
+        const res = await fetch("ComponentMaster.json" + cacheBust, { cache: "no-store" });
         if (res.ok) {
           const remoteList = await res.json();
           if (Array.isArray(remoteList) && remoteList.length > 0) {
+            masterData = [];
+            _masterLookupMap = null;
             updateMasterData(remoteList);
             return;
           }
         }
       } catch (e) {
         console.warn("Could not fetch ComponentMaster.json:", e);
-      }
-      
-      const saved = localStorage.getItem("componentMasterData");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            updateMasterData(parsed);
-            return;
-          }
-        } catch (err) {}
       }
       
       populatePartList();
@@ -3798,7 +3782,7 @@
     async function autoLoadShootMonth() {
       const cacheBust = "?t=" + Date.now();
       try {
-        const res = await fetch("data/shoot-data.json" + cacheBust);
+        const res = await fetch("data/shoot-data.json" + cacheBust, { cache: "no-store" });
         if (res.ok) {
           const list = await res.json();
           if (Array.isArray(list)) {
@@ -3811,7 +3795,7 @@
       }
 
       try {
-        const resRep = await fetch("data/replacement-log.json" + cacheBust);
+        const resRep = await fetch("data/replacement-log.json" + cacheBust, { cache: "no-store" });
         if (resRep.ok) {
           const repList = await resRep.json();
           if (Array.isArray(repList)) {
@@ -3821,11 +3805,11 @@
       } catch (e) {}
 
       try {
-        const resStock = await fetch("data/stock-data.json" + cacheBust);
+        const resStock = await fetch("data/stock-data.json" + cacheBust, { cache: "no-store" });
         if (resStock.ok) {
           const stockJson = await resStock.json();
-          if (stockJson && typeof stockJson === 'object') {
-            _stockData = Object.assign({}, _stockData, stockJson);
+          if (stockJson && typeof stockJson === 'object' && Object.keys(stockJson).length > 0) {
+            _stockData = Object.assign({}, stockJson);
             try {
               localStorage.setItem("componentLifeStockData", JSON.stringify(_stockData));
             } catch (e) {}
@@ -3835,9 +3819,7 @@
 
       buildMonthOptions();
       rebuild(false);
-      renderMonth();
-      renderMetrics();
-      renderStockTable();
+      renderActiveTabOnly();
     }
 
     async function updateBackend() {
@@ -3936,19 +3918,23 @@
 
     let _currentDataVersion = null;
 
+    async function loadAllDataFromSource() {
+      await loadMasterData();
+      await autoLoadShootMonth();
+      rebuild(false);
+      renderActiveTabOnly();
+    }
+
     async function checkDataVersionLoop() {
       try {
-        const res = await fetch("/api/version?t=" + Date.now()).then(r => r.json());
+        const res = await fetch("/api/version?t=" + Date.now(), { cache: "no-store" }).then(r => r.json());
         if (res && res.version !== undefined) {
           if (_currentDataVersion === null) {
             _currentDataVersion = res.version;
           } else if (res.version > _currentDataVersion) {
             _currentDataVersion = res.version;
             msg("⚡ Đã tự động cập nhật dữ liệu mới nhất vừa lưu từ Excel!", false, 3500);
-            await loadMasterData();
-            await autoLoadShootMonth();
-            rebuild(false);
-            renderActiveTabOnly();
+            await loadAllDataFromSource();
           }
         }
       } catch (e) {}
@@ -3984,10 +3970,7 @@
     });
 
     window.addEventListener('dragleave', (e) => {
-      if (e.relatedTarget === null) {
-        const dropZone = $("cbDropZone");
-        if (dropZone) dropZone.classList.remove("cb-drag-over");
-      }
+      e.relatedTarget === null && $("cbDropZone") && $("cbDropZone").classList.remove("cb-drag-over");
     });
 
     window.addEventListener('drop', (e) => {
@@ -4000,8 +3983,7 @@
     });
 
     initHeartbeat();
-    loadMasterData();
-    autoLoadShootMonth();
+    loadAllDataFromSource();
   </script>
 </body>
 </html>

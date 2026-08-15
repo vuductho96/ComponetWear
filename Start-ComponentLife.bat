@@ -8,5 +8,6 @@ if not exist "%~dp0ComponentLife\ComponentLife.ps1" (
   exit /b 1
 )
 
+powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0ComponentLife\auto_sync_excel.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0ComponentLife\ComponentLife.ps1"
 

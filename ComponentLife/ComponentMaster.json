@@ -6832,11 +6832,11 @@
     "StockLeft": 6
   },
   {
-    "PartName": "302-100p",
+    "PartName": "302-100P",
     "Series": "10106C-E1C",
     "OldDieSet": "M1603",
     "NewDieSet": "M1603",
-    "StandardStock": 2,
+    "StandardStock": 1,
     "StockLeft": 2
   },
   {
@@ -6856,19 +6856,19 @@
     "StockLeft": 1
   },
   {
-    "PartName": "302-60p",
+    "PartName": "302-60P",
     "Series": "10106C-E1C",
     "OldDieSet": "M1603",
     "NewDieSet": "M1603",
-    "StandardStock": 4,
+    "StandardStock": 1,
     "StockLeft": 1
   },
   {
-    "PartName": "302-80p",
+    "PartName": "302-80P",
     "Series": "10106C-E1C",
     "OldDieSet": "M1603",
     "NewDieSet": "M1603",
-    "StandardStock": 2,
+    "StandardStock": 1,
     "StockLeft": 2
   },
   {
@@ -8224,11 +8224,11 @@
     "StockLeft": 2
   },
   {
-    "PartName": "121a",
+    "PartName": "121A",
     "Series": "13080B-H5B",
     "OldDieSet": "MF0009",
     "NewDieSet": "MF0009",
-    "StandardStock": 4,
+    "StandardStock": 2,
     "StockLeft": 2
   },
   {
@@ -11350,38 +11350,6 @@
     "NewDieSet": "MF00805",
     "StandardStock": 2,
     "StockLeft": 0
-  },
-  {
-    "PartName": "302-100P",
-    "Series": "10106C-E1C",
-    "OldDieSet": "M1603",
-    "NewDieSet": "M1603",
-    "StandardStock": 1,
-    "StockLeft": 2
-  },
-  {
-    "PartName": "302-60P",
-    "Series": "10106C-E1C",
-    "OldDieSet": "M1603",
-    "NewDieSet": "M1603",
-    "StandardStock": 1,
-    "StockLeft": 1
-  },
-  {
-    "PartName": "302-80P",
-    "Series": "10106C-E1C",
-    "OldDieSet": "M1603",
-    "NewDieSet": "M1603",
-    "StandardStock": 1,
-    "StockLeft": 2
-  },
-  {
-    "PartName": "121A",
-    "Series": "13080B-H5B",
-    "OldDieSet": "MF0009",
-    "NewDieSet": "MF0009",
-    "StandardStock": 2,
-    "StockLeft": 2
   },
   {
     "PartName": "CF01A",
@@ -18437,7 +18405,7 @@
     "OldDieSet": "M1603",
     "NewDieSet": "H10106C04",
     "StandardStock": 1,
-    "StockLeft": 0
+    "StockLeft": 2
   },
   {
     "PartName": "302-140",
@@ -18461,7 +18429,7 @@
     "OldDieSet": "M1603",
     "NewDieSet": "H10106C04",
     "StandardStock": 1,
-    "StockLeft": 0
+    "StockLeft": 1
   },
   {
     "PartName": "302-80p",
@@ -18469,7 +18437,7 @@
     "OldDieSet": "M1603",
     "NewDieSet": "H10106C04",
     "StandardStock": 1,
-    "StockLeft": 0
+    "StockLeft": 2
   },
   {
     "PartName": "402",
@@ -19837,7 +19805,7 @@
     "OldDieSet": "MF0009",
     "NewDieSet": "H13080B02",
     "StandardStock": 1,
-    "StockLeft": 0
+    "StockLeft": 2
   },
   {
     "PartName": "121B",
@@ -22548,6 +22516,22 @@
     "Series": "Teest1",
     "OldDieSet": "Teest2",
     "NewDieSet": "Teest3",
+    "StandardStock": 1,
+    "StockLeft": 0
+  },
+  {
+    "PartName": "1380",
+    "Series": "",
+    "OldDieSet": "1380",
+    "NewDieSet": "1380",
+    "StandardStock": 1,
+    "StockLeft": 0
+  },
+  {
+    "PartName": "1380",
+    "Series": "10106S-E1C",
+    "OldDieSet": "MF00805",
+    "NewDieSet": "H10106S03",
     "StandardStock": 1,
     "StockLeft": 0
   }

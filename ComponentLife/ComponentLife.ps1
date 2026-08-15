@@ -164,6 +164,11 @@ try {
         $contentType = "text/html; charset=utf-8"
 
         try {
+            # Synchronously check if Excel source files have changed before serving data/page
+            if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/ComponentLife.html' -or $path -eq '/api/version' -or $path.StartsWith('/data/') -or $path.EndsWith('.json')) {
+                Check-ExcelFileChanges
+            }
+
             if ($path -eq '/index.html' -or $path -eq '/ComponentLife.html') {
                 $htmlFile = Join-Path $Root 'ComponentLife.html'
                 if (-not (Test-Path $htmlFile)) { $htmlFile = Join-Path $Root 'index.html' }
@@ -543,7 +548,7 @@ try {
             $contentType = "application/json; charset=utf-8"
         }
 
-        $headerStr = "${statusLine}Content-Type: ${contentType}`r`nContent-Length: $($responseBytes.Length)`r`nAccess-Control-Allow-Origin: *`r`nConnection: close`r`n`r`n"
+        $headerStr = "${statusLine}Content-Type: ${contentType}`r`nContent-Length: $($responseBytes.Length)`r`nAccess-Control-Allow-Origin: *`r`nCache-Control: no-store, no-cache, must-revalidate, max-age=0`r`nPragma: no-cache`r`nExpires: 0`r`nConnection: close`r`n`r`n"
         $headerBytes = [System.Text.Encoding]::UTF8.GetBytes($headerStr)
 
         $stream.Write($headerBytes, 0, $headerBytes.Length)
