@@ -4,6 +4,7 @@ import re
 import sys
 import json
 import os
+from datetime import datetime, timedelta
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -14,6 +15,7 @@ os.makedirs(data_dir, exist_ok=True)
 
 rep_log_path = os.path.join(data_dir, "replacement-log.json")
 stock_log_path = os.path.join(data_dir, "stock-data.json")
+shoot_log_path = os.path.join(data_dir, "shoot-data.json")
 master_log_path = os.path.join(root_dir, "ComponentMaster.json")
 
 def col_to_num(col_str):
@@ -35,6 +37,24 @@ def is_valid_part_name(p):
     if not s or s in ['0', '1', '-', '·'] or s.lower() in ['part', 'no', 'sum', 'stt', 'tổng', 'total', '0/0', '1/1', '0/0/0', '1/1/1']:
         return False
     return True
+
+def parse_excel_date(val):
+    if not val:
+        return ""
+    try:
+        n = float(val)
+        if n > 30000:
+            return (datetime(1899, 12, 30) + timedelta(days=n)).strftime('%Y-%m-%d')
+    except:
+        pass
+    s = str(val).strip()
+    match = re.match(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$', s)
+    if match:
+        return f"{int(match.group(1)):04d}-{int(match.group(2)):02d}-{int(match.group(3)):02d}"
+    match_d = re.match(r'^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$', s)
+    if match_d:
+        return f"{int(match_d.group(3)):04d}-{int(match_d.group(2)):02d}-{int(match_d.group(1)):02d}"
+    return s
 
 def auto_sync():
     candidate_files = []
@@ -62,6 +82,7 @@ def auto_sync():
 
     replacements = []
     stock_data = {}
+    shoot_records = {}
     synced_sheets_count = 0
 
     for file_path in candidate_files:
@@ -80,6 +101,109 @@ def auto_sync():
                     for si in ss_xml.findall('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}si'):
                         texts = [t.text or '' for t in si.findall('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t')]
                         shared_strings.append(''.join(texts))
+
+                # Process PartList Sheet if present (e.g. PartList, PartCatalog, Parts)
+                for s in wb_xml.findall('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheet'):
+                    s_name = s.attrib.get('name', '').strip()
+                    target_path = rel_map.get(s.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'))
+                    if 'part' in s_name.lower() and target_path in z.namelist():
+                        try:
+                            ws_xml = ET.fromstring(z.read(target_path))
+                            sheet_data = ws_xml.find('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheetData')
+                            if sheet_data is not None:
+                                rows = sheet_data.findall('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row')
+                                if len(rows) > 1:
+                                    for row_elem in rows[1:]:
+                                        r_dict = {}
+                                        for c in row_elem.findall('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c'):
+                                            r_ref = c.attrib.get('r', '')
+                                            t = c.attrib.get('t', '')
+                                            v_elem = c.find('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                                            val = v_elem.text if v_elem is not None else ''
+                                            if t == 's' and val.isdigit():
+                                                idx = int(val)
+                                                if idx < len(shared_strings):
+                                                    val = shared_strings[idx]
+                                            elif t == 'inlineStr':
+                                                is_elem = c.find('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t')
+                                                if is_elem is not None:
+                                                    val = is_elem.text or ''
+                                            col_num, _ = parse_cell_ref(r_ref)
+                                            v_str = str(val).strip()
+                                            if v_str:
+                                                r_dict[col_num] = v_str
+
+                                        p_name = r_dict.get(1, '')
+                                        p_series = r_dict.get(2, '')
+                                        p_old = r_dict.get(3, '')
+                                        p_new = r_dict.get(4, '')
+
+                                        if is_valid_part_name(p_name):
+                                            old_dieset = p_old or p_new or p_name
+                                            new_dieset = p_new or p_old or p_name
+                                            m_key = f"{p_name}|{new_dieset}"
+                                            if m_key not in master_map:
+                                                master_map[m_key] = {
+                                                    "PartName": p_name,
+                                                    "Series": p_series,
+                                                    "OldDieSet": old_dieset,
+                                                    "NewDieSet": new_dieset,
+                                                    "StandardStock": 1,
+                                                    "StockLeft": 0
+                                                }
+                                            else:
+                                                if p_series and not master_map[m_key].get("Series"): master_map[m_key]["Series"] = p_series
+                                                if p_old and not master_map[m_key].get("OldDieSet"): master_map[m_key]["OldDieSet"] = p_old
+                                                if p_new and not master_map[m_key].get("NewDieSet"): master_map[m_key]["NewDieSet"] = p_new
+                        except Exception as e_part:
+                            print(f"⚠️ Error parsing part list sheet {s_name}: {e_part}")
+
+                # Process Shoot Data Sheet if present (e.g. ShootNumber, ShootMonth, Shoot)
+                for s in wb_xml.findall('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheet'):
+                    s_name = s.attrib.get('name', '').strip()
+                    target_path = rel_map.get(s.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'))
+                    if 'shoot' in s_name.lower() and target_path in z.namelist():
+                        try:
+                            ws_xml = ET.fromstring(z.read(target_path))
+                            sheet_data = ws_xml.find('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheetData')
+                            if sheet_data is not None:
+                                rows = sheet_data.findall('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row')
+                                if len(rows) > 1:
+                                    for row_elem in rows[1:]:
+                                        r_dict = {}
+                                        for c in row_elem.findall('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c'):
+                                            r_ref = c.attrib.get('r', '')
+                                            t = c.attrib.get('t', '')
+                                            v_elem = c.find('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v')
+                                            val = v_elem.text if v_elem is not None else ''
+                                            if t == 's' and val.isdigit():
+                                                idx = int(val)
+                                                if idx < len(shared_strings):
+                                                    val = shared_strings[idx]
+                                            elif t == 'inlineStr':
+                                                is_elem = c.find('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t')
+                                                if is_elem is not None:
+                                                    val = is_elem.text or ''
+                                            col_num, _ = parse_cell_ref(r_ref)
+                                            v_str = str(val).strip()
+                                            if v_str:
+                                                r_dict[col_num] = v_str
+
+                                        dt_raw = r_dict.get(1, '')
+                                        mold_raw = r_dict.get(2, '')
+                                        out_raw = r_dict.get(3, '')
+
+                                        if dt_raw and mold_raw and out_raw:
+                                            dt_str = parse_excel_date(dt_raw)
+                                            try:
+                                                num_out = float(out_raw)
+                                                if dt_str and num_out > 0:
+                                                    key = f"{dt_str}|{mold_raw}"
+                                                    shoot_records[key] = shoot_records.get(key, 0) + num_out
+                                            except:
+                                                pass
+                        except Exception as e_shoot:
+                            print(f"⚠️ Error parsing shoot sheet {s_name}: {e_shoot}")
 
                 month_sheets = []
                 for s in wb_xml.findall('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheet'):
@@ -250,6 +374,21 @@ def auto_sync():
 
         except Exception as err:
             print(f"⚠️ Error reading {file_path}: {err}")
+
+    if shoot_records:
+        shoot_list = []
+        for key, total_out in shoot_records.items():
+            dt, mold = key.split('|', 1)
+            shoot_list.append({
+                "Date": dt,
+                "Part": "",
+                "DieSet": mold,
+                "Output": int(total_out) if float(total_out).is_integer() else total_out
+            })
+        shoot_list.sort(key=lambda x: (x["Date"], x["DieSet"]))
+        with open(shoot_log_path, 'w', encoding='utf-8') as f:
+            json.dump(shoot_list, f, ensure_ascii=False, indent=2)
+        print(f"⚡ Auto-sync updated shoot data: {len(shoot_list)} shoot records saved to shoot-data.json")
 
     if synced_sheets_count > 0:
         replacements.sort(key=lambda x: x["ReplaceDate"])

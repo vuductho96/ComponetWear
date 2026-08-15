@@ -8,9 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
-  <!-- SheetJS & Chart.js -->
+  <!-- SheetJS -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --bg: #f8fafc;
@@ -878,142 +877,6 @@
       margin-top: 6px;
     }
 
-    /* Summary Visual Charts Grid */
-    .summary-charts-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-      gap: 16px;
-      margin-top: 14px;
-      margin-bottom: 20px;
-    }
-
-    .chart-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 16px 18px;
-      box-shadow: var(--shadow-sm);
-      transition: box-shadow 0.2s, transform 0.2s;
-    }
-
-    .chart-card:hover {
-      box-shadow: var(--shadow-md);
-    }
-
-    .chart-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-    }
-
-    .chart-title {
-      font-size: 13.5px;
-      font-weight: 700;
-      color: var(--ink);
-      display: block;
-    }
-
-    .chart-subtitle {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--ink-muted);
-      display: block;
-      margin-top: 2px;
-    }
-
-    .chart-body {
-      position: relative;
-      height: 250px;
-      width: 100%;
-    }
-
-    .chart-toggle-group {
-      display: inline-flex;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 2px;
-      gap: 2px;
-    }
-
-    .chart-toggle-btn {
-      height: 26px;
-      padding: 0 10px;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--ink-muted);
-      background: transparent;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      box-shadow: none;
-      transition: all 0.15s;
-    }
-
-    .chart-toggle-btn.active {
-      background: #ffffff;
-      color: var(--primary);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-
-    /* Replacement Frequency Badges */
-    .badge-freq {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-      text-transform: uppercase;
-    }
-    .badge-freq.high { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-    .badge-freq.medium { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-    .badge-freq.low { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-
-    /* Matrix Milestone Cells */
-    .matrix-val-0 {
-      color: var(--ink-light);
-      font-weight: 500;
-    }
-    .matrix-val-low {
-      display: inline-block;
-      min-width: 22px;
-      padding: 2px 6px;
-      background: #eff6ff;
-      color: #1e40af;
-      font-weight: 700;
-      border-radius: 4px;
-      border: 1px solid #bfdbfe;
-    }
-    .matrix-val-mid {
-      display: inline-block;
-      min-width: 22px;
-      padding: 2px 6px;
-      background: #fef3c7;
-      color: #92400e;
-      font-weight: 800;
-      border-radius: 4px;
-      border: 1px solid #fde68a;
-    }
-    .matrix-val-high {
-      display: inline-block;
-      min-width: 22px;
-      padding: 2px 6px;
-      background: #fee2e2;
-      color: #991b1b;
-      font-weight: 800;
-      border-radius: 4px;
-      border: 1px solid #fecaca;
-    }
-
     /* Stock Tab Badges & Elements */
     .badge-stock {
       display: inline-flex;
@@ -1089,7 +952,7 @@
 
     .stock-filter-btn {
       height: 28px;
-      padding: 0 12px;
+      padding: 0 10px;
       font-size: 11.5px;
       font-weight: 700;
       color: var(--ink-muted);
@@ -1099,6 +962,9 @@
       cursor: pointer;
       box-shadow: none;
       transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      user-select: none;
     }
 
     .stock-filter-btn.active {
@@ -1197,88 +1063,7 @@
       margin: 1px;
     }
 
-    /* Sticky Columns for Milestone Matrix */
-    .table-milestone-wrap {
-      overflow-x: auto;
-      max-height: 520px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-    }
 
-    table.matrix-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      font-size: 12.5px;
-      background: #fff;
-    }
-
-    table.matrix-table th, table.matrix-table td {
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--border);
-      border-right: 1px solid var(--border);
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    table.matrix-table th {
-      position: sticky;
-      top: 0;
-      z-index: 6;
-      background: #f1f5f9;
-      color: var(--ink-secondary);
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
-    table.matrix-table th.col-fixed-part, table.matrix-table td.col-fixed-part {
-      position: sticky;
-      left: 0;
-      z-index: 7;
-      background: #fff;
-      text-align: left;
-      font-weight: 800;
-      color: var(--ink);
-      min-width: 90px;
-    }
-
-    table.matrix-table th.col-fixed-series, table.matrix-table td.col-fixed-series {
-      position: sticky;
-      left: 90px;
-      z-index: 7;
-      background: #fff;
-      text-align: left;
-      font-weight: 600;
-      color: #2563eb;
-      min-width: 100px;
-    }
-
-    table.matrix-table th.col-fixed-mold, table.matrix-table td.col-fixed-mold {
-      position: sticky;
-      left: 190px;
-      z-index: 7;
-      background: #fff;
-      text-align: left;
-      font-weight: 600;
-      color: var(--ink-secondary);
-      border-right: 2px solid var(--border-dark);
-      min-width: 110px;
-    }
-
-    table.matrix-table th.col-fixed-part, table.matrix-table th.col-fixed-series, table.matrix-table th.col-fixed-mold {
-      z-index: 10;
-      background: #e2e8f0;
-    }
-
-    table.matrix-table tbody tr:hover td {
-      background-color: var(--surface-hover);
-    }
-    table.matrix-table tbody tr:hover td.col-fixed-part,
-    table.matrix-table tbody tr:hover td.col-fixed-series,
-    table.matrix-table tbody tr:hover td.col-fixed-mold {
-      background-color: #f1f5f9;
-    }
 
     @media (max-width: 1100px) {
       .control-bar {
@@ -1425,12 +1210,32 @@
             <p class="note" id="stockNote" style="margin:3px 0 0;">Tự động đối chiếu số lượng thay thực tế và quản lý mức dự phòng linh kiện theo từng khuôn</p>
           </div>
 
-          <!-- Stock Filter Chips -->
+          <!-- Stock Filter Chips with Checkboxes -->
           <div class="stock-filter-group">
-            <button class="stock-filter-btn active" id="stockFilterAll" onclick="setStockFilter('all')">Tất cả (<span id="cntAll">0</span>)</button>
-            <button class="stock-filter-btn" id="stockFilterCritical" onclick="setStockFilter('critical')">🔴 URGENT (<span id="cntCritical">0</span>)</button>
-            <button class="stock-filter-btn" id="stockFilterWarning" onclick="setStockFilter('warning')">🟡 NEED ORDER (<span id="cntWarning">0</span>)</button>
-            <button class="stock-filter-btn" id="stockFilterSafe" onclick="setStockFilter('safe')">🟢 NO NEED (<span id="cntSafe">0</span>)</button>
+            <label class="stock-filter-btn active" id="stockFilterAllLabel" title="Hiển thị tất cả linh kiện">
+              <input type="checkbox" id="chkAll" onchange="toggleStockCheckboxAll(this)" checked style="accent-color:#2563eb; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              Tất cả (<span id="cntAll">0</span>)
+            </label>
+
+            <label class="stock-filter-btn" id="stockFilterReplacedLabel" title="Lọc các linh kiện đã có lần thay">
+              <input type="checkbox" id="chkReplaced" onchange="toggleStockStatusCheckbox()" style="accent-color:#b45309; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              🔧 ĐÃ THAY (<span id="cntReplaced">0</span>)
+            </label>
+
+            <label class="stock-filter-btn active" id="stockFilterCriticalLabel" style="color:#dc2626;" title="Lọc linh kiện hết hàng (Urgent)">
+              <input type="checkbox" id="chkCritical" onchange="toggleStockStatusCheckbox()" checked style="accent-color:#dc2626; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              🔴 URGENT (<span id="cntCritical">0</span>)
+            </label>
+
+            <label class="stock-filter-btn active" id="stockFilterWarningLabel" style="color:#d97706;" title="Lọc linh kiện cần đặt hàng (Need Order)">
+              <input type="checkbox" id="chkWarning" onchange="toggleStockStatusCheckbox()" checked style="accent-color:#d97706; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              🟡 NEED ORDER (<span id="cntWarning">0</span>)
+            </label>
+
+            <label class="stock-filter-btn active" id="stockFilterSafeLabel" style="color:#16a34a;" title="Lọc linh kiện an toàn (No Need)">
+              <input type="checkbox" id="chkSafe" onchange="toggleStockStatusCheckbox()" checked style="accent-color:#16a34a; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              🟢 NO NEED (<span id="cntSafe">0</span>)
+            </label>
           </div>
         </div>
 
@@ -1808,16 +1613,7 @@
       return Math.round(Math.sqrt(avgSquareDiff));
     }
 
-    let _chartType = 'line';
-    let _wearChartInstance = null;
-    let _freqChartInstance = null;
 
-    function setChartType(type) {
-      _chartType = type;
-      if ($("btnLineChart")) $("btnLineChart").classList.toggle("active", type === 'line');
-      if ($("btnBarChart")) $("btnBarChart").classList.toggle("active", type === 'bar');
-      renderWearCharts();
-    }
 
     function rebuild(showMessage = true) {
       invalidatePartsCache();
@@ -1962,63 +1758,10 @@
         });
       });
 
-      // 4. Generate dynamic 50k milestones
-      const step = 50000;
-      const maxMilestone = Math.max(250000, Math.ceil(maxCumShotAll / step) * step);
-      const milestones = [];
-      for (let m = step; m <= maxMilestone; m += step) {
-        milestones.push(m);
-      }
-
-      // 5. Calculate distribution-based Replacement Frequency (33rd & 67th percentile)
-      const validAvgLives = rawSummaryList
-        .filter(s => s.CompletedCycles > 0 || s.TotalReplacements > 0)
-        .map(s => s.AverageShots)
-        .filter(v => v > 0)
-        .sort((a, b) => a - b);
-
-      let p33 = 70000;
-      let p67 = 150000;
-      if (validAvgLives.length >= 3) {
-        p33 = validAvgLives[Math.floor(validAvgLives.length * 0.33)];
-        p67 = validAvgLives[Math.floor(validAvgLives.length * 0.67)];
-      }
-
-      const summaryList = rawSummaryList.map(item => {
-        let freq = "LOW";
-        if (item.TotalReplacements >= 5 || (item.AverageShots > 0 && item.AverageShots <= p33 && item.TotalReplacements >= 1)) {
-          freq = "HIGH";
-        } else if (item.TotalReplacements >= 2 || (item.AverageShots > 0 && item.AverageShots <= p67 && item.TotalReplacements >= 1)) {
-          freq = "MEDIUM";
-        }
-
-        const milestoneCounts = {};
-        let firstMilestone = null;
-
-        milestones.forEach(mVal => {
-          const kLabel = (mVal / 1000) + "k";
-          const cnt = item.RepCumulativeShots.filter(rcs => rcs <= mVal).length;
-          milestoneCounts[kLabel] = cnt;
-          if (cnt > 0 && !firstMilestone) {
-            firstMilestone = kLabel;
-          }
-        });
-
-        return {
-          ...item,
-          ReplacementFrequency: freq,
-          MilestoneCounts: milestoneCounts,
-          FirstReplaceMilestone: firstMilestone || "-"
-        };
-      });
-
-      result = { cycles, summary: summaryList, milestones, errors };
+      result = { cycles, summary: rawSummaryList, errors };
       renderMetrics();
-      renderWearCharts();
-      renderSummaryTable();
-      renderMilestoneMatrixTable();
 
-      if (showMessage) msg(`Đã phân tích ${summaryList.length} linh kiện (${cycles.length} cycle hoàn chỉnh).`);
+      if (showMessage) msg(`Đã phân tích ${rawSummaryList.length} linh kiện (${cycles.length} cycle hoàn chỉnh).`);
     }
 
     function renderMetrics() {
@@ -2047,310 +1790,6 @@
           $("mostReplacedVal").textContent = "Chưa có";
           if ($("mostReplacedSub")) $("mostReplacedSub").textContent = "0 lượt thay";
         }
-      }
-    }
-
-    function renderWearCharts() {
-      if (typeof Chart === 'undefined') return;
-
-      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
-      let rows = result.summary || [];
-      const milestones = result.milestones || [50000, 100000, 150000, 200000, 250000];
-      const milestoneLabels = milestones.map(m => (m / 1000) + "k");
-
-      if (q) {
-        const normQ = normKey(q);
-        rows = rows.filter(r => {
-          const p = (r.Part || "").toLowerCase();
-          const s = (r.Series || "").toLowerCase();
-          const m = (r.DieSet || "").toLowerCase();
-          return p.includes(q) || normKey(p).includes(normQ) || s.includes(q) || m.includes(q) || normKey(m).includes(normQ);
-        });
-      }
-
-      // -------------------------------------------------------------
-      // CHART 1: WEAR BY SHOT MILESTONES (Line / Bar)
-      // -------------------------------------------------------------
-      const ctxWear = document.getElementById("wearShotChart");
-      if (ctxWear) {
-        if (_wearChartInstance) _wearChartInstance.destroy();
-
-        const colorPalette = [
-          { border: '#4f46e5', bg: 'rgba(79, 70, 229, 0.15)' },
-          { border: '#dc2626', bg: 'rgba(220, 38, 38, 0.15)' },
-          { border: '#d97706', bg: 'rgba(217, 119, 6, 0.15)' },
-          { border: '#059669', bg: 'rgba(5, 150, 105, 0.15)' },
-          { border: '#0284c7', bg: 'rgba(2, 132, 199, 0.15)' },
-          { border: '#9333ea', bg: 'rgba(147, 51, 234, 0.15)' }
-        ];
-
-        let targetParts = [];
-        if (q && rows.length > 0) {
-          targetParts = rows.slice(0, 6);
-        } else {
-          // Top 5 parts with most replacements + active
-          targetParts = [...rows]
-            .filter(r => r.TotalReplacements > 0)
-            .sort((a, b) => b.TotalReplacements - a.TotalReplacements)
-            .slice(0, 5);
-        }
-
-        const datasets = targetParts.map((item, idx) => {
-          const col = colorPalette[idx % colorPalette.length];
-          const dataPoints = milestones.map(mVal => {
-            const kLabel = (mVal / 1000) + "k";
-            if (_chartType === 'line') {
-              // Cumulative count
-              return item.MilestoneCounts[kLabel] || 0;
-            } else {
-              // Interval count in range (mVal - 50k, mVal]
-              const lowerBound = mVal - 50000;
-              return item.RepCumulativeShots.filter(rcs => rcs > lowerBound && rcs <= mVal).length;
-            }
-          });
-
-          return {
-            label: `${item.Part} (${item.DieSet})`,
-            data: dataPoints,
-            borderColor: col.border,
-            backgroundColor: _chartType === 'line' ? col.bg : col.border,
-            borderWidth: 2,
-            tension: 0.3,
-            fill: _chartType === 'line',
-            pointRadius: 4,
-            pointHoverRadius: 6
-          };
-        });
-
-        // Add System Total / Average line if multiple parts shown
-        if (!q && rows.length > 0 && _chartType === 'line') {
-          const totalAtMilestones = milestones.map(mVal => {
-            const kLabel = (mVal / 1000) + "k";
-            return rows.reduce((sum, r) => sum + (r.MilestoneCounts[kLabel] || 0), 0);
-          });
-
-          if (totalAtMilestones.some(v => v > 0)) {
-            datasets.unshift({
-              label: 'Tổng hệ thống (Tất cả linh kiện)',
-              data: totalAtMilestones,
-              borderColor: '#0f172a',
-              backgroundColor: 'transparent',
-              borderWidth: 2.5,
-              borderDash: [5, 5],
-              pointRadius: 3,
-              fill: false
-            });
-          }
-        }
-
-        _wearChartInstance = new Chart(ctxWear, {
-          type: _chartType === 'line' ? 'line' : 'bar',
-          data: {
-            labels: milestoneLabels,
-            datasets: datasets.length > 0 ? datasets : [{
-              label: 'Chưa có dữ liệu thay thế',
-              data: milestoneLabels.map(() => 0),
-              borderColor: '#cbd5e1'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-              legend: {
-                position: 'top',
-                labels: { font: { family: 'Plus Jakarta Sans', size: 10.5, weight: '700' }, boxWidth: 12 }
-              },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw} lần thay`
-                }
-              }
-            },
-            scales: {
-              x: {
-                title: { display: true, text: 'Mốc Shot (Sản lượng dập)', font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } },
-                grid: { color: '#f1f5f9' },
-                ticks: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' } }
-              },
-              y: {
-                title: { display: true, text: _chartType === 'line' ? 'Số lần thay tích lũy' : 'Số lần thay trong mốc', font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } },
-                beginAtZero: true,
-                grid: { color: '#f1f5f9' },
-                ticks: { stepSize: 1, font: { family: 'Plus Jakarta Sans', size: 10 } }
-              }
-            }
-          }
-        });
-      }
-
-      // -------------------------------------------------------------
-      // CHART 2: REPLACEMENT FREQUENCY (Horizontal Bar Chart)
-      // -------------------------------------------------------------
-      const ctxFreq = document.getElementById("freqBarChart");
-      if (ctxFreq) {
-        if (_freqChartInstance) _freqChartInstance.destroy();
-
-        const topFreqParts = [...rows]
-          .sort((a, b) => b.TotalReplacements - a.TotalReplacements || a.AverageShots - b.AverageShots)
-          .slice(0, 8);
-
-        const labels = topFreqParts.map(r => `${r.Part} (${r.DieSet})`);
-        const repData = topFreqParts.map(r => r.TotalReplacements);
-        const bgColors = topFreqParts.map(r => {
-          if (r.ReplacementFrequency === 'HIGH') return 'rgba(220, 38, 38, 0.85)';
-          if (r.ReplacementFrequency === 'MEDIUM') return 'rgba(217, 119, 6, 0.85)';
-          return 'rgba(5, 150, 105, 0.85)';
-        });
-        const borderColors = topFreqParts.map(r => {
-          if (r.ReplacementFrequency === 'HIGH') return '#b91c1c';
-          if (r.ReplacementFrequency === 'MEDIUM') return '#b45309';
-          return '#047857';
-        });
-
-        _freqChartInstance = new Chart(ctxFreq, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'Số lần thay',
-              data: repData,
-              backgroundColor: bgColors,
-              borderColor: borderColors,
-              borderWidth: 1.5,
-              borderRadius: 6,
-              borderSkipped: false
-            }]
-          },
-          options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => {
-                    const r = topFreqParts[ctx.dataIndex];
-                    return [
-                      ` Số lần thay: ${r.TotalReplacements} lần`,
-                      ` Tần suất: ${r.ReplacementFrequency}`,
-                      ` Avg Life/Cycle: ${r.AverageShots.toLocaleString()} shots`,
-                      ` Cycles: ${r.CompletedCycles}`,
-                      ` Total Shots: ${r.TotalShots.toLocaleString()} shots`
-                    ];
-                  }
-                }
-              }
-            },
-            scales: {
-              x: {
-                beginAtZero: true,
-                title: { display: true, text: 'Tổng số lần thay thế (Replacements)', font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } },
-                grid: { color: '#f1f5f9' },
-                ticks: { stepSize: 1, font: { family: 'Plus Jakarta Sans', size: 10 } }
-              },
-              y: {
-                grid: { display: false },
-                ticks: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } }
-              }
-            }
-          }
-        });
-      }
-    }
-
-    function renderSummaryTable() {
-      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
-      let rows = result.summary || [];
-
-      if (q) {
-        const normQ = normKey(q);
-        rows = rows.filter(r => {
-          const p = (r.Part || "").toLowerCase();
-          const s = (r.Series || "").toLowerCase();
-          const m = (r.DieSet || "").toLowerCase();
-          return p.includes(q) || normKey(p).includes(normQ) || s.includes(q) || m.includes(q) || normKey(m).includes(normQ);
-        });
-      }
-
-      if ($("wearSummaryBadge")) {
-        $("wearSummaryBadge").textContent = `${rows.length} linh kiện`;
-      }
-
-      if ($("wearSummaryRows")) {
-        $("wearSummaryRows").innerHTML = rows.length
-          ? rows.map(row => {
-              const freqCls = row.ReplacementFrequency === 'HIGH' ? 'high' : (row.ReplacementFrequency === 'MEDIUM' ? 'medium' : 'low');
-              const freqText = row.ReplacementFrequency === 'HIGH' ? '🔴 HIGH' : (row.ReplacementFrequency === 'MEDIUM' ? '🟡 MEDIUM' : '🟢 LOW');
-              const firstM = row.FirstReplaceMilestone !== "-" ? `<span class="app-badge" style="background:#eff6ff;color:#1e40af;font-weight:700;">${row.FirstReplaceMilestone}</span>` : `<span style="color:var(--ink-light);">-</span>`;
-
-              return `<tr>
-                <td><b>${esc(row.Part)}</b></td>
-                <td><span style="color:#2563eb;font-weight:600;">${esc(row.Series)}</span></td>
-                <td><b>${esc(row.DieSet)}</b></td>
-                <td style="text-align:center;"><span class="app-badge" style="background:#f1f5f9;color:var(--ink);">${row.CompletedCycles}</span></td>
-                <td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">${row.TotalShots.toLocaleString()}</td>
-                <td style="text-align:center;">${row.TotalReplacements > 0 ? `<b style="color:#b45309;font-size:13.5px;">${row.TotalReplacements}</b>` : '<span style="color:var(--ink-light);">0</span>'}</td>
-                <td style="text-align:right;color:#059669;font-weight:800;font-variant-numeric:tabular-nums;">${row.AverageShots.toLocaleString()}</td>
-                <td style="text-align:center;"><span class="badge-freq ${freqCls}">${freqText}</span></td>
-                <td style="text-align:center;">${firstM}</td>
-              </tr>`;
-            }).join("")
-          : `<tr><td colspan="9" style="text-align:center;color:var(--ink-muted);padding:24px;">Không tìm thấy linh kiện nào phù hợp với từ khóa tìm kiếm.</td></tr>`;
-      }
-    }
-
-    function renderMilestoneMatrixTable() {
-      const q = $("globalSearch") ? $("globalSearch").value.trim().toLowerCase() : "";
-      let rows = result.summary || [];
-      const milestones = result.milestones || [50000, 100000, 150000, 200000, 250000];
-
-      if (q) {
-        const normQ = normKey(q);
-        rows = rows.filter(r => {
-          const p = (r.Part || "").toLowerCase();
-          const s = (r.Series || "").toLowerCase();
-          const m = (r.DieSet || "").toLowerCase();
-          return p.includes(q) || normKey(p).includes(normQ) || s.includes(q) || m.includes(q) || normKey(m).includes(normQ);
-        });
-      }
-
-      // Render Dynamic Head
-      if ($("milestoneMatrixHead")) {
-        const milestoneThs = milestones.map(mVal => `<th>${mVal / 1000}k</th>`).join("");
-        $("milestoneMatrixHead").innerHTML = `<tr>
-          <th class="col-fixed-part">Part</th>
-          <th class="col-fixed-series">Series</th>
-          <th class="col-fixed-mold">Mold</th>
-          ${milestoneThs}
-          <th style="background:#1e1b4b;color:#fff;font-weight:800;">Total Reps</th>
-        </tr>`;
-      }
-
-      // Render Rows
-      if ($("milestoneMatrixRows")) {
-        $("milestoneMatrixRows").innerHTML = rows.length
-          ? rows.map(row => {
-              const cells = milestones.map(mVal => {
-                const kLabel = (mVal / 1000) + "k";
-                const cnt = row.MilestoneCounts[kLabel] || 0;
-                if (cnt === 0) return `<td><span class="matrix-val-0">0</span></td>`;
-                if (cnt <= 2) return `<td><span class="matrix-val-low">${cnt}</span></td>`;
-                if (cnt <= 5) return `<td><span class="matrix-val-mid">${cnt}</span></td>`;
-                return `<td><span class="matrix-val-high">${cnt}</span></td>`;
-              }).join("");
-
-              return `<tr>
-                <td class="col-fixed-part"><b>${esc(row.Part)}</b></td>
-                <td class="col-fixed-series">${esc(row.Series)}</td>
-                <td class="col-fixed-mold"><b>${esc(row.DieSet)}</b></td>
-                ${cells}
-                <td style="font-weight:800;color:var(--primary);text-align:center;">${row.TotalReplacements}</td>
-              </tr>`;
-            }).join("")
-          : `<tr><td colspan="${milestones.length + 4}" style="text-align:center;color:var(--ink-muted);padding:24px;">Không có dữ liệu phù hợp.</td></tr>`;
       }
     }
 
@@ -2486,11 +1925,48 @@
       return _stockData[directKey];
     }
 
+    function toggleStockCheckboxAll(allChk) {
+      const isChecked = allChk ? allChk.checked : false;
+      if ($("chkCritical")) $("chkCritical").checked = isChecked;
+      if ($("chkWarning")) $("chkWarning").checked = isChecked;
+      if ($("chkSafe")) $("chkSafe").checked = isChecked;
+      if ($("chkReplaced")) $("chkReplaced").checked = false;
+      updateStockFilterBtnClasses();
+      renderStockTable();
+    }
+
+    function toggleStockStatusCheckbox() {
+      const isCritical = $("chkCritical") ? $("chkCritical").checked : false;
+      const isWarning = $("chkWarning") ? $("chkWarning").checked : false;
+      const isSafe = $("chkSafe") ? $("chkSafe").checked : false;
+      const isReplaced = $("chkReplaced") ? $("chkReplaced").checked : false;
+
+      if ($("chkAll")) {
+        $("chkAll").checked = isCritical && isWarning && isSafe && !isReplaced;
+      }
+      updateStockFilterBtnClasses();
+      renderStockTable();
+    }
+
+    function updateStockFilterBtnClasses() {
+      const items = [
+        { chk: "chkAll", lbl: "stockFilterAllLabel" },
+        { chk: "chkReplaced", lbl: "stockFilterReplacedLabel" },
+        { chk: "chkCritical", lbl: "stockFilterCriticalLabel" },
+        { chk: "chkWarning", lbl: "stockFilterWarningLabel" },
+        { chk: "chkSafe", lbl: "stockFilterSafeLabel" }
+      ];
+      items.forEach(item => {
+        const c = $(item.chk);
+        const l = $(item.lbl);
+        if (c && l) {
+          l.classList.toggle("active", c.checked);
+        }
+      });
+    }
+
     function setStockFilter(filter) {
       _stockFilter = filter;
-      document.querySelectorAll(".stock-filter-btn").forEach(btn => {
-        btn.classList.toggle("active", btn.id === `stockFilter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
-      });
       renderStockTable();
     }
 
@@ -2540,19 +2016,24 @@
 
     function renderStockTable() {
       const allParts = getPartsToRender('stock');
-      const currentYm = selectedMonth(); // e.g. "2026-07"
+      const currentYm = selectedMonth(); // e.g. "2026-07" or ""
       const currentDay = selectedDay();   // e.g. "17" or ""
       const currentYear = selectedYear(); // e.g. "2026" or ""
 
-      // Cập nhật dòng chú thích hiển thị tháng đang tính toán
-      if ($("stockNote") && currentYm) {
-        const [y, m] = currentYm.split("-").map(Number);
-        const mLabel = (monthNames && monthNames[m - 1]) ? `${monthNames[m - 1]} ${y}` : currentYm;
-        $("stockNote").innerHTML = `Thống kê số lượng thay thế thực tế <b>trong tháng ${mLabel}</b>${currentDay ? ` (Ngày ${currentDay})` : ''} &amp; quản lý mức dự phòng linh kiện`;
+      // Cập nhật dòng chú thích hiển thị thời gian đang tính toán
+      if ($("stockNote")) {
+        if (currentYm) {
+          const [y, m] = currentYm.split("-").map(Number);
+          const mLabel = (monthNames && monthNames[m - 1]) ? `${monthNames[m - 1]} ${y}` : currentYm;
+          $("stockNote").innerHTML = `Thống kê số lượng thay thế thực tế <b>trong tháng ${mLabel}</b>${currentDay ? ` (Ngày ${currentDay})` : ''} &amp; quản lý mức dự phòng linh kiện`;
+        } else if (currentYear) {
+          $("stockNote").innerHTML = `Thống kê số lượng thay thế thực tế <b>trong năm ${currentYear}</b> &amp; quản lý mức dự phòng linh kiện`;
+        } else {
+          $("stockNote").innerHTML = `Thống kê số lượng thay thế thực tế <b>tất cả thời gian</b> &amp; quản lý mức dự phòng linh kiện`;
+        }
       }
 
       // Count used replacements per part/mold (summing total replaced pieces) and collect detailed events
-      // "Tháng nào tính tháng đấy": Lọc chính xác theo tháng đang được chọn trên Header
       const repCounts = {};
       const repEvents = {};
       (db.replacements || []).forEach(r => {
@@ -2565,8 +2046,11 @@
 
         if (!repDate) return;
 
-        // Chỉ tính thay thế trong tháng đang chọn (Tháng nào tính tháng đấy)
+        // Lọc theo tháng hoặc năm đang được chọn
         if (currentYm && monthKey(repDate) !== currentYm) {
+          return;
+        }
+        if (!currentYm && currentYear && !repDate.startsWith(currentYear)) {
           return;
         }
 
@@ -2602,6 +2086,7 @@
       let safeCount = 0;
       let warningCount = 0;
       let criticalCount = 0;
+      let replacedCount = 0;
 
       const processedList = allParts.map(item => {
         const part = item.part;
@@ -2624,6 +2109,8 @@
         const events = repEvents[key] || (keyOld ? repEvents[keyOld] : []) || [];
         const used = events.reduce((sum, ev) => sum + (Number(ev.qty) || 0), 0);
         const timesCount = events.length;
+
+        if (used > 0) replacedCount++;
 
         let status = 'SAFE';
         if (stock <= 0) {
@@ -2653,21 +2140,35 @@
 
       // Update Counter Badges
       if ($("cntAll")) $("cntAll").textContent = totalCount.toLocaleString();
+      if ($("cntReplaced")) $("cntReplaced").textContent = replacedCount.toLocaleString();
       if ($("cntSafe")) $("cntSafe").textContent = safeCount.toLocaleString();
       if ($("cntWarning")) $("cntWarning").textContent = warningCount.toLocaleString();
       if ($("cntCritical")) $("cntCritical").textContent = criticalCount.toLocaleString();
 
-      // Filter rows
+      // Multi-select status filtering via Checkboxes
+      const isAllChecked = $("chkAll") ? $("chkAll").checked : false;
+      const isCriticalChecked = $("chkCritical") ? $("chkCritical").checked : true;
+      const isWarningChecked = $("chkWarning") ? $("chkWarning").checked : true;
+      const isSafeChecked = $("chkSafe") ? $("chkSafe").checked : true;
+      const isReplacedChecked = $("chkReplaced") ? $("chkReplaced").checked : false;
+
       let filtered = processedList;
-      if (_stockFilter === 'critical') filtered = filtered.filter(x => x.status === 'CRITICAL');
-      else if (_stockFilter === 'warning') filtered = filtered.filter(x => x.status === 'WARNING');
-      else if (_stockFilter === 'safe') filtered = filtered.filter(x => x.status === 'SAFE');
+
+      if (!isAllChecked) {
+        filtered = filtered.filter(x => {
+          if (isReplacedChecked && x.used > 0) return true;
+          if (isCriticalChecked && x.status === 'CRITICAL') return true;
+          if (isWarningChecked && x.status === 'WARNING') return true;
+          if (isSafeChecked && x.status === 'SAFE') return true;
+          return false;
+        });
+      }
 
       const hasFilter = ($("globalSearch") && $("globalSearch").value.trim()) ||
                         ($("part") && $("part").value.trim()) ||
                         ($("mold") && $("mold").value.trim()) ||
                         ($("series") && $("series").value.trim()) ||
-                        _stockFilter !== 'all';
+                        !isAllChecked || isReplacedChecked;
 
       const limit = hasFilter ? filtered.length : _stockRenderLimit;
       const visibleList = filtered.slice(0, limit);
@@ -2916,11 +2417,20 @@
 
     function renderMonth() {
       const ym = selectedMonth();
+      const ySel = selectedYear();
       const selDayStr = selectedDay();
       const selDayNum = selDayStr ? parseInt(selDayStr, 10) : 0;
-      const [year, month] = ym.split("-").map(Number);
-      const days = new Date(year, month, 0).getDate();
-      $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
+      
+      let days = 31;
+      if (ym) {
+        const [year, month] = ym.split("-").map(Number);
+        days = new Date(year, month, 0).getDate();
+        $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
+      } else if (ySel) {
+        $("sheetTitle").textContent = `Tất Cả Tháng - Năm ${ySel}`;
+      } else {
+        $("sheetTitle").textContent = "Tất Cả Các Tháng";
+      }
 
       $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-series">Series</th><th class="col-mold">Mold (new)</th><th class="col-mold">Mold (old)</th><th class="col-type">Loại</th>` + 
         Array.from({ length: days }, (_, i) => {
@@ -2941,7 +2451,9 @@
       // PRE-INDEX REPLACEMENTS & SHOOTS FOR THIS MONTH (O(M) instead of O(N * M))
       const repByPartMold = new Map();
       (db.replacements || []).forEach(r => {
-        if (!r.ReplaceDate || monthKey(r.ReplaceDate) !== ym) return;
+        if (!r.ReplaceDate) return;
+        if (ym && monthKey(r.ReplaceDate) !== ym) return;
+        if (ySel && !r.ReplaceDate.startsWith(ySel)) return;
         const rPart = String(r.Part || "").toLowerCase().trim();
         const rDie = String(r.DieSet || "").toLowerCase().trim();
         const pNorm = normKey(rPart);
@@ -2965,7 +2477,9 @@
       const shootByMold = new Map();
       const shootByPartMold = new Map();
       (db.shoot || []).forEach(row => {
-        if (!row.Date || monthKey(row.Date) !== ym) return;
+        if (!row.Date) return;
+        if (ym && monthKey(row.Date) !== ym) return;
+        if (ySel && !row.Date.startsWith(ySel)) return;
         const rPart = String(row.Part || "").toLowerCase().trim();
         const rDie = String(row.DieSet || "").toLowerCase().trim();
         const pNorm = normKey(rPart);
@@ -3091,8 +2605,10 @@
         const hoverTotalShoot = formatShootHover(totalShoot);
 
         const makeCell = (day, rowType) => {
-          const date = `${ym}-${String(day).padStart(2, "0")}`;
-          const weekend = [0, 6].includes(new Date(year, month - 1, day).getDay());
+          const date = ym ? `${ym}-${String(day).padStart(2, "0")}` : `${ySel || new Date().getFullYear()}-01-${String(day).padStart(2, "0")}`;
+          const cellYear = ym ? Number(ym.split("-")[0]) : (ySel ? Number(ySel) : new Date().getFullYear());
+          const cellMonth = ym ? Number(ym.split("-")[1]) : 1;
+          const weekend = [0, 6].includes(new Date(cellYear, cellMonth - 1, day).getDay());
           const isSelectedDay = selDayNum === day;
           const dayStyle = isSelectedDay ? 'style="background:rgba(37,99,235,0.12);border:1.5px solid #2563eb;font-weight:bold;"' : '';
 
@@ -3216,11 +2732,15 @@
     }
 
     function updateCell(cell) {
-      return;
+      const type = cell.dataset.type;
       const date = cell.dataset.date;
       const dieSet = cell.dataset.dieset || activeDieSet();
       const partName = cell.dataset.part || getContext().part || "Unknown";
       const text = cell.textContent.trim();
+
+      if (!date || date.startsWith("-")) {
+        return msg("Vui lòng chọn tháng/năm cụ thể trước khi chỉnh sửa ô.", true);
+      }
 
       if (!dieSet) {
         return msg("Cần chọn linh kiện hoặc nhập Mold trước khi sửa.", true);
@@ -3283,7 +2803,7 @@
     }
 
     function selectedMonth() {
-      return $("monthPick") ? $("monthPick").value : "2026-08";
+      return $("monthPick") ? $("monthPick").value : "";
     }
 
     function selectedDay() {
@@ -3344,7 +2864,7 @@
         }
       }
 
-      select.innerHTML = [...months].sort().map(ym => {
+      select.innerHTML = `<option value="">Tất cả tháng</option>` + [...months].sort().map(ym => {
         const [year, month] = ym.split("-").map(Number);
         return `<option value="${ym}">${monthNames[month - 1]} ${year}</option>`;
       }).join("");
@@ -3425,7 +2945,7 @@
     }
 
     function exportExcelFull() {
-      if (!result.summary || !result.summary.length) {
+      if ((!result.summary || !result.summary.length) && (!db.replacements || !db.replacements.length) && (!db.shoot || !db.shoot.length)) {
         return msg("Hãy nạp dữ liệu trước khi xuất Excel.", true);
       }
       if (typeof XLSX === 'undefined') {
@@ -3433,64 +2953,12 @@
       }
 
       const wb = XLSX.utils.book_new();
-      const milestones = result.milestones || [50000, 100000, 150000, 200000, 250000];
 
-      // Sheet 1: Wear Summary (Component Wear & Frequency)
-      const summaryData = result.summary.map(r => ({
-        "Part": r.Part,
-        "Series": r.Series,
-        "Mold": r.DieSet,
-        "Completed Cycles": r.CompletedCycles,
-        "Total Shots": r.TotalShots,
-        "Total Replacements": r.TotalReplacements,
-        "Avg Life / Cycle": r.AverageShots,
-        "Min Shots": r.MinShots,
-        "Max Shots": r.MaxShots,
-        "Replacement Frequency": r.ReplacementFrequency,
-        "First Replace Milestone": r.FirstReplaceMilestone
-      }));
-      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, wsSummary, "Wear Summary");
+      // Sheet 1: Stock (Quản Lý Tồn Kho Linh Kiện)
+      const currentYm = selectedMonth();
+      const currentDay = selectedDay();
+      const currentYear = selectedYear();
 
-      // Sheet 2: Wear by Milestones (Breakdown by 50k, 100k, ...)
-      const milestoneData = result.summary.map(r => {
-        const row = {
-          "Part": r.Part,
-          "Series": r.Series,
-          "Mold": r.DieSet
-        };
-        milestones.forEach(mVal => {
-          const kLabel = (mVal / 1000) + "k";
-          row[kLabel] = r.MilestoneCounts[kLabel] || 0;
-        });
-        row["Total Replacements"] = r.TotalReplacements;
-        return row;
-      });
-      const wsMilestones = XLSX.utils.json_to_sheet(milestoneData);
-      XLSX.utils.book_append_sheet(wb, wsMilestones, "Wear by Milestones");
-
-      // Sheet 3: Replacement History
-      const repData = (db.replacements || []).map(r => ({
-        "Replace Date": r.ReplaceDate,
-        "Part": r.Part || "",
-        "Series": r.Series || "",
-        "Mold": r.DieSet || "",
-        "Label / Reason": r.Label || ""
-      }));
-      const wsReps = XLSX.utils.json_to_sheet(repData.length > 0 ? repData : [{ "Status": "Chưa có lịch sử thay thế" }]);
-      XLSX.utils.book_append_sheet(wb, wsReps, "Replacement History");
-
-      // Sheet 4: Shoot Production Data
-      const shootData = (db.shoot || []).map(r => ({
-        "Date": r.Date,
-        "Part": r.Part || "",
-        "Mold": r.DieSet || "",
-        "Output (Shots)": Number(r.Output) || 0
-      }));
-      const wsShoot = XLSX.utils.json_to_sheet(shootData.length > 0 ? shootData.slice(0, 10000) : [{ "Status": "Chưa có dữ liệu Shoot" }]);
-      XLSX.utils.book_append_sheet(wb, wsShoot, "Shoot Data");
-
-      // Sheet 5: Stock (Tồn kho linh kiện)
       const allParts = getPartsToRender('stock');
       const repCounts = {};
       const repEvents = {};
@@ -3501,6 +2969,11 @@
         const p = r.Part;
         const dNew = r.DieSet || r.NewDieSet;
         const dOld = r.OldDieSet;
+
+        if (!repDate) return;
+        if (currentYm && monthKey(repDate) !== currentYm) return;
+        if (!currentYm && currentYear && !repDate.startsWith(currentYear)) return;
+        if (currentDay && repDate.slice(8, 10) !== currentDay) return;
 
         const keys = [];
         if (dNew) keys.push(getStockItemKey(p, dNew));
@@ -3515,6 +2988,7 @@
           });
         }
       });
+
       const stockDataExcel = allParts.map(item => {
         const part = item.part;
         const mold = item.moldNew || item.moldOld || item.part;
@@ -3524,30 +2998,91 @@
         const st = getStockItem(part, mold);
         const masterItem = findMasterItem(part, mold, series);
         const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
-        const minStock = Number(st.minStock !== undefined ? st.minStock : (masterItem ? masterItem.StandardStock : 1)) || 0;
-        const used = repCounts[key] || 0;
-        const events = repEvents[key] || (moldOld ? repEvents[getStockItemKey(part, moldOld)] : []) || [];
-        const status = stock <= 0 ? "HẾT HÀNG (CRITICAL)" : (stock < minStock ? "CẦN ĐẶT HÀNG (NEED ORDER)" : "AN TOÀN (NO NEED)");
-        const detailStr = events.map((ev, i) => `Lần ${i+1}: Ngày ${ev.date} (Thay ${ev.qty} cái, ID: ${ev.requestId || 'N/A'})`).join("; ");
+        let minStock = 1;
+        if (st && st.minStockByMonth && currentYm && st.minStockByMonth[currentYm] !== undefined) {
+          minStock = Number(st.minStockByMonth[currentYm]) || 1;
+        } else if (st && st.minStock !== undefined) {
+          minStock = Number(st.minStock) || 1;
+        } else if (masterItem && masterItem.StandardStock !== undefined) {
+          minStock = Number(masterItem.StandardStock) || 1;
+        }
+
+        const keyOld = moldOld ? getStockItemKey(part, moldOld) : "";
+        const events = repEvents[key] || (keyOld ? repEvents[keyOld] : []) || [];
+        const used = events.reduce((sum, ev) => sum + (Number(ev.qty) || 0), 0);
+        const timesCount = events.length;
+
+        const datesStr = events.map(ev => {
+          const dParts = (ev.date || '').split('-');
+          return dParts.length === 3 ? `${dParts[2]}/${dParts[1]}` : ev.date;
+        }).filter(Boolean).join("  ");
+
+        const reqIdsStr = Array.from(new Set(events.map(ev => ev.requestId).filter(Boolean))).join(", ");
+
+        const combinedPartInfo = `${part}/${series}/${moldOld || '-'}/${mold || '-'}`;
 
         return {
-          "Part": part,
-          "Series": series,
-          "Mold": mold,
-          "Mức Min (STANDARD)": minStock,
-          "Tồn Kho Hiện Tại": stock,
-          "Tổng Đã Thay (Used)": used,
-          "Số Lần Thay": events.length,
-          "Chi Tiết Các Lần Thay": detailStr || "Chưa có lần thay",
-          "Trạng Thái Tồn Kho": status
+          "PART/SERIES/MOLD": combinedPartInfo,
+          "MỨC MIN": minStock,
+          "TỒN KHO": stock,
+          "ĐÃ THAY": used,
+          "SỐ LẦN": timesCount,
+          "NGÀY THAY": datesStr || "-",
+          "ID REQUEST": reqIdsStr || "-"
         };
-      });
-      const wsStock = XLSX.utils.json_to_sheet(stockDataExcel);
+      }).filter(row => row["SỐ LẦN"] > 0 || row["ĐÃ THAY"] > 0);
+
+      const wsStock = XLSX.utils.json_to_sheet(stockDataExcel.length > 0 ? stockDataExcel : [{ "STATUS": "Chưa có linh kiện phát sinh thay thế" }]);
       XLSX.utils.book_append_sheet(wb, wsStock, "Stock");
 
-      const fileName = `Mold_Wear_Frequency_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      if (currentActiveTab === "stock") {
+        const fileName = `Stock_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        return msg(`✅ Đã xuất báo cáo Tồn Kho Excel (${stockDataExcel.length} dòng) thành công!`);
+      }
+
+      // Sheet 2: Replacement History (Lịch Sử Thay Thế)
+      const repData = (db.replacements || []).map(r => ({
+        "Replace Date": r.ReplaceDate,
+        "Part": r.Part || "",
+        "Series": r.Series || "",
+        "Mold": r.DieSet || "",
+        "Label / Quantity": r.Label || "",
+        "Request ID": r.RequestId || ""
+      }));
+      const wsReps = XLSX.utils.json_to_sheet(repData.length > 0 ? repData : [{ "Status": "Chưa có lịch sử thay thế" }]);
+      XLSX.utils.book_append_sheet(wb, wsReps, "Replacement History");
+
+      // Sheet 3: Shoot Production Data (Dữ Liệu Sản Lượng Shoot)
+      const shootData = (db.shoot || []).map(r => ({
+        "Date": r.Date,
+        "Part": r.Part || "",
+        "Mold": r.DieSet || "",
+        "Output (Shots)": Number(r.Output) || 0
+      }));
+      const wsShoot = XLSX.utils.json_to_sheet(shootData.length > 0 ? shootData.slice(0, 20000) : [{ "Status": "Chưa có dữ liệu Shoot" }]);
+      XLSX.utils.book_append_sheet(wb, wsShoot, "Shoot Data");
+
+      // Sheet 4: Component Life Summary (Tổng Hợp Độ Mòn & Chu Kỳ)
+      const summaryData = (result.summary || []).map(r => ({
+        "Part": r.Part,
+        "Series": r.Series,
+        "Mold": r.DieSet,
+        "Completed Cycles": r.CompletedCycles,
+        "Total Shots": r.TotalShots,
+        "Total Replacements": r.TotalReplacements,
+        "Avg Life / Cycle": r.AverageShots,
+        "Min Shots": r.MinShots,
+        "Max Shots": r.MaxShots
+      }));
+      if (summaryData.length > 0) {
+        const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+      }
+
+      const fileName = `Component_Life_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
       XLSX.writeFile(wb, fileName);
-      msg(`✅ Đã xuất báo cáo Excel 5-Sheet (Wear, Milestones & Stock) thành công: ${fileName}`);
+      msg(`✅ Đã xuất báo cáo Excel thành công: ${fileName}`);
     }
 
     function esc(value) {
@@ -4243,9 +3778,6 @@
           buildMonthOptions(latestImportedYm);
           rebuild(false);
           renderMonth();
-          renderWearCharts();
-          renderSummaryTable();
-          renderMilestoneMatrixTable();
           renderStockTable();
           renderMetrics();
 
@@ -4253,7 +3785,7 @@
           if (errorSheets.length > 0) {
             reportHtml += `<br><span style="color:#b45309;font-weight:600;">⚠️ Cảnh báo:</span><br>` + errorSheets.map(e => `• ${esc(e)}`).join('<br>');
           }
-          reportHtml += `<br><span style="font-size:12px;opacity:0.9;">👉 Đã tự động cập nhật <b>Tab 3 (Quản Lý Tồn Kho)</b> & <b>Tab 1 (Month Sheet)</b>!</span>`;
+          reportHtml += `<br><span style="font-size:12px;opacity:0.9;">👉 Đã tự động cập nhật <b>Quản Lý Tồn Kho</b> & <b>Month Sheet</b>!</span>`;
 
           msg(reportHtml, false, 8500);
         } catch (err) {
@@ -4402,12 +3934,33 @@
     if ($("dieSet")) $("dieSet").value = "";
     if ($("mold")) $("mold").value = "";
 
+    let _currentDataVersion = null;
+
+    async function checkDataVersionLoop() {
+      try {
+        const res = await fetch("/api/version?t=" + Date.now()).then(r => r.json());
+        if (res && res.version !== undefined) {
+          if (_currentDataVersion === null) {
+            _currentDataVersion = res.version;
+          } else if (res.version > _currentDataVersion) {
+            _currentDataVersion = res.version;
+            msg("⚡ Đã tự động cập nhật dữ liệu mới nhất vừa lưu từ Excel!", false, 3500);
+            await loadMasterData();
+            await autoLoadShootMonth();
+            rebuild(false);
+            renderActiveTabOnly();
+          }
+        }
+      } catch (e) {}
+    }
+
     function initHeartbeat() {
       const ping = () => {
         fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
       };
       ping();
       setInterval(ping, 2000);
+      setInterval(checkDataVersionLoop, 1500);
 
       const notifyExit = () => {
         try {

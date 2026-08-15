@@ -25,10 +25,15 @@ foreach ($folder in @($DataDir, $ReportDir)) { if (-not (Test-Path $folder)) { N
 
 # ===== AUTO EXCEL DATA SYNC LAYER ON STARTUP =====
 try {
-    $autoSyncScript = Join-Path $Root 'auto_sync_excel.py'
-    if (Test-Path $autoSyncScript) {
-        Write-Host "🔄 Tu dong quet va cap nhat du lieu tu file Excel..." -ForegroundColor Cyan
-        & python $autoSyncScript
+    $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
+    $autoSyncPy = Join-Path $Root 'auto_sync_excel.py'
+    $hasPython = Get-Command python -ErrorAction SilentlyContinue
+    if ($hasPython -and (Test-Path $autoSyncPy)) {
+        Write-Host "🔄 Tu dong quet va cap nhat du lieu tu file Excel (Python)..." -ForegroundColor Cyan
+        & python $autoSyncPy
+    } elseif (Test-Path $autoSyncPs1) {
+        Write-Host "🔄 Tu dong quet va cap nhat du lieu tu file Excel (Native PowerShell 100%)..." -ForegroundColor Cyan
+        & powershell -ExecutionPolicy Bypass -File $autoSyncPs1
     }
 } catch {
     Write-Host "⚠️ Khong the tu dong dong bo Excel: $_" -ForegroundColor Yellow
@@ -60,6 +65,46 @@ if (-not $NoBrowser) { Start-Process $url }
 $global:lastHeartbeat = [DateTime]::Now
 $global:hasReceivedHeartbeat = $false
 $global:shouldShutdown = $false
+$global:excelDataVersion = 1
+$global:lastCheckTime = [DateTime]::Now
+$global:fileTimestamps = @{}
+
+function Check-ExcelFileChanges {
+    try {
+        $parent = Split-Path $Root -Parent
+        $candidateFiles = @(Get-ChildItem -Path $Root, $parent -Filter "*.xlsx" -ErrorAction SilentlyContinue | Where-Object { -not $_.Name.StartsWith("~$") })
+        $hasChanged = $false
+        foreach ($f in $candidateFiles) {
+            $key = $f.FullName
+            $lastM = $f.LastWriteTime.Ticks
+            if ($global:fileTimestamps.ContainsKey($key)) {
+                if ($global:fileTimestamps[$key] -ne $lastM) {
+                    $hasChanged = $true
+                    $global:fileTimestamps[$key] = $lastM
+                }
+            } else {
+                $global:fileTimestamps[$key] = $lastM
+            }
+        }
+        if ($hasChanged) {
+            Write-Host "⚡ Phat hien file Excel duoc chinh sua & luu! Dang tu dong dong bo va preload..." -ForegroundColor Cyan
+            Start-Sleep -Milliseconds 400
+            $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
+            $autoSyncPy = Join-Path $Root 'auto_sync_excel.py'
+            $hasPython = Get-Command python -ErrorAction SilentlyContinue
+            if ($hasPython -and (Test-Path $autoSyncPy)) {
+                & python $autoSyncPy
+            } elseif (Test-Path $autoSyncPs1) {
+                & powershell -ExecutionPolicy Bypass -File $autoSyncPs1
+            }
+            $global:excelDataVersion++
+            Write-Host "✅ Preload hoan tat! Data Version = v$global:excelDataVersion" -ForegroundColor Green
+        }
+    } catch {}
+}
+
+# Initial scan of Excel file timestamps
+Check-ExcelFileChanges
 
 try {
     while ($true) {
@@ -73,6 +118,10 @@ try {
         }
 
         if (-not $listener.Pending()) {
+            if (([DateTime]::Now - $global:lastCheckTime).TotalMilliseconds -gt 1000) {
+                $global:lastCheckTime = [DateTime]::Now
+                Check-ExcelFileChanges
+            }
             Start-Sleep -Milliseconds 100
             continue
         }
@@ -138,6 +187,11 @@ try {
             elseif ($path -eq '/api/shutdown') {
                 $global:shouldShutdown = $true
                 $resObj = [pscustomobject]@{ status = "shutdown_initiated" }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
+            }
+            elseif ($path -eq '/api/version') {
+                $resObj = [pscustomobject]@{ version = $global:excelDataVersion }
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                 $contentType = "application/json; charset=utf-8"
             }
