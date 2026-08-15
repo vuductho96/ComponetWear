@@ -2284,6 +2284,46 @@
         }
       });
 
+      (db.shoot || []).forEach(s => {
+        const mold = String(s.DieSet || "").trim();
+        const part = String(s.Part || "").trim();
+        if (mold) {
+          const hasMold = Array.from(partsMap.values()).some(p => 
+            p.moldNew.toLowerCase() === mold.toLowerCase() || 
+            p.moldOld.toLowerCase() === mold.toLowerCase() ||
+            p.part.toLowerCase() === mold.toLowerCase()
+          );
+          if (!hasMold) {
+            const pName = part || mold;
+            const key = pName + "|" + mold;
+            if (!partsMap.has(key)) {
+              partsMap.set(key, {
+                part: pName,
+                series: "-",
+                moldOld: "",
+                moldNew: mold
+              });
+            }
+          }
+        }
+      });
+
+      (db.replacements || []).forEach(r => {
+        const mold = String(r.DieSet || r.NewDieSet || r.OldDieSet || "").trim();
+        const part = String(r.Part || "").trim();
+        if (part && isValidPartName(part)) {
+          const key = part + "|" + mold;
+          if (!partsMap.has(key)) {
+            partsMap.set(key, {
+              part: part,
+              series: r.Series || "-",
+              moldOld: r.OldDieSet || "",
+              moldNew: mold || r.OldDieSet || ""
+            });
+          }
+        }
+      });
+
       _allPartsCache = Array.from(partsMap.values());
     }
 
@@ -2321,7 +2361,7 @@
         const q = globalQuery;
         
         let matched = list.filter(x => {
-          return isSmartMatch(x.part, q) || isSmartMatch(x.moldOld, q);
+          return isSmartMatch(x.part, q) || isSmartMatch(x.moldNew, q) || isSmartMatch(x.moldOld, q) || isSmartMatch(x.series, q);
         });
 
         matched.sort((a, b) => {
@@ -2332,9 +2372,16 @@
             const pTokens = p.split(/[\s\-_/.]+/);
             if (pTokens.some(tok => tok === q || tok.startsWith(q))) return 3;
 
+            const mNew = (item.moldNew || "").toLowerCase();
+            if (mNew === q) return 4;
+            if (mNew.startsWith(q) || isSmartMatch(mNew, q)) return 5;
+
             const mOld = (item.moldOld || "").toLowerCase();
-            if (mOld === q) return 4;
-            if (mOld.startsWith(q) || isSmartMatch(mOld, q)) return 5;
+            if (mOld === q) return 6;
+            if (mOld.startsWith(q) || isSmartMatch(mOld, q)) return 7;
+
+            const s = (item.series || "").toLowerCase();
+            if (s === q || s.startsWith(q) || isSmartMatch(s, q)) return 8;
 
             return 99;
           };

@@ -153,6 +153,18 @@ function Safe-WriteAllText($targetPath, $textContent) {
     throw "Safe-WriteAllText failed for path '$targetPath': $lastError"
 }
 
+if (-not (Get-Command Log-Msg -ErrorAction SilentlyContinue)) {
+    function Log-Msg($msg, $color = $null) {
+        $timeStr = [DateTime]::Now.ToString("HH:mm:ss")
+        $formatted = "[$timeStr] $msg"
+        if ($color) {
+            Write-Host $formatted -ForegroundColor $color
+        } else {
+            [Console]::WriteLine($formatted)
+        }
+    }
+}
+
 function Save-JsonFileWithBackupAndValidation($targetPath, $contentStr, $isObject = $false) {
     if (-not $contentStr -or [string]::IsNullOrWhiteSpace($contentStr)) {
         $contentStr = if ($isObject) { "{}" } else { "[]" }
@@ -203,27 +215,55 @@ function Parse-ExcelDate($raw) {
     $rawStr = [string]$raw.Trim()
     if (-not $rawStr) { return "" }
 
-    # YYYY-MM-DD
-    if ($rawStr -match '^\d{4}-\d{2}-\d{2}$') { return $rawStr }
-
-    # DD/MM/YYYY or DD-MM-YYYY (Fix P0-7: parts[0]=Day, parts[1]=Month, parts[2]=Year)
-    if ($rawStr -match '^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$') {
-        $dNum = [int]$Matches[1]
-        $mNum = [int]$Matches[2]
-        $yNum = [int]$Matches[3]
+    # 1. YYYY-MM-DD or YYYY/MM/DD
+    if ($rawStr -match '^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$') {
+        $yNum = [int]$Matches[1]; $mNum = [int]$Matches[2]; $dNum = [int]$Matches[3]
         if ($mNum -ge 1 -and $mNum -le 12 -and $dNum -ge 1 -and $dNum -le [DateTime]::DaysInMonth($yNum, $mNum)) {
             return ("{0:D4}-{1:D2}-{2:D2}" -f $yNum, $mNum, $dNum)
         }
     }
 
-    # Excel Serial Date Number
+    # 2. Excel Serial Date Number (e.g. 46203)
     $d = 0.0
-    if ([double]::TryParse($rawStr, [ref]$d)) {
+    if ([double]::TryParse($rawStr, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$d)) {
         if ($d -gt 30000 -and $d -lt 60000) {
             $base = [DateTime]::new(1899, 12, 30)
             return $base.AddDays($d).ToString("yyyy-MM-dd")
         }
     }
+
+    # 3. Two-number date with 4-digit year (M/D/YYYY, D/M/YYYY, etc.)
+    if ($rawStr -match '^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$') {
+        $n1 = [int]$Matches[1]
+        $n2 = [int]$Matches[2]
+        $yNum = [int]$Matches[3]
+        
+        # Case A: n2 > 12 -> n1 is Month, n2 is Day (e.g. 8/15/2026 -> Month 8, Day 15)
+        if ($n1 -ge 1 -and $n1 -le 12 -and $n2 -gt 12 -and $n2 -le [DateTime]::DaysInMonth($yNum, $n1)) {
+            return ("{0:D4}-{1:D2}-{2:D2}" -f $yNum, $n1, $n2)
+        }
+        # Case B: n1 > 12 -> n1 is Day, n2 is Month (e.g. 15/8/2026 -> Day 15, Month 8)
+        if ($n2 -ge 1 -and $n2 -le 12 -and $n1 -gt 12 -and $n1 -le [DateTime]::DaysInMonth($yNum, $n2)) {
+            return ("{0:D4}-{1:D2}-{2:D2}" -f $yNum, $n2, $n1)
+        }
+        # Case C: Both <= 12 -> Check standard D/M/YYYY or M/D/YYYY
+        if ($n2 -ge 1 -and $n2 -le 12 -and $n1 -ge 1 -and $n1 -le [DateTime]::DaysInMonth($yNum, $n2)) {
+            return ("{0:D4}-{1:D2}-{2:D2}" -f $yNum, $n2, $n1)
+        }
+        if ($n1 -ge 1 -and $n1 -le 12 -and $n2 -ge 1 -and $n2 -le [DateTime]::DaysInMonth($yNum, $n1)) {
+            return ("{0:D4}-{1:D2}-{2:D2}" -f $yNum, $n1, $n2)
+        }
+    }
+
+    # 4. Fallback .NET DateTime.TryParse
+    $parsedDt = [DateTime]::MinValue
+    if ([DateTime]::TryParse($rawStr, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$parsedDt) -or
+        [DateTime]::TryParse($rawStr, [ref]$parsedDt)) {
+        if ($parsedDt.Year -ge 2000 -and $parsedDt.Year -le 2100) {
+            return $parsedDt.ToString("yyyy-MM-dd")
+        }
+    }
+
     return ""
 }
 
@@ -289,7 +329,7 @@ if ($currentCache.Count -ne $newCache.Count) {
 }
 
 if (-not $needSync) {
-    Write-Host "[3/5] Sync Excel -> JSON -> OK (Fast Cache 5ms)" -ForegroundColor Green
+    Log-Msg "[3/5] Sync Excel -> JSON -> OK (Fast Cache 5ms)" Green
     return
 }
 
@@ -435,14 +475,42 @@ foreach ($excelPath in $candidateFiles) {
             elseif ($sNameLower.Contains("shoot")) {
                 $syncedShootSheets++
                 $rowsList = Read-SheetRowsFast $sEntry $sharedStrings
+                if ($rowsList.Count -eq 0) { continue }
+
+                # Dynamic column mapping by detecting headers in first 5 rows
+                $colDate = 1
+                $colMold = 2
+                $colOutput = 3
+                $colMachine = 0
+                $colPart = 0
+                $dataStartRow = 2
+
+                for ($i = 0; $i -lt [Math]::Min(5, $rowsList.Count); $i++) {
+                    $rHeader = $rowsList[$i].Cells
+                    $foundHeader = $false
+                    foreach ($cIdx in $rHeader.Keys) {
+                        $hVal = $rHeader[$cIdx].ToLower().Trim()
+                        if ($hVal -eq "date" -or $hVal -eq "ngay") { $colDate = $cIdx; $foundHeader = $true }
+                        elseif ($hVal -like "*mold*" -or $hVal -like "*die*" -or $hVal -like "*khuon*") { $colMold = $cIdx; $foundHeader = $true }
+                        elseif ($hVal -eq "output" -or $hVal -like "*shoot*" -or $hVal -like "*shot*" -or $hVal -like "*san luong*") { $colOutput = $cIdx; $foundHeader = $true }
+                        elseif ($hVal -like "*machine*" -or $hVal -eq "mc" -or $hVal -like "*may*") { $colMachine = $cIdx; $foundHeader = $true }
+                        elseif ($hVal -like "*part*" -or $hVal -like "*linh kien*") { $colPart = $cIdx; $foundHeader = $true }
+                    }
+                    if ($foundHeader) {
+                        $dataStartRow = $rowsList[$i].RowIdx + 1
+                        break
+                    }
+                }
+
                 foreach ($rowObj in $rowsList) {
+                    if ($rowObj.RowIdx -lt $dataStartRow) { continue }
                     $rDict = $rowObj.Cells
-                    # Fix P0-1 & P1-1: Col 1 = Date, Col 2 = Machine, Col 3 = Mold/DieSet, Col 4 = Output, Col 5 = Part
-                    $dtRaw = if ($rDict.ContainsKey(1)) { $rDict[1].Trim() } else { "" }
-                    $machineRaw = if ($rDict.ContainsKey(2)) { $rDict[2].Trim() } else { "" }
-                    $moldRaw = if ($rDict.ContainsKey(3)) { $rDict[3].Trim() } else { "" }
-                    $outRaw = if ($rDict.ContainsKey(4)) { $rDict[4].Trim() } else { "" }
-                    $partRaw = if ($rDict.ContainsKey(5)) { $rDict[5].Trim() } else { "" }
+
+                    $dtRaw = if ($colDate -and $rDict.ContainsKey($colDate)) { $rDict[$colDate].Trim() } else { "" }
+                    $moldRaw = if ($colMold -and $rDict.ContainsKey($colMold)) { $rDict[$colMold].Trim() } else { "" }
+                    $outRaw = if ($colOutput -and $rDict.ContainsKey($colOutput)) { $rDict[$colOutput].Trim() } else { "" }
+                    $machineRaw = if ($colMachine -and $rDict.ContainsKey($colMachine)) { $rDict[$colMachine].Trim() } else { "" }
+                    $partRaw = if ($colPart -and $rDict.ContainsKey($colPart)) { $rDict[$colPart].Trim() } else { "" }
 
                     if ($dtRaw -and $moldRaw -and $outRaw) {
                         $dtStr = Parse-ExcelDate $dtRaw
@@ -465,8 +533,8 @@ foreach ($excelPath in $candidateFiles) {
                     }
                 }
             }
-            # --- C. Month Sheets (e.g. 07-2026 or 7-2026) ---
-            elseif ($sName -match '^(\d{1,2})[-/](\d{4})$') {
+            # --- C. Month Sheets (e.g. 07-2026, 7-2026, 6_2026, T6-2026, Tháng 6-2027, etc.) ---
+            elseif ($sName -match '(?:th[aá]ng\s*|t\s*)?(\d{1,2})[\s\-_/]+(\d{4})' -and [int]$Matches[1] -ge 1 -and [int]$Matches[1] -le 12 -and [int]$Matches[2] -ge 2000 -and [int]$Matches[2] -le 2100) {
                 $syncedMonthSheets++
                 $mNum = [int]$Matches[1]
                 $yNum = [int]$Matches[2]
@@ -619,4 +687,4 @@ if ($newCache.Count -gt 0) {
 $repCount = $replacements.Count
 $masterCount = $masterMap.Count
 $totalSheets = $syncedMonthSheets + $syncedPartSheets + $syncedShootSheets
-Write-Host "[3/5] Sync Excel -> JSON -> OK ($totalSheets sheets | $repCount luot thay | $masterCount master)" -ForegroundColor Green
+Log-Msg "[3/5] Sync Excel -> JSON -> OK ($totalSheets sheets | $repCount luot thay | $masterCount master)" Green

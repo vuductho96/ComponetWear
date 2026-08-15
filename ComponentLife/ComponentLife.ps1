@@ -5,13 +5,23 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Log-Msg($msg, $color = $null) {
+    $timeStr = [DateTime]::Now.ToString("HH:mm:ss")
+    $formatted = "[$timeStr] $msg"
+    if ($color) {
+        Write-Host $formatted -ForegroundColor $color
+    } else {
+        [Console]::WriteLine($formatted)
+    }
+}
+
 # STEP 1: Close Old UI
 try {
     $null = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/close-old-ui" -TimeoutSec 1
-    Write-Host "[1/5] Dong UI cu          -> OK" -ForegroundColor Green
+    Log-Msg "[1/5] Dong UI cu          -> OK" Green
     Start-Sleep -Milliseconds 400
 } catch {
-    Write-Host "[1/5] Dong UI cu          -> SKIP (Chua mo)" -ForegroundColor Gray
+    Log-Msg "[1/5] Dong UI cu          -> SKIP (Chua mo)" Gray
 }
 
 # STEP 2: Fast Native CLR Port Check (30ms, Zero WMI/RPC)
@@ -21,7 +31,7 @@ try {
         Start-Sleep -Milliseconds 300
     }
 } catch {}
-Write-Host "[2/5] Don dep Port $Port    -> OK" -ForegroundColor Green
+Log-Msg "[2/5] Don dep Port $Port    -> OK" Green
 
 # Single instance managed via TCP Listener port binding
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -34,14 +44,14 @@ $StockFile = Join-Path $DataDir 'stock-data.json'
 foreach ($folder in @($DataDir, $ReportDir)) { if (-not (Test-Path $folder)) { New-Item -ItemType Directory -Path $folder | Out-Null } }
 
 # STEP 3: Auto Excel Sync
-[Console]::WriteLine("[3/5] Sync Excel -> JSON -> Dang quet file...")
+Log-Msg "[3/5] Sync Excel -> JSON -> Dang quet file..."
 try {
     $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
     if (Test-Path $autoSyncPs1) {
         . $autoSyncPs1
     }
 } catch {
-    [Console]::WriteLine("[3/5] Sync Excel -> JSON -> LOI: $_")
+    Log-Msg "[3/5] Sync Excel -> JSON -> LOI: $_" Red
 }
 
 $listener = $null
@@ -113,14 +123,14 @@ function Check-ExcelFileChanges {
             }
         }
         if ($hasChanged) {
-            Write-Host "⚡ Phat hien file Excel duoc chinh sua & luu! Dang tu dong dong bo va preload..." -ForegroundColor Cyan
+            Log-Msg "⚡ Phat hien file Excel duoc chinh sua & luu! Dang tu dong dong bo va preload..." Cyan
             # Debounce to allow Excel to finish writing/closing file handle
             Start-Sleep -Milliseconds 800
             Trigger-ExcelSync | Out-Null
-            Write-Host "✅ Preload hoan tat! Data Version = v$global:excelDataVersion" -ForegroundColor Green
+            Log-Msg "✅ Preload hoan tat! Data Version = v$global:excelDataVersion" Green
         }
     } catch {
-        Write-Host "⚠️ Thong bao doc file Excel: $_" -ForegroundColor Yellow
+        Log-Msg "⚠️ Thong bao doc file Excel: $_" Yellow
     }
 }
 
@@ -134,19 +144,19 @@ try {
 } catch {}
 
 $url = "http://127.0.0.1:$boundPort/"
-Write-Host "[4/5] Chay Server 8787   -> OK ($url)" -ForegroundColor Green
+Log-Msg "[4/5] Chay Server 8787   -> OK ($url)" Green
 
 if (-not $NoBrowser) {
     Start-Process $url
-    Write-Host "[5/5] Mo UI Trinh Duyet  -> OK" -ForegroundColor Green
+    Log-Msg "[5/5] Mo UI Trinh Duyet  -> OK" Green
 }
 
-Write-Host "💡 Server dang chay lien tuc (Nhan Ctrl+C de dung)..." -ForegroundColor DarkGray
+Log-Msg "💡 Server dang chay lien tuc (Nhan Ctrl+C de dung)..." DarkGray
 
 try {
     while ($true) {
         if ($global:shouldShutdown) {
-            Write-Host "Shutting down ComponentLife server..." -ForegroundColor Yellow
+            Log-Msg "Shutting down ComponentLife server..." Yellow
             break
         }
 
