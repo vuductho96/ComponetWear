@@ -98,7 +98,7 @@ function Check-ExcelFileChanges {
     try {
         if ($global:isSyncing) { return }
         $parent = Split-Path $Root -Parent
-        $candidateFiles = @(Get-ChildItem -Path $Root, $parent -Filter "*.xlsx" -ErrorAction SilentlyContinue | Where-Object { -not $_.Name.StartsWith("~$") })
+        $candidateFiles = @(Get-ChildItem -Path $Root, $parent -Filter "*.xlsx" -ErrorAction SilentlyContinue | Where-Object { -not $_.Name.StartsWith("~$") -and -not $_.Name.StartsWith("BAO_CAO_") -and -not $_.Name.StartsWith("REPORT_") })
         $hasChanged = $false
         foreach ($f in $candidateFiles) {
             $key = $f.FullName
@@ -114,19 +114,20 @@ function Check-ExcelFileChanges {
         }
         if ($hasChanged) {
             Write-Host "⚡ Phat hien file Excel duoc chinh sua & luu! Dang tu dong dong bo va preload..." -ForegroundColor Cyan
-            $global:lastHeartbeat = [DateTime]::Now
-            Start-Sleep -Milliseconds 200
+            # Debounce to allow Excel to finish writing/closing file handle
+            Start-Sleep -Milliseconds 800
             Trigger-ExcelSync | Out-Null
-            $global:lastHeartbeat = [DateTime]::Now
             Write-Host "✅ Preload hoan tat! Data Version = v$global:excelDataVersion" -ForegroundColor Green
         }
-    } catch {}
+    } catch {
+        Write-Host "⚠️ Thong bao doc file Excel: $_" -ForegroundColor Yellow
+    }
 }
 
 # Populate initial Excel file timestamps
 try {
     $parent = Split-Path $Root -Parent
-    $candidateFiles = @(Get-ChildItem -Path $Root, $parent -Filter "*.xlsx" -ErrorAction SilentlyContinue | Where-Object { -not $_.Name.StartsWith("~$") })
+    $candidateFiles = @(Get-ChildItem -Path $Root, $parent -Filter "*.xlsx" -ErrorAction SilentlyContinue | Where-Object { -not $_.Name.StartsWith("~$") -and -not $_.Name.StartsWith("BAO_CAO_") -and -not $_.Name.StartsWith("REPORT_") })
     foreach ($f in $candidateFiles) {
         $global:fileTimestamps[$f.FullName] = $f.LastWriteTime.Ticks
     }
@@ -140,14 +141,12 @@ if (-not $NoBrowser) {
     Write-Host "[5/5] Mo UI Trinh Duyet  -> OK" -ForegroundColor Green
 }
 
+Write-Host "💡 Server dang chay lien tuc (Nhan Ctrl+C de dung)..." -ForegroundColor DarkGray
+
 try {
     while ($true) {
         if ($global:shouldShutdown) {
             Write-Host "Shutting down ComponentLife server..." -ForegroundColor Yellow
-            break
-        }
-        if ($global:hasReceivedHeartbeat -and ([DateTime]::Now - $global:lastHeartbeat).TotalSeconds -gt 25) {
-            Write-Host "Browser closed (heartbeat timeout 25s). Stopping ComponentLife server..." -ForegroundColor Yellow
             break
         }
 

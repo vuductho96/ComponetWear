@@ -17,3 +17,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ComponentLife\Componen
 
 echo.
 echo [ComponentLife] Server stopped.
+pause
