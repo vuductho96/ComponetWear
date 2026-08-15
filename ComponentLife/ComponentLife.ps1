@@ -5,15 +5,25 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# ===== SINGLE INSTANCE CHECK =====
-$createdNew = $false
-$mutex = New-Object System.Threading.Mutex($true, "Global\ComponentLife_SingleInstance_Mutex_v2", [ref]$createdNew)
-if (-not $createdNew) {
-    $url = "http://127.0.0.1:$Port/"
-    if (-not $NoBrowser) { Start-Process $url }
-    exit 0
+# STEP 1: Close Old UI
+try {
+    $null = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/close-old-ui" -TimeoutSec 1
+    Write-Host "[1/5] Dong UI cu          -> OK" -ForegroundColor Green
+    Start-Sleep -Milliseconds 400
+} catch {
+    Write-Host "[1/5] Dong UI cu          -> SKIP (Chua mo)" -ForegroundColor Gray
 }
 
+# STEP 2: Fast Native CLR Port Check (30ms, Zero WMI/RPC)
+try {
+    $activeListeners = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners()
+    if ($activeListeners | Where-Object { $_.Port -eq $Port }) {
+        Start-Sleep -Milliseconds 300
+    }
+} catch {}
+Write-Host "[2/5] Don dep Port $Port    -> OK" -ForegroundColor Green
+
+# Single instance managed via TCP Listener port binding
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DataDir = Join-Path $Root 'data'
 $ReportDir = Join-Path $Root 'reports'
@@ -23,15 +33,15 @@ $StockFile = Join-Path $DataDir 'stock-data.json'
 
 foreach ($folder in @($DataDir, $ReportDir)) { if (-not (Test-Path $folder)) { New-Item -ItemType Directory -Path $folder | Out-Null } }
 
-# ===== AUTO EXCEL DATA SYNC LAYER ON STARTUP =====
+# STEP 3: Auto Excel Sync
+[Console]::WriteLine("[3/5] Sync Excel -> JSON -> Dang quet file...")
 try {
     $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
     if (Test-Path $autoSyncPs1) {
-        Write-Host "🔄 Tu dong quet va cap nhat du lieu tu file Excel (Native PowerShell 100%)..." -ForegroundColor Cyan
         . $autoSyncPs1
     }
 } catch {
-    Write-Host "⚠️ Khong the tu dong dong bo Excel: $_" -ForegroundColor Yellow
+    [Console]::WriteLine("[3/5] Sync Excel -> JSON -> LOI: $_")
 }
 
 $listener = $null
@@ -57,6 +67,7 @@ if (-not $listener) {
 $global:lastHeartbeat = [DateTime]::Now
 $global:hasReceivedHeartbeat = $false
 $global:shouldShutdown = $false
+$global:shouldCloseUi = $false
 $global:excelDataVersion = 1
 $global:lastCheckTime = [DateTime]::Now
 $global:fileTimestamps = @{}
@@ -67,6 +78,7 @@ function Trigger-ExcelSync {
     $global:isSyncing = $true
     $executedEngine = "none"
     try {
+        $global:lastHeartbeat = [DateTime]::Now
         $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
         if (Test-Path $autoSyncPs1) {
             . $autoSyncPs1
@@ -76,6 +88,7 @@ function Trigger-ExcelSync {
     } catch {
         Write-Host "⚠️ Non-fatal sync notice: $_" -ForegroundColor Yellow
     } finally {
+        $global:lastHeartbeat = [DateTime]::Now
         $global:isSyncing = $false
     }
     return $executedEngine
@@ -101,8 +114,10 @@ function Check-ExcelFileChanges {
         }
         if ($hasChanged) {
             Write-Host "⚡ Phat hien file Excel duoc chinh sua & luu! Dang tu dong dong bo va preload..." -ForegroundColor Cyan
+            $global:lastHeartbeat = [DateTime]::Now
             Start-Sleep -Milliseconds 200
             Trigger-ExcelSync | Out-Null
+            $global:lastHeartbeat = [DateTime]::Now
             Write-Host "✅ Preload hoan tat! Data Version = v$global:excelDataVersion" -ForegroundColor Green
         }
     } catch {}
@@ -118,8 +133,12 @@ try {
 } catch {}
 
 $url = "http://127.0.0.1:$boundPort/"
-Write-Host "Component Life đang chay tai $url (nhan Ctrl+C de dung)" -ForegroundColor Green
-if (-not $NoBrowser) { Start-Process $url }
+Write-Host "[4/5] Chay Server 8787   -> OK ($url)" -ForegroundColor Green
+
+if (-not $NoBrowser) {
+    Start-Process $url
+    Write-Host "[5/5] Mo UI Trinh Duyet  -> OK" -ForegroundColor Green
+}
 
 try {
     while ($true) {
@@ -127,8 +146,8 @@ try {
             Write-Host "Shutting down ComponentLife server..." -ForegroundColor Yellow
             break
         }
-        if ($global:hasReceivedHeartbeat -and ([DateTime]::Now - $global:lastHeartbeat).TotalSeconds -gt 5) {
-            Write-Host "Browser closed (heartbeat timeout). Stopping ComponentLife server..." -ForegroundColor Yellow
+        if ($global:hasReceivedHeartbeat -and ([DateTime]::Now - $global:lastHeartbeat).TotalSeconds -gt 25) {
+            Write-Host "Browser closed (heartbeat timeout 25s). Stopping ComponentLife server..." -ForegroundColor Yellow
             break
         }
 
@@ -203,10 +222,16 @@ try {
                 } else {
                     $global:lastHeartbeat = [DateTime]::Now
                     $global:hasReceivedHeartbeat = $true
-                    $resObj = [pscustomobject]@{ status = "ok"; time = $global:lastHeartbeat.ToString("o") }
+                    $resObj = [pscustomobject]@{ status = "ok"; time = $global:lastHeartbeat.ToString("o"); closeUi = $global:shouldCloseUi; version = $global:excelDataVersion }
                     $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                     $contentType = "application/json; charset=utf-8"
                 }
+            }
+            elseif ($path -eq '/api/close-old-ui') {
+                $global:shouldCloseUi = $true
+                $resObj = [pscustomobject]@{ status = "close_ui_requested"; closeUi = $true }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
             }
             elseif ($path -eq '/api/shutdown') {
                 $global:shouldShutdown = $true
@@ -242,12 +267,13 @@ try {
                     $outVal = [decimal]$row.Output
                     if ($outVal -le 0) { continue }
                     $partStr = if ($row.Part) { [string]$row.Part } else { "" }
+                    $machStr = if ($row.Machine) { [string]$row.Machine } else { "" }
                     $dieStr = if ($row.DieSet) { [string]$row.DieSet } else { "" }
-                    $key = "$($row.Date)|$partStr|$dieStr"
+                    $key = "$($row.Date)|$machStr|$dieStr|$partStr"
                     if ($map.Contains($key)) {
                         $map[$key].Output += $outVal
                     } else {
-                        $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; Part=$partStr; DieSet=$dieStr; Output=$outVal }
+                        $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; Machine=$machStr; Part=$partStr; DieSet=$dieStr; Output=$outVal }
                     }
                 }
                 $cleanList = @($map.Values | Sort-Object Date, Part, DieSet)
@@ -302,12 +328,13 @@ try {
                         $outVal = [decimal]$row.Output
                         if ($outVal -le 0) { continue }
                         $partStr = if ($row.Part) { [string]$row.Part } else { "" }
+                        $machStr = if ($row.Machine) { [string]$row.Machine } else { "" }
                         $dieStr = if ($row.DieSet) { [string]$row.DieSet } else { "" }
-                        $key = "$($row.Date)|$partStr|$dieStr"
+                        $key = "$($row.Date)|$machStr|$dieStr|$partStr"
                         if ($map.Contains($key)) {
                             $map[$key].Output += $outVal
                         } else {
-                            $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; Part=$partStr; DieSet=$dieStr; Output=$outVal }
+                            $map[$key] = [pscustomobject]@{ Date=[string]$row.Date; Machine=$machStr; Part=$partStr; DieSet=$dieStr; Output=$outVal }
                         }
                     }
                     $rawShootList = @($map.Values | Sort-Object Date, Part, DieSet)
@@ -326,14 +353,15 @@ try {
                 $shootMap = [ordered]@{}
                 foreach ($s in $rawShootList) {
                     $partStr = if ($s.Part) { [string]$s.Part } else { "" }
+                    $machStr = if ($s.Machine) { [string]$s.Machine } else { "" }
                     $dieStr = if ($s.DieSet) { [string]$s.DieSet } else { "" }
-                    $key = "$($s.Date)|$partStr|$dieStr"
+                    $key = "$($s.Date)|$machStr|$dieStr|$partStr"
                     $outVal = [decimal]($s.Output)
                     if ($outVal -gt 0) {
                         if ($shootMap.Contains($key)) {
                             $shootMap[$key].Output += $outVal
                         } else {
-                            $shootMap[$key] = [pscustomobject]@{ Date = [string]$s.Date; Part = $partStr; DieSet = $dieStr; Output = $outVal }
+                            $shootMap[$key] = [pscustomobject]@{ Date = [string]$s.Date; Machine = $machStr; Part = $partStr; DieSet = $dieStr; Output = $outVal }
                         }
                     }
                 }

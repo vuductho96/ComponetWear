@@ -3091,6 +3091,7 @@
     let masterData = [];
 
     function populatePartList() {
+      invalidatePartsCache();
       const partDatalist = $("partList");
       const moldDatalist = $("moldList");
       const searchDatalist = $("searchList");
@@ -3787,7 +3788,7 @@
           const list = await res.json();
           if (Array.isArray(list)) {
             db.rawShoot = JSON.parse(JSON.stringify(list));
-            db.shoot = list.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+            db.shoot = list.sort((a, b) => (a.Date || '').localeCompare(b.Date || '') || (a.DieSet || '').localeCompare(b.DieSet || ''));
           }
         }
       } catch (e) {
@@ -3817,6 +3818,7 @@
         }
       } catch (e) {}
 
+      invalidatePartsCache();
       buildMonthOptions();
       rebuild(false);
       renderActiveTabOnly();
@@ -3919,22 +3921,24 @@
     let _currentDataVersion = null;
 
     async function loadAllDataFromSource() {
-      console.log("%c[ComponentLife Debug] 🚀 Step 1: Starting data loading pipeline from source...", "color:#4f46e5; font-weight:bold; font-size:13px;");
-      console.log("%c[ComponentLife Debug] 📥 Step 2: Fetching fresh ComponentMaster.json...", "color:#0284c7; font-weight:bold;");
+      invalidatePartsCache();
+      console.log("%c[STEP 5.1/5.5] 🚀 Starting UI data loading pipeline from source...", "color:#4f46e5; font-weight:bold; font-size:13px;");
+      console.log("%c[STEP 5.2/5.5] 📥 Fetching ComponentMaster.json...", "color:#0284c7; font-weight:bold;");
       await loadMasterData();
-      console.log(`%c[ComponentLife Debug] ✅ ComponentMaster loaded (${(masterData || []).length} items)`, "color:#059669; font-weight:bold;");
+      console.log(`%c[STEP 5.2/5.5] ✅ ComponentMaster loaded (${(masterData || []).length} items)`, "color:#059669; font-weight:bold;");
 
-      console.log("%c[ComponentLife Debug] 📥 Step 3: Fetching fresh shoot-data, replacement-log & stock-data...", "color:#0284c7; font-weight:bold;");
+      console.log("%c[STEP 5.3/5.5] 📥 Fetching shoot-data, replacement-log & stock-data...", "color:#0284c7; font-weight:bold;");
       await autoLoadShootMonth();
-      console.log(`%c[ComponentLife Debug] ✅ Data payload loaded (${(db.shoot || []).length} shoots, ${(db.replacements || []).length} replacements, ${Object.keys(_stockData || {}).length} stock records)`, "color:#059669; font-weight:bold;");
+      console.log(`%c[STEP 5.3/5.5] ✅ Data payload loaded (${(db.shoot || []).length} shoots, ${(db.replacements || []).length} replacements, ${Object.keys(_stockData || {}).length} stock records)`, "color:#059669; font-weight:bold;");
 
-      console.log("%c[ComponentLife Debug] ⚙️ Step 4: Rebuilding calculation engine & cycle metrics...", "color:#d97706; font-weight:bold;");
+      invalidatePartsCache();
+      console.log("%c[STEP 5.4/5.5] ⚙️ Rebuilding calculation engine & cycle metrics...", "color:#d97706; font-weight:bold;");
       rebuild(false);
 
-      console.log("%c[ComponentLife Debug] 🎨 Step 5: Rendering active UI tab...", "color:#8b5cf6; font-weight:bold;");
+      console.log("%c[STEP 5.5/5.5] 🎨 Rendering active UI tab...", "color:#8b5cf6; font-weight:bold;");
       renderActiveTabOnly();
 
-      console.log("%c[ComponentLife Debug] 🎉 Data loading pipeline complete! Server source data is 100% active.", "color:#059669; font-weight:bold; font-size:13px;");
+      console.log("%c[STEP 5.5/5.5] 🎉 UI Rendering Complete! Server source data is 100% active.", "color:#059669; font-weight:bold; font-size:13px;");
     }
 
     async function checkDataVersionLoop() {
@@ -3954,10 +3958,19 @@
 
     function initHeartbeat() {
       const ping = () => {
-        fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
+        fetch("/api/heartbeat", { method: "POST" })
+          .then(r => r.json())
+          .then(data => {
+            if (data && data.closeUi) {
+              console.log("%c[ComponentLife] Closing old UI tab per server restart request...", "color:#ef4444; font-weight:bold;");
+              window.open('', '_self', '');
+              window.close();
+            }
+          })
+          .catch(() => {});
       };
       ping();
-      setInterval(ping, 2000);
+      setInterval(ping, 1000);
       setInterval(checkDataVersionLoop, 1500);
 
       const notifyExit = () => {

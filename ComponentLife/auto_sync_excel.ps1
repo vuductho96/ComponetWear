@@ -1,7 +1,7 @@
 # auto_sync_excel.ps1 - Fast Pure PowerShell 100% Zero-Dependency Excel Auto-Sync Engine
 param()
 
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DataDir = Join-Path $Root 'data'
@@ -11,72 +11,245 @@ $MasterFile = Join-Path $Root 'ComponentMaster.json'
 $ShootFile = Join-Path $DataDir 'shoot-data.json'
 $ReplacementFile = Join-Path $DataDir 'replacement-log.json'
 $StockFile = Join-Path $DataDir 'stock-data.json'
+$CacheFile = Join-Path $DataDir '.sync_cache.json'
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+Add-Type -AssemblyName System.Xml
+
+if (-not ([System.Management.Automation.PSTypeName]'FastExcelReader').Type) {
+    $csharpCode = @"
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Xml;
+using System.Collections.Generic;
+
+public class FastExcelReader {
+    public class RowData {
+        public int RowIdx;
+        public Dictionary<int, string> Cells = new Dictionary<int, string>();
+    }
+
+    public static List<string> ReadSharedStrings(ZipArchiveEntry entry) {
+        var list = new List<string>(5000);
+        if (entry == null) return list;
+        using (var stream = entry.Open())
+        using (var xr = XmlReader.Create(stream, new XmlReaderSettings { IgnoreWhitespace = true })) {
+            var sb = new System.Text.StringBuilder();
+            bool inT = false;
+            while (xr.Read()) {
+                if (xr.NodeType == XmlNodeType.Element) {
+                    if (xr.Name == "si") sb.Length = 0;
+                    else if (xr.Name == "t") inT = true;
+                } else if (xr.NodeType == XmlNodeType.Text) {
+                    if (inT) sb.Append(xr.Value);
+                } else if (xr.NodeType == XmlNodeType.EndElement) {
+                    if (xr.Name == "t") inT = false;
+                    else if (xr.Name == "si") list.Add(sb.ToString());
+                }
+            }
+        }
+        return list;
+    }
+
+    public static List<RowData> ReadSheet(ZipArchiveEntry entry, List<string> sharedStrings) {
+        var list = new List<RowData>(50000);
+        if (entry == null) return list;
+        using (var stream = entry.Open())
+        using (var xr = XmlReader.Create(stream, new XmlReaderSettings { IgnoreWhitespace = true })) {
+            RowData currentRow = null;
+            string currentRef = null;
+            string currentT = null;
+            string currentVal = "";
+            string inlineVal = "";
+            bool inVal = false;
+            bool inT = false;
+            bool inIs = false;
+
+            while (xr.Read()) {
+                if (xr.NodeType == XmlNodeType.Element) {
+                    string name = xr.Name;
+                    if (name == "row") {
+                        int r = 0;
+                        string rStr = xr.GetAttribute("r");
+                        if (rStr != null) int.TryParse(rStr, out r);
+                        currentRow = new RowData { RowIdx = r };
+                    } else if (name == "c") {
+                        currentRef = xr.GetAttribute("r");
+                        currentT = xr.GetAttribute("t");
+                        currentVal = "";
+                        inlineVal = "";
+                        inIs = false;
+                    } else if (name == "v") {
+                        inVal = true;
+                    } else if (name == "t") {
+                        inT = true;
+                    } else if (name == "is") {
+                        inIs = true;
+                        inlineVal = "";
+                    }
+                } else if (xr.NodeType == XmlNodeType.Text) {
+                    if (inIs || inT) {
+                        inlineVal += xr.Value;
+                    } else if (inVal) {
+                        currentVal += xr.Value;
+                    }
+                } else if (xr.NodeType == XmlNodeType.EndElement) {
+                    string name = xr.Name;
+                    if (name == "v") {
+                        inVal = false;
+                    } else if (name == "t") {
+                        inT = false;
+                    } else if (name == "is") {
+                        inIs = false;
+                    } else if (name == "c") {
+                        if (!string.IsNullOrEmpty(inlineVal)) {
+                            currentVal = inlineVal;
+                        } else if (currentT == "s" && sharedStrings != null) {
+                            int idx;
+                            if (int.TryParse(currentVal, out idx) && idx >= 0 && idx < sharedStrings.Count) {
+                                currentVal = sharedStrings[idx];
+                            }
+                        }
+                        if (currentRow != null && currentRef != null && !string.IsNullOrEmpty(currentVal)) {
+                            int col = 0;
+                            for (int i = 0; i < currentRef.Length; i++) {
+                                char c = currentRef[i];
+                                if (c >= 'A' && c <= 'Z') col = col * 26 + (c - 'A' + 1);
+                                else if (c >= 'a' && c <= 'z') col = col * 26 + (c - 'a' + 1);
+                                else break;
+                            }
+                            if (col == 0) col = 1;
+                            currentRow.Cells[col] = currentVal;
+                        }
+                    } else if (name == "row") {
+                        if (currentRow != null && currentRow.Cells.Count > 0) {
+                            list.Add(currentRow);
+                        }
+                        currentRow = null;
+                    }
+                }
+            }
+        }
+        return list;
+    }
+}
+"@
+    Add-Type -TypeDefinition $csharpCode -ReferencedAssemblies System.Xml, System.IO.Compression, System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+}
 
 function Safe-WriteAllText($targetPath, $textContent) {
+    $lastError = $null
     for ($retry = 0; $retry -lt 5; $retry++) {
         try {
             [System.IO.File]::WriteAllText($targetPath, $textContent, (New-Object System.Text.UTF8Encoding($false)))
             return
         } catch {
-            Start-Sleep -Milliseconds 100
+            $lastError = $_
+            Start-Sleep -Milliseconds 150
         }
+    }
+    throw "Safe-WriteAllText failed for path '$targetPath': $lastError"
+}
+
+function Save-JsonFileWithBackupAndValidation($targetPath, $contentStr, $isObject = $false) {
+    if (-not $contentStr -or [string]::IsNullOrWhiteSpace($contentStr)) {
+        $contentStr = if ($isObject) { "{}" } else { "[]" }
+    }
+    
+    # Pre-write JSON validation check
+    try {
+        $testObj = $contentStr | ConvertFrom-Json
+    } catch {
+        throw "Validation Error: Target content for '$targetPath' is invalid JSON! Error: $_"
+    }
+
+    # Transactional write via .tmp file and .bak backup
+    $tmpPath = "$targetPath.tmp"
+    $bakPath = "$targetPath.bak"
+
+    Safe-WriteAllText $tmpPath $contentStr
+
+    if (Test-Path $targetPath) {
+        try { Copy-Item -Path $targetPath -Destination $bakPath -Force -ErrorAction SilentlyContinue } catch {}
+    }
+
+    if (Test-Path $tmpPath) {
+        [System.IO.File]::Copy($tmpPath, $targetPath, $true)
+        Remove-Item -Path $tmpPath -Force -ErrorAction SilentlyContinue
     }
 }
 
 function Parse-CellColNum($ref) {
     if (-not $ref) { return 1 }
-    $colStr = $ref -replace '[0-9]', ''
     $num = 0
-    foreach ($char in [char[]]$colStr) {
-        $num = $num * 26 + ([byte][char]$char - 64)
+    for ($i = 0; $i -lt $ref.Length; $i++) {
+        $c = [int][char]$ref[$i]
+        if ($c -ge 65 -and $c -le 90) {
+            $num = $num * 26 + ($c - 64)
+        } elseif ($c -ge 97 -and $c -le 122) {
+            $num = $num * 26 + ($c - 96)
+        } else {
+            break
+        }
     }
-    return $num
+    if ($num -gt 0) { return $num }
+    return 1
 }
 
 function Parse-ExcelDate($raw) {
     if (-not $raw) { return "" }
-    $rawStr = [string]$raw
+    $rawStr = [string]$raw.Trim()
+    if (-not $rawStr) { return "" }
+
+    # YYYY-MM-DD
     if ($rawStr -match '^\d{4}-\d{2}-\d{2}$') { return $rawStr }
-    if ($rawStr -match '^\d{1,2}/\d{1,2}/\d{4}$') {
-        $parts = $rawStr.Split('/')
-        return ("{0:D4}-{1:D2}-{2:D2}" -f [int]$parts[2], [int]$parts[0], [int]$parts[1])
+
+    # DD/MM/YYYY or DD-MM-YYYY (Fix P0-7: parts[0]=Day, parts[1]=Month, parts[2]=Year)
+    if ($rawStr -match '^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$') {
+        $dNum = [int]$Matches[1]
+        $mNum = [int]$Matches[2]
+        $yNum = [int]$Matches[3]
+        if ($mNum -ge 1 -and $mNum -le 12 -and $dNum -ge 1 -and $dNum -le [DateTime]::DaysInMonth($yNum, $mNum)) {
+            return ("{0:D4}-{1:D2}-{2:D2}" -f $yNum, $mNum, $dNum)
+        }
     }
+
+    # Excel Serial Date Number
     $d = 0.0
     if ([double]::TryParse($rawStr, [ref]$d)) {
         if ($d -gt 30000 -and $d -lt 60000) {
-            $base = Get-Date "1899-12-30"
+            $base = [DateTime]::new(1899, 12, 30)
             return $base.AddDays($d).ToString("yyyy-MM-dd")
         }
     }
     return ""
 }
 
-# Find candidate .xlsx files
+# Find candidate .xlsx files (Fix P0-6: filter valid candidate files)
 $parentDir = Split-Path $Root -Parent
 $candidateFiles = @()
 foreach ($dir in @($parentDir, $Root)) {
     if (Test-Path $dir) {
         Get-ChildItem -Path $dir -Filter "*.xlsx" -ErrorAction SilentlyContinue | ForEach-Object {
-            if (-not $_.Name.StartsWith("~$")) {
+            $fName = $_.Name
+            # Exclude temp files, lock files, and report export files
+            if (-not $fName.StartsWith("~$") -and -not $fName.StartsWith("BAO_CAO_") -and -not $fName.StartsWith("REPORT_")) {
                 $candidateFiles += $_.FullName
             }
         }
     }
 }
 
-if ($candidateFiles.Count -eq 0) {
-    return
-}
-
-# Smart Timestamp Cache check for instant startup (0ms when files unchanged)
-$CacheFile = Join-Path $DataDir '.sync_cache.json'
+# Smart Cache & Deletion detection (Fix P0-4 & P1-10)
 $needSync = $false
 
-if ((-not (Test-Path $MasterFile)) -or (-not (Test-Path $ShootFile)) -or (-not (Test-Path $ReplacementFile)) -or (-not (Test-Path $StockFile))) {
-    $needSync = $true
+# Check if target JSON files are missing or empty
+foreach ($tf in @($MasterFile, $ShootFile, $ReplacementFile, $StockFile)) {
+    if ((-not (Test-Path $tf)) -or ((Get-Item $tf).Length -eq 0)) {
+        $needSync = $true
+    }
 }
 
 $currentCache = @{}
@@ -86,7 +259,9 @@ if (Test-Path $CacheFile) {
         foreach ($prop in $oldCache.PSObject.Properties) {
             $currentCache[$prop.Name] = [int64]$prop.Value
         }
-    } catch {}
+    } catch {
+        $needSync = $true
+    }
 }
 
 $newCache = [ordered]@{}
@@ -95,95 +270,93 @@ foreach ($cFile in $candidateFiles) {
         $fInfo = Get-Item $cFile
         $ticks = $fInfo.LastWriteTime.Ticks
         $newCache[$cFile] = $ticks
-        if ((-not $currentCache.ContainsKey($cFile)) -or ($currentCache[$cFile] -ne $ticks)) {
+        if ((-not $currentCache.Contains($cFile)) -or ($currentCache[$cFile] -ne $ticks)) {
             $needSync = $true
         }
     }
 }
 
+# Detect deleted Excel files (Fix P0-4)
+if ($currentCache.Count -ne $newCache.Count) {
+    $needSync = $true
+} else {
+    foreach ($k in $currentCache.Keys) {
+        if (-not $newCache.Contains($k)) {
+            $needSync = $true
+            break
+        }
+    }
+}
+
 if (-not $needSync) {
-    Write-Host "⚡ [auto_sync_excel] File Excel khong thay doi - Su dung du lieu da dong bo (Instant 5ms)" -ForegroundColor Green
+    Write-Host "[3/5] Sync Excel -> JSON -> OK (Fast Cache 5ms)" -ForegroundColor Green
     return
 }
 
-# Initialize clean data structures for fresh Excel sync (reflecting additions, updates and DELETIONS)
+# If candidate files count is 0 (all Excel files deleted), reset JSON files to clean state (Fix P0-4)
+if ($candidateFiles.Count -eq 0) {
+    Write-Host "⚠️ [auto_sync_excel] Khong tim thay file Excel nao. Dang xoa/reset du lieu JSON ve trang thai sach..." -ForegroundColor Yellow
+    Save-JsonFileWithBackupAndValidation $MasterFile "[]" $false
+    Save-JsonFileWithBackupAndValidation $ShootFile "[]" $false
+    Save-JsonFileWithBackupAndValidation $ReplacementFile "[]" $false
+    Save-JsonFileWithBackupAndValidation $StockFile "{}" $true
+    Save-JsonFileWithBackupAndValidation $CacheFile "{}" $true
+    return
+}
+
+# Initialize clean data structures
 $masterMap = [ordered]@{}
 $replacements = [System.Collections.ArrayList]::new()
 $stockData = [ordered]@{}
 $shootMap = [ordered]@{}
-$syncedSheetsCount = 0
+$seenRequests = [System.Collections.Generic.HashSet[string]]::new()
+
+$syncedMonthSheets = 0
+$syncedPartSheets = 0
+$syncedShootSheets = 0
+
+class FastRow {
+    [int]$RowIdx
+    [hashtable]$Cells
+}
 
 function Read-SheetRowsFast($entry, $sharedStrings) {
-    $rowsList = [System.Collections.ArrayList]::new()
-    $stream = $entry.Open()
-    $xr = [System.Xml.XmlReader]::Create($stream)
-    
-    $currentRowIdx = 0
-    $currentRowDict = $null
-    $currentRef = ""
-    $currentT = ""
-    $currentVal = ""
-    $inValue = $false
-    $inT = $false
-
-    while ($xr.Read()) {
-        if ($xr.NodeType -eq [System.Xml.XmlNodeType]::Element) {
-            $name = $xr.Name
-            if ($name -eq "row") {
-                $rStr = $xr.GetAttribute("r")
-                $currentRowIdx = if ($rStr) { [int]$rStr } else { 0 }
-                $currentRowDict = @{}
-            } elseif ($name -eq "c") {
-                $currentRef = $xr.GetAttribute("r")
-                $currentT = $xr.GetAttribute("t")
-                $currentVal = ""
-            } elseif ($name -eq "v") {
-                $inValue = $true
-            } elseif ($name -eq "t") {
-                $inT = $true
-            }
-        } elseif ($xr.NodeType -eq [System.Xml.XmlNodeType]::Text) {
-            if ($inValue -or $inT) {
-                $currentVal += $xr.Value
-            }
-        } elseif ($xr.NodeType -eq [System.Xml.XmlNodeType]::EndElement) {
-            $name = $xr.Name
-            if ($name -eq "v") {
-                $inValue = $false
-            } elseif ($name -eq "t") {
-                $inT = $false
-            } elseif ($name -eq "c") {
-                if ($currentT -eq "s" -and $currentVal -match '^\d+$') {
-                    $idx = [int]$currentVal
-                    if ($idx -lt $sharedStrings.Count) { $currentVal = $sharedStrings[$idx] }
-                }
-                if ($currentRef -and $currentRowDict -ne $null) {
-                    $colNum = Parse-CellColNum $currentRef
-                    if ($currentVal) { $currentRowDict[$colNum] = [string]$currentVal }
-                }
-            } elseif ($name -eq "row") {
-                if ($currentRowDict -ne $null -and $currentRowDict.Count -gt 0) {
-                    $rowsList.Add([pscustomobject]@{ RowIdx = $currentRowIdx; Cells = $currentRowDict }) | Out-Null
-                }
-                $currentRowDict = $null
-            }
-        }
-    }
-    $xr.Close()
-    $stream.Close()
-    return $rowsList
+    return [FastExcelReader]::ReadSheet($entry, $sharedStrings)
 }
 
 foreach ($excelPath in $candidateFiles) {
     $fs = $null
     $zip = $null
+    
+    # Fix P2-4: Retry opening locked files
+    for ($retry = 0; $retry -lt 3; $retry++) {
+        try {
+            $fs = [System.IO.File]::Open($excelPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+            $zip = New-Object System.IO.Compression.ZipArchive($fs, [System.IO.Compression.ZipArchiveMode]::Read)
+            break
+        } catch {
+            if ($fs) { try { $fs.Close() } catch {} }
+            Start-Sleep -Milliseconds 200
+        }
+    }
+
+    if (-not $zip) {
+        Write-Warning "⚠️ Khong the mo file Excel: $excelPath (dang bi khoa hoac loi truy cap)"
+        continue
+    }
+
     try {
-        $fs = [System.IO.File]::Open($excelPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
-        $zip = New-Object System.IO.Compression.ZipArchive($fs, [System.IO.Compression.ZipArchiveMode]::Read)
-        
-        $wbEntry = $zip.Entries | Where-Object { $_.FullName -eq 'xl/workbook.xml' }
-        $wbRelsEntry = $zip.Entries | Where-Object { $_.FullName -eq 'xl/_rels/workbook.xml.rels' }
-        if (-not $wbEntry -or -not $wbRelsEntry) { if ($zip) { $zip.Dispose() }; if ($fs) { $fs.Close() }; continue }
+        # Fix P2-2: Fast O(1) ZipEntry hashtable lookup
+        $entryMap = @{}
+        foreach ($entry in $zip.Entries) {
+            $entryMap[$entry.FullName] = $entry
+        }
+
+        $wbEntry = $entryMap['xl/workbook.xml']
+        $wbRelsEntry = $entryMap['xl/_rels/workbook.xml.rels']
+        if (-not $wbEntry -or -not $wbRelsEntry) {
+            if ($zip) { $zip.Dispose() }; if ($fs) { $fs.Close() }; continue
+        }
 
         # Read workbook.xml & rels
         $stream = $wbEntry.Open()
@@ -203,157 +376,177 @@ foreach ($excelPath in $candidateFiles) {
             $relMap[$rel.Id] = $t
         }
 
-        # Shared Strings
-        $sharedStrings = @()
-        $ssEntry = $zip.Entries | Where-Object { $_.FullName -eq 'xl/sharedStrings.xml' }
-        if ($ssEntry) {
-            $stream = $ssEntry.Open()
-            $xr = [System.Xml.XmlReader]::Create($stream)
-            $ssTxt = ""
-            $inT = $false
-            while ($xr.Read()) {
-                if ($xr.NodeType -eq [System.Xml.XmlNodeType]::Element) {
-                    if ($xr.Name -eq "si") { $ssTxt = "" }
-                    elseif ($xr.Name -eq "t") { $inT = $true }
-                } elseif ($xr.NodeType -eq [System.Xml.XmlNodeType]::Text) {
-                    if ($inT) { $ssTxt += $xr.Value }
-                } elseif ($xr.NodeType -eq [System.Xml.XmlNodeType]::EndElement) {
-                    if ($xr.Name -eq "t") { $inT = $false }
-                    elseif ($xr.Name -eq "si") { $sharedStrings += $ssTxt }
-                }
-            }
-            $xr.Close(); $stream.Close()
-        }
+        # Shared Strings (Compiled Native Reader)
+        $ssEntry = if ($entryMap.ContainsKey('xl/sharedStrings.xml')) { $entryMap['xl/sharedStrings.xml'] } else { $null }
+        $sharedStrings = [FastExcelReader]::ReadSharedStrings($ssEntry)
 
-        # 1. Parse PartList sheets
+        # Fix P2-1: Process all sheets in a single pass
         foreach ($sheet in $wbXml.workbook.sheets.sheet) {
             $sName = [string]$sheet.name
             $rId = [string]$sheet.id
             $targetPath = $relMap[$rId]
+            $sEntry = if ($targetPath) { $entryMap[$targetPath] } else { $null }
+            if (-not $sEntry) { continue }
 
-            if ($sName.ToLower().Contains("part") -and $targetPath) {
-                $sEntry = $zip.Entries | Where-Object { $_.FullName -eq $targetPath }
-                if ($sEntry) {
-                    $rowsList = Read-SheetRowsFast $sEntry $sharedStrings
-                    foreach ($rowObj in $rowsList) {
-                        $rDict = $rowObj.Cells
-                        $pName = if ($rDict.ContainsKey(1)) { $rDict[1].Trim() } else { "" }
-                        $pSeries = if ($rDict.ContainsKey(2)) { $rDict[2].Trim() } else { "" }
-                        $pOld = if ($rDict.ContainsKey(3)) { $rDict[3].Trim() } else { "" }
-                        $pNew = if ($rDict.ContainsKey(4)) { $rDict[4].Trim() } else { "" }
+            $sNameLower = $sName.ToLower().Trim()
 
-                        if ($pName -and $pName.ToLower() -ne "partname" -and $pName.Length -ge 2) {
-                            $oldDie = if ($pOld) { $pOld } else { if ($pNew) { $pNew } else { $pName } }
-                            $newDie = if ($pNew) { $pNew } else { if ($pOld) { $pOld } else { $pName } }
-                            $mKey = "$pName|$newDie"
-                            if (-not $masterMap.ContainsKey($mKey)) {
-                                $masterMap[$mKey] = [ordered]@{
-                                    PartName = $pName
-                                    Series = $pSeries
-                                    OldDieSet = $oldDie
-                                    NewDieSet = $newDie
-                                    StandardStock = 1
-                                    StockLeft = 0
+            # --- A. PartList Sheet ---
+            if ($sNameLower.Contains("part")) {
+                $syncedPartSheets++
+                $rowsList = Read-SheetRowsFast $sEntry $sharedStrings
+                foreach ($rowObj in $rowsList) {
+                    $rDict = $rowObj.Cells
+                    $pName = if ($rDict.ContainsKey(1)) { $rDict[1].Trim() } else { "" }
+                    $pSeries = if ($rDict.ContainsKey(2)) { $rDict[2].Trim() } else { "" }
+                    $pOld = if ($rDict.ContainsKey(3)) { $rDict[3].Trim() } else { "" }
+                    $pNew = if ($rDict.ContainsKey(4)) { $rDict[4].Trim() } else { "" }
+                    $pStd = 1
+                    if ($rDict.ContainsKey(5)) { [int]::TryParse($rDict[5], [ref]$pStd) | Out-Null }
+                    $pLeft = 0
+                    if ($rDict.ContainsKey(6)) { [int]::TryParse($rDict[6], [ref]$pLeft) | Out-Null }
+
+                    if ($pName -and $pName.ToLower() -ne "partname" -and $pName.Length -ge 2) {
+                        # Fix P1-4: Prevent auto-guessing Old/New DieSet = PartName
+                        $oldDie = if ($pOld) { $pOld } else { $pNew }
+                        $newDie = if ($pNew) { $pNew } else { $pOld }
+                        $mKey = if ($newDie) { "$pName|$newDie" } else { $pName }
+
+                        # Fix P1-3: Safe Master Schema Merge
+                        if (-not $masterMap.Contains($mKey)) {
+                            $masterMap[$mKey] = [ordered]@{
+                                PartName = $pName
+                                Series = $pSeries
+                                OldDieSet = $oldDie
+                                NewDieSet = $newDie
+                                StandardStock = $pStd
+                                StockLeft = $pLeft
+                            }
+                        } else {
+                            if ($pSeries) { $masterMap[$mKey].Series = $pSeries }
+                            if ($oldDie) { $masterMap[$mKey].OldDieSet = $oldDie }
+                            if ($newDie) { $masterMap[$mKey].NewDieSet = $newDie }
+                            if ($pStd -gt 0) { $masterMap[$mKey].StandardStock = $pStd }
+                            if ($pLeft -ge 0) { $masterMap[$mKey].StockLeft = $pLeft }
+                        }
+                    }
+                }
+            }
+            # --- B. Shoot Sheet ---
+            elseif ($sNameLower.Contains("shoot")) {
+                $syncedShootSheets++
+                $rowsList = Read-SheetRowsFast $sEntry $sharedStrings
+                foreach ($rowObj in $rowsList) {
+                    $rDict = $rowObj.Cells
+                    # Fix P0-1 & P1-1: Col 1 = Date, Col 2 = Machine, Col 3 = Mold/DieSet, Col 4 = Output, Col 5 = Part
+                    $dtRaw = if ($rDict.ContainsKey(1)) { $rDict[1].Trim() } else { "" }
+                    $machineRaw = if ($rDict.ContainsKey(2)) { $rDict[2].Trim() } else { "" }
+                    $moldRaw = if ($rDict.ContainsKey(3)) { $rDict[3].Trim() } else { "" }
+                    $outRaw = if ($rDict.ContainsKey(4)) { $rDict[4].Trim() } else { "" }
+                    $partRaw = if ($rDict.ContainsKey(5)) { $rDict[5].Trim() } else { "" }
+
+                    if ($dtRaw -and $moldRaw -and $outRaw) {
+                        $dtStr = Parse-ExcelDate $dtRaw
+                        $numOut = 0.0
+                        if ([double]::TryParse($outRaw, [ref]$numOut) -and $dtStr -and $numOut -gt 0) {
+                            # Fix P1-2 & P0-2: Composite key with Machine and Part
+                            $sKey = "$dtStr|$machineRaw|$moldRaw|$partRaw"
+                            if ($shootMap.Contains($sKey)) {
+                                $shootMap[$sKey].Output += $numOut
+                            } else {
+                                $shootMap[$sKey] = [ordered]@{
+                                    Date = $dtStr
+                                    Machine = $machineRaw
+                                    Part = $partRaw
+                                    DieSet = $moldRaw
+                                    Output = $numOut
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-
-        # 2. Parse Shoot Number sheet
-        foreach ($sheet in $wbXml.workbook.sheets.sheet) {
-            $sName = [string]$sheet.name
-            $rId = [string]$sheet.id
-            $targetPath = $relMap[$rId]
-
-            if ($sName.ToLower().Contains("shoot") -and $targetPath) {
-                $sEntry = $zip.Entries | Where-Object { $_.FullName -eq $targetPath }
-                if ($sEntry) {
-                    $rowsList = Read-SheetRowsFast $sEntry $sharedStrings
-                    foreach ($rowObj in $rowsList) {
-                        $rDict = $rowObj.Cells
-                        $dtRaw = if ($rDict.ContainsKey(1)) { $rDict[1].Trim() } else { "" }
-                        $moldRaw = if ($rDict.ContainsKey(2)) { $rDict[2].Trim() } else { "" }
-                        $outRaw = if ($rDict.ContainsKey(3)) { $rDict[3].Trim() } else { "" }
-
-                        if ($dtRaw -and $moldRaw -and $outRaw) {
-                            $dtStr = Parse-ExcelDate $dtRaw
-                            $numOut = 0.0
-                            if ([double]::TryParse($outRaw, [ref]$numOut) -and $dtStr -and $numOut -gt 0) {
-                                $sKey = "$dtStr|$moldRaw"
-                                if ($shootMap.ContainsKey($sKey)) {
-                                    $shootMap[$sKey] += $numOut
-                                } else {
-                                    $shootMap[$sKey] = $numOut
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        # 3. Parse Month Sheets (e.g. 07-2026 or 7-2026)
-        foreach ($sheet in $wbXml.workbook.sheets.sheet) {
-            $sName = [string]$sheet.name
-            $rId = [string]$sheet.id
-            $targetPath = $relMap[$rId]
-
-            if ($sName -match '^(\d{1,2})[-/](\d{4})$') {
+            # --- C. Month Sheets (e.g. 07-2026 or 7-2026) ---
+            elseif ($sName -match '^(\d{1,2})[-/](\d{4})$') {
+                $syncedMonthSheets++
                 $mNum = [int]$Matches[1]
                 $yNum = [int]$Matches[2]
                 $ym = ("{0:D4}-{1:D2}" -f $yNum, $mNum)
+                $maxDaysInMonth = [DateTime]::DaysInMonth($yNum, $mNum)
 
-                $sEntry = $zip.Entries | Where-Object { $_.FullName -eq $targetPath }
-                if ($sEntry) {
-                    $syncedSheetsCount++
-                    $rowsList = Read-SheetRowsFast $sEntry $sharedStrings
-                    foreach ($rowObj in $rowsList) {
-                        if ($rowObj.RowIdx -lt 8) { continue }
-                        $rDict = $rowObj.Cells
+                $rowsList = Read-SheetRowsFast $sEntry $sharedStrings
+                foreach ($rowObj in $rowsList) {
+                    if ($rowObj.RowIdx -lt 8) { continue }
+                    $rDict = $rowObj.Cells
 
-                        $partFull = if ($rDict.ContainsKey(1)) { $rDict[1].Trim() } else { "" }
-                        if (-not $partFull -or $partFull.ToLower() -eq 'part' -or $partFull.ToLower() -eq 'total' -or $partFull.ToLower() -eq 'stt') { continue }
+                    $partFull = if ($rDict.ContainsKey(1)) { $rDict[1].Trim() } else { "" }
+                    if (-not $partFull -or $partFull.ToLower() -eq 'part' -or $partFull.ToLower() -eq 'total' -or $partFull.ToLower() -eq 'stt') { continue }
 
-                        $tokens = $partFull.Split('/') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-                        $partName = $tokens[0]
-                        $series = if ($tokens.Count -ge 2) { $tokens[1] } else { "" }
-                        $mold = if ($tokens.Count -ge 3) { $tokens[2] } else { if ($tokens.Count -ge 2) { $tokens[1] } else { $tokens[0] } }
+                    $tokens = $partFull.Split('/') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                    $partName = $tokens[0]
+                    $series = if ($tokens.Count -ge 2) { $tokens[1] } else { "" }
+                    $mold = if ($tokens.Count -ge 3) { $tokens[2] } else { if ($tokens.Count -ge 2) { $tokens[1] } else { $tokens[0] } }
 
-                        if ($partName -and $partName.Length -ge 2) {
-                            $minStock = 1
-                            if ($rDict.ContainsKey(5)) { [int]::TryParse($rDict[5], [ref]$minStock) | Out-Null }
-                            $oldStock = 0
-                            if ($rDict.ContainsKey(6)) { [int]::TryParse($rDict[6], [ref]$oldStock) | Out-Null }
+                    if ($partName -and $partName.Length -ge 2) {
+                        $minStock = 1
+                        if ($rDict.ContainsKey(5)) { [int]::TryParse($rDict[5], [ref]$minStock) | Out-Null }
+                        $oldStock = 0
+                        if ($rDict.ContainsKey(6)) { [int]::TryParse($rDict[6], [ref]$oldStock) | Out-Null }
 
-                            $mKey = "$partName|$mold"
-                            if (-not $masterMap.ContainsKey($mKey)) {
-                                $masterMap[$mKey] = [ordered]@{
-                                    PartName = $partName
-                                    Series = $series
-                                    OldDieSet = $mold
-                                    NewDieSet = $mold
-                                    StandardStock = $minStock
-                                    StockLeft = $oldStock
-                                }
+                        # Fix P0-3: Populate stockData
+                        $mKey = "$partName|$mold"
+                        $stockData[$mKey] = [ordered]@{
+                            PartName = $partName
+                            Series = $series
+                            DieSet = $mold
+                            StandardStock = $minStock
+                            StockLeft = $oldStock
+                        }
+
+                        if (-not $masterMap.Contains($mKey)) {
+                            $masterMap[$mKey] = [ordered]@{
+                                PartName = $partName
+                                Series = $series
+                                OldDieSet = $mold
+                                NewDieSet = $mold
+                                StandardStock = $minStock
+                                StockLeft = $oldStock
                             }
+                        } else {
+                            if ($minStock -gt 1 -and -not $masterMap[$mKey].StandardStock) { $masterMap[$mKey].StandardStock = $minStock }
+                            if ($oldStock -gt 0 -and -not $masterMap[$mKey].StockLeft) { $masterMap[$mKey].StockLeft = $oldStock }
+                        }
 
-                            $outCols = @((7,8,9), (11,12,13), (15,16,17), (19,20,21), (23,24,25))
-                            foreach ($g in $outCols) {
-                                $qtyRaw = if ($rDict.ContainsKey($g[0])) { $rDict[$g[0]].Trim() } else { "" }
-                                $idRaw = if ($rDict.ContainsKey($g[1])) { $rDict[$g[1]].Trim() } else { "" }
-                                $dateRaw = if ($rDict.ContainsKey($g[2])) { $rDict[$g[2]].Trim() } else { "" }
+                        $outCols = @((7,8,9), (11,12,13), (15,16,17), (19,20,21), (23,24,25))
+                        foreach ($g in $outCols) {
+                            $qtyRaw = if ($rDict.ContainsKey($g[0])) { $rDict[$g[0]].Trim() } else { "" }
+                            $idRaw = if ($rDict.ContainsKey($g[1])) { $rDict[$g[1]].Trim() } else { "" }
+                            $dateRaw = if ($rDict.ContainsKey($g[2])) { $rDict[$g[2]].Trim() } else { "" }
 
-                                if ($qtyRaw -or $idRaw -or $dateRaw) {
-                                    $qtyVal = 1
-                                    if ($qtyRaw) { [int]::TryParse($qtyRaw, [ref]$qtyVal) | Out-Null }
-                                    $dayVal = 1
-                                    if ($dateRaw) { [int]::TryParse($dateRaw, [ref]$dayVal) | Out-Null }
-                                    $dayClamped = [Math]::Max(1, [Math]::Min(31, $dayVal))
-                                    $fullDate = ("{0}-{1:D2}" -f $ym, $dayClamped)
+                            if ($qtyRaw -or $idRaw -or $dateRaw) {
+                                # Fix P1-7: Validate quantity (must be valid numeric > 0)
+                                $qtyVal = 0
+                                if ($qtyRaw -and -not [int]::TryParse($qtyRaw, [ref]$qtyVal)) {
+                                    continue
+                                }
+                                if ($qtyVal -le 0) { $qtyVal = 1 }
 
+                                # Fix P1-5 & P1-6: Validate day numbers against maxDaysInMonth
+                                $dayVal = 0
+                                if ($dateRaw -and [int]::TryParse($dateRaw, [ref]$dayVal)) {
+                                    if ($dayVal -lt 1 -or $dayVal -gt $maxDaysInMonth) {
+                                        # Invalid day number for this month (e.g. 31/02 or >31) -> Skip invalid date
+                                        continue
+                                    }
+                                } else {
+                                    # Day is empty or non-numeric
+                                    continue
+                                }
+
+                                $fullDate = ("{0}-{1:D2}" -f $ym, $dayVal)
+
+                                # Fix P1-8: Deduplicate replacements by RequestId & composite key
+                                $dedupKey = "$partName|$mold|$fullDate|$idRaw"
+                                if ($seenRequests.Add($dedupKey)) {
                                     $replacements.Add([ordered]@{
                                         Part = $partName
                                         Series = $series
@@ -377,60 +570,44 @@ foreach ($excelPath in $candidateFiles) {
     } catch {
         if ($zip) { try { $zip.Dispose() } catch {} }
         if ($fs) { try { $fs.Close() } catch {} }
+        # Fix P0-5: Explicit error warning
+        Write-Warning "⚠️ Loi khi dang xu ly file Excel $excelPath : $_"
     }
 }
 
-# Save Master Data
+# Transactional Save Master Data (Fix P2-5, P2-7, P2-8)
 if ($masterMap.Count -gt 0) {
-    Write-Host "💾 [auto_sync_excel] Dang luu $($masterMap.Count) linh kien vao ComponentMaster.json..." -ForegroundColor Cyan
     $masterList = @($masterMap.Values)
     $masterJson = $masterList | ConvertTo-Json -Depth 8
-    if (-not $masterJson) { $masterJson = "[]" }
-    elseif ($masterList.Count -eq 1 -and -not $masterJson.Trim().StartsWith("[")) { $masterJson = "[$masterJson]" }
-    [System.IO.File]::WriteAllText($MasterFile, $masterJson, (New-Object System.Text.UTF8Encoding($false)))
+    Save-JsonFileWithBackupAndValidation $MasterFile $masterJson $false
 }
 
-# Save Shoot Data
+# Transactional Save Shoot Data
 if ($shootMap.Count -gt 0) {
-    Write-Host "💾 [auto_sync_excel] Dang luu $($shootMap.Count) ban ghi shoot vao shoot-data.json..." -ForegroundColor Cyan
-    $shootList = [System.Collections.ArrayList]::new()
-    foreach ($k in $shootMap.Keys) {
-        $p = $k.Split('|')
-        $shootList.Add([ordered]@{
-            Date = $p[0]
-            Part = ""
-            DieSet = $p[1]
-            Output = $shootMap[$k]
-        }) | Out-Null
-    }
-    $shootJson = @($shootList) | ConvertTo-Json -Depth 8
-    if (-not $shootJson) { $shootJson = "[]" }
-    elseif ($shootList.Count -eq 1 -and -not $shootJson.Trim().StartsWith("[")) { $shootJson = "[$shootJson]" }
-    [System.IO.File]::WriteAllText($ShootFile, $shootJson, (New-Object System.Text.UTF8Encoding($false)))
+    $shootList = @($shootMap.Values)
+    $shootJson = $shootList | ConvertTo-Json -Depth 8
+    Save-JsonFileWithBackupAndValidation $ShootFile $shootJson $false
 }
 
-# Save Replacement Data
+# Transactional Save Replacement Data
 if ($replacements.Count -gt 0) {
-    Write-Host "💾 [auto_sync_excel] Dang luu $($replacements.Count) luot thay vao replacement-log.json..." -ForegroundColor Cyan
     $repJson = @($replacements) | ConvertTo-Json -Depth 8
-    if (-not $repJson) { $repJson = "[]" }
-    elseif ($replacements.Count -eq 1 -and -not $repJson.Trim().StartsWith("[")) { $repJson = "[$repJson]" }
-    [System.IO.File]::WriteAllText($ReplacementFile, $repJson, (New-Object System.Text.UTF8Encoding($false)))
+    Save-JsonFileWithBackupAndValidation $ReplacementFile $repJson $false
 }
 
-# Save Stock Data
+# Transactional Save Stock Data (Fix P0-3)
 if ($stockData.Count -gt 0) {
-    Write-Host "💾 [auto_sync_excel] Dang luu $($stockData.Count) ton kho vao stock-data.json..." -ForegroundColor Cyan
     $stockJson = $stockData | ConvertTo-Json -Depth 8
-    if (-not $stockJson) { $stockJson = "{}" }
-    Safe-WriteAllText $StockFile $stockJson
+    Save-JsonFileWithBackupAndValidation $StockFile $stockJson $true
 }
 
+# Update Cache ONLY after successful writes (Fix P2-6)
 if ($newCache.Count -gt 0) {
     $cacheJson = $newCache | ConvertTo-Json -Depth 4
-    Safe-WriteAllText $CacheFile $cacheJson
+    Save-JsonFileWithBackupAndValidation $CacheFile $cacheJson $true
 }
 
 $repCount = $replacements.Count
 $masterCount = $masterMap.Count
-Write-Host "⚡ [auto_sync_excel] Hoan tat dong bo Excel -> JSON! ($syncedSheetsCount sheets, $repCount luot thay, $masterCount master items)" -ForegroundColor Green
+$totalSheets = $syncedMonthSheets + $syncedPartSheets + $syncedShootSheets
+Write-Host "[3/5] Sync Excel -> JSON -> OK ($totalSheets sheets | $repCount luot thay | $masterCount master)" -ForegroundColor Green

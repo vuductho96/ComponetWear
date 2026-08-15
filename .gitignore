@@ -1,6 +1,7 @@
 # Excel temporary files
 ~$*
 *.tmp
+*.bak
 
 # Local data and reports (keep structure if needed)
 ComponentLife/data/*.json
