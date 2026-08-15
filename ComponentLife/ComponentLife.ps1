@@ -26,12 +26,7 @@ foreach ($folder in @($DataDir, $ReportDir)) { if (-not (Test-Path $folder)) { N
 # ===== AUTO EXCEL DATA SYNC LAYER ON STARTUP =====
 try {
     $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
-    $autoSyncPy = Join-Path $Root 'auto_sync_excel.py'
-    $hasPython = Get-Command python -ErrorAction SilentlyContinue
-    if ($hasPython -and (Test-Path $autoSyncPy)) {
-        Write-Host "🔄 Tu dong quet va cap nhat du lieu tu file Excel (Python)..." -ForegroundColor Cyan
-        & python $autoSyncPy
-    } elseif (Test-Path $autoSyncPs1) {
+    if (Test-Path $autoSyncPs1) {
         Write-Host "🔄 Tu dong quet va cap nhat du lieu tu file Excel (Native PowerShell 100%)..." -ForegroundColor Cyan
         & powershell -ExecutionPolicy Bypass -File $autoSyncPs1
     }
@@ -90,11 +85,7 @@ function Check-ExcelFileChanges {
             Write-Host "⚡ Phat hien file Excel duoc chinh sua & luu! Dang tu dong dong bo va preload..." -ForegroundColor Cyan
             Start-Sleep -Milliseconds 400
             $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
-            $autoSyncPy = Join-Path $Root 'auto_sync_excel.py'
-            $hasPython = Get-Command python -ErrorAction SilentlyContinue
-            if ($hasPython -and (Test-Path $autoSyncPy)) {
-                & python $autoSyncPy
-            } elseif (Test-Path $autoSyncPs1) {
+            if (Test-Path $autoSyncPs1) {
                 & powershell -ExecutionPolicy Bypass -File $autoSyncPs1
             }
             $global:excelDataVersion++

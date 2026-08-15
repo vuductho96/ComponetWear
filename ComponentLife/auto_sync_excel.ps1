@@ -60,28 +60,8 @@ if ($candidateFiles.Count -eq 0) {
     exit 0
 }
 
-# Load existing Master Map if available
+# Initialize clean data structures for fresh Excel sync (reflecting additions, updates and DELETIONS)
 $masterMap = [ordered]@{}
-if (Test-Path $MasterFile) {
-    try {
-        $existing = Get-Content $MasterFile -Raw -Encoding UTF8 | ConvertFrom-Json
-        foreach ($m in $existing) {
-            if ($m.PartName) {
-                $die = if ($m.NewDieSet) { $m.NewDieSet } else { $m.OldDieSet }
-                $key = "$($m.PartName)|$die"
-                $masterMap[$key] = [ordered]@{
-                    PartName = [string]$m.PartName
-                    Series = [string]$m.Series
-                    OldDieSet = [string]$m.OldDieSet
-                    NewDieSet = [string]$m.NewDieSet
-                    StandardStock = [int]($m.StandardStock)
-                    StockLeft = [int]($m.StockLeft)
-                }
-            }
-        }
-    } catch {}
-}
-
 $replacements = [System.Collections.ArrayList]::new()
 $stockData = [ordered]@{}
 $shootMap = [ordered]@{}
@@ -356,13 +336,17 @@ foreach ($excelPath in $candidateFiles) {
 
 # Save Master Data
 if ($masterMap.Count -gt 0) {
+    Write-Host "💾 [auto_sync_excel] Dang luu $($masterMap.Count) linh kien vao ComponentMaster.json..." -ForegroundColor Cyan
     $masterList = @($masterMap.Values)
     $masterJson = $masterList | ConvertTo-Json -Depth 8
+    if (-not $masterJson) { $masterJson = "[]" }
+    elseif ($masterList.Count -eq 1 -and -not $masterJson.Trim().StartsWith("[")) { $masterJson = "[$masterJson]" }
     [System.IO.File]::WriteAllText($MasterFile, $masterJson, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 # Save Shoot Data
 if ($shootMap.Count -gt 0) {
+    Write-Host "💾 [auto_sync_excel] Dang luu $($shootMap.Count) ban ghi shoot vao shoot-data.json..." -ForegroundColor Cyan
     $shootList = [System.Collections.ArrayList]::new()
     foreach ($k in $shootMap.Keys) {
         $p = $k.Split('|')
@@ -374,13 +358,28 @@ if ($shootMap.Count -gt 0) {
         }) | Out-Null
     }
     $shootJson = @($shootList) | ConvertTo-Json -Depth 8
+    if (-not $shootJson) { $shootJson = "[]" }
+    elseif ($shootList.Count -eq 1 -and -not $shootJson.Trim().StartsWith("[")) { $shootJson = "[$shootJson]" }
     [System.IO.File]::WriteAllText($ShootFile, $shootJson, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 # Save Replacement Data
 if ($replacements.Count -gt 0) {
+    Write-Host "💾 [auto_sync_excel] Dang luu $($replacements.Count) luot thay vao replacement-log.json..." -ForegroundColor Cyan
     $repJson = @($replacements) | ConvertTo-Json -Depth 8
+    if (-not $repJson) { $repJson = "[]" }
+    elseif ($replacements.Count -eq 1 -and -not $repJson.Trim().StartsWith("[")) { $repJson = "[$repJson]" }
     [System.IO.File]::WriteAllText($ReplacementFile, $repJson, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-Write-Host "⚡ Auto-sync powershell complete! ($syncedSheetsCount sheets, $($replacements.Count) replacements, $($masterMap.Count) master items)" -ForegroundColor Green
+# Save Stock Data
+if ($stockData.Count -gt 0) {
+    Write-Host "💾 [auto_sync_excel] Dang luu $($stockData.Count) ton kho vao stock-data.json..." -ForegroundColor Cyan
+    $stockJson = $stockData | ConvertTo-Json -Depth 8
+    if (-not $stockJson) { $stockJson = "{}" }
+    [System.IO.File]::WriteAllText($StockFile, $stockJson, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+$repCount = $replacements.Count
+$masterCount = $masterMap.Count
+Write-Host "⚡ [auto_sync_excel] Hoan tat dong bo Excel -> JSON! ($syncedSheetsCount sheets, $repCount luot thay, $masterCount master items)" -ForegroundColor Green

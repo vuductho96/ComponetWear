@@ -3919,10 +3919,22 @@
     let _currentDataVersion = null;
 
     async function loadAllDataFromSource() {
+      console.log("%c[ComponentLife Debug] 🚀 Step 1: Starting data loading pipeline from source...", "color:#4f46e5; font-weight:bold; font-size:13px;");
+      console.log("%c[ComponentLife Debug] 📥 Step 2: Fetching fresh ComponentMaster.json...", "color:#0284c7; font-weight:bold;");
       await loadMasterData();
+      console.log(`%c[ComponentLife Debug] ✅ ComponentMaster loaded (${(masterData || []).length} items)`, "color:#059669; font-weight:bold;");
+
+      console.log("%c[ComponentLife Debug] 📥 Step 3: Fetching fresh shoot-data, replacement-log & stock-data...", "color:#0284c7; font-weight:bold;");
       await autoLoadShootMonth();
+      console.log(`%c[ComponentLife Debug] ✅ Data payload loaded (${(db.shoot || []).length} shoots, ${(db.replacements || []).length} replacements, ${Object.keys(_stockData || {}).length} stock records)`, "color:#059669; font-weight:bold;");
+
+      console.log("%c[ComponentLife Debug] ⚙️ Step 4: Rebuilding calculation engine & cycle metrics...", "color:#d97706; font-weight:bold;");
       rebuild(false);
+
+      console.log("%c[ComponentLife Debug] 🎨 Step 5: Rendering active UI tab...", "color:#8b5cf6; font-weight:bold;");
       renderActiveTabOnly();
+
+      console.log("%c[ComponentLife Debug] 🎉 Data loading pipeline complete! Server source data is 100% active.", "color:#059669; font-weight:bold; font-size:13px;");
     }
 
     async function checkDataVersionLoop() {

@@ -70,16 +70,6 @@ def auto_sync():
         return
 
     master_map = {}
-    if os.path.exists(master_log_path):
-        try:
-            with open(master_log_path, 'r', encoding='utf-8') as f:
-                existing_master = json.load(f)
-                for m in existing_master:
-                    if m.get('PartName'):
-                        master_map[f"{m.get('PartName','')}|{m.get('NewDieSet') or m.get('OldDieSet')}"] = m
-        except Exception:
-            pass
-
     replacements = []
     stock_data = {}
     shoot_records = {}
