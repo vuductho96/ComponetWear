@@ -15,6 +15,17 @@ $StockFile = Join-Path $DataDir 'stock-data.json'
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
+function Safe-WriteAllText($targetPath, $textContent) {
+    for ($retry = 0; $retry -lt 5; $retry++) {
+        try {
+            [System.IO.File]::WriteAllText($targetPath, $textContent, (New-Object System.Text.UTF8Encoding($false)))
+            return
+        } catch {
+            Start-Sleep -Milliseconds 100
+        }
+    }
+}
+
 function Parse-CellColNum($ref) {
     if (-not $ref) { return 1 }
     $colStr = $ref -replace '[0-9]', ''
@@ -57,7 +68,42 @@ foreach ($dir in @($parentDir, $Root)) {
 }
 
 if ($candidateFiles.Count -eq 0) {
-    exit 0
+    return
+}
+
+# Smart Timestamp Cache check for instant startup (0ms when files unchanged)
+$CacheFile = Join-Path $DataDir '.sync_cache.json'
+$needSync = $false
+
+if ((-not (Test-Path $MasterFile)) -or (-not (Test-Path $ShootFile)) -or (-not (Test-Path $ReplacementFile)) -or (-not (Test-Path $StockFile))) {
+    $needSync = $true
+}
+
+$currentCache = @{}
+if (Test-Path $CacheFile) {
+    try {
+        $oldCache = Get-Content $CacheFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($prop in $oldCache.PSObject.Properties) {
+            $currentCache[$prop.Name] = [int64]$prop.Value
+        }
+    } catch {}
+}
+
+$newCache = [ordered]@{}
+foreach ($cFile in $candidateFiles) {
+    if (Test-Path $cFile) {
+        $fInfo = Get-Item $cFile
+        $ticks = $fInfo.LastWriteTime.Ticks
+        $newCache[$cFile] = $ticks
+        if ((-not $currentCache.ContainsKey($cFile)) -or ($currentCache[$cFile] -ne $ticks)) {
+            $needSync = $true
+        }
+    }
+}
+
+if (-not $needSync) {
+    Write-Host "⚡ [auto_sync_excel] File Excel khong thay doi - Su dung du lieu da dong bo (Instant 5ms)" -ForegroundColor Green
+    return
 }
 
 # Initialize clean data structures for fresh Excel sync (reflecting additions, updates and DELETIONS)
@@ -377,7 +423,12 @@ if ($stockData.Count -gt 0) {
     Write-Host "💾 [auto_sync_excel] Dang luu $($stockData.Count) ton kho vao stock-data.json..." -ForegroundColor Cyan
     $stockJson = $stockData | ConvertTo-Json -Depth 8
     if (-not $stockJson) { $stockJson = "{}" }
-    [System.IO.File]::WriteAllText($StockFile, $stockJson, (New-Object System.Text.UTF8Encoding($false)))
+    Safe-WriteAllText $StockFile $stockJson
+}
+
+if ($newCache.Count -gt 0) {
+    $cacheJson = $newCache | ConvertTo-Json -Depth 4
+    Safe-WriteAllText $CacheFile $cacheJson
 }
 
 $repCount = $replacements.Count

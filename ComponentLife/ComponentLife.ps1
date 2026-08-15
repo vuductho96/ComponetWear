@@ -28,7 +28,7 @@ try {
     $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
     if (Test-Path $autoSyncPs1) {
         Write-Host "🔄 Tu dong quet va cap nhat du lieu tu file Excel (Native PowerShell 100%)..." -ForegroundColor Cyan
-        & powershell -ExecutionPolicy Bypass -File $autoSyncPs1
+        . $autoSyncPs1
     }
 } catch {
     Write-Host "⚠️ Khong the tu dong dong bo Excel: $_" -ForegroundColor Yellow
@@ -39,6 +39,7 @@ $boundPort = $Port
 for ($p = $Port; $p -le $Port + 50; $p++) {
     try {
         $l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback, $p)
+        try { $l.Server.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true) } catch {}
         $l.Start()
         $listener = $l
         $boundPort = $p
@@ -53,19 +54,36 @@ if (-not $listener) {
     throw "Khong the khoi dong local server."
 }
 
-$url = "http://127.0.0.1:$boundPort/"
-Write-Host "Component Life đang chay tai $url (nhan Ctrl+C de dung)" -ForegroundColor Green
-if (-not $NoBrowser) { Start-Process $url }
-
 $global:lastHeartbeat = [DateTime]::Now
 $global:hasReceivedHeartbeat = $false
 $global:shouldShutdown = $false
 $global:excelDataVersion = 1
 $global:lastCheckTime = [DateTime]::Now
 $global:fileTimestamps = @{}
+$global:isSyncing = $false
+
+function Trigger-ExcelSync {
+    if ($global:isSyncing) { return $false }
+    $global:isSyncing = $true
+    $executedEngine = "none"
+    try {
+        $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
+        if (Test-Path $autoSyncPs1) {
+            . $autoSyncPs1
+            $executedEngine = "Native PowerShell (Dot-Sourced 0ms)"
+        }
+        $global:excelDataVersion++
+    } catch {
+        Write-Host "⚠️ Non-fatal sync notice: $_" -ForegroundColor Yellow
+    } finally {
+        $global:isSyncing = $false
+    }
+    return $executedEngine
+}
 
 function Check-ExcelFileChanges {
     try {
+        if ($global:isSyncing) { return }
         $parent = Split-Path $Root -Parent
         $candidateFiles = @(Get-ChildItem -Path $Root, $parent -Filter "*.xlsx" -ErrorAction SilentlyContinue | Where-Object { -not $_.Name.StartsWith("~$") })
         $hasChanged = $false
@@ -83,19 +101,25 @@ function Check-ExcelFileChanges {
         }
         if ($hasChanged) {
             Write-Host "⚡ Phat hien file Excel duoc chinh sua & luu! Dang tu dong dong bo va preload..." -ForegroundColor Cyan
-            Start-Sleep -Milliseconds 400
-            $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
-            if (Test-Path $autoSyncPs1) {
-                & powershell -ExecutionPolicy Bypass -File $autoSyncPs1
-            }
-            $global:excelDataVersion++
+            Start-Sleep -Milliseconds 200
+            Trigger-ExcelSync | Out-Null
             Write-Host "✅ Preload hoan tat! Data Version = v$global:excelDataVersion" -ForegroundColor Green
         }
     } catch {}
 }
 
-# Initial scan of Excel file timestamps
-Check-ExcelFileChanges
+# Populate initial Excel file timestamps
+try {
+    $parent = Split-Path $Root -Parent
+    $candidateFiles = @(Get-ChildItem -Path $Root, $parent -Filter "*.xlsx" -ErrorAction SilentlyContinue | Where-Object { -not $_.Name.StartsWith("~$") })
+    foreach ($f in $candidateFiles) {
+        $global:fileTimestamps[$f.FullName] = $f.LastWriteTime.Ticks
+    }
+} catch {}
+
+$url = "http://127.0.0.1:$boundPort/"
+Write-Host "Component Life đang chay tai $url (nhan Ctrl+C de dung)" -ForegroundColor Green
+if (-not $NoBrowser) { Start-Process $url }
 
 try {
     while ($true) {
@@ -155,10 +179,6 @@ try {
         $contentType = "text/html; charset=utf-8"
 
         try {
-            # Synchronously check if Excel source files have changed before serving data/page
-            if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/ComponentLife.html' -or $path -eq '/api/version' -or $path.StartsWith('/data/') -or $path.EndsWith('.json')) {
-                Check-ExcelFileChanges
-            }
 
             if ($path -eq '/index.html' -or $path -eq '/ComponentLife.html') {
                 $htmlFile = Join-Path $Root 'ComponentLife.html'
