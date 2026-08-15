@@ -137,41 +137,49 @@ try {
                 $global:lastCheckTime = [DateTime]::Now
                 Check-ExcelFileChanges
             }
-            Start-Sleep -Milliseconds 100
+            Start-Sleep -Milliseconds 5
             continue
         }
 
         $client = $listener.AcceptTcpClient()
-        $stream = $client.GetStream()
-        $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
-        
-        $requestLine = $reader.ReadLine()
-        if ([string]::IsNullOrEmpty($requestLine)) { $client.Close(); continue }
-        
-        $parts = $requestLine.Split(' ')
-        $method = $parts[0]
-        $rawPath = if ($parts.Length -gt 1) { $parts[1] } else { '/' }
-        $path = $rawPath.Split('?')[0]
+        $client.ReceiveTimeout = 1500
+        $client.SendTimeout = 1500
 
-        $contentLength = 0
-        while ($true) {
-            $line = $reader.ReadLine()
-            if ([string]::IsNullOrEmpty($line)) { break }
-            if ($line.ToLower().StartsWith("content-length:")) {
-                $contentLength = [int]($line.Split(':')[1].Trim())
-            }
-        }
+        try {
+            $stream = $client.GetStream()
+            $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+            
+            $requestLine = $reader.ReadLine()
+            if ([string]::IsNullOrEmpty($requestLine)) { try { $client.Close() } catch {}; continue }
+            
+            $parts = $requestLine.Split(' ')
+            $method = $parts[0]
+            $rawPath = if ($parts.Length -gt 1) { $parts[1] } else { '/' }
+            $path = $rawPath.Split('?')[0]
 
-        $bodyText = ""
-        if ($contentLength -gt 0) {
-            $charBuffer = New-Object char[] $contentLength
-            $readCount = 0
-            while ($readCount -lt $contentLength) {
-                $n = $reader.Read($charBuffer, $readCount, $contentLength - $readCount)
-                if ($n -le 0) { break }
-                $readCount += $n
+            $contentLength = 0
+            while ($true) {
+                $line = $reader.ReadLine()
+                if ([string]::IsNullOrEmpty($line)) { break }
+                if ($line.ToLower().StartsWith("content-length:")) {
+                    $contentLength = [int]($line.Split(':')[1].Trim())
+                }
             }
-            $bodyText = New-Object string($charBuffer, 0, $readCount)
+
+            $bodyText = ""
+            if ($contentLength -gt 0) {
+                $charBuffer = New-Object char[] $contentLength
+                $readCount = 0
+                while ($readCount -lt $contentLength) {
+                    $n = $reader.Read($charBuffer, $readCount, $contentLength - $readCount)
+                    if ($n -le 0) { break }
+                    $readCount += $n
+                }
+                $bodyText = New-Object string($charBuffer, 0, $readCount)
+            }
+        } catch {
+            try { $client.Close() } catch {}
+            continue
         }
 
         $responseBytes = [byte[]]@()
