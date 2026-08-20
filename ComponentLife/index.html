@@ -56,11 +56,28 @@
       </div>
     </div>
 
-    <!-- ===== TABS ===== -->
-    <div class="tab-bar">
-      <div class="tab active" data-tab="month">📅 Month Sheet</div>
-      <div class="tab" data-tab="stock">📦 Stock & Replace</div>
-      <div class="tab" data-tab="report">📊 Báo Cáo Tuổi Thọ (Component Life)</div>
+    <!-- ===== NAVIGATION & SUB-FILTERS ===== -->
+    <div class="nav-control-bar">
+      <div class="tab-bar">
+        <div class="tab active" data-tab="month" title="Bảng theo dõi dữ liệu (Month Sheet)">📅 View</div>
+        <div class="tab" data-tab="stock" title="Quản lý tồn kho & thay thế (Stock & Replace)">📦 Stock</div>
+        <div class="tab" data-tab="report" title="Báo cáo tuổi thọ linh kiện (Component Life Report)">📊 Báo Cáo</div>
+      </div>
+
+      <!-- View Tab Active Month Badge -->
+      <div id="viewMonthIndicator" class="view-month-badge">
+        <span class="vmb-icon">📅</span>
+        <span id="viewMonthText">Đang tải tháng...</span>
+      </div>
+
+      <!-- Contextual Filter Chips (Visible when Stock tab is active) -->
+      <div id="stockFilterBar" class="filter-bar hidden">
+        <label id="stockFilterAllLabel" class="filter-chip active"><input type="checkbox" id="chkAll" checked onchange="toggleStockCheckboxAll(this)"> Tất cả <span class="chip-count" id="cntAll">0</span></label>
+        <label id="stockFilterReplacedLabel" class="filter-chip"><input type="checkbox" id="chkReplaced" onchange="toggleStockStatusCheckbox()"> Đã thay <span class="chip-count" id="cntReplaced">0</span></label>
+        <label id="stockFilterCriticalLabel" class="filter-chip critical active"><input type="checkbox" id="chkCritical" checked onchange="toggleStockStatusCheckbox()"> 🔴 Urgent <span class="chip-count" id="cntCritical">0</span></label>
+        <label id="stockFilterWarningLabel" class="filter-chip warning active"><input type="checkbox" id="chkWarning" checked onchange="toggleStockStatusCheckbox()"> 🟡 Need Order <span class="chip-count" id="cntWarning">0</span></label>
+        <label id="stockFilterSafeLabel" class="filter-chip safe active"><input type="checkbox" id="chkSafe" checked onchange="toggleStockStatusCheckbox()"> 🟢 No Need <span class="chip-count" id="cntSafe">0</span></label>
+      </div>
     </div>
 
     <!-- Status Bar -->
@@ -78,20 +95,21 @@
 
     <!-- ===== TAB: Stock & Replace ===== -->
     <section id="stockTab" class="hidden">
-      <div class="filter-bar">
-        <label id="stockFilterAllLabel" class="filter-chip active"><input type="checkbox" id="chkAll" checked onchange="toggleStockCheckboxAll(this)"> Tất cả <span class="chip-count" id="cntAll">0</span></label>
-        <label id="stockFilterReplacedLabel" class="filter-chip"><input type="checkbox" id="chkReplaced" onchange="toggleStockStatusCheckbox()"> Đã thay <span class="chip-count" id="cntReplaced">0</span></label>
-        <label id="stockFilterCriticalLabel" class="filter-chip critical active"><input type="checkbox" id="chkCritical" checked onchange="toggleStockStatusCheckbox()"> 🔴 Urgent <span class="chip-count" id="cntCritical">0</span></label>
-        <label id="stockFilterWarningLabel" class="filter-chip warning active"><input type="checkbox" id="chkWarning" checked onchange="toggleStockStatusCheckbox()"> 🟡 Need Order <span class="chip-count" id="cntWarning">0</span></label>
-        <label id="stockFilterSafeLabel" class="filter-chip safe active"><input type="checkbox" id="chkSafe" checked onchange="toggleStockStatusCheckbox()"> 🟢 No Need <span class="chip-count" id="cntSafe">0</span></label>
-      </div>
-      <div class="summary-box">
+      <div class="summary-box" style="margin-top:0;">
         <table class="data-table">
           <thead>
             <tr>
-              <th>Part</th><th>Series</th><th>Mold</th>
-              <th>Min</th><th>Tồn kho</th><th>Đã thay</th><th>Số lần</th>
-              <th>Ngày thay</th><th>Số lượng</th><th>ID Request</th><th>Trạng thái</th>
+              <th style="width:45px;text-align:center;">#</th>
+              <th style="min-width:85px;">Part Name</th>
+              <th style="min-width:160px;">Mold + Series</th>
+              <th style="text-align:center;" title="Mức tồn kho tối thiểu">Min</th>
+              <th style="text-align:center;" title="Số lượng tồn kho hiện tại">Tồn Kho</th>
+              <th style="text-align:center;" title="Tổng số chi tiết đã thay thế (Pcs)">Đã Thay</th>
+              <th style="text-align:center;" title="Tổng số lần thay ra">Lượt Thay</th>
+              <th title="Các ngày phát sinh thay thế trong kỳ">Ngày Thay</th>
+              <th title="Số lượng thay từng lần">Số Lượng</th>
+              <th title="Mã phiếu yêu cầu">ID Request</th>
+              <th style="text-align:center;" title="Trạng thái tồn kho">Trạng Thái</th>
             </tr>
           </thead>
           <tbody id="stockRows"></tbody>
@@ -230,12 +248,12 @@
     <div class="gpd-inner">
       <div class="gpd-status">
         <span class="gpd-dot"></span>
-        <span id="gpdCountText">Đang hiển thị <b>30</b> / 1,575 linh kiện</span>
+        <span id="gpdCountText"><b>30</b> / 1,575</span>
       </div>
       <div class="gpd-actions">
-        <button id="gpdBtnMore" class="gpd-btn gpd-btn-primary" onclick="window.gpdMoreAction && window.gpdMoreAction()">⚡ Tải thêm +30</button>
-        <button id="gpdBtnAll" class="gpd-btn gpd-btn-all" onclick="window.gpdAllAction && window.gpdAllAction()">Hiển thị tất cả</button>
-        <button class="gpd-btn gpd-btn-top" onclick="scrollToTopActiveTable()">▲ Lên đầu</button>
+        <button id="gpdBtnMore" class="gpd-btn gpd-btn-primary" onclick="window.gpdMoreAction && window.gpdMoreAction()">+30</button>
+        <button id="gpdBtnAll" class="gpd-btn gpd-btn-all" onclick="window.gpdAllAction && window.gpdAllAction()">Tất cả</button>
+        <button class="gpd-btn gpd-btn-top" onclick="scrollToTopActiveTable()" title="Lên đầu">▲</button>
       </div>
     </div>
   </div>

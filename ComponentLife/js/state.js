@@ -153,13 +153,32 @@ function getStockItem(part, dieSet) {
 function buildAllPartsCache() {
   const partsMap = new Map();
 
+  const knownNewByOld = new Map();
+  const knownOldByNew = new Map();
+  (masterData || []).forEach(item => {
+    const o = String(item.OldDieSet || "").trim();
+    const n = String(item.NewDieSet || "").trim();
+    if (o && n && o.toLowerCase() !== n.toLowerCase()) {
+      knownNewByOld.set(o.toLowerCase(), n);
+      knownOldByNew.set(n.toLowerCase(), o);
+    }
+  });
+
   // 1. Master data items
   (masterData || []).forEach(item => {
     if (isValidPartName(item.PartName)) {
       const p = String(item.PartName).trim();
-      const mOld = String(item.OldDieSet || "").trim();
-      const mNew = String(item.NewDieSet || "").trim();
+      let mOld = String(item.OldDieSet || "").trim();
+      let mNew = String(item.NewDieSet || "").trim();
       const s = String(item.Series || "").trim();
+
+      if ((!mNew || mNew.toLowerCase() === mOld.toLowerCase()) && knownNewByOld.has(mOld.toLowerCase())) {
+        mNew = knownNewByOld.get(mOld.toLowerCase());
+      }
+      if ((!mOld || mOld.toLowerCase() === mNew.toLowerCase()) && knownOldByNew.has(mNew.toLowerCase())) {
+        mOld = knownOldByNew.get(mNew.toLowerCase());
+      }
+
       const key = `${p}|${mOld}|${mNew}`;
       if (!partsMap.has(key)) {
         partsMap.set(key, {

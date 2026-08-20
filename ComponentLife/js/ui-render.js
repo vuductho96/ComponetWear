@@ -183,14 +183,14 @@ function updateGlobalPaginationDock(tabName, currentLimit, totalCount, moreCallb
     window.gpdMoreAction = moreCallback;
     window.gpdAllAction = allCallback;
     const nextStep = (tabName === 'month' ? 30 : 40);
-    label.innerHTML = `Đang hiển thị <b>${currentLimit}</b> / ${totalCount.toLocaleString()} linh kiện`;
-    if ($('gpdBtnMore')) { $('gpdBtnMore').innerHTML = `⚡ Tải thêm +${nextStep}`; $('gpdBtnMore').style.display = 'inline-flex'; }
-    if ($('gpdBtnAll')) { $('gpdBtnAll').innerHTML = `Hiển thị tất cả (${totalCount.toLocaleString()})`; $('gpdBtnAll').style.display = 'inline-flex'; }
+    label.innerHTML = `<b>${currentLimit}</b> / ${totalCount.toLocaleString()}`;
+    if ($('gpdBtnMore')) { $('gpdBtnMore').innerHTML = `+${nextStep}`; $('gpdBtnMore').style.display = 'inline-flex'; }
+    if ($('gpdBtnAll')) { $('gpdBtnAll').innerHTML = `Tất cả`; $('gpdBtnAll').style.display = 'inline-flex'; }
     dock.style.display = 'flex';
   } else {
     window.gpdMoreAction = null; window.gpdAllAction = null;
     if (totalCount > 0) {
-      label.innerHTML = `✅ Đã hiển thị đủ <b>${totalCount.toLocaleString()}</b> linh kiện`;
+      label.innerHTML = `<b>${totalCount.toLocaleString()}</b> / ${totalCount.toLocaleString()}`;
       if ($('gpdBtnMore')) $('gpdBtnMore').style.display = 'none';
       if ($('gpdBtnAll')) $('gpdBtnAll').style.display = 'none';
       dock.style.display = 'flex';
@@ -267,12 +267,8 @@ function renderComponentLifeReport() {
     const moldNew = item.moldNew || item.moldOld || item.part;
     const moldOld = item.moldOld || '';
     
-    let partCode = `${part}/${series}/${moldOld || '-'}/${moldNew || '-'}`;
-    if (moldOld && moldNew && moldOld.toLowerCase() === moldNew.toLowerCase()) {
-      partCode = `${part}/${series}/${moldNew}`;
-    } else if (!moldOld || !moldNew) {
-      partCode = `${part}/${series}/${moldNew || moldOld || '-'}`;
-    }
+    const moldSeries = formatMoldSeriesDisplay(series, moldOld, moldNew, false);
+    const moldSeriesHtml = formatMoldSeriesDisplay(series, moldOld, moldNew, true);
 
     const pLower = part.toLowerCase().trim();
     const dNewLower = (moldNew || '').toLowerCase().trim();
@@ -322,8 +318,10 @@ function renderComponentLifeReport() {
     const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
 
     rowsData.push({
-      no: index + 1,
-      partCode,
+      no: 0,
+      part,
+      moldSeries,
+      moldSeriesHtml,
       replacementCount: replacementCount > 0 ? replacementCount : '',
       totalPartsReplacedPcs: totalPartsReplacedPcs > 0 ? totalPartsReplacedPcs : '',
       averageShotLife,
@@ -334,18 +332,33 @@ function renderComponentLifeReport() {
     });
   });
 
-  // Render Table Header with dynamic cycle headers
+  // Always prioritize sorting descending by replacement count (Số lần thay từ cao đến thấp)
+  rowsData.sort((a, b) => {
+    const repA = Number(a.replacementCount) || 0;
+    const repB = Number(b.replacementCount) || 0;
+    if (repB !== repA) return repB - repA;
+    const pcsA = Number(a.totalPartsReplacedPcs) || 0;
+    const pcsB = Number(b.totalPartsReplacedPcs) || 0;
+    if (pcsB !== pcsA) return pcsB - pcsA;
+    return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  // Reassign sequential 1-based row numbers
+  rowsData.forEach((r, idx) => { r.no = idx + 1; });
+
+  // Render Table Header with dynamic cycle headers (Ultra-compact titles)
   let headHtml = `<tr>
-    <th style="width:50px;text-align:center;">No.</th>
-    <th>Part Code</th>
-    <th style="text-align:center;">Total Replacement Count</th>
-    <th style="text-align:center;">Total Parts Replaced (pcs)</th>
-    <th style="text-align:right;">Average Shot Life</th>
-    <th style="text-align:right;">Min. Shot Life</th>
-    <th style="text-align:right;">Max. Shot Life</th>
-    <th style="text-align:right;">Current Shot Count</th>`;
+    <th style="width:45px;text-align:center;">#</th>
+    <th style="min-width:85px;">Part Name</th>
+    <th style="min-width:160px;">Mold + Series</th>
+    <th style="text-align:center;" title="Tổng lượt thay linh kiện">Lượt Thay</th>
+    <th style="text-align:center;" title="Tổng linh kiện thay thế (Pcs)">Tổng Pcs</th>
+    <th style="text-align:right;" title="Tuổi thọ shot trung bình">TB Shot</th>
+    <th style="text-align:right;" title="Tuổi thọ shot nhỏ nhất">Min Shot</th>
+    <th style="text-align:right;" title="Tuổi thọ shot lớn nhất">Max Shot</th>
+    <th style="text-align:right;" title="Số shot đang chạy hiện tại">Shot HT</th>`;
   for (let c = 1; c <= maxCyclesFound; c++) {
-    headHtml += `<th style="text-align:right;">Cycle ${c} Shot</th>`;
+    headHtml += `<th style="text-align:right;" title="Chu kỳ ${c}">Cycle ${c}</th>`;
   }
   headHtml += `</tr>`;
   if ($("reportHead")) $("reportHead").innerHTML = headHtml;
@@ -355,7 +368,7 @@ function renderComponentLifeReport() {
   const visibleRows = rowsData.slice(0, limit);
 
   if (visibleRows.length === 0) {
-    if ($("reportRows")) $("reportRows").innerHTML = `<tr><td colspan="${8 + maxCyclesFound}" style="text-align:center; padding:24px; color:var(--muted);">Không tìm thấy linh kiện nào phù hợp.</td></tr>`;
+    if ($("reportRows")) $("reportRows").innerHTML = `<tr><td colspan="${9 + maxCyclesFound}" style="text-align:center; padding:24px; color:var(--muted);">Không tìm thấy linh kiện nào phù hợp.</td></tr>`;
     updateGlobalPaginationDock('report', 0, 0, null, null);
     return;
   }
@@ -364,7 +377,8 @@ function renderComponentLifeReport() {
   visibleRows.forEach(r => {
     bodyHtml += `<tr>
       <td style="text-align:center;color:var(--ink-muted);font-weight:600;">${r.no}</td>
-      <td style="font-weight:700;color:var(--ink-dark);"><span style="font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${esc(r.partCode)}</span></td>
+      <td style="font-weight:800;color:var(--ink-dark);"><span style="font-family:monospace;background:#f8fafc;padding:3px 7px;border-radius:4px;border:1px solid #e2e8f0;color:#0f172a;">${esc(r.part)}</span></td>
+      <td style="font-weight:600;color:#475569;"><span style="font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${r.moldSeriesHtml || esc(r.moldSeries)}</span></td>
       <td style="text-align:center;font-weight:700;color:#2563eb;">${r.replacementCount !== '' ? r.replacementCount : '-'}</td>
       <td style="text-align:center;font-weight:700;color:#7c3aed;">${r.totalPartsReplacedPcs !== '' ? r.totalPartsReplacedPcs : '-'}</td>
       <td style="text-align:right;font-weight:700;color:#059669;">${r.averageShotLife !== '' ? Number(r.averageShotLife).toLocaleString() : '-'}</td>

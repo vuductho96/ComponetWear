@@ -1558,11 +1558,11 @@
       -webkit-backdrop-filter: blur(14px);
       color: #ffffff;
       border-radius: 50px;
-      padding: 6px 14px 6px 18px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.16);
+      padding: 5px 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.16);
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
       animation: gpdSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       transition: all 0.2s ease;
       max-width: 95vw;
@@ -1576,15 +1576,15 @@
     .gpd-inner {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
     .gpd-status {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 12.5px;
+      gap: 6px;
+      font-size: 12px;
       font-weight: 600;
       color: #e2e8f0;
       white-space: nowrap;
@@ -1596,8 +1596,8 @@
     }
 
     .gpd-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: #10b981;
       box-shadow: 0 0 8px #10b981;
@@ -1606,21 +1606,22 @@
     .gpd-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .gpd-btn {
       border: none;
       border-radius: 20px;
-      padding: 6px 14px;
-      font-size: 12px;
+      padding: 4px 10px;
+      font-size: 11.5px;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
       transition: all 0.15s ease;
       white-space: nowrap;
+      height: 28px;
     }
 
     .gpd-btn-primary {
@@ -1828,12 +1829,12 @@
     <input type="hidden" id="dieSet" value="">
     <input type="hidden" id="mold" value="">
 
-    <!-- Navigation Tabs: 1. Month Sheet, 2. Stock, 3. Wear Analysis, 4. Wear & Frequency Report -->
+    <!-- Navigation Tabs: 1. View, 2. Stock, 3. Wear, 4. Report -->
     <nav class="tabs">
-      <button class="tab active" data-tab="month">📅 Month Sheet (Lưới Theo Dõi Ngày)</button>
-      <button class="tab" data-tab="stock">📦 Quản Lý Tồn Kho (Stock)</button>
-      <button class="tab" data-tab="wear">⚙️ Phân Tích Độ Mòn &amp; Tuổi Thọ (Wear Analysis)</button>
-      <button class="tab" data-tab="report">📊 Báo Cáo Chu Kỳ Mòn &amp; Tần Suất (Report &amp; Export)</button>
+      <button class="tab active" data-tab="month" title="Bảng theo dõi dữ liệu (Month Sheet)">📅 View</button>
+      <button class="tab" data-tab="stock" title="Quản lý tồn kho (Stock)">📦 Stock</button>
+      <button class="tab" data-tab="wear" title="Phân tích độ mòn linh kiện (Wear Analysis)">⚙️ Độ Mòn</button>
+      <button class="tab" data-tab="report" title="Báo cáo tuổi thọ linh kiện (Report & Export)">📊 Báo Cáo</button>
     </nav>
 
     <!-- TAB 1: MONTH SHEET (GRID THEO DÕI THEO NGÀY - DEFAULT ACTIVE) -->
@@ -1892,18 +1893,17 @@
           <table class="summary">
             <thead>
               <tr>
-                <th style="width:85px;">Part</th>
-                <th style="width:80px;">Series</th>
-                <th style="width:110px;">Mold (New)</th>
-                <th style="width:110px;">Mold (Old)</th>
-                <th style="text-align:center; width:85px;">Mức Min</th>
-                <th style="text-align:center; width:95px;">Tồn Kho</th>
-                <th style="text-align:center; width:85px;">Đã Thay</th>
-                <th style="text-align:center; width:75px;">Số Lần</th>
-                <th style="text-align:left; min-width:130px;">Ngày Thay</th>
-                <th style="text-align:left; min-width:130px;">Số Lượng Thay</th>
-                <th style="text-align:left; min-width:115px;">ID Request</th>
-                <th style="text-align:center; width:115px;">Trạng Thái</th>
+                <th style="width:45px;text-align:center;">#</th>
+                <th style="min-width:85px;">Part Name</th>
+                <th style="min-width:160px;">Mold + Series</th>
+                <th style="text-align:center; width:75px;" title="Mức tồn kho tối thiểu">Min</th>
+                <th style="text-align:center; width:85px;" title="Số lượng tồn kho hiện tại">Tồn Kho</th>
+                <th style="text-align:center; width:85px;" title="Tổng số chi tiết đã thay thế (Pcs)">Đã Thay</th>
+                <th style="text-align:center; width:75px;" title="Tổng số lần thay ra">Lượt Thay</th>
+                <th style="text-align:left; min-width:115px;" title="Các ngày phát sinh thay thế trong kỳ">Ngày Thay</th>
+                <th style="text-align:left; min-width:115px;" title="Số lượng thay từng lần">Số Lượng</th>
+                <th style="text-align:left; min-width:105px;" title="Mã phiếu yêu cầu">ID Request</th>
+                <th style="text-align:center; width:110px;" title="Trạng thái tồn kho">Trạng Thái</th>
               </tr>
             </thead>
             <tbody id="stockRows"></tbody>
@@ -2101,7 +2101,6 @@
       </article>
     </section>
   </div>
-  </div>
 
   <!-- Modal: Top 5 Part List Thay Ra Số Lần Nhiều Nhất -->
   <div id="top5Modal" class="top5-modal-overlay hidden" onclick="if(event.target===this)closeTop5Modal()">
@@ -2202,22 +2201,26 @@
         <button type="button" onclick="confirmDeleteReplacement()" class="primary" style="background:#dc2626; border-color:#b91c1c; font-weight:700; padding:7px 18px; border-radius:6px; color:#fff; cursor:pointer; display:flex; align-items:center; gap:6px;">
           <span>🗑️</span> Xác Nhận Xóa
         </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== GLOBAL FLOATING PAGINATION DOCK (CỐ ĐỊNH CHUYỂN TRANG/TẢI THÊM) ===== -->
   <div id="globalPaginationDock" class="global-pagination-dock" style="display:none;">
     <div class="gpd-inner">
       <div class="gpd-status">
         <span class="gpd-dot"></span>
-        <span id="gpdCountText">Đang hiển thị <b>30</b> / 1,575 linh kiện</span>
+        <span id="gpdCountText"><b>30</b> / 1,575</span>
       </div>
       <div class="gpd-actions">
         <button id="gpdBtnMore" class="gpd-btn gpd-btn-primary" onclick="window.gpdMoreAction && window.gpdMoreAction()">
-          ⚡ Tải thêm +30
+          +30
         </button>
         <button id="gpdBtnAll" class="gpd-btn gpd-btn-all" onclick="window.gpdAllAction && window.gpdAllAction()">
-          Hiển thị tất cả
+          Tất cả
         </button>
         <button class="gpd-btn gpd-btn-top" onclick="scrollToTopActiveTable()" title="Cuộn lên đầu bảng">
-          ▲ Lên đầu
+          ▲
         </button>
       </div>
     </div>
@@ -2370,13 +2373,13 @@
         window.gpdAllAction = allCallback;
 
         const nextStep = (tabName === 'month' ? 30 : 40);
-        label.innerHTML = `Đang hiển thị <b>${currentLimit}</b> / ${totalCount.toLocaleString()} linh kiện`;
+        label.innerHTML = `<b>${currentLimit}</b> / ${totalCount.toLocaleString()}`;
         if (btnMore) {
-          btnMore.innerHTML = `⚡ Tải thêm +${nextStep}`;
+          btnMore.innerHTML = `+${nextStep}`;
           btnMore.style.display = 'inline-flex';
         }
         if (btnAll) {
-          btnAll.innerHTML = `Hiển thị tất cả (${totalCount.toLocaleString()})`;
+          btnAll.innerHTML = `Tất cả`;
           btnAll.style.display = 'inline-flex';
         }
         dock.style.display = 'flex';
@@ -2384,7 +2387,7 @@
         window.gpdMoreAction = null;
         window.gpdAllAction = null;
         if (totalCount > 0) {
-          label.innerHTML = `✅ Đã hiển thị đủ <b>${totalCount.toLocaleString()}</b> linh kiện`;
+          label.innerHTML = `<b>${totalCount.toLocaleString()}</b> / ${totalCount.toLocaleString()}`;
           if (btnMore) btnMore.style.display = 'none';
           if (btnAll) btnAll.style.display = 'none';
           dock.style.display = 'flex';
@@ -3381,53 +3384,32 @@
         }
       }
 
-      // Count used replacements per part/mold (summing total replaced pieces) and collect detailed events
-      const repCounts = {};
-      const repEvents = {};
+      // Index replacements with normalized keys (matching both OldDieSet, NewDieSet, DieSet)
+      const repsByPartMold = new Map();
       (db.replacements || []).forEach(r => {
         const lbl = String(r.Label || "").trim();
         const reqId = String(r.RequestId || "").trim();
         const repDate = String(r.ReplaceDate || "").trim();
-        const p = r.Part;
-        const dNew = r.DieSet || r.NewDieSet;
-        const dOld = r.OldDieSet;
 
-        if (!repDate) return;
+        if (!repDate || lbl === "-" || lbl === "0" || lbl === "·") return;
 
         // Lọc theo tháng hoặc năm đang được chọn
-        if (currentYm && monthKey(repDate) !== currentYm) {
-          return;
-        }
-        if (!currentYm && currentYear && !repDate.startsWith(currentYear)) {
-          return;
-        }
+        if (currentYm && monthKey(repDate) !== currentYm) return;
+        if (!currentYm && currentYear && !repDate.startsWith(currentYear)) return;
+        if (currentDay && repDate.slice(8, 10) !== currentDay) return;
 
-        // Nếu có chọn ngày cụ thể thì lọc theo ngày đó
-        if (currentDay && repDate.slice(8, 10) !== currentDay) {
-          return;
-        }
+        const val = Number(lbl.replace(/,/g, "")) || 1;
+        const p = String(r.Part || "").toLowerCase().trim();
+        const dList = [r.DieSet, r.NewDieSet, r.OldDieSet].map(d => String(d || "").toLowerCase().trim()).filter(Boolean);
+        const uniqueDies = [...new Set(dList)];
+        if (!uniqueDies.length && p) uniqueDies.push(p);
 
-        const keys = [];
-        if (dNew) keys.push(getStockItemKey(p, dNew));
-        if (dOld && dOld !== dNew) keys.push(getStockItemKey(p, dOld));
-
-        if (lbl && lbl !== "-" && lbl !== "0" && lbl !== "·") {
-          const val = Number(lbl.replace(/,/g, "")) || 1;
-          keys.forEach(k => {
-            repCounts[k] = (repCounts[k] || 0) + val;
-            if (!repEvents[k]) repEvents[k] = [];
-            repEvents[k].push({
-              date: repDate,
-              qty: val,
-              requestId: reqId
-            });
-          });
-        }
-      });
-
-      // Sort events chronologically
-      Object.keys(repEvents).forEach(k => {
-        repEvents[k].sort((a, b) => (a.date > b.date ? 1 : (a.date < b.date ? -1 : 0)));
+        const evObj = { date: repDate, qty: val, requestId: reqId };
+        uniqueDies.forEach(d => {
+          const key = `${p}|${d}`;
+          if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
+          repsByPartMold.get(key).push(evObj);
+        });
       });
 
       let totalCount = 0;
@@ -3441,7 +3423,6 @@
         const mold = item.moldNew || item.moldOld || item.part;
         const moldOld = item.moldOld || "";
         const series = getSeriesForPart(part, mold) || item.series || "-";
-        const key = getStockItemKey(part, mold);
         const st = getStockItem(part, mold);
         const masterItem = findMasterItem(part, mold, series);
         const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
@@ -3453,10 +3434,28 @@
         } else if (masterItem && masterItem.StandardStock !== undefined) {
           minStock = Number(masterItem.StandardStock) || 1;
         }
-        const keyOld = moldOld ? getStockItemKey(part, moldOld) : "";
-        const events = repEvents[key] || (keyOld ? repEvents[keyOld] : []) || [];
-        const used = events.reduce((sum, ev) => sum + (Number(ev.qty) || 0), 0);
-        const timesCount = events.length;
+
+        const pLower = String(part || "").toLowerCase().trim();
+        const dNewLower = String(item.moldNew || mold || "").toLowerCase().trim();
+        const dOldLower = String(moldOld || "").toLowerCase().trim();
+
+        const moldSeries = formatMoldSeriesDisplay(series, moldOld, moldNew, false);
+        const moldSeriesHtml = formatMoldSeriesDisplay(series, moldOld, moldNew, true);
+
+        const allEvents = [];
+        const eventSet = new Set();
+        const k1 = `${pLower}|${dNewLower}`, k2 = `${pLower}|${dOldLower}`;
+        [...(repsByPartMold.get(k1) || []), ...(repsByPartMold.get(k2) || [])].forEach(ev => {
+          const ek = `${ev.date}|${ev.requestId}|${ev.qty}`;
+          if (!eventSet.has(ek)) {
+            eventSet.add(ek);
+            allEvents.push(ev);
+          }
+        });
+
+        allEvents.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        const used = allEvents.reduce((sum, ev) => sum + (Number(ev.qty) || 0), 0);
+        const timesCount = allEvents.length;
 
         if (used > 0) replacedCount++;
 
@@ -3473,7 +3472,7 @@
         totalCount++;
 
         return {
-          part, series, mold, moldOld, key, stock, minStock, used, timesCount, events, status
+          part, series, mold, moldOld, moldSeries, moldSeriesHtml, key, stock, minStock, used, timesCount, events: allEvents, status
         };
       });
 
@@ -3523,10 +3522,10 @@
 
       if ($("stockRows")) {
         if (!visibleList.length) {
-          $("stockRows").innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--ink-muted);padding:28px;">Không có linh kiện nào trong danh mục tồn kho này.</td></tr>`;
+          $("stockRows").innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--ink-muted);padding:28px;">Không có linh kiện nào trong danh mục tồn kho này.</td></tr>`;
           updateGlobalPaginationDock('stock', 0, 0);
         } else {
-          let rowsHtml = visibleList.map(row => {
+          let rowsHtml = visibleList.map((row, idx) => {
             const statusBadge = row.status === 'CRITICAL'
               ? `<span class="badge-stock critical" style="font-size:12.5px;padding:4px 10px;font-weight:700;" title="Tồn kho = 0 (Hết hàng)">🔴 URGENT</span>`
               : (row.status === 'WARNING'
@@ -3536,10 +3535,9 @@
             const reqIds = Array.from(new Set((row.events || []).map(e => e.requestId).filter(Boolean)));
 
             return `<tr>
-              <td><b style="font-size:14.5px; color:#0f172a;">${esc(row.part)}</b></td>
-              <td><span style="color:#2563eb;font-weight:700;font-size:13.5px;">${esc(row.series)}</span></td>
-              <td><b style="font-size:13.5px;">${esc(row.mold)}</b></td>
-              <td><b style="color:#475569;font-size:13.5px;">${esc(row.moldOld || row.mold || '-')}</b></td>
+              <td style="text-align:center;color:var(--ink-muted);font-weight:600;">${idx + 1}</td>
+              <td><span style="font-family:monospace;background:#f8fafc;padding:3px 7px;border-radius:4px;border:1px solid #e2e8f0;color:#0f172a;font-weight:800;">${esc(row.part)}</span></td>
+              <td><span style="font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px;color:#475569;font-weight:600;">${row.moldSeriesHtml || esc(row.moldSeries)}</span></td>
               <td style="text-align:center;">
                 <b style="color:#475569; font-size:14.5px;">${row.minStock}</b>
               </td>
@@ -3547,21 +3545,21 @@
                 <b style="color:${row.stock <= 0 ? '#dc2626' : (row.stock < row.minStock ? '#d97706' : '#0f172a')}; font-size:15px;">${row.stock}</b>
               </td>
               <td style="text-align:center;">
-                ${row.used > 0 ? `<b style="color:#b45309;font-size:14.5px;">${row.used}</b>` : '<span style="color:var(--ink-light);font-size:13.5px;">0</span>'}
+                ${row.used > 0 ? `<b style="color:#7c3aed;font-size:14.5px;">${row.used}</b>` : '<span style="color:var(--ink-light);font-size:13.5px;">-</span>'}
               </td>
               <td style="text-align:center;">
                 ${row.timesCount > 0 
                   ? `<span class="stock-pill-count" style="font-size:12.5px;padding:3px 9px;">${row.timesCount}</span>` 
-                  : '<span style="color:var(--ink-light);font-size:12.5px;">0</span>'}
+                  : '<span style="color:var(--ink-light);font-size:12.5px;">-</span>'}
               </td>
               <td style="text-align:left; font-size:12.5px;">
                 ${row.events && row.events.length > 0
                   ? `<div style="display:flex; flex-wrap:wrap; gap:4px;">` +
-                      row.events.map((ev, idx) => {
+                      row.events.map((ev, i) => {
                         const dParts = (ev.date || '').split('-');
                         const shortDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}` : ev.date;
                         const fullDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : ev.date;
-                        return `<span class="date-chip" style="font-size:12px;padding:3px 8px;font-weight:700;" title="Lần ${idx+1}: Ngày ${fullDate} - ID Request: ${ev.requestId || 'N/A'}">
+                        return `<span class="date-chip" style="font-size:12px;padding:3px 8px;font-weight:700;" title="Lần ${i+1}: Ngày ${fullDate} - ID Request: ${ev.requestId || 'N/A'}">
                           ${shortDate}
                         </span>`;
                       }).join('') +
@@ -3572,11 +3570,11 @@
               <td style="text-align:left; font-size:12.5px;">
                 ${row.events && row.events.length > 0
                   ? `<div style="display:flex; flex-wrap:wrap; gap:4px;">` +
-                      row.events.map((ev, idx) => {
+                      row.events.map((ev, i) => {
                         const dParts = (ev.date || '').split('-');
                         const shortDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}` : ev.date;
-                        return `<span class="qty-chip" style="background:#fef3c7; color:#92400e; font-weight:800; padding:3px 8px; border-radius:5px; font-size:12px; border:1px solid #fde68a;" title="Lần ${idx+1} (${shortDate}): Thay ${ev.qty} cái">
-                          ${ev.qty} cái
+                        return `<span class="qty-chip" style="background:#fef3c7; color:#92400e; font-weight:800; padding:3px 8px; border-radius:5px; font-size:12px; border:1px solid #fde68a;" title="Lần ${i+1} (${shortDate}): Thay ${ev.qty} cái">
+                          ${ev.qty} pcs
                         </span>`;
                       }).join('') +
                     `</div>`
@@ -3586,7 +3584,7 @@
               <td style="text-align:left; font-size:12px;">
                 ${reqIds.length > 0
                   ? `<div style="display:flex; flex-wrap:wrap; gap:4px;">` +
-                      reqIds.map(id => `<span class="id-chip" style="font-size:12px;padding:3px 8px;font-weight:700;">${esc(id)}</span>`).join('') +
+                      reqIds.map(id => `<span class="id-chip" style="font-size:12px;padding:3px 8px;font-weight:700;">#${esc(id)}</span>`).join('') +
                     `</div>`
                   : '<span style="color:var(--ink-light);">-</span>'
                 }
@@ -3594,16 +3592,6 @@
               <td style="text-align:center;">${statusBadge}</td>
             </tr>`;
           }).join("");
-
-          if (filtered.length > limit) {
-            rowsHtml += `<tr><td colspan="12" class="table-load-row">
-              <div class="table-load-sticky-wrap">
-                <span class="load-info-badge">📦 Đang hiển thị <b>${limit}</b> / ${filtered.length.toLocaleString()} linh kiện</span>
-                <button onclick="_stockRenderLimit += 40; renderStockTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
-                <button onclick="_stockRenderLimit = ${filtered.length}; renderStockTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả (${filtered.length.toLocaleString()})</button>
-              </div>
-            </td></tr>`;
-          }
 
           $("stockRows").innerHTML = rowsHtml;
           updateGlobalPaginationDock('stock', limit, filtered.length, () => { _stockRenderLimit += 40; renderStockTable(); }, () => { _stockRenderLimit = filtered.length; renderStockTable(); });
@@ -3899,16 +3887,6 @@
         `;
       });
 
-      if (filteredList.length > limit) {
-        html += `<tr><td colspan="11" class="table-load-row">
-          <div class="table-load-sticky-wrap">
-            <span class="load-info-badge">📦 Đang hiển thị <b>${limit}</b> / ${filteredList.length.toLocaleString()} linh kiện</span>
-            <button onclick="_wearRenderLimit += 40; renderWearTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
-            <button onclick="_wearRenderLimit = ${filteredList.length}; renderWearTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả (${filteredList.length.toLocaleString()})</button>
-          </div>
-        </td></tr>`;
-      }
-
       $('wearRows').innerHTML = html;
       updateGlobalPaginationDock('wear', limit, filteredList.length, () => { _wearRenderLimit += 40; renderWearTable(); }, () => { _wearRenderLimit = filteredList.length; renderWearTable(); });
     }
@@ -3931,15 +3909,36 @@
     function buildAllPartsCache() {
       const partsMap = new Map();
 
+      const knownNewByOld = new Map();
+      const knownOldByNew = new Map();
+      (masterData || []).forEach(item => {
+        const o = String(item.OldDieSet || "").trim();
+        const n = String(item.NewDieSet || "").trim();
+        if (o && n && o.toLowerCase() !== n.toLowerCase()) {
+          knownNewByOld.set(o.toLowerCase(), n);
+          knownOldByNew.set(n.toLowerCase(), o);
+        }
+      });
+
       (masterData || []).forEach(item => {
         if (isValidPartName(item.PartName)) {
-          const key = item.PartName + "|" + (item.NewDieSet || item.OldDieSet || "");
+          let mOld = String(item.OldDieSet || "").trim();
+          let mNew = String(item.NewDieSet || "").trim();
+
+          if ((!mNew || mNew.toLowerCase() === mOld.toLowerCase()) && knownNewByOld.has(mOld.toLowerCase())) {
+            mNew = knownNewByOld.get(mOld.toLowerCase());
+          }
+          if ((!mOld || mOld.toLowerCase() === mNew.toLowerCase()) && knownOldByNew.has(mNew.toLowerCase())) {
+            mOld = knownOldByNew.get(mNew.toLowerCase());
+          }
+
+          const key = item.PartName + "|" + (mNew || mOld || "");
           if (!partsMap.has(key)) {
             partsMap.set(key, {
               part: item.PartName,
               series: item.Series || "",
-              moldOld: item.OldDieSet || "",
-              moldNew: item.NewDieSet || item.OldDieSet || ""
+              moldOld: mOld,
+              moldNew: mNew || mOld
             });
           }
         }
@@ -4123,15 +4122,22 @@
       const selDayNum = selDayStr ? parseInt(selDayStr, 10) : 0;
       
       let days = 31;
+      let timeLabel = "";
       if (ym) {
         const [year, month] = ym.split("-").map(Number);
         days = new Date(year, month, 0).getDate();
-        $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
+        timeLabel = `Tháng ${month}-${year}`;
+        if (selDayNum) timeLabel += ` (Ngày ${selDayNum})`;
+        if ($("sheetTitle")) $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
       } else if (ySel) {
-        $("sheetTitle").textContent = `Tất Cả Tháng - Năm ${ySel}`;
+        timeLabel = `Tất Cả Tháng — Năm ${ySel}`;
+        if (selDayNum) timeLabel += ` (Ngày ${selDayNum})`;
+        if ($("sheetTitle")) $("sheetTitle").textContent = `Tất Cả Tháng - Năm ${ySel}`;
       } else {
-        $("sheetTitle").textContent = "Tất Cả Các Tháng";
+        timeLabel = "Tất Cả Các Tháng";
+        if ($("sheetTitle")) $("sheetTitle").textContent = "Tất Cả Các Tháng";
       }
+      if ($("viewMonthText")) $("viewMonthText").textContent = timeLabel;
 
       $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-series">Series</th><th class="col-mold">Mold (new)</th><th class="col-mold">Mold (old)</th><th class="col-type">Loại</th>` + 
         Array.from({ length: days }, (_, i) => {
@@ -4347,16 +4353,6 @@
           </tr>
         `;
       });
-
-      if (allPartsList.length > limit) {
-        bodyHtml += `<tr><td colspan="${days + 6}" class="table-load-row">
-          <div class="table-load-sticky-wrap">
-            <span class="load-info-badge">📦 Đang hiển thị <b>${limit}</b> / ${allPartsList.length.toLocaleString()} linh kiện</span>
-            <button onclick="_monthRenderLimit += 30; renderMonth();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 30 linh kiện tiếp theo</button>
-            <button onclick="_monthRenderLimit = ${allPartsList.length}; renderMonth();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả (${allPartsList.length.toLocaleString()})</button>
-          </div>
-        </td></tr>`;
-      }
 
       $("dayBody").innerHTML = bodyHtml;
       renderMetrics();
@@ -4947,16 +4943,6 @@
         `;
       });
 
-      if (filteredList.length > limit) {
-        html += `<tr><td colspan="14" class="table-load-row">
-          <div class="table-load-sticky-wrap">
-            <span class="load-info-badge">📦 Đang hiển thị <b>${limit}</b> / ${filteredList.length.toLocaleString()} linh kiện</span>
-            <button onclick="_reportRenderLimit += 40; renderReportTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
-            <button onclick="_reportRenderLimit = ${filteredList.length}; renderReportTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả (${filteredList.length.toLocaleString()})</button>
-          </div>
-        </td></tr>`;
-      }
-
       $('reportRows').innerHTML = html;
       updateGlobalPaginationDock('report', limit, filteredList.length, () => { _reportRenderLimit += 40; renderReportTable(); }, () => { _reportRenderLimit = filteredList.length; renderReportTable(); });
     }
@@ -5305,6 +5291,27 @@
         )
       ) || (masterData || []).find(x => x.PartName && x.PartName.toLowerCase() === p);
       return match ? (match.Series || "") : "";
+    }
+
+    function formatMoldSeriesDisplay(series, moldOld, moldNew, isHtml = false) {
+      const s = String(series || "-").trim();
+      const o = String(moldOld || "").trim();
+      const n = String(moldNew || "").trim();
+
+      if (o && n && o.toLowerCase() !== n.toLowerCase()) {
+        return `${s}/${o}/${n}`;
+      }
+      if (n && (!o || n.toLowerCase() === o.toLowerCase()) && !/^(FA|IR|IRSV|M\d|MF|YG|YW)/i.test(n)) {
+        return `${s}/${n}`;
+      }
+      const moldToCheck = o || n;
+      if (moldToCheck) {
+        if (isHtml) {
+          return `${s}/${moldToCheck}/<span class="badge-unmapped" style="color:#dc2626;background:#fee2e2;border:1px solid #fca5a5;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.3px;" title="Khuôn cũ '${esc(moldToCheck)}' chưa tìm thấy mã khuôn mới trong PartList.">🔴 Chưa Map</span>`;
+        }
+        return `${s}/${moldToCheck}/[🔴 Chưa Map]`;
+      }
+      return `${s}/-`;
     }
 
     function normKey(s) {

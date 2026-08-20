@@ -58,12 +58,7 @@ function exportExcelFull() {
     const moldNew = item.moldNew || item.moldOld || item.part;
     const moldOld = item.moldOld || '';
     
-    let partCode = `${part}/${series}/${moldOld || '-'}/${moldNew || '-'}`;
-    if (moldOld && moldNew && moldOld.toLowerCase() === moldNew.toLowerCase()) {
-      partCode = `${part}/${series}/${moldNew}`;
-    } else if (!moldOld || !moldNew) {
-      partCode = `${part}/${series}/${moldNew || moldOld || '-'}`;
-    }
+    const moldSeries = formatMoldSeriesDisplay(series, moldOld, moldNew, false);
 
     const pLower = part.toLowerCase().trim();
     const dNewLower = (moldNew || '').toLowerCase().trim();
@@ -114,8 +109,9 @@ function exportExcelFull() {
     const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
 
     rowsData.push({
-      no: index + 1,
-      partCode,
+      no: 0,
+      part,
+      moldSeries,
       replacementCount: replacementCount > 0 ? replacementCount : '',
       totalPartsReplacedPcs: totalPartsReplacedPcs > 0 ? totalPartsReplacedPcs : '',
       averageShotLife,
@@ -126,19 +122,34 @@ function exportExcelFull() {
     });
   });
 
+  // Always prioritize sorting descending by replacement count (Số lần thay từ cao đến thấp)
+  rowsData.sort((a, b) => {
+    const repA = Number(a.replacementCount) || 0;
+    const repB = Number(b.replacementCount) || 0;
+    if (repB !== repA) return repB - repA;
+    const pcsA = Number(a.totalPartsReplacedPcs) || 0;
+    const pcsB = Number(b.totalPartsReplacedPcs) || 0;
+    if (pcsB !== pcsA) return pcsB - pcsA;
+    return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  // Reassign sequential 1-based row numbers
+  rowsData.forEach((r, idx) => { r.no = idx + 1; });
+
   const excelRows = rowsData.map(r => {
     const rowObj = {
       "No.": r.no,
-      "Part Code": r.partCode,
-      "Total Replacement Count": r.replacementCount,
-      "Total Parts Replaced (pcs)": r.totalPartsReplacedPcs,
-      "Average Shot Life": r.averageShotLife,
-      "Min. Shot Life": r.minShotLife,
-      "Max. Shot Life": r.maxShotLife,
-      "Current Shot Count": r.currentShotCount
+      "Part Name": r.part,
+      "Mold + Series": r.moldSeries,
+      "Lượt Thay": r.replacementCount,
+      "Tổng Pcs": r.totalPartsReplacedPcs,
+      "TB Shot": r.averageShotLife,
+      "Min Shot": r.minShotLife,
+      "Max Shot": r.maxShotLife,
+      "Shot HT": r.currentShotCount
     };
     for (let c = 1; c <= maxCyclesFound; c++) {
-      rowObj[`Cycle ${c} Shot`] = (r.cycles && r.cycles[c - 1] !== undefined) ? r.cycles[c - 1] : '';
+      rowObj[`Cycle ${c}`] = (r.cycles && r.cycles[c - 1] !== undefined) ? r.cycles[c - 1] : '';
     }
     return rowObj;
   });
@@ -146,16 +157,17 @@ function exportExcelFull() {
   const ws = XLSX.utils.json_to_sheet(excelRows);
   const cols = [
     { wch: 6 },   // No.
-    { wch: 34 },  // Part Code
-    { wch: 25 },  // Total Replacement Count
-    { wch: 28 },  // Total Parts Replaced (pcs)
-    { wch: 18 },  // Average Shot Life
-    { wch: 15 },  // Min. Shot Life
-    { wch: 15 },  // Max. Shot Life
-    { wch: 18 },  // Current Shot Count
+    { wch: 14 },  // Part Name
+    { wch: 28 },  // Mold + Series
+    { wch: 12 },  // Lượt Thay
+    { wch: 12 },  // Tổng Pcs
+    { wch: 14 },  // TB Shot
+    { wch: 12 },  // Min Shot
+    { wch: 12 },  // Max Shot
+    { wch: 14 },  // Shot HT
   ];
   for (let c = 1; c <= maxCyclesFound; c++) {
-    cols.push({ wch: 15 });
+    cols.push({ wch: 14 });
   }
   ws['!cols'] = cols;
   XLSX.utils.book_append_sheet(wb, ws, "Component Life");

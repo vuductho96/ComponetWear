@@ -9,15 +9,23 @@ function renderMonth() {
   const ym = selectedMonth(), ySel = selectedYear(), selDayStr = selectedDay();
   const selDayNum = selDayStr ? parseInt(selDayStr, 10) : 0;
   let days = 31;
+  let timeLabel = "";
   if (ym) {
     const [year, month] = ym.split("-").map(Number);
     days = new Date(year, month, 0).getDate();
+    timeLabel = `Tháng ${month}-${year}`;
+    if (selDayNum) timeLabel += ` (Ngày ${selDayNum})`;
     if ($("sheetTitle")) $("sheetTitle").textContent = `${monthNames[month - 1]} ${year}`;
   } else if (ySel) {
+    timeLabel = `Tất Cả Tháng — Năm ${ySel}`;
+    if (selDayNum) timeLabel += ` (Ngày ${selDayNum})`;
     if ($("sheetTitle")) $("sheetTitle").textContent = `Tất Cả Tháng - Năm ${ySel}`;
   } else {
+    timeLabel = "Tất Cả Các Tháng";
     if ($("sheetTitle")) $("sheetTitle").textContent = "Tất Cả Các Tháng";
   }
+
+  if ($("viewMonthText")) $("viewMonthText").textContent = timeLabel;
 
   $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-series">Series</th><th class="col-mold">Mold</th><th class="col-type">Loại</th>` +
     Array.from({ length: days }, (_, i) => {
@@ -135,9 +143,6 @@ function renderMonth() {
     bodyHtml += `<tr><td class="col-part" rowspan="2"><b>${esc(partName)}</b></td><td class="col-series" rowspan="2"><span class="app-badge-series">${esc(seriesVal)}</span></td><td class="col-mold" rowspan="2" title="${esc(moldCombined)}"><b>${esc(moldCombined)}</b></td><td class="col-type">Replacement</td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}<td class="col-total"><div class="cell col-total-val" style="color:var(--amber-text);background:var(--amber-light);">${totalReplacementPcs > 0 ? totalReplacementPcs : '-'}</div></td></tr><tr><td class="col-type">Shoot</td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}<td class="col-total"><div class="cell col-total-val">${formatShootDisplay(totalShoot)}</div></td></tr>`;
   });
 
-  if (allPartsList.length > limit) {
-    bodyHtml += `<tr><td colspan="${days + 5}" class="table-load-row"><div class="table-load-sticky-wrap"><span class="load-info-badge">📦 ${limit} / ${allPartsList.length.toLocaleString()}</span><button onclick="_monthRenderLimit += 30; renderMonth();" class="secondary" style="padding:6px 18px;font-size:13px;font-weight:700;border-radius:6px;cursor:pointer;">⚡ +30</button><button onclick="_monthRenderLimit = ${allPartsList.length}; renderMonth();" class="secondary" style="padding:6px 18px;font-size:13px;font-weight:700;border-radius:6px;cursor:pointer;margin-left:6px;">Tất cả</button></div></td></tr>`;
-  }
   $("dayBody").innerHTML = bodyHtml;
   renderMetrics();
   updateGlobalPaginationDock('month', limit, allPartsList.length, () => { _monthRenderLimit += 30; renderMonth(); }, () => { _monthRenderLimit = allPartsList.length; renderMonth(); });
@@ -157,42 +162,68 @@ function renderStockTable() {
     else { $("stockNote").innerHTML = `Thống kê thay thế <b>tất cả thời gian</b>`; }
   }
 
-  const repCounts = {}, repEvents = {};
+  // Index replacements with normalized keys (matching both OldDieSet, NewDieSet, DieSet)
+  const repsByPartMold = new Map();
   (db.replacements || []).forEach(r => {
-    const lbl = String(r.Label || "").trim(), repDate = String(r.ReplaceDate || "").trim();
-    if (!repDate) return;
+    const lbl = String(r.Label || "").trim();
+    const repDate = String(r.ReplaceDate || "").trim();
+    if (!repDate || lbl === "-" || lbl === "0" || lbl === "·") return;
     if (currentYm && monthKey(repDate) !== currentYm) return;
     if (!currentYm && currentYear && !repDate.startsWith(currentYear)) return;
     if (currentDay && repDate.slice(8, 10) !== currentDay) return;
-    if (lbl && lbl !== "-" && lbl !== "0" && lbl !== "·") {
-      const val = Number(lbl.replace(/,/g, "")) || 1;
-      const dNew = r.DieSet || r.NewDieSet;
-      if (dNew) {
-        const k = getStockItemKey(r.Part, dNew);
-        repCounts[k] = (repCounts[k] || 0) + val;
-        if (!repEvents[k]) repEvents[k] = [];
-        repEvents[k].push({ date: repDate, qty: val, requestId: String(r.RequestId || "").trim() });
-      }
-    }
+
+    const val = Number(lbl.replace(/,/g, "")) || 1;
+    const reqId = String(r.RequestId || "").trim();
+    const p = String(r.Part || "").toLowerCase().trim();
+    const dList = [r.DieSet, r.NewDieSet, r.OldDieSet].map(d => String(d || "").toLowerCase().trim()).filter(Boolean);
+    const uniqueDies = [...new Set(dList)];
+    if (!uniqueDies.length && p) uniqueDies.push(p);
+
+    const evObj = { date: repDate, qty: val, requestId: reqId };
+    uniqueDies.forEach(d => {
+      const key = `${p}|${d}`;
+      if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
+      repsByPartMold.get(key).push(evObj);
+    });
   });
 
   let totalCount = 0, safeCount = 0, warningCount = 0, criticalCount = 0, replacedCount = 0;
   const processedList = allParts.map(item => {
-    const part = item.part, mold = item.moldNew || item.moldOld || item.part, moldOld = item.moldOld || "";
-    const moldCombined = item.moldCombined || formatMoldDisplay(moldOld, mold);
-    const series = getSeriesForPart(part, mold) || item.series || "-";
-    const key = getStockItemKey(part, mold);
-    const st = getStockItem(part, mold);
-    const masterItem = findMasterItem(part, mold, series);
+    const part = item.part;
+    const series = item.series || "-";
+    const moldNew = item.moldNew || item.moldOld || item.part;
+    const moldOld = item.moldOld || "";
+    
+    const moldSeries = formatMoldSeriesDisplay(series, moldOld, moldNew, false);
+    const moldSeriesHtml = formatMoldSeriesDisplay(series, moldOld, moldNew, true);
+
+    const st = getStockItem(part, moldNew);
+    const masterItem = findMasterItem(part, moldNew, series);
     const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
     let minStock = (st && st.minStock !== undefined) ? Number(st.minStock) || 1 : (masterItem && masterItem.StandardStock !== undefined ? Number(masterItem.StandardStock) || 1 : 1);
-    const events = repEvents[key] || [];
-    const used = events.reduce((sum, ev) => sum + (Number(ev.qty) || 0), 0);
+
+    const pLower = String(part || "").toLowerCase().trim();
+    const dNewLower = String(moldNew || "").toLowerCase().trim();
+    const dOldLower = String(moldOld || "").toLowerCase().trim();
+
+    const allEvents = [];
+    const eventSet = new Set();
+    const k1 = `${pLower}|${dNewLower}`, k2 = `${pLower}|${dOldLower}`;
+    [...(repsByPartMold.get(k1) || []), ...(repsByPartMold.get(k2) || [])].forEach(ev => {
+      const ek = `${ev.date}|${ev.requestId}|${ev.qty}`;
+      if (!eventSet.has(ek)) {
+        eventSet.add(ek);
+        allEvents.push(ev);
+      }
+    });
+
+    allEvents.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const used = allEvents.reduce((sum, ev) => sum + (Number(ev.qty) || 0), 0);
     if (used > 0) replacedCount++;
     let status = 'SAFE';
     if (stock <= 0) { status = 'CRITICAL'; criticalCount++; } else if (stock < minStock) { status = 'WARNING'; warningCount++; } else { safeCount++; }
     totalCount++;
-    return { part, series, mold, moldOld, moldCombined, key, stock, minStock, used, timesCount: events.length, events, status };
+    return { part, series, moldNew, moldOld, moldSeries, moldSeriesHtml, stock, minStock, used, timesCount: allEvents.length, events: allEvents, status };
   });
 
   processedList.sort((a, b) => { if ((a.used > 0) !== (b.used > 0)) return b.used > 0 ? 1 : -1; return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' }); });
@@ -223,12 +254,26 @@ function renderStockTable() {
 
   if ($("stockRows")) {
     if (!visibleList.length) {
-      $("stockRows").innerHTML = `<tr><td colspan="11" style="text-align:center;padding:28px;">Không có linh kiện nào.</td></tr>`;
+      $("stockRows").innerHTML = `<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--muted);">Không có linh kiện nào phù hợp.</td></tr>`;
     } else {
-      $("stockRows").innerHTML = visibleList.map(row => {
+      $("stockRows").innerHTML = visibleList.map((row, idx) => {
         const statusBadge = row.status === 'CRITICAL' ? `<span class="badge-stock critical">🔴 URGENT</span>` : (row.status === 'WARNING' ? `<span class="badge-stock warning">🟡 NEED ORDER</span>` : `<span class="badge-stock safe">🟢 NO NEED</span>`);
-        const datesHtml = row.events.length > 0 ? row.events.map((ev, idx) => { const dp = (ev.date || '').split('-'); return `<span class="date-chip" title="Lần ${idx+1}">${dp.length === 3 ? `${dp[2]}/${dp[1]}` : ev.date}</span>`; }).join(' ') : '-';
-        return `<tr><td><b>${esc(row.part)}</b></td><td><span style="color:#2563eb;font-weight:700;">${esc(row.series)}</span></td><td><b>${esc(row.moldCombined)}</b></td><td style="text-align:center;">${row.minStock}</td><td style="text-align:center;font-weight:700;color:${row.stock <= 0 ? '#dc2626' : '#0f172a'};">${row.stock}</td><td style="text-align:center;">${row.used > 0 ? `<b style="color:#b45309;">${row.used}</b>` : '0'}</td><td style="text-align:center;">${row.timesCount > 0 ? `<span class="stock-pill-count">${row.timesCount}</span>` : '0'}</td><td style="font-size:12px;">${datesHtml}</td><td style="font-size:12px;">${row.events.length > 0 ? row.events.map(ev => `<span class="qty-chip">${ev.qty} cái</span>`).join(' ') : '-'}</td><td style="font-size:12px;">-</td><td style="text-align:center;">${statusBadge}</td></tr>`;
+        const datesHtml = row.events.length > 0 ? row.events.map((ev, i) => { const dp = (ev.date || '').split('-'); return `<span class="date-chip" title="Lần ${i+1}">${dp.length === 3 ? `${dp[2]}/${dp[1]}` : ev.date}</span>`; }).join(' ') : '-';
+        const qtyHtml = row.events.length > 0 ? row.events.map(ev => `<span class="qty-chip">${ev.qty} pcs</span>`).join(' ') : '-';
+        const reqHtml = row.events.length > 0 ? row.events.map(ev => ev.requestId ? `<span class="date-chip" style="background:#f1f5f9;color:#334155;font-weight:700;">#${esc(ev.requestId)}</span>` : '').filter(Boolean).join(' ') || '-' : '-';
+        return `<tr>
+          <td style="text-align:center;color:var(--ink-muted);font-weight:600;">${idx + 1}</td>
+          <td style="font-weight:800;color:var(--ink-dark);"><span style="font-family:monospace;background:#f8fafc;padding:3px 7px;border-radius:4px;border:1px solid #e2e8f0;color:#0f172a;">${esc(row.part)}</span></td>
+          <td style="font-weight:600;color:#475569;"><span style="font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${row.moldSeriesHtml || esc(row.moldSeries)}</span></td>
+          <td style="text-align:center;font-weight:600;color:#64748b;">${row.minStock}</td>
+          <td style="text-align:center;font-weight:800;color:${row.stock <= 0 ? '#dc2626' : '#0f172a'};">${row.stock}</td>
+          <td style="text-align:center;font-weight:700;">${row.used > 0 ? `<b style="color:#7c3aed;">${row.used}</b>` : '-'}</td>
+          <td style="text-align:center;font-weight:700;">${row.timesCount > 0 ? `<span class="stock-pill-count">${row.timesCount}</span>` : '-'}</td>
+          <td style="font-size:12px;">${datesHtml}</td>
+          <td style="font-size:12px;">${qtyHtml}</td>
+          <td style="font-size:12px;">${reqHtml}</td>
+          <td style="text-align:center;">${statusBadge}</td>
+        </tr>`;
       }).join("");
     }
     updateGlobalPaginationDock('stock', limit, filtered.length, () => { _stockRenderLimit += 40; renderStockTable(); }, () => { _stockRenderLimit = filtered.length; renderStockTable(); });
@@ -247,6 +292,8 @@ function switchTab(name) {
   if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
   if ($("stockTab")) $("stockTab").classList.toggle("hidden", name !== "stock");
   if ($("reportTab")) $("reportTab").classList.toggle("hidden", name !== "report");
+  if ($("viewMonthIndicator")) $("viewMonthIndicator").classList.toggle("hidden", name !== "month");
+  if ($("stockFilterBar")) $("stockFilterBar").classList.toggle("hidden", name !== "stock");
   renderMetrics();
   if (name === "month") renderMonth();
   else if (name === "stock") renderStockTable();

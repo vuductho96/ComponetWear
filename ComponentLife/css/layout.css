@@ -115,41 +115,99 @@ h1 {
   flex-shrink: 0;
 }
 
-/* ===== TAB BAR ===== */
-.tab-bar, .tabs {
+/* ===== NAVIGATION CONTROL BAR (TABS + SUB-FILTERS) ===== */
+.nav-control-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  position: relative;
+  min-height: 44px;
+}
+
+/* Active Month Badge Indicator for View Tab - Perfectly Centered & Large */
+.view-month-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 7px 22px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 40%, #eff6ff 100%);
+  color: #0f172a;
+  border: 1.5px solid #93c5fd;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.09);
+  transition: all 0.2s ease;
+  user-select: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.view-month-badge.hidden {
+  display: none !important;
+}
+
+.view-month-badge .vmb-icon {
+  font-size: 17px;
+}
+
+.view-month-badge #viewMonthText {
+  color: #1d4ed8;
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.3px;
+}
+
+@media (max-width: 768px) {
+  .view-month-badge {
+    position: static;
+    transform: none;
+    margin: 6px auto 0;
+    font-size: 13.5px;
+  }
+}
+
+.tab-bar, .tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
   background: var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   width: fit-content;
-  margin-bottom: 18px;
+  margin-bottom: 0;
   user-select: none;
   overflow-x: auto;
 }
 
 .tab-bar .tab, .tabs .tab {
-  height: 42px;
-  padding: 0 22px;
+  height: 36px;
+  padding: 0 16px;
   color: var(--ink-muted);
   background: transparent;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: none;
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   white-space: nowrap;
 }
 
 .tab-bar .tab:hover, .tabs .tab:hover {
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.7);
   transform: none;
 }
 
@@ -157,7 +215,7 @@ h1 {
   color: var(--primary);
   background: #ffffff;
   font-weight: 800;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Tab Content Sections */
@@ -206,22 +264,22 @@ h1 {
 .gpd-inner {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 9999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
   color: #fff;
 }
 
 .gpd-status {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 12.5px;
   font-weight: 500;
   color: #e2e8f0;
 }
@@ -232,8 +290,8 @@ h1 {
 }
 
 .gpd-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: #10b981;
   box-shadow: 0 0 8px #10b981;
@@ -248,14 +306,14 @@ h1 {
 .gpd-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .gpd-btn {
-  height: 32px;
-  padding: 0 14px;
+  height: 28px;
+  padding: 0 10px;
   border-radius: 9999px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -291,7 +349,7 @@ h1 {
 .gpd-btn-top {
   background: rgba(255, 255, 255, 0.08);
   color: #94a3b8;
-  padding: 0 10px;
+  padding: 0 8px;
 }
 
 .gpd-btn-top:hover {

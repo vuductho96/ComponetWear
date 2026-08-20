@@ -39,6 +39,33 @@ function formatMoldDisplay(moldOld, moldNew) {
   return n || o || "-";
 }
 
+function formatMoldSeriesDisplay(series, moldOld, moldNew, isHtml = false) {
+  const s = String(series || "-").trim();
+  const o = String(moldOld || "").trim();
+  const n = String(moldNew || "").trim();
+
+  // 1. If both Old and New exist and are different (e.g. FA06001 and H9615S01)
+  if (o && n && o.toLowerCase() !== n.toLowerCase()) {
+    return `${s}/${o}/${n}`;
+  }
+
+  // 2. If only New exists (or mold was never renamed)
+  if (n && (!o || n.toLowerCase() === o.toLowerCase()) && !/^(FA|IR|IRSV|M\d|MF|YG|YW)/i.test(n)) {
+    return `${s}/${n}`;
+  }
+
+  // 3. If Old exists (or mold is an old mold code) but New is missing or equal to Old (unmapped)
+  const moldToCheck = o || n;
+  if (moldToCheck) {
+    if (isHtml) {
+      return `${s}/${moldToCheck}/<span class="badge-unmapped" style="color:#dc2626;background:#fee2e2;border:1px solid #fca5a5;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.3px;" title="Khuôn cũ '${esc(moldToCheck)}' chưa tìm thấy mã khuôn mới trong PartList.">🔴 Chưa Map</span>`;
+    }
+    return `${s}/${moldToCheck}/[🔴 Chưa Map]`;
+  }
+
+  return `${s}/-`;
+}
+
 function toIso(value) {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) {

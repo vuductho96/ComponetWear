@@ -605,7 +605,7 @@ foreach ($excelPath in $candidateFiles) {
                                 PartName = $partName
                                 Series = $series
                                 OldDieSet = $mold
-                                NewDieSet = $mold
+                                NewDieSet = ""
                                 StandardStock = $minStock
                                 StockLeft = $oldStock
                             }
@@ -683,6 +683,27 @@ foreach ($excelPath in $candidateFiles) {
     }
 }
 
+# Smart Auto-Resolution: Cross-resolve OldDieSet <-> NewDieSet for sibling components
+$knownNewByOld = @{}
+$knownOldByNew = @{}
+foreach ($item in $masterMap.Values) {
+    $o = if ($item.OldDieSet) { $item.OldDieSet.ToLower().Trim() } else { "" }
+    $n = if ($item.NewDieSet) { $item.NewDieSet.ToLower().Trim() } else { "" }
+    if ($o -and $n -and $o -ne $n) {
+        $knownNewByOld[$o] = $item.NewDieSet
+        $knownOldByNew[$n] = $item.OldDieSet
+    }
+}
+foreach ($item in $masterMap.Values) {
+    $o = if ($item.OldDieSet) { $item.OldDieSet.ToLower().Trim() } else { "" }
+    $n = if ($item.NewDieSet) { $item.NewDieSet.ToLower().Trim() } else { "" }
+    if (($o -eq $n -or -not $n) -and $knownNewByOld.ContainsKey($o)) {
+        $item.NewDieSet = $knownNewByOld[$o]
+    } elseif (($o -eq $n -or -not $o) -and $knownOldByNew.ContainsKey($n)) {
+        $item.OldDieSet = $knownOldByNew[$n]
+    }
+}
+
 # Transactional Save Master Data (Fix P2-5, P2-7, P2-8)
 if ($masterMap.Count -gt 0) {
     $masterList = @($masterMap.Values)
@@ -699,6 +720,21 @@ if ($shootMap.Count -gt 0) {
 
 # Transactional Save Replacement Data
 if ($replacements.Count -gt 0) {
+    foreach ($r in $replacements) {
+        $d = if ($r.DieSet) { $r.DieSet.ToLower().Trim() } else { "" }
+        $o = if ($r.OldDieSet) { $r.OldDieSet.ToLower().Trim() } else { "" }
+        $n = if ($r.NewDieSet) { $r.NewDieSet.ToLower().Trim() } else { "" }
+
+        $lookupKey = if ($o) { $o } else { $d }
+        if ($knownNewByOld.ContainsKey($lookupKey)) {
+            $r.NewDieSet = $knownNewByOld[$lookupKey]
+            if (-not $r.OldDieSet -or $r.OldDieSet -eq $r.NewDieSet) {
+                $r.OldDieSet = $lookupKey.ToUpper()
+            }
+        } elseif ($knownOldByNew.ContainsKey($lookupKey)) {
+            $r.OldDieSet = $knownOldByNew[$lookupKey]
+        }
+    }
     $repJson = @($replacements) | ConvertTo-Json -Compress -Depth 8
     Save-JsonFileWithBackupAndValidation $ReplacementFile $repJson $false
 }
