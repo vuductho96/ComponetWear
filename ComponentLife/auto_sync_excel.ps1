@@ -289,8 +289,13 @@ $needSync = $false
 
 # Check if target JSON files are missing or empty
 foreach ($tf in @($MasterFile, $ShootFile, $ReplacementFile, $StockFile)) {
-    if ((-not (Test-Path $tf)) -or ((Get-Item $tf).Length -eq 0)) {
+    if (-not (Test-Path $tf)) {
         $needSync = $true
+    } else {
+        $len = (Get-Item $tf).Length
+        if ($len -le 4) {
+            $needSync = $true
+        }
     }
 }
 

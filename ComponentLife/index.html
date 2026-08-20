@@ -44,22 +44,8 @@
         <select id="yearPick" class="filter-select" title="Lọc theo năm"></select>
         <select id="monthPick" class="filter-select" title="Lọc theo tháng"></select>
         <select id="dayPick" class="filter-select" title="Lọc theo ngày"></select>
-        <!-- Context Filters -->
-        <input type="text" id="part" class="filter-input" placeholder="Part" list="partList">
-        <datalist id="partList"></datalist>
-        <input type="text" id="series" class="filter-input" placeholder="Series" style="width:90px;">
-        <input type="hidden" id="dieSet">
-        <input type="text" id="mold" class="filter-input" placeholder="Mold" list="moldList">
-        <datalist id="moldList"></datalist>
       </div>
       <div class="toolbar-right">
-        <!-- Zoom Controls -->
-        <div class="zoom-controls">
-          <button onclick="adjustZoom(-0.05)" class="zoom-btn" title="Thu nhỏ">−</button>
-          <span id="zoomPercentVal" class="zoom-label" onclick="resetZoom()" title="Bấm để đặt lại 100%">100%</span>
-          <button onclick="adjustZoom(0.05)" class="zoom-btn" title="Phóng to">+</button>
-          <button id="btnFullScreen" onclick="toggleFullScreen()" class="zoom-btn" title="Toàn màn hình">⛶</button>
-        </div>
         <!-- Actions -->
         <label class="btn-import" title="Kéo thả hoặc chọn file Excel (.xlsx)">
           📥 Import Excel
@@ -92,10 +78,6 @@
 
     <!-- ===== TAB: Stock & Replace ===== -->
     <section id="stockTab" class="hidden">
-      <div class="section-header">
-        <h2>📦 Quản Lý Tồn Kho & Thay Thế Linh Kiện</h2>
-        <p id="stockNote" class="section-note">Thống kê số lượng thay thế thực tế &amp; quản lý mức dự phòng linh kiện</p>
-      </div>
       <div class="filter-bar">
         <label id="stockFilterAllLabel" class="filter-chip active"><input type="checkbox" id="chkAll" checked onchange="toggleStockCheckboxAll(this)"> Tất cả <span class="chip-count" id="cntAll">0</span></label>
         <label id="stockFilterReplacedLabel" class="filter-chip"><input type="checkbox" id="chkReplaced" onchange="toggleStockStatusCheckbox()"> Đã thay <span class="chip-count" id="cntReplaced">0</span></label>
@@ -119,11 +101,7 @@
 
     <!-- ===== TAB: Component Life Tracking Report ===== -->
     <section id="reportTab" class="hidden">
-      <div class="section-header">
-        <h2>📊 Báo Cáo Tuổi Thọ Linh Kiện (Component Life Tracking)</h2>
-        <p id="reportNote" class="section-note">Theo dõi chi tiết số lần thay, tổng sản lượng dập và từng chu kỳ tuổi thọ (Cycle 1, Cycle 2, ...)</p>
-      </div>
-      <div class="summary-box">
+      <div class="summary-box" style="margin-top:0;">
         <table class="data-table" id="reportTable">
           <thead id="reportHead"></thead>
           <tbody id="reportRows"></tbody>

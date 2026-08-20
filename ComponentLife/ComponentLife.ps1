@@ -143,14 +143,30 @@ function Check-ExcelFileChanges {
     }
 }
 
-# Populate initial Excel file timestamps
+# Populate initial Excel file timestamps & Auto-sync if JSON is empty/missing
 try {
     $parent = Split-Path $Root -Parent
     $candidateFiles = @(Get-ChildItem -Path $Root, $parent -Filter "*.xlsx" -ErrorAction SilentlyContinue | Where-Object { -not $_.Name.StartsWith("~$") -and -not $_.Name.StartsWith("BAO_CAO_") -and -not $_.Name.StartsWith("REPORT_") })
     foreach ($f in $candidateFiles) {
         $global:fileTimestamps[$f.FullName] = $f.LastWriteTime.Ticks
     }
-} catch {}
+
+    $shootFile = Join-Path $DataDir 'shoot-data.json'
+    $repFile = Join-Path $DataDir 'replacement-log.json'
+    $mustSync = $false
+    if ((-not (Test-Path $shootFile)) -or ((Get-Item $shootFile).Length -le 4)) { $mustSync = $true }
+    if ((-not (Test-Path $repFile)) -or ((Get-Item $repFile).Length -le 4)) { $mustSync = $true }
+
+    if ($mustSync) {
+        Log-Msg "🔄 Phat hien JSON trong hoac moi duoc xoa -> Tu dong dong bo lai tu Excel..." Cyan
+        Trigger-ExcelSync | Out-Null
+        Log-Msg "✅ Da khoi phuc toan bo du lieu tu file Excel vao JSON!" Green
+    } else {
+        Trigger-ExcelSync | Out-Null
+    }
+} catch {
+    Log-Msg "⚠️ Khoi dong AutoSync: $_" Yellow
+}
 
 $url = "http://127.0.0.1:$boundPort/"
 Log-Msg "[4/5] Chay Server 8787   -> OK ($url)" Green

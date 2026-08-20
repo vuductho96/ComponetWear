@@ -300,26 +300,31 @@ function onGlobalSearchInput() {
 }
 
 function autoFillPart() {
+  if (!$("part")) return;
   const rawVal = $("part").value.trim();
   if (!rawVal) { renderMonth(); renderMetrics(); return; }
   const lowerVal = rawVal.toLowerCase(), nVal = normKey(rawVal);
   const matches = masterData.filter(x => (x.PartName && x.PartName.toLowerCase() === lowerVal) || (x.PartName && normKey(x.PartName) === nVal));
   if (matches.length === 1) {
     const match = matches[0];
-    if (match.Series) $("series").value = match.Series;
-    if (match.OldDieSet) $("dieSet").value = match.OldDieSet;
-    if (match.NewDieSet) $("mold").value = match.NewDieSet;
+    if (match.Series && $("series")) $("series").value = match.Series;
+    if (match.OldDieSet && $("dieSet")) $("dieSet").value = match.OldDieSet;
+    if (match.NewDieSet && $("mold")) $("mold").value = match.NewDieSet;
   }
   renderMonth(); renderMetrics();
 }
 
 function autoFillMold() {
+  if (!$("mold")) return;
   const rawVal = $("mold").value.trim();
   if (!rawVal) { renderMonth(); renderMetrics(); return; }
   const lowerVal = rawVal.toLowerCase(), nVal = normKey(rawVal);
   let match = masterData.find(x => (x.NewDieSet && x.NewDieSet.toLowerCase() === lowerVal) || (x.NewDieSet && normKey(x.NewDieSet) === nVal));
   if (!match) match = masterData.find(x => (x.OldDieSet && x.OldDieSet.toLowerCase() === lowerVal) || (x.OldDieSet && normKey(x.OldDieSet) === nVal));
-  if (match) { $("series").value = match.Series || ""; $("dieSet").value = match.OldDieSet || ""; }
+  if (match) { 
+    if ($("series")) $("series").value = match.Series || ""; 
+    if ($("dieSet")) $("dieSet").value = match.OldDieSet || ""; 
+  }
   renderMonth(); renderMetrics();
 }
 

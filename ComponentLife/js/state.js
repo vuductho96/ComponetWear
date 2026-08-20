@@ -47,10 +47,10 @@ function selectedDay() {
 
 function getContext() {
   return {
-    part: $("part").value.trim(),
-    series: $("series").value.trim(),
-    dieSet: $("dieSet").value.trim(),
-    mold: $("mold").value.trim()
+    part: $("part") ? $("part").value.trim() : "",
+    series: $("series") ? $("series").value.trim() : "",
+    dieSet: $("dieSet") ? $("dieSet").value.trim() : "",
+    mold: $("mold") ? $("mold").value.trim() : ""
   };
 }
 
@@ -173,20 +173,19 @@ function buildAllPartsCache() {
     }
   });
 
-  // 2. Shoot items
+  // 2. Shoot items (Only add if an explicit valid part name exists and is not equal to mold)
   (db.shoot || []).forEach(s => {
     const mold = String(s.DieSet || "").trim();
     const part = String(s.Part || "").trim();
-    if (mold) {
-      const pName = part || mold;
-      const master = findMasterItem(pName, mold, s.Series);
+    if (part && isValidPartName(part) && mold && part.toLowerCase() !== mold.toLowerCase()) {
+      const master = findMasterItem(part, mold, s.Series);
       const mOld = master ? String(master.OldDieSet || mold).trim() : mold;
       const mNew = master ? String(master.NewDieSet || mold).trim() : mold;
       const seriesVal = master ? (master.Series || s.Series || "-") : (s.Series || "-");
-      const key = `${pName}|${mOld}|${mNew}`;
+      const key = `${part}|${mOld}|${mNew}`;
       if (!partsMap.has(key)) {
         partsMap.set(key, {
-          part: pName,
+          part,
           series: seriesVal,
           moldOld: mOld,
           moldNew: mNew,
@@ -196,11 +195,11 @@ function buildAllPartsCache() {
     }
   });
 
-  // 3. Replacement items
+  // 3. Replacement items (Only add if part is valid and not equal to mold)
   (db.replacements || []).forEach(r => {
     const rawMold = String(r.DieSet || r.NewDieSet || r.OldDieSet || "").trim();
     const part = String(r.Part || "").trim();
-    if (part && isValidPartName(part)) {
+    if (part && isValidPartName(part) && (!rawMold || part.toLowerCase() !== rawMold.toLowerCase())) {
       const master = findMasterItem(part, rawMold, r.Series);
       const mOld = master ? String(master.OldDieSet || r.OldDieSet || rawMold).trim() : String(r.OldDieSet || rawMold).trim();
       const mNew = master ? String(master.NewDieSet || r.NewDieSet || rawMold).trim() : String(r.NewDieSet || rawMold).trim();
