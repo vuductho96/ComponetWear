@@ -131,7 +131,7 @@ def auto_sync():
                                         if is_valid_part_name(p_name):
                                             old_dieset = p_old or p_new or p_name
                                             new_dieset = p_new or p_old or p_name
-                                            m_key = f"{p_name}|{new_dieset}"
+                                            m_key = f"{p_name}|{p_series}|{old_dieset}"
                                             if m_key not in master_map:
                                                 master_map[m_key] = {
                                                     "PartName": p_name,
@@ -143,8 +143,10 @@ def auto_sync():
                                                 }
                                             else:
                                                 if p_series and not master_map[m_key].get("Series"): master_map[m_key]["Series"] = p_series
-                                                if p_old and not master_map[m_key].get("OldDieSet"): master_map[m_key]["OldDieSet"] = p_old
-                                                if p_new and not master_map[m_key].get("NewDieSet"): master_map[m_key]["NewDieSet"] = p_new
+                                                if old_dieset and (not master_map[m_key].get("OldDieSet") or master_map[m_key].get("OldDieSet") == master_map[m_key].get("NewDieSet")):
+                                                    master_map[m_key]["OldDieSet"] = old_dieset
+                                                if new_dieset and new_dieset != old_dieset:
+                                                    master_map[m_key]["NewDieSet"] = new_dieset
                         except Exception as e_part:
                             print(f"⚠️ Error parsing part list sheet {s_name}: {e_part}")
 
@@ -276,28 +278,27 @@ def auto_sync():
                             old_stock = 0
 
                         # Save / update Master Item (preserving NewDieSet vs OldDieSet mapping)
-                        m_key = f"{part_name}|{mold}"
-                        master_item = master_map.get(m_key)
+                        m_key_exact = f"{part_name}|{series}|{mold}"
+                        master_item = master_map.get(m_key_exact)
                         if not master_item:
                             for ex_item in master_map.values():
-                                if ex_item.get("PartName") == part_name and (ex_item.get("OldDieSet") == mold or ex_item.get("NewDieSet") == mold):
-                                    master_item = ex_item
-                                    break
+                                if ex_item.get("PartName", "").lower() == part_name.lower():
+                                    if ex_item.get("OldDieSet", "").lower() == mold.lower() or ex_item.get("NewDieSet", "").lower() == mold.lower():
+                                        if not series or not ex_item.get("Series") or ex_item.get("Series", "").lower() == series.lower():
+                                            master_item = ex_item
+                                            break
 
                         if master_item:
-                            old_dieset = master_item.get("OldDieSet") or mold
-                            new_dieset = master_item.get("NewDieSet") or mold
                             master_item["StockLeft"] = old_stock
+                            master_item["StandardStock"] = min_stock
                             if series and not master_item.get("Series"):
                                 master_item["Series"] = series
                         else:
-                            old_dieset = mold
-                            new_dieset = mold
-                            master_map[m_key] = {
+                            master_map[m_key_exact] = {
                                 "PartName": part_name,
                                 "Series": series,
-                                "OldDieSet": old_dieset,
-                                "NewDieSet": new_dieset,
+                                "OldDieSet": mold,
+                                "NewDieSet": mold,
                                 "StandardStock": min_stock,
                                 "StockLeft": old_stock
                             }

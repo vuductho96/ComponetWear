@@ -1,0 +1,47 @@
+/* CSS Variables */
+:root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-hover: #f1f5f9;
+      --surface-active: #e2e8f0;
+      --ink: #0f172a;
+      --ink-secondary: #334155;
+      --ink-muted: #64748b;
+      --ink-light: #94a3b8;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-dark: #3730a3;
+      --primary-light: #eef2ff;
+      --primary-ring: rgba(79, 70, 229, 0.18);
+      --primary-border: #c7d2fe;
+      --emerald: #059669;
+      --emerald-dark: #047857;
+      --emerald-light: #ecfdf5;
+      --emerald-border: #a7f3d0;
+      --amber: #d97706;
+      --amber-dark: #b45309;
+      --amber-bg: #fffbe6;
+      --amber-light: #fef3c7;
+      --amber-border: #fde68a;
+      --amber-text: #92400e;
+      --rose: #e11d48;
+      --rose-dark: #dc2626;
+      --rose-light: #fef2f2;
+      --rose-border: #fca5a5;
+      --purple: #9333ea;
+      --purple-light: #faf5ff;
+      --purple-border: #e9d5ff;
+      --blue: #2563eb;
+      --blue-light: #eff6ff;
+      --blue-border: #bfdbfe;
+      --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+      --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
+      --radius-sm: 6px;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --radius-full: 9999px;
+    }

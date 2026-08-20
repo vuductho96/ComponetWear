@@ -54,6 +54,15 @@ try {
     Log-Msg "[3/5] Sync Excel -> JSON -> LOI: $_" Red
 }
 
+# STEP 3.5: Load Calculation Engine (Plan §5)
+$calcEngine = Join-Path $Root 'calculate_engine.ps1'
+if (Test-Path $calcEngine) {
+    . $calcEngine
+    Log-Msg "[3.5] Calculation Engine  -> OK (loaded)" Green
+} else {
+    Log-Msg "[3.5] Calculation Engine  -> SKIP (not found)" Yellow
+}
+
 $listener = $null
 $boundPort = $Port
 for ($p = $Port; $p -le $Port + 50; $p++) {
@@ -214,18 +223,25 @@ try {
         $statusLine = "HTTP/1.1 200 OK`r`n"
         $contentType = "text/html; charset=utf-8"
 
+        if ($path -ne '/api/heartbeat' -and $path -ne '/api/version') {
+            $ts = Get-Date -Format 'HH:mm:ss.fff'
+            Write-Host "[$ts] [HTTP] $method $path" -ForegroundColor DarkCyan
+        }
+
         try {
 
             if ($path -eq '/index.html' -or $path -eq '/ComponentLife.html') {
-                $htmlFile = Join-Path $Root 'ComponentLife.html'
-                if (-not (Test-Path $htmlFile)) { $htmlFile = Join-Path $Root 'index.html' }
+                # Serve modular index.html first, fallback to legacy monolith
+                $htmlFile = Join-Path $Root 'index.html'
+                if (-not (Test-Path $htmlFile)) { $htmlFile = Join-Path $Root 'ComponentLife.html' }
                 $responseBytes = [System.IO.File]::ReadAllBytes($htmlFile)
                 $contentType = "text/html; charset=utf-8"
             }
             elseif ($path -eq '/' -or $path -eq '/api/heartbeat') {
                 if ($path -eq '/') {
-                    $htmlFile = Join-Path $Root 'ComponentLife.html'
-                    if (-not (Test-Path $htmlFile)) { $htmlFile = Join-Path $Root 'index.html' }
+                    # Plan §2: Serve modular index.html as default entry point
+                    $htmlFile = Join-Path $Root 'index.html'
+                    if (-not (Test-Path $htmlFile)) { $htmlFile = Join-Path $Root 'ComponentLife.html' }
                     $responseBytes = [System.IO.File]::ReadAllBytes($htmlFile)
                     $contentType = "text/html; charset=utf-8"
                 } else {
@@ -253,7 +269,47 @@ try {
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                 $contentType = "application/json; charset=utf-8"
             }
-            elseif ($path.StartsWith("/data/") -or $path.EndsWith(".json") -or $path.EndsWith(".js") -or $path.EndsWith(".css")) {
+            elseif ($path -eq '/api/sync-excel') {
+                $syncEngine = Trigger-ExcelSync
+                $resObj = [pscustomobject]@{ status = "ok"; engine = $syncEngine; version = $global:excelDataVersion }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
+            }
+            elseif ($path -eq '/api/component-state') {
+                # Plan §5.1 — Full Component State via Calculation Engine
+                if (Get-Command Invoke-CalculationEngine -ErrorAction SilentlyContinue) {
+                    $engineResult = Invoke-CalculationEngine
+                    $resObj = [pscustomobject]@{
+                        success = $true
+                        componentState = $engineResult.componentState
+                        cycles = $engineResult.cycles
+                        milestones = $engineResult.milestones
+                    }
+                } else {
+                    $resObj = [pscustomobject]@{ success = $false; error = "Calculation engine not loaded" }
+                }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Depth 8))
+                $contentType = "application/json; charset=utf-8"
+            }
+            elseif ($path -eq '/api/report-config' -and $method -eq 'GET') {
+                # Plan §6 — Report Builder config
+                $reportConfigFile = Join-Path $DataDir 'report-config.json'
+                if (Test-Path $reportConfigFile) {
+                    $responseBytes = [System.IO.File]::ReadAllBytes($reportConfigFile)
+                } else {
+                    $responseBytes = [System.Text.Encoding]::UTF8.GetBytes('{"columns":["Part","Series","DieSet","TotalShots","TotalReplacements","AverageLife","CurrentLife","Status"]}')
+                }
+                $contentType = "application/json; charset=utf-8"
+            }
+            elseif ($path -eq '/api/report-config' -and $method -eq 'POST') {
+                # Plan §6 — Save Report Builder config
+                $reportConfigFile = Join-Path $DataDir 'report-config.json'
+                [System.IO.File]::WriteAllText($reportConfigFile, $bodyText, (New-Object System.Text.UTF8Encoding($false)))
+                $resObj = [pscustomobject]@{ success = $true }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
+            }
+            elseif ($path.StartsWith("/data/") -or $path.StartsWith("/css/") -or $path.StartsWith("/js/") -or $path.EndsWith(".json") -or $path.EndsWith(".js") -or $path.EndsWith(".css") -or $path.EndsWith(".html")) {
                 $rel = $path.TrimStart('/').Replace('/', [System.IO.Path]::DirectorySeparatorChar)
                 $targetFile = Join-Path $Root $rel
                 if (Test-Path $targetFile -PathType Leaf) {

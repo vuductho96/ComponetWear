@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ComponetWear | Component Life Tracking Engine</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <!-- SheetJS -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <!-- Modular CSS (Plan §7) -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/tables.css">
+  <link rel="stylesheet" href="css/modals.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- ===== TOP HEADER ===== -->
+    <div class="top-header">
+      <div class="brand-group">
+        <div class="brand-icon">⚙️</div>
+        <div>
+          <h1>ComponetWear <span class="app-badge">v2</span></h1>
+          <p class="subtitle">Component Life Tracking Engine — PowerShell + JSON + HTML/JS</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TOOLBAR ===== -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <!-- Global Search -->
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="globalSearch" placeholder="Tìm nhanh Part, Mold, Series..." list="searchList" autocomplete="off">
+          <button id="clearSearchBtn" onclick="clearGlobalSearch()" style="display:none;" class="clear-btn" title="Xóa tìm kiếm">✕</button>
+          <datalist id="searchList"></datalist>
+        </div>
+        <!-- Date Filters -->
+        <select id="yearPick" class="filter-select" title="Lọc theo năm"></select>
+        <select id="monthPick" class="filter-select" title="Lọc theo tháng"></select>
+        <select id="dayPick" class="filter-select" title="Lọc theo ngày"></select>
+        <!-- Context Filters -->
+        <input type="text" id="part" class="filter-input" placeholder="Part" list="partList">
+        <datalist id="partList"></datalist>
+        <input type="text" id="series" class="filter-input" placeholder="Series" style="width:90px;">
+        <input type="hidden" id="dieSet">
+        <input type="text" id="mold" class="filter-input" placeholder="Mold" list="moldList">
+        <datalist id="moldList"></datalist>
+      </div>
+      <div class="toolbar-right">
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+          <button onclick="adjustZoom(-0.05)" class="zoom-btn" title="Thu nhỏ">−</button>
+          <span id="zoomPercentVal" class="zoom-label" onclick="resetZoom()" title="Bấm để đặt lại 100%">100%</span>
+          <button onclick="adjustZoom(0.05)" class="zoom-btn" title="Phóng to">+</button>
+          <button id="btnFullScreen" onclick="toggleFullScreen()" class="zoom-btn" title="Toàn màn hình">⛶</button>
+        </div>
+        <!-- Actions -->
+        <label class="btn-import" title="Kéo thả hoặc chọn file Excel (.xlsx)">
+          📥 Import Excel
+          <input type="file" accept=".xlsx,.xls,.csv,.json" onchange="importExcelFile(this.files[0])" style="display:none;">
+        </label>
+        <button class="btn-export" onclick="exportExcelFull()" title="Xuất báo cáo Excel">📊 Export Excel</button>
+      </div>
+    </div>
+
+    <!-- ===== TABS ===== -->
+    <div class="tab-bar">
+      <div class="tab active" data-tab="month">📅 Month Sheet</div>
+      <div class="tab" data-tab="stock">📦 Stock & Replace</div>
+      <div class="tab" data-tab="report">📊 Báo Cáo Tuổi Thọ (Component Life)</div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="status" class="status" style="display:none;"></div>
+
+    <!-- ===== TAB: Month Sheet ===== -->
+    <section id="monthTab">
+      <div class="sheet">
+        <table class="grid">
+          <thead id="dayHead"></thead>
+          <tbody id="dayBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== TAB: Stock & Replace ===== -->
+    <section id="stockTab" class="hidden">
+      <div class="section-header">
+        <h2>📦 Quản Lý Tồn Kho & Thay Thế Linh Kiện</h2>
+        <p id="stockNote" class="section-note">Thống kê số lượng thay thế thực tế &amp; quản lý mức dự phòng linh kiện</p>
+      </div>
+      <div class="filter-bar">
+        <label id="stockFilterAllLabel" class="filter-chip active"><input type="checkbox" id="chkAll" checked onchange="toggleStockCheckboxAll(this)"> Tất cả <span class="chip-count" id="cntAll">0</span></label>
+        <label id="stockFilterReplacedLabel" class="filter-chip"><input type="checkbox" id="chkReplaced" onchange="toggleStockStatusCheckbox()"> Đã thay <span class="chip-count" id="cntReplaced">0</span></label>
+        <label id="stockFilterCriticalLabel" class="filter-chip critical active"><input type="checkbox" id="chkCritical" checked onchange="toggleStockStatusCheckbox()"> 🔴 Urgent <span class="chip-count" id="cntCritical">0</span></label>
+        <label id="stockFilterWarningLabel" class="filter-chip warning active"><input type="checkbox" id="chkWarning" checked onchange="toggleStockStatusCheckbox()"> 🟡 Need Order <span class="chip-count" id="cntWarning">0</span></label>
+        <label id="stockFilterSafeLabel" class="filter-chip safe active"><input type="checkbox" id="chkSafe" checked onchange="toggleStockStatusCheckbox()"> 🟢 No Need <span class="chip-count" id="cntSafe">0</span></label>
+      </div>
+      <div class="summary-box">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Part</th><th>Series</th><th>Mold</th>
+              <th>Min</th><th>Tồn kho</th><th>Đã thay</th><th>Số lần</th>
+              <th>Ngày thay</th><th>Số lượng</th><th>ID Request</th><th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="stockRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== TAB: Component Life Tracking Report ===== -->
+    <section id="reportTab" class="hidden">
+      <div class="section-header">
+        <h2>📊 Báo Cáo Tuổi Thọ Linh Kiện (Component Life Tracking)</h2>
+        <p id="reportNote" class="section-note">Theo dõi chi tiết số lần thay, tổng sản lượng dập và từng chu kỳ tuổi thọ (Cycle 1, Cycle 2, ...)</p>
+      </div>
+      <div class="summary-box">
+        <table class="data-table" id="reportTable">
+          <thead id="reportHead"></thead>
+          <tbody id="reportRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== MODALS ===== -->
+  <!-- Top 5 Modal -->
+  <div id="top5Modal" class="top5-modal-overlay hidden" onclick="if(event.target===this)closeTop5Modal()">
+    <div class="top5-modal-container">
+      <div class="top5-modal-header">
+        <div class="top5-header-title">
+          <span class="top5-header-icon">🏆</span>
+          <div>
+            <h3 style="margin:0;font-size:16.5px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span>Top 5 Part List Thay Ra Nhiều Nhất</span>
+              <span class="top5-badge-pill" id="top5BadgeYear">Năm 2026</span>
+            </h3>
+            <p style="margin:3px 0 0;font-size:12px;color:var(--ink-muted);">Thống kê 5 mã linh kiện có số lần thay thế nhiều nhất tính theo năm</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select id="top5ModalYearSelect" onchange="onTop5ModalYearChange(this.value)" class="top5-year-select"></select>
+          <button class="top5-close-btn" onclick="closeTop5Modal()">✕</button>
+        </div>
+      </div>
+      <div class="top5-modal-body" id="top5ModalBody"></div>
+      <div class="top5-modal-footer">
+        <div id="top5ModalSummary" style="font-size:12px;color:var(--ink-muted);font-weight:600;"></div>
+        <button class="top5-btn-close-action" onclick="closeTop5Modal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteReasonModal" class="top5-modal-overlay hidden" onclick="if(event.target===this)cancelDeleteReplacement()">
+    <div class="top5-modal-container" style="max-width:520px;">
+      <div class="top5-modal-header" style="background:linear-gradient(180deg,#fff,#fff1f2);border-bottom:1px solid #fecaca;">
+        <div class="top5-header-title">
+          <span class="top5-header-icon" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;">🗑️</span>
+          <div>
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:#991b1b;">Xác Nhận Xóa Lượt Thay Thế</h3>
+            <p style="margin:2px 0 0;font-size:12px;color:var(--ink-muted);">Vui lòng nhập lý do xóa để lưu vào nhật ký kiểm soát</p>
+          </div>
+        </div>
+        <button class="top5-close-btn" onclick="cancelDeleteReplacement()">✕</button>
+      </div>
+      <div class="top5-modal-body" style="gap:14px;">
+        <div id="deleteTargetInfo" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;"></div>
+        <div>
+          <label for="deleteReasonText" style="display:block;font-size:12.5px;font-weight:700;margin-bottom:6px;">Lý do xóa <span style="color:#dc2626;">*</span>:</label>
+          <textarea id="deleteReasonText" placeholder="Nhập lý do xóa..." rows="3" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:inherit;font-size:13px;outline:none;resize:vertical;"></textarea>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin-bottom:6px;">Gợi ý nhanh:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <button type="button" onclick="setQuickDeleteReason('Nhập nhầm ngày / nhầm cột')" class="quick-reason-btn">🏷️ Nhập nhầm ngày</button>
+            <button type="button" onclick="setQuickDeleteReason('Hủy yêu cầu thay thế linh kiện')" class="quick-reason-btn">🏷️ Hủy yêu cầu thay</button>
+            <button type="button" onclick="setQuickDeleteReason('Nhập trùng dữ liệu phiếu thay')" class="quick-reason-btn">🏷️ Nhập trùng dữ liệu</button>
+            <button type="button" onclick="setQuickDeleteReason('Linh kiện thực tế chưa thay thế')" class="quick-reason-btn">🏷️ Chưa thay thực tế</button>
+          </div>
+        </div>
+      </div>
+      <div class="top5-modal-footer" style="background:#fff1f2;border-top:1px solid #fecaca;display:flex;justify-content:flex-end;gap:10px;">
+        <button class="top5-btn-close-action" onclick="cancelDeleteReplacement()">Hủy bỏ</button>
+        <button onclick="confirmDeleteReplacement()" class="btn-danger">🗑️ Xác Nhận Xóa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== GLOBAL FLOATING PAGINATION DOCK ===== -->
+  <div id="globalPaginationDock" class="global-pagination-dock" style="display:none;">
+    <div class="gpd-inner">
+      <div class="gpd-status">
+        <span class="gpd-dot"></span>
+        <span id="gpdCountText">Đang hiển thị <b>30</b> / 1,575 linh kiện</span>
+      </div>
+      <div class="gpd-actions">
+        <button id="gpdBtnMore" class="gpd-btn gpd-btn-primary" onclick="window.gpdMoreAction && window.gpdMoreAction()">⚡ Tải thêm +30</button>
+        <button id="gpdBtnAll" class="gpd-btn gpd-btn-all" onclick="window.gpdAllAction && window.gpdAllAction()">Hiển thị tất cả</button>
+        <button class="gpd-btn gpd-btn-top" onclick="scrollToTopActiveTable()">▲ Lên đầu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODULAR JS (Plan §7: UI không tính toán) ===== -->
+  <script src="js/utils.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/screen-fit.js"></script>
+  <script src="js/ui-render.js"></script>
+  <script src="js/ui-modals.js"></script>
+  <script src="js/export-excel.js"></script>
+  <script src="js/heartbeat.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

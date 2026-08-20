@@ -180,9 +180,262 @@
     .cb-metric.is-max {
       border-color: #bfdbfe;
       background: linear-gradient(180deg, #ffffff, #eff6ff);
+      cursor: pointer;
+      position: relative;
+    }
+    .cb-metric.is-max:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+      transform: translateY(-2px);
     }
     .cb-metric.is-max .cb-metric-label { color: #1e40af; }
     .cb-metric.is-max .cb-metric-val { color: #1e3a8a; }
+
+    /* Top 5 Modal Dialog */
+    .top5-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: top5FadeIn 0.2s ease-out;
+    }
+    .top5-modal-overlay.hidden {
+      display: none;
+    }
+    @keyframes top5FadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .top5-modal-container {
+      background: #ffffff;
+      border-radius: 14px;
+      width: 92%;
+      max-width: 680px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+      animation: top5SlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes top5SlideUp {
+      from { transform: translateY(20px) scale(0.97); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .top5-modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+    }
+    .top5-header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .top5-header-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .top5-badge-pill {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 12px;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+      text-transform: uppercase;
+    }
+    .top5-year-select {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e40af;
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 5px 10px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .top5-year-select:focus, .top5-year-select:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    .top5-close-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      color: var(--ink-muted);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .top5-close-btn:hover {
+      background: #f1f5f9;
+      color: var(--ink);
+      border-color: var(--border-dark);
+    }
+    .top5-modal-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .top5-card-item {
+      display: grid;
+      grid-template-columns: 44px 1fr auto auto;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .top5-card-item:hover {
+      border-color: #93c5fd;
+      transform: translateX(2px);
+      box-shadow: var(--shadow-xs);
+    }
+    .top5-rank-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      border: 1.5px solid transparent;
+      flex-shrink: 0;
+    }
+    .top5-rank-1 {
+      background: linear-gradient(135deg, #fffbeb, #fef3c7);
+      border-color: #f59e0b;
+      color: #b45309;
+    }
+    .top5-rank-2 {
+      background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+      border-color: #94a3b8;
+      color: #334155;
+    }
+    .top5-rank-3 {
+      background: linear-gradient(135deg, #fff7ed, #ffedd5);
+      border-color: #fb923c;
+      color: #c2410c;
+    }
+    .top5-rank-other {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #64748b;
+    }
+    .top5-part-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .top5-part-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .top5-part-meta {
+      font-size: 12px;
+      color: var(--ink-muted);
+      margin-top: 2px;
+    }
+    .top5-stat-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      min-width: 100px;
+    }
+    .top5-rep-count {
+      font-size: 15px;
+      font-weight: 800;
+      color: #dc2626;
+    }
+    .top5-progress-wrap {
+      width: 90px;
+      height: 5px;
+      background: #fee2e2;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 3px;
+    }
+    .top5-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #f87171, #dc2626);
+      border-radius: 3px;
+    }
+    .top5-filter-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e40af;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .top5-filter-btn:hover {
+      background: #3b82f6;
+      color: #ffffff;
+      border-color: #2563eb;
+    }
+    .top5-modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .top5-btn-close-action {
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .top5-btn-close-action:hover {
+      background: #f1f5f9;
+    }
 
     .cb-metric .cb-metric-label {
       font-size: 9.5px;
@@ -939,6 +1192,67 @@
     .badge-wear.critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
     .badge-wear.overdue { background: #faf5ff; color: #9333ea; border: 1px solid #e9d5ff; }
 
+    /* Milestone Badges & Actions for Report Tab */
+    .milestone-badge-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .milestone-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .milestone-badge.passed {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    .milestone-badge.current {
+      background: #fffbeb;
+      color: #b45309;
+      border: 1.5px solid #f59e0b;
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
+    }
+    .milestone-badge.upcoming {
+      background: #f8fafc;
+      color: #94a3b8;
+      border: 1px solid #e2e8f0;
+    }
+    .badge-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .badge-action.urgent {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+    }
+    .badge-action.check {
+      background: #fffbeb;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+    .badge-action.ok {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+    }
+
     .stock-summary-bar {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1110,17 +1424,289 @@
 
 
 
-    @media (max-width: 1100px) {
-      .control-bar {
-        grid-template-columns: 1fr 1fr;
+    /* ===== SCREEN VIEW CONTROLS (AUTO-FIT & ZOOM) ===== */
+    .screen-view-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #ffffff;
+      border: 1.5px solid var(--border-dark);
+      border-radius: var(--radius);
+      padding: 4px 8px;
+      box-shadow: var(--shadow-xs);
+    }
+
+    .view-ctrl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .view-ctrl-btn:hover {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-color: #c7d2fe;
+    }
+
+    .view-ctrl-btn.active {
+      background: linear-gradient(135deg, #4f46e5, #3b82f6);
+      color: #ffffff;
+      border-color: #4338ca;
+      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+    }
+
+    .zoom-stepper {
+      display: inline-flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .zoom-btn {
+      background: transparent;
+      border: none;
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--ink-secondary);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .zoom-btn:hover {
+      background: #e2e8f0;
+      color: var(--ink);
+    }
+
+    .zoom-val {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--ink);
+      min-width: 44px;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      padding: 0 4px;
+    }
+
+    .zoom-val:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    /* ===== STICKY IN-TABLE LOAD MORE FOOTER ===== */
+    .table-load-row {
+      position: sticky !important;
+      bottom: 0 !important;
+      z-index: 12 !important;
+      padding: 12px 16px !important;
+      background: #f8fafc !important;
+      border-top: 2px solid var(--border-dark) !important;
+      text-align: left !important;
+    }
+
+    .table-load-sticky-wrap {
+      position: sticky !important;
+      left: 16px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      flex-wrap: wrap !important;
+      background: #ffffff !important;
+      padding: 8px 16px !important;
+      border-radius: 8px !important;
+      border: 1.5px solid var(--border-dark) !important;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08) !important;
+      z-index: 13 !important;
+    }
+
+    .load-info-badge {
+      font-size: 13.5px;
+      color: var(--ink-secondary);
+      font-weight: 600;
+    }
+
+    .load-info-badge b {
+      color: var(--primary);
+      font-weight: 800;
+    }
+
+    /* ===== GLOBAL FLOATING PAGINATION DOCK ===== */
+    .global-pagination-dock {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      background: rgba(15, 23, 42, 0.94);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      color: #ffffff;
+      border-radius: 50px;
+      padding: 6px 14px 6px 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.16);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      animation: gpdSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.2s ease;
+      max-width: 95vw;
+    }
+
+    @keyframes gpdSlideUp {
+      from { transform: translate(-50%, 40px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+
+    .gpd-inner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .gpd-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+
+    .gpd-status b {
+      color: #60a5fa;
+      font-weight: 800;
+    }
+
+    .gpd-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    .gpd-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .gpd-btn {
+      border: none;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .gpd-btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+    }
+    .gpd-btn-primary:hover {
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      transform: translateY(-1px);
+    }
+
+    .gpd-btn-all {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+    .gpd-btn-all:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .gpd-btn-top {
+      background: transparent;
+      color: #94a3b8;
+      padding: 6px 10px;
+    }
+    .gpd-btn-top:hover {
+      color: #ffffff;
+    }
+
+    /* Responsive / Screen Adaptations */
+    @media (max-width: 1400px) {
+      .command-bar {
+        gap: 10px;
+        padding: 10px 14px;
       }
-      .cb-divider { display: none; }
+      .cmd-group.cmd-center {
+        width: 260px;
+        max-width: 260px;
+      }
+      .cb-month {
+        min-width: 130px;
+      }
+    }
+
+    @media (max-width: 1200px) {
+      .top-header {
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .header-metrics {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .command-bar {
+        flex-wrap: wrap;
+      }
+      .cmd-group.cmd-left {
+        flex: 1 1 auto;
+      }
+      .cmd-group.cmd-center {
+        width: 100%;
+        max-width: 100%;
+        order: 3;
+      }
+      .cmd-group.cmd-right {
+        margin-left: auto;
+      }
+      .cmd-spacer {
+        display: none;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .app { padding: 10px; }
+      .top-header { flex-direction: column; align-items: stretch; }
+      .brand-group { justify-content: space-between; }
+      .header-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .cb-metric { min-width: unset; }
+      .tabs { overflow-x: auto; white-space: nowrap; padding-bottom: 4px; }
     }
 
     @media (max-width: 640px) {
-      .app { padding: 12px; }
+      .app { padding: 8px; }
       .top-header { flex-direction: column; align-items: flex-start; }
-      .control-bar { grid-template-columns: 1fr; }
+      .header-metrics { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -1135,27 +1721,43 @@
         </div>
       </div>
 
-      <!-- Core KPI Cards on Header Right -->
-      <div class="header-metrics">
-        <div class="cb-metric is-parts" title="TOTAL PARTS: Tổng số mã linh kiện đang theo dõi">
-          <span class="cb-metric-label">TOTAL PARTS</span>
-          <span class="cb-metric-val" id="totalPartsVal">0</span>
-          <span class="cb-metric-shots">mã linh kiện</span>
+      <!-- Screen View Controls (Auto-Fit & Zoom) & Core KPI Cards -->
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end;">
+        <div class="screen-view-controls" id="screenViewControls" title="Công cụ tự động co giãn màn hình & thu phóng">
+          <button class="view-ctrl-btn active" id="btnAutoFit" onclick="toggleAutoFit()" title="Bật/Tắt tự động căn chỉnh vừa vặn màn hình (Auto-Fit Screen)">
+            <span class="btn-icon">⚡</span> Auto-Fit
+          </button>
+          <div class="zoom-stepper">
+            <button class="zoom-btn" onclick="adjustZoom(-0.05)" title="Thu nhỏ tỉ lệ (Zoom -)">−</button>
+            <span class="zoom-val" id="zoomPercentVal" onclick="resetZoom()" title="Tỉ lệ hiển thị (Bấm để đặt về Auto-Fit)">100%</span>
+            <button class="zoom-btn" onclick="adjustZoom(0.05)" title="Phóng to tỉ lệ (Zoom +)">+</button>
+          </div>
+          <button class="view-ctrl-btn" id="btnFullScreen" onclick="toggleFullScreen()" title="Toàn màn hình (Fullscreen)">
+            ⛶
+          </button>
         </div>
-        <div class="cb-metric is-shots" title="TOTAL REPLACEMENTS: Tổng số lượt thay thế linh kiện đã ghi nhận">
-          <span class="cb-metric-label">TOTAL REPLACEMENTS</span>
-          <span class="cb-metric-val" id="totalReplacementsVal" style="color:#b45309;">0</span>
-          <span class="cb-metric-shots">lượt thay</span>
-        </div>
-        <div class="cb-metric is-min" title="AVERAGE LIFE: Tuổi thọ trung bình trên mỗi chu kỳ thay thế">
-          <span class="cb-metric-label">AVERAGE LIFE</span>
-          <span class="cb-metric-val" id="avgLifeVal" style="color:#047857;">0</span>
-          <span class="cb-metric-shots">shots / cycle</span>
-        </div>
-        <div class="cb-metric is-max" title="MOST FREQUENTLY REPLACED: Linh kiện có số lần thay nhiều nhất">
-          <span class="cb-metric-label">MOST FREQUENT PART</span>
-          <span class="cb-metric-val" id="mostReplacedVal" style="color:#dc2626; font-size:15px; text-align:center;">-</span>
-          <span class="cb-metric-shots" id="mostReplacedSub">tần suất cao nhất</span>
+
+        <div class="header-metrics">
+          <div class="cb-metric is-parts" title="TOTAL PARTS: Tổng số mã linh kiện đang theo dõi">
+            <span class="cb-metric-label">TOTAL PARTS</span>
+            <span class="cb-metric-val" id="totalPartsVal">0</span>
+            <span class="cb-metric-shots">mã linh kiện</span>
+          </div>
+          <div class="cb-metric is-shots" title="TOTAL REPLACEMENTS: Tổng số lượt thay thế linh kiện đã ghi nhận">
+            <span class="cb-metric-label">TOTAL REPLACEMENTS</span>
+            <span class="cb-metric-val" id="totalReplacementsVal" style="color:#b45309;">0</span>
+            <span class="cb-metric-shots">lượt thay</span>
+          </div>
+          <div class="cb-metric is-min" title="AVERAGE LIFE: Tuổi thọ trung bình trên mỗi chu kỳ thay thế">
+            <span class="cb-metric-label">AVERAGE LIFE</span>
+            <span class="cb-metric-val" id="avgLifeVal" style="color:#047857;">0</span>
+            <span class="cb-metric-shots">shots / cycle</span>
+          </div>
+          <div class="cb-metric is-max" id="top5MetricCard" onclick="openTop5Modal()" title="TOP 5 MOST REPLACED: Nhấn để xem danh sách 5 linh kiện thay ra số lần nhiều nhất">
+            <span class="cb-metric-label">🏆 TOP 5 MOST REPLACED</span>
+            <span class="cb-metric-val" id="mostReplacedVal" style="color:#dc2626; font-size:14px; text-align:center;">-</span>
+            <span class="cb-metric-shots" id="mostReplacedSub" style="color:#2563eb; font-weight:600;">Xem Top 5 ▾</span>
+          </div>
         </div>
       </div>
     </header>
@@ -1226,11 +1828,12 @@
     <input type="hidden" id="dieSet" value="">
     <input type="hidden" id="mold" value="">
 
-    <!-- Navigation Tabs: 1. Month Sheet, 2. Stock, 3. Wear Analysis -->
+    <!-- Navigation Tabs: 1. Month Sheet, 2. Stock, 3. Wear Analysis, 4. Wear & Frequency Report -->
     <nav class="tabs">
       <button class="tab active" data-tab="month">📅 Month Sheet (Lưới Theo Dõi Ngày)</button>
       <button class="tab" data-tab="stock">📦 Quản Lý Tồn Kho (Stock)</button>
       <button class="tab" data-tab="wear">⚙️ Phân Tích Độ Mòn &amp; Tuổi Thọ (Wear Analysis)</button>
+      <button class="tab" data-tab="report">📊 Báo Cáo Chu Kỳ Mòn &amp; Tần Suất (Report &amp; Export)</button>
     </nav>
 
     <!-- TAB 1: MONTH SHEET (GRID THEO DÕI THEO NGÀY - DEFAULT ACTIVE) -->
@@ -1396,7 +1999,228 @@
         </div>
       </article>
     </section>
+
+    <!-- TAB 4: REPORT & EXCEL EXPORT (BÁO CÁO CHU KỲ MÒN & TẦN SUẤT THAY THẾ) -->
+    <section id="reportTab" class="hidden">
+      <!-- Report KPI Summary Cards -->
+      <div class="stock-summary-bar" style="margin-bottom: 16px;">
+        <div class="stock-kpi-card" style="border-left: 4px solid #4f46e5;">
+          <div class="stock-kpi-icon">🏷️</div>
+          <div>
+            <div class="stock-kpi-val" id="kpiReportTotalParts" style="color:#4f46e5;">0</div>
+            <div class="stock-kpi-label">MÃ LK THEO DÕI</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-left: 4px solid #b45309;">
+          <div class="stock-kpi-icon">🔄</div>
+          <div>
+            <div class="stock-kpi-val" id="kpiReportTotalReps" style="color:#b45309;">0</div>
+            <div class="stock-kpi-label">TỔNG LƯỢT THAY THẾ</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-left: 4px solid #dc2626;">
+          <div class="stock-kpi-icon">⚠️</div>
+          <div>
+            <div class="stock-kpi-val" id="kpiReportDueMilestone" style="color:#dc2626;">0</div>
+            <div class="stock-kpi-label">SẮP / ĐẾN MỐC KIỂM TRA</div>
+          </div>
+        </div>
+        <div class="stock-kpi-card" style="border-left: 4px solid #059669;">
+          <div class="stock-kpi-icon">⏱️</div>
+          <div>
+            <div class="stock-kpi-val" id="kpiReportAvgLife" style="color:#059669;">0</div>
+            <div class="stock-kpi-label">TUỔI THỌ TB / CHU KỲ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Report Card & Toolbar -->
+      <article class="panel card">
+        <div class="stock-toolbar" style="flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2 style="margin:0; font-size:15px; display:flex; align-items:center; gap:8px; color:var(--ink);">
+              <span>📊 Báo Cáo Kiểm Tra Độ Mòn Theo Chu Kỳ Mốc Shot &amp; Tần Suất Thay Thế</span>
+            </h2>
+            <p class="note" id="reportNote" style="margin:3px 0 0;">
+              Kiểm tra định kỳ mốc 50k, 100k, 150k, 200k, 250k, 300k... shots, tần suất thay thế thực tế và xuất báo cáo Excel chi tiết
+            </p>
+          </div>
+
+          <!-- Action Buttons & Milestone Selectors -->
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-left:auto;">
+            <!-- Milestone Interval Selector -->
+            <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; padding:4px 8px; border-radius:8px; border:1px solid var(--border);">
+              <label for="milestoneStepSelect" style="font-size:11px; font-weight:700; color:var(--ink-muted); text-transform:uppercase;">Mốc Chu Kỳ:</label>
+              <select id="milestoneStepSelect" onchange="renderReportTable()" style="padding:4px 8px; border-radius:6px; border:1px solid #bfdbfe; background:#eff6ff; font-weight:700; color:#1e40af; font-size:12px; cursor:pointer;">
+                <option value="50000" selected>Mỗi 50,000 shots (50k, 100k, 150k...)</option>
+                <option value="25000">Mỗi 25,000 shots (25k, 50k, 75k...)</option>
+                <option value="100000">Mỗi 100,000 shots (100k, 200k, 300k...)</option>
+              </select>
+            </div>
+
+            <!-- Only replaced parts checkbox -->
+            <label class="stock-filter-btn active" id="reportFilterReplacedLabel" style="font-size:12px; cursor:pointer;" title="Lọc linh kiện đã phát sinh lượt thay">
+              <input type="checkbox" id="chkReportOnlyReplaced" onchange="renderReportTable()" style="accent-color:#2563eb; cursor:pointer; width:14px; height:14px; margin-right:4px;">
+              Chỉ LK đã thay (<span id="cntReportReplaced">0</span>)
+            </label>
+
+            <!-- Export Excel Buttons -->
+            <button onclick="exportWearMilestoneReportExcel()" class="primary" style="background:#059669; border-color:#047857; font-weight:700; display:flex; align-items:center; gap:6px;" title="Xuất file Excel báo cáo mốc kiểm tra độ mòn (50k, 100k, 150k...) & tần suất thay thế">
+              <span>📊</span> Xuất Excel Báo Cáo Chu Kỳ
+            </button>
+            <button onclick="exportExcelFull()" class="secondary" style="font-weight:700; display:flex; align-items:center; gap:6px;" title="Xuất toàn bộ các bảng dữ liệu ra file Excel">
+              <span>📑</span> Xuất Excel Đầy Đủ
+            </button>
+          </div>
+        </div>
+
+        <!-- Table of Wear Milestones & Replacement Frequency -->
+        <div class="summary-box" style="margin:0; overflow-x:auto;">
+          <table class="summary report-table">
+            <thead>
+              <tr>
+                <th style="width:75px;">Part</th>
+                <th style="width:75px;">Series</th>
+                <th style="width:105px;">Mold (New)</th>
+                <th style="width:105px;">Mold (Old)</th>
+                <th style="text-align:center; width:90px;">Số Lần Thay</th>
+                <th style="text-align:right; width:95px;">Tuổi Thọ TB</th>
+                <th style="text-align:right; width:100px;">Shot Đang Chạy</th>
+                <th style="text-align:right; width:100px;">Tổng Shot</th>
+                <th style="min-width:240px; text-align:center;" id="thMilestoneSteps">Mốc Chu Kỳ Kiểm Tra (50k · 100k · 150k · 200k · 250k · 300k+)</th>
+                <th style="text-align:center; width:115px;">Mốc Tiếp Theo</th>
+                <th style="text-align:right; width:100px;">Shot Còn Lại</th>
+                <th style="min-width:140px;">% Mòn Chu Kỳ</th>
+                <th style="text-align:center; width:125px;">Khuyến Nghị</th>
+                <th style="text-align:center; width:95px;">Lần Thay Cuối</th>
+              </tr>
+            </thead>
+            <tbody id="reportRows"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
   </div>
+  </div>
+
+  <!-- Modal: Top 5 Part List Thay Ra Số Lần Nhiều Nhất -->
+  <div id="top5Modal" class="top5-modal-overlay hidden" onclick="if(event.target===this)closeTop5Modal()">
+    <div class="top5-modal-container">
+      <div class="top5-modal-header">
+        <div class="top5-header-title">
+          <span class="top5-header-icon">🏆</span>
+          <div>
+            <h3 style="margin:0; font-size:16.5px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span>Top 5 Part List Thay Ra Nhiều Nhất</span>
+              <span class="top5-badge-pill" id="top5BadgeYear">Năm 2026</span>
+            </h3>
+            <p style="margin:3px 0 0; font-size:12px; color:var(--ink-muted);">
+              Thống kê 5 mã linh kiện có số lần thay thế nhiều nhất tính theo năm
+            </p>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <select id="top5ModalYearSelect" onchange="onTop5ModalYearChange(this.value)" class="top5-year-select" title="Chọn năm thống kê"></select>
+          <button class="top5-close-btn" onclick="closeTop5Modal()" title="Đóng (Esc)">✕</button>
+        </div>
+      </div>
+
+      <div class="top5-modal-body" id="top5ModalBody">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="top5-modal-footer">
+        <div id="top5ModalSummary" style="font-size:12px; color:var(--ink-muted); font-weight:600;"></div>
+        <button class="top5-btn-close-action" onclick="closeTop5Modal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Xác nhận xóa lượt thay thế & Ghi nhận lý do -->
+  <div id="deleteReasonModal" class="top5-modal-overlay hidden" onclick="if(event.target===this)cancelDeleteReplacement()">
+    <div class="top5-modal-container" style="max-width: 520px;">
+      <div class="top5-modal-header" style="background: linear-gradient(180deg, #ffffff, #fff1f2); border-bottom: 1px solid #fecaca;">
+        <div class="top5-header-title">
+          <span class="top5-header-icon" style="background:#fee2e2; border-color:#fca5a5; color:#dc2626;">🗑️</span>
+          <div>
+            <h3 style="margin:0; font-size:16px; font-weight:800; color:#991b1b; display:flex; align-items:center; gap:6px;">
+              <span>Xác Nhận Xóa Lượt Thay Thế</span>
+            </h3>
+            <p style="margin:2px 0 0; font-size:12px; color:var(--ink-muted);">
+              Vui lòng nhập lý do xóa để lưu vào nhật ký kiểm soát (Audit Log)
+            </p>
+          </div>
+        </div>
+        <button class="top5-close-btn" onclick="cancelDeleteReplacement()" title="Hủy bỏ (Esc)">✕</button>
+      </div>
+
+      <div class="top5-modal-body" style="gap:14px;">
+        <!-- Target Replacement Info Card -->
+        <div id="deleteTargetInfo" style="background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:13px; display:grid; grid-template-columns: 1fr 1fr; gap:6px 12px;">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div>
+          <label for="deleteReasonText" style="display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px;">
+            Lý do xóa lượt thay thế <span style="color:#dc2626;">*</span>:
+          </label>
+          <textarea id="deleteReasonText" 
+                    placeholder="Nhập lý do xóa (ví dụ: Nhập nhầm ngày, Hủy phiếu thay, Linh kiện chưa thay thực tế...)" 
+                    rows="3" 
+                    style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1.5px solid var(--border); font-family:inherit; font-size:13px; outline:none; resize:vertical; transition:border-color 0.15s;"></textarea>
+        </div>
+
+        <!-- Quick Reason Chips -->
+        <div>
+          <div style="font-size:11px; font-weight:700; color:var(--ink-muted); text-transform:uppercase; margin-bottom:6px;">
+            Gợi ý lý do nhanh:
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button type="button" onclick="setQuickDeleteReason('Nhập nhầm ngày / nhầm cột')" class="top5-filter-btn" style="font-size:11.5px; padding:3px 8px; border-radius:6px;">
+              🏷️ Nhập nhầm ngày
+            </button>
+            <button type="button" onclick="setQuickDeleteReason('Hủy yêu cầu thay thế linh kiện')" class="top5-filter-btn" style="font-size:11.5px; padding:3px 8px; border-radius:6px;">
+              🏷️ Hủy yêu cầu thay
+            </button>
+            <button type="button" onclick="setQuickDeleteReason('Nhập trùng dữ liệu phiếu thay')" class="top5-filter-btn" style="font-size:11.5px; padding:3px 8px; border-radius:6px;">
+              🏷️ Nhập trùng dữ liệu
+            </button>
+            <button type="button" onclick="setQuickDeleteReason('Linh kiện thực tế chưa thay thế')" class="top5-filter-btn" style="font-size:11.5px; padding:3px 8px; border-radius:6px;">
+              🏷️ Chưa thay thực tế
+            </button>
+            <button type="button" onclick="setQuickDeleteReason('Điều chỉnh lại số liệu sản xuất')" class="top5-filter-btn" style="font-size:11.5px; padding:3px 8px; border-radius:6px;">
+              🏷️ Điều chỉnh số liệu
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="top5-modal-footer" style="background:#fff1f2; border-top:1px solid #fecaca; display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="top5-btn-close-action" onclick="cancelDeleteReplacement()" style="border-color:#cbd5e1;">
+          Hủy bỏ
+        </button>
+        <button type="button" onclick="confirmDeleteReplacement()" class="primary" style="background:#dc2626; border-color:#b91c1c; font-weight:700; padding:7px 18px; border-radius:6px; color:#fff; cursor:pointer; display:flex; align-items:center; gap:6px;">
+          <span>🗑️</span> Xác Nhận Xóa
+        </button>
+  <!-- ===== GLOBAL FLOATING PAGINATION DOCK (CỐ ĐỊNH CHUYỂN TRANG/TẢI THÊM) ===== -->
+  <div id="globalPaginationDock" class="global-pagination-dock" style="display:none;">
+    <div class="gpd-inner">
+      <div class="gpd-status">
+        <span class="gpd-dot"></span>
+        <span id="gpdCountText">Đang hiển thị <b>30</b> / 1,575 linh kiện</span>
+      </div>
+      <div class="gpd-actions">
+        <button id="gpdBtnMore" class="gpd-btn gpd-btn-primary" onclick="window.gpdMoreAction && window.gpdMoreAction()">
+          ⚡ Tải thêm +30
+        </button>
+        <button id="gpdBtnAll" class="gpd-btn gpd-btn-all" onclick="window.gpdAllAction && window.gpdAllAction()">
+          Hiển thị tất cả
+        </button>
+        <button class="gpd-btn gpd-btn-top" onclick="scrollToTopActiveTable()" title="Cuộn lên đầu bảng">
+          ▲ Lên đầu
+        </button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1405,8 +2229,183 @@
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const defaultShootData = [];
 
-    let db = { shoot: [], replacements: [], rawShoot: [] };
+    let db = { shoot: [], replacements: [], rawShoot: [], deletionLogs: [] };
     let result = { cycles: [], summary: [], errors: [] };
+
+    // ===== AUTO-FIT SCREEN & ZOOM CONTROLLER =====
+    let _isAutoFit = true;
+    let _currentZoomScale = 1.0;
+
+    function initScreenFitEngine() {
+      try {
+        const savedAutoFit = localStorage.getItem('componentlife_autofit');
+        const savedZoom = localStorage.getItem('componentlife_zoom');
+        
+        if (savedAutoFit !== null) {
+          _isAutoFit = (savedAutoFit === 'true');
+        } else {
+          _isAutoFit = true; // Auto-fit by default on any computer
+        }
+
+        if (!_isAutoFit && savedZoom) {
+          _currentZoomScale = parseFloat(savedZoom) || 1.0;
+          applyZoomScale(_currentZoomScale, false);
+        } else {
+          runAutoFitCalculation();
+        }
+
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+          if (_isAutoFit) {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => runAutoFitCalculation(), 100);
+          }
+        });
+      } catch (e) {
+        console.warn("[ScreenFit] Init error:", e);
+      }
+    }
+
+    function runAutoFitCalculation() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      
+      // Target reference desktop resolution: 1440 x 820
+      let scale = 1.0;
+      if (vw < 1440 || vh < 820) {
+        const scaleW = vw / 1440;
+        const scaleH = vh / 820;
+        scale = Math.min(scaleW, scaleH);
+        // Clamp scale nicely between 0.70 (small laptop 1366x768 with scaling) and 1.0
+        scale = Math.max(0.70, Math.min(1.0, scale));
+      }
+      
+      scale = Math.round(scale * 100) / 100;
+      applyZoomScale(scale, true);
+    }
+
+    function applyZoomScale(scale, isAuto) {
+      _currentZoomScale = scale;
+      
+      // Apply zoom to document body (Chromium / Edge / Chrome / Webview)
+      if ('zoom' in document.body.style) {
+        document.body.style.zoom = scale;
+      } else {
+        document.documentElement.style.setProperty('--app-scale', scale);
+      }
+
+      // Update UI buttons & label
+      const btnAutoFit = $('btnAutoFit');
+      const zoomVal = $('zoomPercentVal');
+      
+      if (btnAutoFit) {
+        btnAutoFit.classList.toggle('active', isAuto);
+      }
+      if (zoomVal) {
+        zoomVal.textContent = Math.round(scale * 100) + '%';
+        zoomVal.title = isAuto 
+          ? `Tự động vừa màn hình: ${Math.round(scale * 100)}% (Bấm để đặt lại)` 
+          : `Tỉ lệ hiển thị: ${Math.round(scale * 100)}% (Bấm để về Auto-Fit)`;
+      }
+    }
+
+    function toggleAutoFit() {
+      _isAutoFit = !_isAutoFit;
+      localStorage.setItem('componentlife_autofit', _isAutoFit);
+      
+      if (_isAutoFit) {
+        runAutoFitCalculation();
+        msg("⚡ Đã bật chế độ Tự Động Vừa Màn Hình (Auto-Fit Screen)", false, 2000);
+      } else {
+        applyZoomScale(1.0, false);
+        localStorage.setItem('componentlife_zoom', '1.0');
+        msg("Đã chuyển sang tỉ lệ cố định 100%", false, 2000);
+      }
+    }
+
+    function adjustZoom(delta) {
+      _isAutoFit = false;
+      localStorage.setItem('componentlife_autofit', 'false');
+      
+      let newZoom = Math.round((_currentZoomScale + delta) * 100) / 100;
+      newZoom = Math.max(0.60, Math.min(1.50, newZoom));
+      
+      localStorage.setItem('componentlife_zoom', newZoom.toString());
+      applyZoomScale(newZoom, false);
+    }
+
+    function resetZoom() {
+      _isAutoFit = true;
+      localStorage.setItem('componentlife_autofit', 'true');
+      runAutoFitCalculation();
+      msg("🔄 Đã tự động căn chỉnh vừa vặn màn hình", false, 1800);
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+        if ($('btnFullScreen')) $('btnFullScreen').classList.add('active');
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+        if ($('btnFullScreen')) $('btnFullScreen').classList.remove('active');
+      }
+    }
+
+    // ===== GLOBAL FLOATING PAGINATION DOCK =====
+    window.gpdMoreAction = null;
+    window.gpdAllAction = null;
+
+    function updateGlobalPaginationDock(tabName, currentLimit, totalCount, moreCallback, allCallback) {
+      const dock = $('globalPaginationDock');
+      const label = $('gpdCountText');
+      const btnMore = $('gpdBtnMore');
+      const btnAll = $('gpdBtnAll');
+      
+      if (!dock || !label) return;
+
+      if (totalCount > currentLimit) {
+        window.gpdMoreAction = moreCallback;
+        window.gpdAllAction = allCallback;
+
+        const nextStep = (tabName === 'month' ? 30 : 40);
+        label.innerHTML = `Đang hiển thị <b>${currentLimit}</b> / ${totalCount.toLocaleString()} linh kiện`;
+        if (btnMore) {
+          btnMore.innerHTML = `⚡ Tải thêm +${nextStep}`;
+          btnMore.style.display = 'inline-flex';
+        }
+        if (btnAll) {
+          btnAll.innerHTML = `Hiển thị tất cả (${totalCount.toLocaleString()})`;
+          btnAll.style.display = 'inline-flex';
+        }
+        dock.style.display = 'flex';
+      } else {
+        window.gpdMoreAction = null;
+        window.gpdAllAction = null;
+        if (totalCount > 0) {
+          label.innerHTML = `✅ Đã hiển thị đủ <b>${totalCount.toLocaleString()}</b> linh kiện`;
+          if (btnMore) btnMore.style.display = 'none';
+          if (btnAll) btnAll.style.display = 'none';
+          dock.style.display = 'flex';
+        } else {
+          dock.style.display = 'none';
+        }
+      }
+    }
+
+    function scrollToTopActiveTable() {
+      const curTab = currentActiveTab;
+      let container = null;
+      if (curTab === 'month') container = document.querySelector('#monthTab .sheet');
+      else if (curTab === 'stock') container = document.querySelector('#stockTab .summary-box');
+      else if (curTab === 'wear') container = document.querySelector('#wearTab .summary-box');
+      else if (curTab === 'report') container = document.querySelector('#reportTab .summary-box');
+      if (container) {
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     function save() {
       try {
@@ -1414,9 +2413,11 @@
         const toSave = {
           shoot: rawList,
           rawShoot: rawList,
-          replacements: db.replacements || []
+          replacements: db.replacements || [],
+          deletionLogs: db.deletionLogs || []
         };
         localStorage.setItem(KEY, JSON.stringify(toSave));
+        localStorage.setItem("componentLifeDeletionLogs", JSON.stringify(db.deletionLogs || []));
       } catch (e) {}
       syncToJsonFiles();
     }
@@ -1898,34 +2899,254 @@
       if (showMessage) msg(`Đã phân tích ${rawSummaryList.length} linh kiện (${cycles.length} cycle hoàn chỉnh).`);
     }
 
+    function getReplacementsByYear(targetYear = "") {
+      const counts = new Map(); // key: "part|dieSet" -> count
+      const partCounts = new Map(); // key: "part" -> count
+      let totalRepsInYear = 0;
+
+      (db.replacements || []).forEach(r => {
+        const lbl = String(r.Label || "").trim();
+        if (!lbl || lbl === "-" || lbl === "0" || lbl === "·") return;
+        const repDate = String(r.ReplaceDate || "").trim();
+        if (!repDate) return;
+        
+        if (targetYear && !repDate.startsWith(targetYear)) return;
+
+        totalRepsInYear++;
+        const p = String(r.Part || "").trim();
+        const d = String(r.DieSet || "").trim();
+        const pKey = p.toLowerCase();
+        const pdKey = (p + "|" + d).toLowerCase();
+
+        counts.set(pdKey, (counts.get(pdKey) || 0) + 1);
+        if (pKey) {
+          partCounts.set(pKey, (partCounts.get(pKey) || 0) + 1);
+        }
+      });
+
+      return { counts, partCounts, totalRepsInYear };
+    }
+
     function renderMetrics() {
       const summaryList = result.summary || [];
       const totalPartsCount = summaryList.length;
-      const totalRepsCount = summaryList.reduce((sum, r) => sum + r.TotalReplacements, 0);
+      
+      const currentYear = selectedYear() || (selectedMonth() ? selectedMonth().slice(0, 4) : "");
+      const { counts, partCounts, totalRepsInYear } = getReplacementsByYear(currentYear);
 
       const partsWithCycles = summaryList.filter(s => s.CompletedCycles > 0);
       const avgLifeVal = partsWithCycles.length > 0
         ? Math.round(partsWithCycles.reduce((sum, r) => sum + r.AverageShots, 0) / partsWithCycles.length)
         : 0;
 
-      // Find top replaced part
-      const sortedByRep = [...summaryList].sort((a, b) => b.TotalReplacements - a.TotalReplacements);
-      const topPart = sortedByRep.length > 0 && sortedByRep[0].TotalReplacements > 0 ? sortedByRep[0] : null;
+      // Build ranking list for each part based on replacements in the target year
+      const rankedList = summaryList.map(item => {
+        const p = String(item.Part || "").trim();
+        const d = String(item.DieSet || "").trim();
+        const pdKey = (p + "|" + d).toLowerCase();
+        const pKey = p.toLowerCase();
+        const yearlyReps = counts.get(pdKey) || (pKey ? partCounts.get(pKey) : 0) || 0;
+        return {
+          ...item,
+          YearlyReplacements: yearlyReps,
+          CurrentYear: currentYear
+        };
+      });
+
+      // Sort descending by replacements in target year
+      const sortedByRep = rankedList
+        .filter(s => s.YearlyReplacements > 0)
+        .sort((a, b) => b.YearlyReplacements - a.YearlyReplacements);
+
+      const top5Parts = sortedByRep.slice(0, 5);
+      window._top5Parts = top5Parts;
+      window._top5Year = currentYear;
+      const topPart = top5Parts.length > 0 ? top5Parts[0] : null;
 
       if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
-      if ($("totalReplacementsVal")) $("totalReplacementsVal").textContent = totalRepsCount.toLocaleString();
+      if ($("totalReplacementsVal")) $("totalReplacementsVal").textContent = totalRepsInYear.toLocaleString();
       if ($("avgLifeVal")) $("avgLifeVal").textContent = avgLifeVal > 0 ? (avgLifeVal >= 1000 ? Math.round(avgLifeVal / 1000) + "k" : avgLifeVal) : "-";
+
+      const metricCard = $("top5MetricCard");
+      if (metricCard) {
+        const yearBadge = currentYear ? ` (${currentYear})` : "";
+        const labelEl = metricCard.querySelector(".cb-metric-label");
+        if (labelEl) labelEl.textContent = `🏆 TOP 5 REPLACED${yearBadge}`;
+      }
 
       if ($("mostReplacedVal")) {
         if (topPart) {
-          $("mostReplacedVal").textContent = `${topPart.Part} (${topPart.DieSet})`;
-          if ($("mostReplacedSub")) $("mostReplacedSub").textContent = `${topPart.TotalReplacements} lần thay · Avg: ${(topPart.AverageShots / 1000).toFixed(0)}k`;
+          $("mostReplacedVal").textContent = `#1: ${topPart.Part} (${topPart.DieSet})`;
+          if ($("mostReplacedSub")) $("mostReplacedSub").innerHTML = `<b>${topPart.YearlyReplacements} lần</b>${currentYear ? ' (' + currentYear + ')' : ''} · Xem Top 5 ▾`;
         } else {
           $("mostReplacedVal").textContent = "Chưa có";
-          if ($("mostReplacedSub")) $("mostReplacedSub").textContent = "0 lượt thay";
+          if ($("mostReplacedSub")) $("mostReplacedSub").textContent = currentYear ? `0 lượt (Năm ${currentYear})` : "0 lượt thay";
         }
       }
     }
+
+    function onTop5ModalYearChange(newYear) {
+      if ($("yearPick")) {
+        $("yearPick").value = newYear;
+        onDateFilterChange({ target: $("yearPick") });
+      } else {
+        renderMetrics();
+      }
+      openTop5Modal(newYear);
+    }
+
+    function openTop5Modal(overrideYear = null) {
+      const modal = $("top5Modal");
+      const body = $("top5ModalBody");
+      const summary = $("top5ModalSummary");
+      const badgeYear = $("top5BadgeYear");
+      const yearSelect = $("top5ModalYearSelect");
+      if (!modal || !body) return;
+
+      const activeYear = overrideYear !== null ? overrideYear : (selectedYear() || (selectedMonth() ? selectedMonth().slice(0, 4) : ""));
+
+      // Populate year select options
+      if (yearSelect) {
+        const yearsFound = new Set([2026]);
+        (db.replacements || []).forEach(r => {
+          if (r.ReplaceDate && r.ReplaceDate.length >= 4) {
+            const y = parseInt(r.ReplaceDate.slice(0, 4), 10);
+            if (y) yearsFound.add(y);
+          }
+        });
+        (db.shoot || []).forEach(r => {
+          if (r.Date && r.Date.length >= 4) {
+            const y = parseInt(r.Date.slice(0, 4), 10);
+            if (y) yearsFound.add(y);
+          }
+        });
+        const sortedYears = [...yearsFound].sort((a, b) => b - a);
+        yearSelect.innerHTML = `<option value="">Tất cả năm</option>` +
+          sortedYears.map(y => `<option value="${y}" ${String(activeYear) === String(y) ? 'selected' : ''}>Năm ${y}</option>`).join("");
+      }
+
+      if (badgeYear) {
+        badgeYear.textContent = activeYear ? `Năm ${activeYear}` : "Tất cả các năm";
+      }
+
+      // Compute ranking for the activeYear
+      const summaryList = result.summary || [];
+      const { counts, partCounts, totalRepsInYear } = getReplacementsByYear(activeYear);
+
+      const rankedList = summaryList.map(item => {
+        const p = String(item.Part || "").trim();
+        const d = String(item.DieSet || "").trim();
+        const pdKey = (p + "|" + d).toLowerCase();
+        const pKey = p.toLowerCase();
+        const yearlyReps = counts.get(pdKey) || (pKey ? partCounts.get(pKey) : 0) || 0;
+        return {
+          ...item,
+          YearlyReplacements: yearlyReps
+        };
+      });
+
+      const top5 = rankedList
+        .filter(s => s.YearlyReplacements > 0)
+        .sort((a, b) => b.YearlyReplacements - a.YearlyReplacements)
+        .slice(0, 5);
+
+      if (top5.length === 0) {
+        body.innerHTML = `
+          <div style="text-align:center; padding:36px 10px; color:var(--ink-muted);">
+            <div style="font-size:36px; margin-bottom:10px;">📦</div>
+            <div style="font-weight:700; font-size:14px; color:var(--ink);">Không có dữ liệu thay thế ${activeYear ? `trong năm ${activeYear}` : ''}</div>
+            <div style="font-size:12px; margin-top:4px;">Chưa ghi nhận lượt thay thế linh kiện nào ${activeYear ? `trong năm ${activeYear}` : ''}. Hãy chọn năm khác hoặc Tất cả năm.</div>
+          </div>
+        `;
+        if (summary) summary.textContent = `Tổng số: 0 linh kiện thay thế ${activeYear ? `năm ${activeYear}` : ''}`;
+        modal.classList.remove("hidden");
+        return;
+      }
+
+      const maxReps = top5[0].YearlyReplacements || 1;
+      const top5TotalReps = top5.reduce((sum, r) => sum + r.YearlyReplacements, 0);
+      const top5Pct = totalRepsInYear > 0 ? Math.round((top5TotalReps / totalRepsInYear) * 100) : 0;
+
+      const rankIcons = ["🥇 #1", "🥈 #2", "🥉 #3", "#4", "#5"];
+      const rankClasses = ["top5-rank-1", "top5-rank-2", "top5-rank-3", "top5-rank-other", "top5-rank-other"];
+
+      body.innerHTML = top5.map((item, idx) => {
+        const pct = Math.max(10, Math.round((item.YearlyReplacements / maxReps) * 100));
+        const avgLifeFormatted = item.AverageShots > 0
+          ? (item.AverageShots >= 1000 ? (item.AverageShots / 1000).toLocaleString('en-US', {maximumFractionDigits: 1}) + 'k shots' : item.AverageShots + ' shots')
+          : '-';
+        const totalShotsFormatted = item.TotalShots > 0
+          ? (item.TotalShots >= 1000000 ? (item.TotalShots / 1000000).toFixed(2) + 'M' : item.TotalShots >= 1000 ? Math.round(item.TotalShots / 1000) + 'k' : item.TotalShots)
+          : '0';
+
+        const yearLabel = activeYear ? `Năm ${activeYear}` : "Toàn bộ";
+
+        return `
+          <div class="top5-card-item">
+            <div class="top5-rank-badge ${rankClasses[idx]}">
+              <span style="font-size:${idx < 3 ? '13px' : '12px'};">${rankIcons[idx]}</span>
+            </div>
+            <div class="top5-part-info">
+              <div class="top5-part-title">
+                <span>Part: ${item.Part}</span>
+                <span style="font-size:11px; font-weight:600; padding:1px 6px; border-radius:4px; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">
+                  ${item.DieSet || 'Mold'}
+                </span>
+              </div>
+              <div class="top5-part-meta">
+                <span>Series: <b>${item.Series || '-'}</b></span> · 
+                <span>Tuổi thọ TB: <b>${avgLifeFormatted}</b></span> · 
+                <span>Tổng shot: <b>${totalShotsFormatted}</b></span>
+              </div>
+            </div>
+            <div class="top5-stat-col">
+              <div class="top5-rep-count">${item.YearlyReplacements.toLocaleString()} <span style="font-size:11px; font-weight:600; color:var(--ink-muted);">lần</span></div>
+              <div class="top5-progress-wrap" title="${pct}% so với linh kiện #1 (${yearLabel})">
+                <div class="top5-progress-fill" style="width: ${pct}%;"></div>
+              </div>
+            </div>
+            <div>
+              <button class="top5-filter-btn" onclick="filterByTop5Part('${item.Part}')" title="Lọc và xem chi tiết linh kiện này">
+                🔍 Xem chi tiết
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      if (summary) {
+        const yearSummaryStr = activeYear ? `năm ${activeYear}` : `toàn bộ thời gian`;
+        summary.innerHTML = `Top 5 chiếm <b>${top5TotalReps.toLocaleString()}</b> lượt thay (<b>${top5Pct}%</b> trên tổng ${totalRepsInYear.toLocaleString()} lượt thay ${yearSummaryStr})`;
+      }
+
+      modal.classList.remove("hidden");
+    }
+
+    function closeTop5Modal() {
+      const modal = $("top5Modal");
+      if (modal) modal.classList.add("hidden");
+    }
+
+    function filterByTop5Part(partCode) {
+      if (!partCode) return;
+      closeTop5Modal();
+      const searchInp = $("globalSearch");
+      if (searchInp) {
+        searchInp.value = partCode;
+        onGlobalSearchInput();
+        searchInp.focus();
+      }
+      if (typeof msg === "function") {
+        msg(`Đang lọc dữ liệu theo Part: ${partCode}`);
+      }
+    }
+
+    window.addEventListener("keydown", function(e) {
+      if (e.key === "Escape") {
+        closeTop5Modal();
+        cancelDeleteReplacement();
+      }
+    });
 
     // ==========================================
     // STOCK INVENTORY MANAGEMENT (QUẢN LÝ TỒN KHO)
@@ -2303,6 +3524,7 @@
       if ($("stockRows")) {
         if (!visibleList.length) {
           $("stockRows").innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--ink-muted);padding:28px;">Không có linh kiện nào trong danh mục tồn kho này.</td></tr>`;
+          updateGlobalPaginationDock('stock', 0, 0);
         } else {
           let rowsHtml = visibleList.map(row => {
             const statusBadge = row.status === 'CRITICAL'
@@ -2374,14 +3596,17 @@
           }).join("");
 
           if (filtered.length > limit) {
-            rowsHtml += `<tr><td colspan="12" style="text-align:center; padding:16px; background:var(--bg-subtle);">
-              <span style="font-size:14px; color:var(--ink-secondary); margin-right:12px;">Đang hiển thị <b>${limit}</b> / ${filtered.length.toLocaleString()} linh kiện</span>
-              <button onclick="_stockRenderLimit += 40; renderStockTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
-              <button onclick="_stockRenderLimit = ${filtered.length}; renderStockTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả</button>
+            rowsHtml += `<tr><td colspan="12" class="table-load-row">
+              <div class="table-load-sticky-wrap">
+                <span class="load-info-badge">📦 Đang hiển thị <b>${limit}</b> / ${filtered.length.toLocaleString()} linh kiện</span>
+                <button onclick="_stockRenderLimit += 40; renderStockTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
+                <button onclick="_stockRenderLimit = ${filtered.length}; renderStockTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả (${filtered.length.toLocaleString()})</button>
+              </div>
             </td></tr>`;
           }
 
           $("stockRows").innerHTML = rowsHtml;
+          updateGlobalPaginationDock('stock', limit, filtered.length, () => { _stockRenderLimit += 40; renderStockTable(); }, () => { _stockRenderLimit = filtered.length; renderStockTable(); });
         }
       }
     }
@@ -2626,6 +3851,7 @@
 
       if (!visibleList.length) {
         $('wearRows').innerHTML = `<tr><td colspan="11" style="text-align:center; padding:28px; color:var(--ink-muted);">Không tìm thấy linh kiện nào phù hợp với bộ lọc hiện tại.</td></tr>`;
+        updateGlobalPaginationDock('wear', 0, 0);
         return;
       }
 
@@ -2674,14 +3900,17 @@
       });
 
       if (filteredList.length > limit) {
-        html += `<tr><td colspan="11" style="text-align:center; padding:16px; background:var(--bg-subtle);">
-          <span style="font-size:14px; color:var(--ink-secondary); margin-right:12px;">Đang hiển thị <b>${limit}</b> / ${filteredList.length.toLocaleString()} linh kiện</span>
-          <button onclick="_wearRenderLimit += 40; renderWearTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
-          <button onclick="_wearRenderLimit = ${filteredList.length}; renderWearTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả</button>
+        html += `<tr><td colspan="11" class="table-load-row">
+          <div class="table-load-sticky-wrap">
+            <span class="load-info-badge">📦 Đang hiển thị <b>${limit}</b> / ${filteredList.length.toLocaleString()} linh kiện</span>
+            <button onclick="_wearRenderLimit += 40; renderWearTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
+            <button onclick="_wearRenderLimit = ${filteredList.length}; renderWearTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả (${filteredList.length.toLocaleString()})</button>
+          </div>
         </td></tr>`;
       }
 
       $('wearRows').innerHTML = html;
+      updateGlobalPaginationDock('wear', limit, filteredList.length, () => { _wearRenderLimit += 40; renderWearTable(); }, () => { _wearRenderLimit = filteredList.length; renderWearTable(); });
     }
 
     function isValidPartName(name) {
@@ -3089,16 +4318,16 @@
             const value = repItem ? repItem.totalQty : "-";
             const cls = repItem ? "cell replacement" : "cell empty";
             const info = repItem && repItem.rows && repItem.rows.length
-              ? `Ngày: ${date} | Số lượng thay: ${repItem.totalQty} | ID request: ${repItem.rows.map(r => r.RequestId || r.Label).filter(Boolean).join(', ')}`
-              : `Ngày: ${date}`;
-            return `<td><div class="${cls}${weekend ? " weekend" : ""}" ${dayStyle} contenteditable="false" style="cursor:default;user-select:none;" data-type="replacement" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${esc(info)}">${esc(value)}</div></td>`;
+              ? `Ngày: ${date} | Số lượng thay: ${repItem.totalQty} | ID request: ${repItem.rows.map(r => r.RequestId || r.Label).filter(Boolean).join(', ')} (Nhấp để sửa hoặc xóa)`
+              : `Ngày: ${date} (Nhấp để nhập lượt thay)`;
+            return `<td><div class="${cls}${weekend ? " weekend" : ""}" ${dayStyle} contenteditable="true" data-old-val="${esc(value)}" data-type="replacement" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${esc(info)}">${esc(value)}</div></td>`;
           }
 
           const rawVal = displayShootMap.get(day) || 0;
           const displayVal = rawVal > 0 ? formatShootDisplay(rawVal) : "·";
           const hoverVal = formatShootHover(rawVal);
           const cls = rawVal > 0 ? "cell has-output" : "cell zero";
-          return `<td><div class="${cls}${weekend ? " weekend" : ""}" ${dayStyle} contenteditable="false" style="cursor:default;user-select:none;" data-type="shoot" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${hoverVal}">${displayVal}</div></td>`;
+          return `<td><div class="${cls}${weekend ? " weekend" : ""}" ${dayStyle} contenteditable="true" data-old-val="${esc(rawVal)}" data-type="shoot" data-date="${date}" data-dieset="${esc(dieSet)}" data-part="${esc(partName)}" title="${hoverVal}">${esc(displayVal)}</div></td>`;
         };
 
         bodyHtml += `
@@ -3120,15 +4349,18 @@
       });
 
       if (allPartsList.length > limit) {
-        bodyHtml += `<tr><td colspan="${days + 6}" style="text-align:center; padding:16px; background:var(--bg-subtle);">
-          <span style="font-size:14px; color:var(--ink-secondary); margin-right:12px;">Đang hiển thị <b>${limit}</b> / ${allPartsList.length.toLocaleString()} linh kiện</span>
-          <button onclick="_monthRenderLimit += 30; renderMonth();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 30 linh kiện tiếp theo</button>
-          <button onclick="_monthRenderLimit = ${allPartsList.length}; renderMonth();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả</button>
+        bodyHtml += `<tr><td colspan="${days + 6}" class="table-load-row">
+          <div class="table-load-sticky-wrap">
+            <span class="load-info-badge">📦 Đang hiển thị <b>${limit}</b> / ${allPartsList.length.toLocaleString()} linh kiện</span>
+            <button onclick="_monthRenderLimit += 30; renderMonth();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 30 linh kiện tiếp theo</button>
+            <button onclick="_monthRenderLimit = ${allPartsList.length}; renderMonth();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả (${allPartsList.length.toLocaleString()})</button>
+          </div>
         </td></tr>`;
       }
 
       $("dayBody").innerHTML = bodyHtml;
       renderMetrics();
+      updateGlobalPaginationDock('month', limit, allPartsList.length, () => { _monthRenderLimit += 30; renderMonth(); }, () => { _monthRenderLimit = allPartsList.length; renderMonth(); });
     }
 
     // EVENT DELEGATION FOR TABLE CELLS (1 single listener instead of 100,000!)
@@ -3203,32 +4435,165 @@
       }
     }
 
+    let _pendingDeletion = null;
+
+    function openDeleteReasonModal() {
+      if (!_pendingDeletion) return;
+      const modal = $("deleteReasonModal");
+      const infoEl = $("deleteTargetInfo");
+      const reasonInp = $("deleteReasonText");
+      if (!modal) return;
+
+      if (infoEl) {
+        infoEl.innerHTML = `
+          <div>Mã Part: <b style="color:#0f172a;">${esc(_pendingDeletion.partName)}</b></div>
+          <div>Khuôn (DieSet): <b style="color:#1d4ed8;">${esc(_pendingDeletion.dieSet)}</b></div>
+          <div>Ngày thay thế: <b style="color:#b45309;">${esc(_pendingDeletion.date)}</b></div>
+          <div>Lượt thay / Qty cũ: <b style="color:#dc2626;">${esc(_pendingDeletion.oldVal)}</b></div>
+        `;
+      }
+      if (reasonInp) {
+        reasonInp.value = "";
+        reasonInp.style.borderColor = "var(--border)";
+        setTimeout(() => reasonInp.focus(), 150);
+      }
+
+      modal.classList.remove("hidden");
+    }
+
+    function setQuickDeleteReason(reason) {
+      const reasonInp = $("deleteReasonText");
+      if (reasonInp) {
+        reasonInp.value = reason;
+        reasonInp.style.borderColor = "var(--border)";
+        reasonInp.focus();
+      }
+    }
+
+    function cancelDeleteReplacement() {
+      const modal = $("deleteReasonModal");
+      if (modal) modal.classList.add("hidden");
+      if (_pendingDeletion && _pendingDeletion.cell) {
+        _pendingDeletion.cell.textContent = _pendingDeletion.oldVal;
+      }
+      _pendingDeletion = null;
+    }
+
+    function confirmDeleteReplacement() {
+      if (!_pendingDeletion) return;
+      const reasonInp = $("deleteReasonText");
+      const reason = reasonInp ? reasonInp.value.trim() : "";
+
+      if (!reason) {
+        if (reasonInp) {
+          reasonInp.style.borderColor = "#dc2626";
+          reasonInp.focus();
+        }
+        return alert("Vui lòng nhập lý do xóa lượt thay thế để ghi nhận vào nhật ký kiểm soát!");
+      }
+
+      const { date, dieSet, partName, oldVal } = _pendingDeletion;
+
+      // 1. Ghi nhận nhật ký xóa (Deletion Audit Log)
+      const delRecord = {
+        id: "DEL-" + Date.now(),
+        Part: partName,
+        DieSet: dieSet,
+        ReplaceDate: date,
+        Label: oldVal,
+        Reason: reason,
+        DeletedAt: new Date().toISOString()
+      };
+      db.deletionLogs = db.deletionLogs || [];
+      db.deletionLogs.push(delRecord);
+
+      // 2. Xóa khỏi db.replacements
+      db.replacements = (db.replacements || []).filter(row => {
+        const sameDate = row.ReplaceDate === date;
+        const rDie = String(row.DieSet || "").toLowerCase().trim();
+        const dDie = String(dieSet || "").toLowerCase().trim();
+        const rPart = String(row.Part || "").toLowerCase().trim();
+        const pPart = String(partName || "").toLowerCase().trim();
+        const sameDieOrPart = (dDie && rDie === dDie) || (pPart && (rPart === pPart || rDie === pPart));
+        return !(sameDate && sameDieOrPart);
+      });
+
+      db.replacements.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+
+      const modal = $("deleteReasonModal");
+      if (modal) modal.classList.add("hidden");
+      _pendingDeletion = null;
+
+      // 3. Cập nhật và tính toán lại toàn bộ hệ thống
+      save();
+      rebuild(false);
+      renderActiveTabOnly();
+      msg(`✅ Đã xóa lượt thay ngày ${date} của linh kiện ${partName} (${dieSet}). Lý do: ${reason}`);
+    }
+
+    if ($("deleteReasonText")) {
+      $("deleteReasonText").addEventListener("keydown", function(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          confirmDeleteReplacement();
+        }
+      });
+    }
+
     function updateCell(cell) {
       const type = cell.dataset.type;
       const date = cell.dataset.date;
       const dieSet = cell.dataset.dieset || activeDieSet();
       const partName = cell.dataset.part || getContext().part || "Unknown";
+      const oldVal = (cell.dataset.oldVal !== undefined ? cell.dataset.oldVal : cell.textContent).trim();
       const text = cell.textContent.trim();
 
       if (!date || date.startsWith("-")) {
+        cell.textContent = oldVal;
         return msg("Vui lòng chọn tháng/năm cụ thể trước khi chỉnh sửa ô.", true);
       }
 
       if (!dieSet) {
+        cell.textContent = oldVal;
         return msg("Cần chọn linh kiện hoặc nhập Mold trước khi sửa.", true);
       }
 
       if (type === "shoot") {
         const value = parseShootValue(text);
-
         clearRawShootForDateAndShiftChain(date, dieSet, partName);
-
         if (value > 0) {
           db.shoot.push({ Date: date, DieSet: dieSet, Output: value });
           db.rawShoot.push({ Date: date, DieSet: dieSet, Output: value });
         }
-      } else {
-        db.replacements = db.replacements.filter(row => {
+        db.shoot.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
+        save();
+        rebuild(false);
+        renderActiveTabOnly();
+        return;
+      }
+
+      // TYPE === "replacement"
+      const wasReplacement = oldVal && oldVal !== "-" && oldVal !== "0" && oldVal !== "·";
+      const cleanVal = text.trim();
+      const isNewReplacement = cleanVal && cleanVal !== "-" && cleanVal !== "0" && cleanVal !== "·";
+
+      // 1. Trường hợp người dùng XÓA lượt thay (từ có thành rỗng, 0 hoặc -)
+      if (wasReplacement && !isNewReplacement) {
+        _pendingDeletion = {
+          cell: cell,
+          date: date,
+          dieSet: dieSet,
+          partName: partName,
+          oldVal: oldVal,
+          newText: text
+        };
+        openDeleteReasonModal();
+        return;
+      }
+
+      // 2. Trường hợp người dùng THAY ĐỔI hoặc THÊM MỚI lượt thay
+      if (isNewReplacement) {
+        db.replacements = (db.replacements || []).filter(row => {
           const sameDate = row.ReplaceDate === date;
           const rDie = String(row.DieSet || "").toLowerCase().trim();
           const dDie = String(dieSet || "").toLowerCase().trim();
@@ -3238,30 +4603,26 @@
           return !(sameDate && sameDieOrPart);
         });
 
-        const cleanVal = text.trim();
-        const isReplacement = cleanVal && cleanVal !== "-" && cleanVal !== "0" && cleanVal !== "·";
+        db.replacements.push({
+          Part: partName,
+          Series: getSeriesForPart(partName, dieSet) || getContext().series || "",
+          DieSet: dieSet,
+          ReplaceDate: date,
+          Label: cleanVal
+        });
 
-        if (isReplacement) {
-          db.replacements.push({
-            Part: partName,
-            Series: getContext().series || "",
-            DieSet: dieSet,
-            ReplaceDate: date,
-            Label: text
-          });
-          cell.classList.remove("empty");
-          cell.classList.add("replacement");
-        } else {
-          cell.classList.remove("replacement");
-          cell.classList.add("empty");
-        }
+        db.replacements.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+        save();
+        rebuild(false);
+        renderActiveTabOnly();
+        msg(`✅ Đã cập nhật lượt thay thế linh kiện ${partName} (${dieSet}) ngày ${date}: ${cleanVal} lượt.`);
+        return;
       }
 
-      db.shoot.sort((a, b) => a.Date.localeCompare(b.Date) || a.DieSet.localeCompare(b.DieSet));
-      db.replacements.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
-      save();
-      rebuild(false);
-      renderMonth();
+      // Nếu ô vốn đã rỗng và không nhập gì
+      cell.textContent = "-";
+      cell.classList.remove("replacement");
+      cell.classList.add("empty");
     }
 
     function loadMonth() {
@@ -3401,6 +4762,7 @@
     }
 
     let currentActiveTab = "month";
+    let _reportRenderLimit = 40;
 
     function switchTab(name) {
       currentActiveTab = name;
@@ -3408,15 +4770,299 @@
       if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
       if ($("stockTab")) $("stockTab").classList.toggle("hidden", name !== "stock");
       if ($("wearTab")) $("wearTab").classList.toggle("hidden", name !== "wear");
+      if ($("reportTab")) $("reportTab").classList.toggle("hidden", name !== "report");
 
+      renderMetrics();
       if (name === "month") {
         renderMonth();
-        renderMetrics();
       } else if (name === "stock") {
         renderStockTable();
       } else if (name === "wear") {
         renderWearTable();
+      } else if (name === "report") {
+        renderReportTable();
       }
+    }
+
+    function renderReportTable() {
+      if (!$('reportRows')) return;
+
+      const wearList = computeWearAnalysis();
+      const step = Number($("milestoneStepSelect") ? $("milestoneStepSelect").value : 50000) || 50000;
+      const onlyReplaced = $("chkReportOnlyReplaced") ? $("chkReportOnlyReplaced").checked : false;
+
+      // Counters
+      const totalParts = wearList.length;
+      let totalReps = 0;
+      let dueMilestoneCount = 0;
+      let partsWithCycles = [];
+      let replacedCount = 0;
+
+      wearList.forEach(item => {
+        totalReps += (item.replacementCount || 0);
+        if (item.replacementCount > 0) replacedCount++;
+        if (item.cycleCount > 0) partsWithCycles.push(item.avgLifespan);
+
+        const cur = item.currentRunningShots;
+        const nextM = (Math.floor(cur / step) + 1) * step;
+        const remainingToM = Math.max(0, nextM - cur);
+        const pctToM = Math.round(((cur % step) / step) * 100);
+
+        if (item.wearPercent >= 90 || remainingToM <= 5000 || pctToM >= 90) {
+          dueMilestoneCount++;
+        }
+      });
+
+      const avgLifeAll = partsWithCycles.length > 0
+        ? Math.round(partsWithCycles.reduce((a, b) => a + b, 0) / partsWithCycles.length)
+        : 0;
+
+      // Update KPI Cards
+      if ($('kpiReportTotalParts')) $('kpiReportTotalParts').textContent = totalParts.toLocaleString();
+      if ($('kpiReportTotalReps')) $('kpiReportTotalReps').textContent = totalReps.toLocaleString();
+      if ($('kpiReportDueMilestone')) $('kpiReportDueMilestone').textContent = dueMilestoneCount.toLocaleString();
+      if ($('kpiReportAvgLife')) $('kpiReportAvgLife').textContent = avgLifeAll > 0 ? (avgLifeAll >= 1000 ? Math.round(avgLifeAll / 1000) + "k" : avgLifeAll) : "-";
+      if ($('cntReportReplaced')) $('cntReportReplaced').textContent = replacedCount.toLocaleString();
+
+      // Update Milestone Header Text
+      if ($('thMilestoneSteps')) {
+        if (step === 25000) {
+          $('thMilestoneSteps').textContent = "Mốc Chu Kỳ Kiểm Tra (25k · 50k · 75k · 100k · 125k · 150k+)";
+        } else if (step === 100000) {
+          $('thMilestoneSteps').textContent = "Mốc Chu Kỳ Kiểm Tra (100k · 200k · 300k · 400k · 500k+)";
+        } else {
+          $('thMilestoneSteps').textContent = "Mốc Chu Kỳ Kiểm Tra (50k · 100k · 150k · 200k · 250k · 300k+)";
+        }
+      }
+
+      // Filter
+      let filteredList = wearList;
+      if (onlyReplaced) {
+        filteredList = filteredList.filter(x => x.replacementCount > 0);
+      }
+
+      const hasGlobalFilter = ($("globalSearch") && $("globalSearch").value.trim()) ||
+                              ($("part") && $("part").value.trim()) ||
+                              ($("mold") && $("mold").value.trim()) ||
+                              ($("series") && $("series").value.trim());
+
+      // Sort: parts with highest wear % & running shots first
+      filteredList.sort((a, b) => {
+        if (a.wearPercent !== b.wearPercent) return b.wearPercent - a.wearPercent;
+        if (b.currentRunningShots !== a.currentRunningShots) return b.currentRunningShots - a.currentRunningShots;
+        if (b.replacementCount !== a.replacementCount) return b.replacementCount - a.replacementCount;
+        return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      const limit = hasGlobalFilter ? filteredList.length : _reportRenderLimit;
+      const visibleList = filteredList.slice(0, limit);
+
+      if (!visibleList.length) {
+        $('reportRows').innerHTML = `<tr><td colspan="14" style="text-align:center; padding:32px; color:var(--ink-muted);">Không tìm thấy linh kiện nào phù hợp với điều kiện báo cáo hiện tại.</td></tr>`;
+        return;
+      }
+
+      // Fixed milestones base based on step
+      const baseMilestones = step === 25000 
+        ? [25000, 50000, 75000, 100000, 125000, 150000]
+        : step === 100000
+          ? [100000, 200000, 300000, 400000, 500000]
+          : [50000, 100000, 150000, 200000, 250000, 300000];
+
+      let html = '';
+      visibleList.forEach(item => {
+        const cur = item.currentRunningShots;
+        const nextM = (Math.floor(cur / step) + 1) * step;
+        const remainingToM = Math.max(0, nextM - cur);
+        const pctToM = Math.round(((cur % step) / step) * 100);
+
+        // Milestone Badges HTML
+        let badgesHtml = '<div class="milestone-badge-group">';
+        baseMilestones.forEach(mVal => {
+          const mLabel = (mVal / 1000) + 'k';
+          if (cur >= mVal) {
+            badgesHtml += `<span class="milestone-badge passed" title="Đã vượt qua mốc ${mLabel} (Đang chạy: ${cur.toLocaleString()} shots)">✅ ${mLabel}</span>`;
+          } else if (mVal === nextM) {
+            badgesHtml += `<span class="milestone-badge current" title="Mốc tiếp theo: Còn ${remainingToM.toLocaleString()} shots (${pctToM}%)">⏳ ${mLabel} <small>(${pctToM}%)</small></span>`;
+          } else {
+            badgesHtml += `<span class="milestone-badge upcoming" title="Mốc dự kiến: ${mLabel}">⚪ ${mLabel}</span>`;
+          }
+        });
+        if (nextM > baseMilestones[baseMilestones.length - 1]) {
+          badgesHtml += `<span class="milestone-badge current" title="Mốc cao tiếp theo: ${(nextM/1000)}k">⏳ ${(nextM/1000)}k</span>`;
+        }
+        badgesHtml += '</div>';
+
+        // Action Recommendation Badge
+        let actionBadge = `<span class="badge-action ok">🟢 Bình thường</span>`;
+        if (item.wearPercent >= 100) {
+          actionBadge = `<span class="badge-action urgent">🟣 Quá hạn (${item.wearPercent}%)</span>`;
+        } else if (item.wearPercent >= 90) {
+          actionBadge = `<span class="badge-action urgent">🔴 Thay thế (≥90%)</span>`;
+        } else if (remainingToM <= 5000 || pctToM >= 90) {
+          actionBadge = `<span class="badge-action check">🟡 Kiểm tra ${(nextM/1000).toFixed(0)}k</span>`;
+        } else if (item.wearPercent >= 70) {
+          actionBadge = `<span class="badge-action check">🟡 Cảnh báo mòn</span>`;
+        }
+
+        // Wear Progress Bar
+        let barColor = '#10b981';
+        if (item.wearPercent >= 100) barColor = '#9333ea';
+        else if (item.wearPercent >= 90) barColor = '#ef4444';
+        else if (item.wearPercent >= 70) barColor = '#f59e0b';
+        const barWidth = Math.min(100, item.wearPercent);
+
+        html += `
+          <tr>
+            <td><b style="font-size:14px; color:#0f172a;">${esc(item.part)}</b></td>
+            <td><span style="color:#2563eb; font-weight:700; font-size:13px;">${esc(item.series || '-')}</span></td>
+            <td><b style="font-size:13px;">${esc(item.moldNew || '-')}</b></td>
+            <td><span style="color:#64748b; font-size:12.5px;">${esc(item.moldOld || '-')}</span></td>
+            <td style="text-align:center;">
+              <span style="font-weight:700; color:${item.replacementCount > 0 ? '#b45309' : '#64748b'}; background:${item.replacementCount > 0 ? '#fef3c7' : '#f1f5f9'}; padding:2px 8px; border-radius:10px; font-size:12px;">
+                ${item.replacementCount} lần
+              </span>
+            </td>
+            <td style="text-align:right; font-weight:600; font-size:13px;">${item.avgLifespan.toLocaleString()}</td>
+            <td style="text-align:right; font-weight:700; color:#0f172a; font-size:13px;">${item.currentRunningShots.toLocaleString()}</td>
+            <td style="text-align:right; font-weight:600; color:#475569; font-size:12.5px;">${item.totalLifetimeShots.toLocaleString()}</td>
+            <td>${badgesHtml}</td>
+            <td style="text-align:center; font-weight:700; color:#1e40af; font-size:12.5px;">
+              ${(nextM/1000).toLocaleString()}k shots
+            </td>
+            <td style="text-align:right; font-weight:700; font-size:13px; color:${remainingToM <= 5000 ? '#dc2626' : '#059669'};">
+              ${remainingToM.toLocaleString()}
+            </td>
+            <td>
+              <div class="wear-bar-wrapper">
+                <div class="wear-bar-container" title="Đã chạy: ${item.currentRunningShots.toLocaleString()} / TB: ${item.avgLifespan.toLocaleString()}">
+                  <div class="wear-bar-fill" style="width:${barWidth}%; background:${barColor};"></div>
+                </div>
+                <span class="wear-percent-text" style="color:${barColor};">${item.wearPercent}%</span>
+              </div>
+            </td>
+            <td style="text-align:center;">${actionBadge}</td>
+            <td style="text-align:center; font-size:12px; color:var(--ink-secondary); font-weight:600;">${esc(item.lastRepDate)}</td>
+          </tr>
+        `;
+      });
+
+      if (filteredList.length > limit) {
+        html += `<tr><td colspan="14" class="table-load-row">
+          <div class="table-load-sticky-wrap">
+            <span class="load-info-badge">📦 Đang hiển thị <b>${limit}</b> / ${filteredList.length.toLocaleString()} linh kiện</span>
+            <button onclick="_reportRenderLimit += 40; renderReportTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer;">⚡ Tải thêm 40 dòng tiếp theo</button>
+            <button onclick="_reportRenderLimit = ${filteredList.length}; renderReportTable();" class="secondary" style="padding:6px 18px; font-size:13px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:6px;">Hiển thị tất cả (${filteredList.length.toLocaleString()})</button>
+          </div>
+        </td></tr>`;
+      }
+
+      $('reportRows').innerHTML = html;
+      updateGlobalPaginationDock('report', limit, filteredList.length, () => { _reportRenderLimit += 40; renderReportTable(); }, () => { _reportRenderLimit = filteredList.length; renderReportTable(); });
+    }
+
+    function exportWearMilestoneReportExcel() {
+      if ((!result.summary || !result.summary.length) && (!db.replacements || !db.replacements.length) && (!db.shoot || !db.shoot.length)) {
+        return msg("Hãy nạp dữ liệu trước khi xuất Excel.", true);
+      }
+      if (typeof XLSX === 'undefined') {
+        return msg("Thư viện SheetJS chưa sẵn sàng, vui lòng thử lại sau.", true);
+      }
+
+      const wearList = computeWearAnalysis();
+      const step = Number($("milestoneStepSelect") ? $("milestoneStepSelect").value : 50000) || 50000;
+      const onlyReplaced = $("chkReportOnlyReplaced") ? $("chkReportOnlyReplaced").checked : false;
+
+      let targetList = wearList;
+      if (onlyReplaced) {
+        targetList = targetList.filter(item => item.replacementCount > 0);
+      }
+
+      // Sort by highest running shots and wear %
+      targetList.sort((a, b) => {
+        if (a.wearPercent !== b.wearPercent) return b.wearPercent - a.wearPercent;
+        if (b.currentRunningShots !== a.currentRunningShots) return b.currentRunningShots - a.currentRunningShots;
+        return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      const excelRows = targetList.map((item, index) => {
+        const cur = item.currentRunningShots;
+        const nextM = (Math.floor(cur / step) + 1) * step;
+        const remainingToM = Math.max(0, nextM - cur);
+        const pctToM = Math.round(((cur % step) / step) * 100);
+
+        const checkStatusAt = (mVal) => {
+          if (cur >= mVal) return `ĐÃ QUA (${cur.toLocaleString()} shots)`;
+          if (mVal === nextM) return `ĐANG TIẾN ĐẾN (${pctToM}%, còn ${remainingToM.toLocaleString()} shots)`;
+          return `CHƯA ĐẾN (còn ${(mVal - cur).toLocaleString()} shots)`;
+        };
+
+        let actionReq = "🟢 HOẠT ĐỘNG BÌNH THƯỜNG";
+        if (item.wearPercent >= 100) actionReq = "🟣 QUÁ HẠN (CẦN THAY THẾ KHẨN CẤP)";
+        else if (item.wearPercent >= 90) actionReq = "🔴 CẦN THAY THẾ (MÒN ≥90%)";
+        else if (remainingToM <= 5000 || pctToM >= 90) actionReq = `🟡 CẦN KIỂM TRA ĐỊNH KỲ MỐC ${(nextM/1000).toFixed(0)}K`;
+        else if (item.wearPercent >= 70) actionReq = "🟡 CẢNH BÁO MÒN (70-89%)";
+
+        return {
+          "STT": index + 1,
+          "MÃ LINH KIỆN (PART)": item.part,
+          "SERIES": item.series || "-",
+          "KHUÔN MỚI (DIE SET)": item.moldNew || "-",
+          "KHUÔN CŨ": item.moldOld || "-",
+          "TỔNG SỐ LẦN THAY (TẦN SUẤT)": item.replacementCount,
+          "SỐ CHU KỲ HOÀN THÀNH": item.cycleCount,
+          "TUỔI THỌ TB (SHOTS/CHU KỲ)": item.avgLifespan,
+          "SHOT ĐANG CHẠY HIỆN TẠI": item.currentRunningShots,
+          "TỔNG SHOT TÍCH LŨY TOÀN BỘ": item.totalLifetimeShots,
+          "MỐC 50K SHOTS": checkStatusAt(50000),
+          "MỐC 100K SHOTS": checkStatusAt(100000),
+          "MỐC 150K SHOTS": checkStatusAt(150000),
+          "MỐC 200K SHOTS": checkStatusAt(200000),
+          "MỐC 250K SHOTS": checkStatusAt(250000),
+          "MỐC 300K SHOTS": checkStatusAt(300000),
+          "MỐC KIỂM TRA TIẾP THEO": nextM,
+          "SHOT CÒN LẠI ĐẾN MỐC": remainingToM,
+          "% ĐỘ MÒN CHU KỲ TB": item.wearPercent + "%",
+          "TRẠNG THÁI MÒN": item.statusLabel,
+          "KHUYẾN NGHỊ BẢO TRÌ": actionReq,
+          "LẦN THAY GẦN NHẤT": item.lastRepDate
+        };
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelRows.length > 0 ? excelRows : [{ "THÔNG BÁO": "Không có dữ liệu phù hợp" }]);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 6 },  // STT
+        { wch: 16 }, // PART
+        { wch: 12 }, // SERIES
+        { wch: 18 }, // KHUÔN MỚI
+        { wch: 16 }, // KHUÔN CŨ
+        { wch: 16 }, // TẦN SUẤT THAY
+        { wch: 14 }, // SỐ CHU KỲ
+        { wch: 18 }, // TUỔI THỌ TB
+        { wch: 18 }, // SHOT ĐANG CHẠY
+        { wch: 18 }, // TỔNG SHOT
+        { wch: 22 }, // MỐC 50K
+        { wch: 22 }, // MỐC 100K
+        { wch: 22 }, // MỐC 150K
+        { wch: 22 }, // MỐC 200K
+        { wch: 22 }, // MỐC 250K
+        { wch: 22 }, // MỐC 300K
+        { wch: 16 }, // MỐC TIẾP THEO
+        { wch: 16 }, // CÒN LẠI ĐẾN MỐC
+        { wch: 14 }, // % ĐỘ MÒN
+        { wch: 16 }, // TRẠNG THÁI
+        { wch: 32 }, // KHUYẾN NGHỊ
+        { wch: 16 }  // LẦN THAY GẦN NHẤT
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, "BaoCao_DoMon_ChuKy");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `BaoCao_KiemTra_DoMon_${step/1000}k_TanSuat_${dateStr}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      msg(`✅ Đã xuất báo cáo kiểm tra độ mòn ${step/1000}k shots & tần suất thay (${excelRows.length} linh kiện) ra file Excel!`);
     }
 
     function exportExcelFull() {
@@ -3427,9 +5073,42 @@
         return msg("Thư viện SheetJS chưa sẵn sàng, vui lòng thử lại sau.", true);
       }
 
+      if (currentActiveTab === "report") {
+        return exportWearMilestoneReportExcel();
+      }
+
       const wb = XLSX.utils.book_new();
 
-      // Sheet 1: Stock (Quản Lý Tồn Kho Linh Kiện)
+      // Sheet 1: Wear Milestone Report (Báo Cáo Kiểm Tra Chu Kỳ Mòn & Tần Suất)
+      const wearList = computeWearAnalysis();
+      const step = 50000;
+      const wearRows = wearList.map((item, index) => {
+        const cur = item.currentRunningShots;
+        const nextM = (Math.floor(cur / step) + 1) * step;
+        const remainingToM = Math.max(0, nextM - cur);
+        const pctToM = Math.round(((cur % step) / step) * 100);
+
+        return {
+          "STT": index + 1,
+          "MÃ LINH KIỆN": item.part,
+          "SERIES": item.series || "-",
+          "KHUÔN": item.moldNew || "-",
+          "TẦN SUẤT THAY": item.replacementCount,
+          "SỐ CHU KỲ": item.cycleCount,
+          "TUỔI THỌ TB": item.avgLifespan,
+          "SHOT ĐANG CHẠY": item.currentRunningShots,
+          "TỔNG SHOT": item.totalLifetimeShots,
+          "MỐC TIẾP THEO": nextM,
+          "CÒN LẠI ĐẾN MỐC": remainingToM,
+          "% MÒN": item.wearPercent + "%",
+          "TRẠNG THÁI": item.statusLabel,
+          "LẦN THAY GẦN NHẤT": item.lastRepDate
+        };
+      });
+      const wsWearReport = XLSX.utils.json_to_sheet(wearRows.length > 0 ? wearRows : [{ "Status": "Chưa có dữ liệu" }]);
+      XLSX.utils.book_append_sheet(wb, wsWearReport, "BaoCao_DoMon_ChuKy");
+
+      // Sheet 2: Stock (Quản Lý Tồn Kho Linh Kiện)
       const currentYm = selectedMonth();
       const currentDay = selectedDay();
       const currentYear = selectedYear();
@@ -3493,7 +5172,6 @@
         }).filter(Boolean).join("  ");
 
         const reqIdsStr = Array.from(new Set(events.map(ev => ev.requestId).filter(Boolean))).join(", ");
-
         const combinedPartInfo = `${part}/${series}/${moldOld || '-'}/${mold || '-'}`;
 
         return {
@@ -3516,7 +5194,7 @@
         return msg(`✅ Đã xuất báo cáo Tồn Kho Excel (${stockDataExcel.length} dòng) thành công!`);
       }
 
-      // Sheet 2: Replacement History (Lịch Sử Thay Thế)
+      // Sheet 3: Replacement History (Lịch Sử Thay Thế)
       const repData = (db.replacements || []).map(r => ({
         "Replace Date": r.ReplaceDate,
         "Part": r.Part || "",
@@ -3528,7 +5206,7 @@
       const wsReps = XLSX.utils.json_to_sheet(repData.length > 0 ? repData : [{ "Status": "Chưa có lịch sử thay thế" }]);
       XLSX.utils.book_append_sheet(wb, wsReps, "Replacement History");
 
-      // Sheet 3: Shoot Production Data (Dữ Liệu Sản Lượng Shoot)
+      // Sheet 4: Shoot Production Data (Dữ Liệu Sản Lượng Shoot)
       const shootData = (db.shoot || []).map(r => ({
         "Date": r.Date,
         "Part": r.Part || "",
@@ -3538,7 +5216,7 @@
       const wsShoot = XLSX.utils.json_to_sheet(shootData.length > 0 ? shootData.slice(0, 20000) : [{ "Status": "Chưa có dữ liệu Shoot" }]);
       XLSX.utils.book_append_sheet(wb, wsShoot, "Shoot Data");
 
-      // Sheet 4: Component Life Summary (Tổng Hợp Độ Mòn & Chu Kỳ)
+      // Sheet 5: Component Life Summary (Tổng Hợp Độ Mòn & Chu Kỳ)
       const summaryData = (result.summary || []).map(r => ({
         "Part": r.Part,
         "Series": r.Series,
@@ -3555,9 +5233,9 @@
         XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
       }
 
-      const fileName = `Component_Life_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const fileName = `BaoCao_TongHop_MoldLifeSpan_${new Date().toISOString().slice(0, 10)}.xlsx`;
       XLSX.writeFile(wb, fileName);
-      msg(`✅ Đã xuất báo cáo Excel thành công: ${fileName}`);
+      msg(`✅ Đã xuất báo cáo tổng hợp Excel thành công: ${fileName}`);
     }
 
     function esc(value) {
@@ -4366,14 +6044,16 @@
     let _searchRAF = null;
 
     function renderActiveTabOnly() {
+      renderMetrics();
       const activeTab = currentActiveTab || "month";
       if (activeTab === "month") {
         renderMonth();
-        renderMetrics();
       } else if (activeTab === "stock") {
         renderStockTable();
       } else if (activeTab === "wear") {
         renderWearTable();
+      } else if (activeTab === "report") {
+        renderReportTable();
       }
     }
 
@@ -4490,6 +6170,7 @@
       }
     });
 
+    initScreenFitEngine();
     initHeartbeat();
     loadAllDataFromSource();
   </script>

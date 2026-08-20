@@ -1,0 +1,439 @@
+/* ui-render.js — All UI rendering (Plan §7: UI only displays, selects, sorts, exports) */
+/* Detailed debug logging at every calculation and rendering stage */
+'use strict';
+
+// ===== REBUILD (cycle calculation in frontend for backward compat) =====
+function rebuild(showMessage = true) {
+  console.log("%c[REBUILD] === STAGE: rebuild START ===", "color:#7c3aed; font-weight:bold; font-size:13px;");
+  const t0 = performance.now();
+  invalidatePartsCache();
+  const cycles = [];
+  const errors = [];
+  const groups = {};
+
+  const validReps = db.replacements.filter(row => {
+    const lbl = String(row.Label || "").trim();
+    return lbl && lbl !== "-" && lbl !== "0" && lbl !== "·";
+  });
+  console.log(`%c[REBUILD] 1. Filtered valid replacements: ${validReps.length} / ${(db.replacements||[]).length}`, "color:#0284c7;");
+
+  validReps.forEach(row => {
+    const part = (row.Part || "").trim();
+    const dieSet = (row.DieSet || "").trim();
+    const key = part ? (part + "|" + dieSet) : dieSet;
+    (groups[key] ||= []).push(row);
+  });
+  console.log(`%c[REBUILD] 2. Formed ${Object.keys(groups).length} replacement groups`, "color:#0284c7;");
+
+  Object.entries(groups).forEach(([key, events]) => {
+    events.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+    const parts = key.split("|");
+    const part = parts.length > 1 ? parts[0] : (events[0].Part || "");
+    const dieSet = parts.length > 1 ? parts[1] : parts[0];
+    let series = events.find(e => e.Series && e.Series.trim())?.Series || $("series").value.trim();
+    if (!series) series = getSeriesForPart(part, dieSet);
+
+    const shots = db.shoot.filter(row => {
+      if (!row.Output || Number(row.Output) <= 0) return false;
+      const rPart = String(row.Part || "").toLowerCase().trim();
+      const rDie = String(row.DieSet || "").toLowerCase().trim();
+      const dDie = String(dieSet || "").toLowerCase().trim();
+      const pName = String(part || "").toLowerCase().trim();
+      if (rPart && pName) return rPart === pName;
+      return (pName && rDie === pName) || (dDie && rDie === dDie);
+    }).sort((a, b) => a.Date.localeCompare(b.Date));
+
+    if (!shots.length) return;
+
+    const firstRepDate = events[0].ReplaceDate;
+    const totalBefore = shots.filter(row => row.Date < firstRepDate).reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
+    if (totalBefore > 0) {
+      cycles.push({ Part: part, Series: series, DieSet: dieSet, StartDate: shots[0].Date, EndDate: firstRepDate, CycleShots: totalBefore });
+    }
+
+    for (let i = 0; i < events.length - 1; i++) {
+      const start = events[i].ReplaceDate;
+      const end = events[i + 1].ReplaceDate;
+      if (end <= start) continue;
+      const total = shots.filter(row => row.Date >= start && row.Date < end).reduce((sum, row) => sum + (Number(row.Output) || 0), 0);
+      if (total > 0) {
+        cycles.push({ Part: part, Series: series, DieSet: dieSet, StartDate: start, EndDate: end, CycleShots: total });
+      }
+    }
+  });
+  console.log(`%c[REBUILD] 3. Calculated completed cycles: ${cycles.length}`, "color:#059669; font-weight:bold;");
+
+  const partsToRender = getPartsToRender();
+  const rawSummaryList = [];
+
+  partsToRender.forEach(item => {
+    const part = item.part;
+    const dieSet = item.moldNew || item.moldOld || item.part;
+    const series = getSeriesForPart(part, dieSet) || item.series || "-";
+
+    const matchedCycles = cycles.filter(c => {
+      const cP = String(c.Part || "").toLowerCase().trim();
+      const cD = String(c.DieSet || "").toLowerCase().trim();
+      return (cP && part.toLowerCase().trim() === cP) || (cD && dieSet.toLowerCase().trim() === cD);
+    });
+
+    const cycleValues = matchedCycles.map(c => c.CycleShots);
+    const completedCount = matchedCycles.length;
+
+    const matchedShoots = db.shoot.filter(row => {
+      if (!row.Output || Number(row.Output) <= 0) return false;
+      const rPart = String(row.Part || "").toLowerCase().trim();
+      const rDie = String(row.DieSet || "").toLowerCase().trim();
+      return (rPart && part.toLowerCase().trim() === rPart) || (rDie && dieSet.toLowerCase().trim() === rDie);
+    }).sort((a, b) => a.Date.localeCompare(b.Date));
+
+    const totalShots = matchedShoots.reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
+
+    const partRepEvents = db.replacements.filter(r => {
+      const rP = String(r.Part || "").toLowerCase().trim();
+      const rD = String(r.DieSet || "").toLowerCase().trim();
+      const lbl = String(r.Label || "").trim();
+      return lbl && lbl !== "-" && lbl !== "0" && lbl !== "·" && ((rP && part.toLowerCase().trim() === rP) || (rD && dieSet.toLowerCase().trim() === rD));
+    }).sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+
+    const repCount = partRepEvents.length;
+    const repCumulativeShots = partRepEvents.map(e => matchedShoots.filter(r => r.Date < e.ReplaceDate).reduce((sum, r) => sum + (Number(r.Output) || 0), 0));
+
+    const totalCycleLife = cycleValues.reduce((a, b) => a + b, 0);
+    const avgLife = completedCount > 0 ? Math.round(totalCycleLife / completedCount) : totalShots;
+    const minShots = cycleValues.length > 0 ? Math.min(...cycleValues) : totalShots;
+    const maxShots = cycleValues.length > 0 ? Math.max(...cycleValues) : totalShots;
+
+    rawSummaryList.push({
+      Part: part, Series: series, DieSet: dieSet,
+      CompletedCycles: completedCount, TotalShots: totalShots, TotalReplacements: repCount,
+      MinShots: minShots, MaxShots: maxShots, AverageShots: avgLife, RepCumulativeShots: repCumulativeShots
+    });
+  });
+
+  result = { cycles, summary: rawSummaryList, errors };
+  renderMetrics();
+  const elapsed = Math.round(performance.now() - t0);
+  console.log(`%c[REBUILD] === rebuild DONE in ${elapsed}ms: ${rawSummaryList.length} components, ${cycles.length} cycles ===`, "color:#7c3aed; font-weight:bold; font-size:13px;");
+  if (showMessage) msg(`Đã phân tích ${rawSummaryList.length} linh kiện (${cycles.length} cycle hoàn chỉnh).`);
+}
+
+// ===== METRICS =====
+function getReplacementsByYear(targetYear = "") {
+  const counts = new Map(), partCounts = new Map();
+  let totalRepsInYear = 0;
+  (db.replacements || []).forEach(r => {
+    const lbl = String(r.Label || "").trim();
+    if (!lbl || lbl === "-" || lbl === "0" || lbl === "·") return;
+    const repDate = String(r.ReplaceDate || "").trim();
+    if (!repDate) return;
+    if (targetYear && !repDate.startsWith(targetYear)) return;
+    totalRepsInYear++;
+    const p = String(r.Part || "").trim().toLowerCase();
+    const d = String(r.DieSet || "").trim().toLowerCase();
+    const pdKey = (p + "|" + d);
+    counts.set(pdKey, (counts.get(pdKey) || 0) + 1);
+    if (p) partCounts.set(p, (partCounts.get(p) || 0) + 1);
+  });
+  return { counts, partCounts, totalRepsInYear };
+}
+
+function renderMetrics() {
+  const summaryList = result.summary || [];
+  const totalPartsCount = summaryList.length;
+  const currentYear = selectedYear() || (selectedMonth() ? selectedMonth().slice(0, 4) : "");
+  const { counts, partCounts, totalRepsInYear } = getReplacementsByYear(currentYear);
+
+  const partsWithCycles = summaryList.filter(s => s.CompletedCycles > 0);
+  const avgLifeVal = partsWithCycles.length > 0 ? Math.round(partsWithCycles.reduce((sum, r) => sum + r.AverageShots, 0) / partsWithCycles.length) : 0;
+
+  const rankedList = summaryList.map(item => {
+    const pdKey = (String(item.Part || "").trim() + "|" + String(item.DieSet || "").trim()).toLowerCase();
+    const pKey = String(item.Part || "").trim().toLowerCase();
+    return { ...item, YearlyReplacements: counts.get(pdKey) || (pKey ? partCounts.get(pKey) : 0) || 0 };
+  });
+
+  const sortedByRep = rankedList.filter(s => s.YearlyReplacements > 0).sort((a, b) => b.YearlyReplacements - a.YearlyReplacements);
+  const top5Parts = sortedByRep.slice(0, 5);
+  window._top5Parts = top5Parts;
+  window._top5Year = currentYear;
+  const topPart = top5Parts.length > 0 ? top5Parts[0] : null;
+
+  if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
+  if ($("totalReplacementsVal")) $("totalReplacementsVal").textContent = totalRepsInYear.toLocaleString();
+  if ($("avgLifeVal")) $("avgLifeVal").textContent = avgLifeVal > 0 ? (avgLifeVal >= 1000 ? Math.round(avgLifeVal / 1000) + "k" : avgLifeVal) : "-";
+  if ($("mostReplacedVal")) {
+    if (topPart) {
+      $("mostReplacedVal").textContent = `#1: ${topPart.Part} (${topPart.DieSet})`;
+      if ($("mostReplacedSub")) $("mostReplacedSub").innerHTML = `<b>${topPart.YearlyReplacements} lần</b>${currentYear ? ' (' + currentYear + ')' : ''} · Xem Top 5 ▾`;
+    } else {
+      $("mostReplacedVal").textContent = "Chưa có";
+      if ($("mostReplacedSub")) $("mostReplacedSub").textContent = currentYear ? `0 lượt (Năm ${currentYear})` : "0 lượt thay";
+    }
+  }
+  console.log(`%c[METRICS] Year: "${currentYear || 'ALL'}" | Parts: ${totalPartsCount} | TotalReps: ${totalRepsInYear} | AvgLife: ${avgLifeVal} | Top: ${topPart ? `${topPart.Part} (${topPart.YearlyReplacements} reps)` : 'None'}`, "color:#6b7280;");
+}
+
+// ===== GLOBAL PAGINATION DOCK =====
+function updateGlobalPaginationDock(tabName, currentLimit, totalCount, moreCallback, allCallback) {
+  const dock = $('globalPaginationDock');
+  const label = $('gpdCountText');
+  if (!dock || !label) return;
+  if (totalCount > currentLimit) {
+    window.gpdMoreAction = moreCallback;
+    window.gpdAllAction = allCallback;
+    const nextStep = (tabName === 'month' ? 30 : 40);
+    label.innerHTML = `Đang hiển thị <b>${currentLimit}</b> / ${totalCount.toLocaleString()} linh kiện`;
+    if ($('gpdBtnMore')) { $('gpdBtnMore').innerHTML = `⚡ Tải thêm +${nextStep}`; $('gpdBtnMore').style.display = 'inline-flex'; }
+    if ($('gpdBtnAll')) { $('gpdBtnAll').innerHTML = `Hiển thị tất cả (${totalCount.toLocaleString()})`; $('gpdBtnAll').style.display = 'inline-flex'; }
+    dock.style.display = 'flex';
+  } else {
+    window.gpdMoreAction = null; window.gpdAllAction = null;
+    if (totalCount > 0) {
+      label.innerHTML = `✅ Đã hiển thị đủ <b>${totalCount.toLocaleString()}</b> linh kiện`;
+      if ($('gpdBtnMore')) $('gpdBtnMore').style.display = 'none';
+      if ($('gpdBtnAll')) $('gpdBtnAll').style.display = 'none';
+      dock.style.display = 'flex';
+    } else { dock.style.display = 'none'; }
+  }
+}
+
+function scrollToTopActiveTable() {
+  const curTab = currentActiveTab;
+  let container = null;
+  if (curTab === 'month') container = document.querySelector('#monthTab .sheet');
+  else if (curTab === 'stock') container = document.querySelector('#stockTab .summary-box');
+  else if (curTab === 'report') container = document.querySelector('#reportTab .summary-box');
+  if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ===== RENDER ACTIVE TAB =====
+function renderActiveTabOnly() {
+  const activeTab = currentActiveTab || "month";
+  console.log(`%c[RENDER] renderActiveTabOnly -> "${activeTab}"`, "color:#0284c7; font-weight:bold;");
+  renderMetrics();
+  if (activeTab === "month") renderMonth();
+  else if (activeTab === "stock") renderStockTable();
+  else if (activeTab === "report") renderComponentLifeReport();
+}
+
+// ===== RENDER COMPONENT LIFE REPORT TAB =====
+function renderComponentLifeReport() {
+  console.log("%c[RENDER:REPORT] renderComponentLifeReport START", "color:#0284c7; font-weight:bold;");
+  if (!$("reportTable") || !$("reportRows")) return;
+
+  const ymFilter = selectedMonth();
+  const yFilter = selectedYear();
+  const dFilter = selectedDay();
+
+  // Index Shoots and Replacements with date filtering
+  const shootsByMold = new Map();
+  (db.shoot || []).forEach(s => {
+    if (!s.Date || !s.Output || Number(s.Output) <= 0) return;
+    if (dFilter && s.Date !== dFilter) return;
+    else if (ymFilter && !s.Date.startsWith(ymFilter)) return;
+    else if (!ymFilter && yFilter && !s.Date.startsWith(yFilter)) return;
+
+    const d = String(s.DieSet || '').toLowerCase().trim();
+    const p = String(s.Part || '').toLowerCase().trim();
+    if (d) { if (!shootsByMold.has(d)) shootsByMold.set(d, []); shootsByMold.get(d).push(s); }
+    if (p && p !== d) { if (!shootsByMold.has(p)) shootsByMold.set(p, []); shootsByMold.get(p).push(s); }
+  });
+
+  const repsByPartMold = new Map();
+  (db.replacements || []).forEach(r => {
+    const lbl = String(r.Label || '').trim();
+    if (!r.ReplaceDate || lbl === '-' || lbl === '0' || lbl === '·') return;
+    if (dFilter && r.ReplaceDate !== dFilter) return;
+    else if (ymFilter && !r.ReplaceDate.startsWith(ymFilter)) return;
+    else if (!ymFilter && yFilter && !r.ReplaceDate.startsWith(yFilter)) return;
+
+    const p = String(r.Part || '').toLowerCase().trim();
+    const d = String(r.DieSet || r.NewDieSet || r.OldDieSet || '').toLowerCase().trim();
+    const key = `${p}|${d}`;
+    if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
+    repsByPartMold.get(key).push(r);
+  });
+
+  const allParts = getPartsToRender();
+
+  let maxCyclesFound = 3;
+  const rowsData = [];
+
+  allParts.forEach((item, index) => {
+    const part = item.part;
+    const series = item.series || '-';
+    const moldNew = item.moldNew || item.moldOld || item.part;
+    const moldOld = item.moldOld || '';
+    
+    let partCode = `${part}/${series}/${moldOld || '-'}/${moldNew || '-'}`;
+    if (moldOld && moldNew && moldOld.toLowerCase() === moldNew.toLowerCase()) {
+      partCode = `${part}/${series}/${moldNew}`;
+    } else if (!moldOld || !moldNew) {
+      partCode = `${part}/${series}/${moldNew || moldOld || '-'}`;
+    }
+
+    const pLower = part.toLowerCase().trim();
+    const dNewLower = (moldNew || '').toLowerCase().trim();
+    const dOldLower = (moldOld || '').toLowerCase().trim();
+
+    let allShoots = [];
+    if (dNewLower && shootsByMold.has(dNewLower)) allShoots.push(...shootsByMold.get(dNewLower));
+    if (dOldLower && dOldLower !== dNewLower && shootsByMold.has(dOldLower)) allShoots.push(...shootsByMold.get(dOldLower));
+    if (pLower && shootsByMold.has(pLower) && !allShoots.length) allShoots.push(...shootsByMold.get(pLower));
+
+    const shootSet = new Set(), sortedShoots = [];
+    allShoots.sort((a, b) => (a.Date || '').localeCompare(b.Date || '')).forEach(s => {
+      const sk = `${s.Date}|${s.Output}|${s.DieSet}`;
+      if (!shootSet.has(sk)) { shootSet.add(sk); sortedShoots.push(s); }
+    });
+
+    const k1 = `${pLower}|${dNewLower}`, k2 = `${pLower}|${dOldLower}`;
+    let allReps = [];
+    if (repsByPartMold.has(k1)) allReps.push(...repsByPartMold.get(k1));
+    if (k2 !== k1 && repsByPartMold.has(k2)) allReps.push(...repsByPartMold.get(k2));
+
+    const repSet = new Set(), sortedReps = [];
+    allReps.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
+      const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
+      if (!repSet.has(rk)) { repSet.add(rk); sortedReps.push(r); }
+    });
+
+    const totalLifetimeShots = sortedShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+    const replacementCount = sortedReps.length;
+    const totalPartsReplacedPcs = sortedReps.reduce((sum, r) => sum + (Number(r.Label) || 1), 0);
+
+    const cycles = [];
+    if (replacementCount > 0) {
+      const c1 = sortedShoots.filter(s => s.Date < sortedReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+      if (c1 > 0) cycles.push(c1);
+      for (let i = 0; i < sortedReps.length - 1; i++) {
+        const cN = sortedShoots.filter(s => s.Date >= sortedReps[i].ReplaceDate && s.Date < sortedReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+        if (cN > 0) cycles.push(cN);
+      }
+    }
+
+    if (cycles.length > maxCyclesFound) maxCyclesFound = cycles.length;
+
+    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+    const minShotLife = cycles.length > 0 ? Math.min(...cycles) : '';
+    const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : '';
+    const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+
+    rowsData.push({
+      no: index + 1,
+      partCode,
+      replacementCount: replacementCount > 0 ? replacementCount : '',
+      totalPartsReplacedPcs: totalPartsReplacedPcs > 0 ? totalPartsReplacedPcs : '',
+      averageShotLife,
+      minShotLife,
+      maxShotLife,
+      currentShotCount,
+      cycles
+    });
+  });
+
+  // Render Table Header with dynamic cycle headers
+  let headHtml = `<tr>
+    <th style="width:50px;text-align:center;">No.</th>
+    <th>Part Code</th>
+    <th style="text-align:center;">Total Replacement Count</th>
+    <th style="text-align:center;">Total Parts Replaced (pcs)</th>
+    <th style="text-align:right;">Average Shot Life</th>
+    <th style="text-align:right;">Min. Shot Life</th>
+    <th style="text-align:right;">Max. Shot Life</th>
+    <th style="text-align:right;">Current Shot Count</th>`;
+  for (let c = 1; c <= maxCyclesFound; c++) {
+    headHtml += `<th style="text-align:right;">Cycle ${c} Shot</th>`;
+  }
+  headHtml += `</tr>`;
+  if ($("reportHead")) $("reportHead").innerHTML = headHtml;
+
+  const hasFilter = ($("globalSearch") && $("globalSearch").value.trim()) || ($("part") && $("part").value.trim()) || ($("mold") && $("mold").value.trim()) || ($("series") && $("series").value.trim());
+  const limit = hasFilter ? rowsData.length : _reportRenderLimit;
+  const visibleRows = rowsData.slice(0, limit);
+
+  if (visibleRows.length === 0) {
+    if ($("reportRows")) $("reportRows").innerHTML = `<tr><td colspan="${8 + maxCyclesFound}" style="text-align:center; padding:24px; color:var(--muted);">Không tìm thấy linh kiện nào phù hợp.</td></tr>`;
+    updateGlobalPaginationDock('report', 0, 0, null, null);
+    return;
+  }
+
+  let bodyHtml = "";
+  visibleRows.forEach(r => {
+    bodyHtml += `<tr>
+      <td style="text-align:center;color:var(--ink-muted);font-weight:600;">${r.no}</td>
+      <td style="font-weight:700;color:var(--ink-dark);"><span style="font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${esc(r.partCode)}</span></td>
+      <td style="text-align:center;font-weight:700;color:#2563eb;">${r.replacementCount !== '' ? r.replacementCount : '-'}</td>
+      <td style="text-align:center;font-weight:700;color:#7c3aed;">${r.totalPartsReplacedPcs !== '' ? r.totalPartsReplacedPcs : '-'}</td>
+      <td style="text-align:right;font-weight:700;color:#059669;">${r.averageShotLife !== '' ? Number(r.averageShotLife).toLocaleString() : '-'}</td>
+      <td style="text-align:right;color:var(--ink-muted);">${r.minShotLife !== '' ? Number(r.minShotLife).toLocaleString() : '-'}</td>
+      <td style="text-align:right;color:var(--ink-muted);">${r.maxShotLife !== '' ? Number(r.maxShotLife).toLocaleString() : '-'}</td>
+      <td style="text-align:right;font-weight:800;color:#d97706;">${r.currentShotCount !== '' ? Number(r.currentShotCount).toLocaleString() : '-'}</td>`;
+    for (let c = 1; c <= maxCyclesFound; c++) {
+      const cVal = (r.cycles && r.cycles[c - 1] !== undefined) ? r.cycles[c - 1] : '';
+      bodyHtml += `<td style="text-align:right;font-family:monospace;">${cVal !== '' ? Number(cVal).toLocaleString() : '-'}</td>`;
+    }
+    bodyHtml += `</tr>`;
+  });
+
+  if ($("reportRows")) $("reportRows").innerHTML = bodyHtml;
+
+  updateGlobalPaginationDock('report', limit, rowsData.length,
+    () => { _reportRenderLimit += 40; renderComponentLifeReport(); },
+    () => { _reportRenderLimit = rowsData.length; renderComponentLifeReport(); }
+  );
+}
+
+
+
+// ===== BUILD MONTH OPTIONS =====
+function buildMonthOptions(preferredYm = null) {
+  console.log("%c[DATE] buildMonthOptions", "color:#6b7280;");
+  const select = $("monthPick"), yearSelect = $("yearPick"), daySelect = $("dayPick");
+  const today = new Date(), currentYear = today.getFullYear(), startYear = 2026;
+  let minYear = startYear, maxYear = Math.max(currentYear + 15, startYear + 15);
+  const yearsFound = new Set([currentYear, 2026]);
+
+  [...db.shoot, ...db.replacements.map(row => ({ Date: row.ReplaceDate }))].forEach(row => {
+    if (row.Date && row.Date.length >= 4) {
+      const y = parseInt(row.Date.slice(0, 4), 10);
+      if (y) { yearsFound.add(y); if (y < minYear) minYear = y; if (y > maxYear) maxYear = y; }
+    }
+  });
+
+  if (yearSelect) {
+    const currY = yearSelect.value;
+    yearSelect.innerHTML = `<option value="">Tất cả năm</option>` + [...yearsFound].sort((a, b) => b - a).map(y => `<option value="${y}">Năm ${y}</option>`).join("");
+    if (currY && yearsFound.has(Number(currY))) yearSelect.value = currY;
+  }
+  if (daySelect) {
+    const currD = daySelect.value;
+    let dayHtml = `<option value="">Tất cả ngày</option>`;
+    for (let d = 1; d <= 31; d++) dayHtml += `<option value="${String(d).padStart(2, "0")}">Ngày ${String(d).padStart(2, "0")}</option>`;
+    daySelect.innerHTML = dayHtml;
+    if (currD) daySelect.value = currD;
+  }
+
+  const months = new Set();
+  for (let y = minYear; y <= maxYear; y++) for (let m = 1; m <= 12; m++) months.add(`${y}-${String(m).padStart(2, "0")}`);
+  select.innerHTML = `<option value="">Tất cả tháng</option>` + [...months].sort().map(ym => {
+    const [year, month] = ym.split("-").map(Number);
+    return `<option value="${ym}">${monthNames[month - 1]} ${year}</option>`;
+  }).join("");
+
+  if (preferredYm && months.has(preferredYm)) {
+    select.value = preferredYm;
+  } else {
+    const repMonths = [...new Set(db.replacements.map(r => r.ReplaceDate ? r.ReplaceDate.slice(0, 7) : "").filter(Boolean))];
+    const shootMonths = [...new Set(db.shoot.map(r => r.Date ? r.Date.slice(0, 7) : "").filter(Boolean))];
+    const allDataMonths = [...new Set([...shootMonths, ...repMonths])].sort();
+    const latestDataMonth = allDataMonths.length ? allDataMonths[allDataMonths.length - 1] : "";
+    const systemYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    if (db.shoot.some(r => r.Date && r.Date.startsWith(systemYm))) select.value = systemYm;
+    else if (latestDataMonth && months.has(latestDataMonth)) select.value = latestDataMonth;
+    else select.value = months.has(systemYm) ? systemYm : "2026-08";
+  }
+  if (select.value && select.value.length >= 4 && yearSelect && !yearSelect.value) yearSelect.value = select.value.slice(0, 4);
+}

@@ -281,6 +281,8 @@ foreach ($dir in @($parentDir, $Root)) {
         }
     }
 }
+# Ensure Master files are parsed first so masterMap is primed with OldDieSet and NewDieSet mappings
+$candidateFiles = @($candidateFiles | Sort-Object { if ($_.ToLower().Contains("master")) { 0 } else { 1 } })
 
 # Smart Cache & Deletion detection (Fix P0-4 & P1-10)
 $needSync = $false
@@ -449,7 +451,7 @@ foreach ($excelPath in $candidateFiles) {
                         # Fix P1-4: Prevent auto-guessing Old/New DieSet = PartName
                         $oldDie = if ($pOld) { $pOld } else { $pNew }
                         $newDie = if ($pNew) { $pNew } else { $pOld }
-                        $mKey = if ($newDie) { "$pName|$newDie" } else { $pName }
+                        $mKey = "$pName|$pSeries|$oldDie"
 
                         # Fix P1-3: Safe Master Schema Merge
                         if (-not $masterMap.Contains($mKey)) {
@@ -463,8 +465,8 @@ foreach ($excelPath in $candidateFiles) {
                             }
                         } else {
                             if ($pSeries) { $masterMap[$mKey].Series = $pSeries }
-                            if ($oldDie) { $masterMap[$mKey].OldDieSet = $oldDie }
-                            if ($newDie) { $masterMap[$mKey].NewDieSet = $newDie }
+                            if ($oldDie -and (-not $masterMap[$mKey].OldDieSet -or $masterMap[$mKey].OldDieSet -eq $masterMap[$mKey].NewDieSet)) { $masterMap[$mKey].OldDieSet = $oldDie }
+                            if ($newDie -and $newDie -ne $oldDie) { $masterMap[$mKey].NewDieSet = $newDie }
                             if ($pStd -gt 0) { $masterMap[$mKey].StandardStock = $pStd }
                             if ($pLeft -ge 0) { $masterMap[$mKey].StockLeft = $pLeft }
                         }
@@ -571,8 +573,30 @@ foreach ($excelPath in $candidateFiles) {
                             StockLeft = $oldStock
                         }
 
-                        if (-not $masterMap.Contains($mKey)) {
-                            $masterMap[$mKey] = [ordered]@{
+                        $mKeyExact = "$partName|$series|$mold"
+                        $masterFound = $null
+                        if ($masterMap.Contains($mKeyExact)) {
+                            $masterFound = $masterMap[$mKeyExact]
+                        } else {
+                            foreach ($exKey in $masterMap.Keys) {
+                                $exItem = $masterMap[$exKey]
+                                if ($exItem.PartName.ToLower() -eq $partName.ToLower()) {
+                                    if ($exItem.OldDieSet.ToLower() -eq $mold.ToLower() -or $exItem.NewDieSet.ToLower() -eq $mold.ToLower()) {
+                                        if (-not $series -or -not $exItem.Series -or $exItem.Series.ToLower() -eq $series.ToLower()) {
+                                            $masterFound = $exItem
+                                            break
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if ($null -ne $masterFound) {
+                            $masterFound.StockLeft = $oldStock
+                            if ($minStock -gt 1) { $masterFound.StandardStock = $minStock }
+                            if ($series -and -not $masterFound.Series) { $masterFound.Series = $series }
+                        } else {
+                            $masterMap[$mKeyExact] = [ordered]@{
                                 PartName = $partName
                                 Series = $series
                                 OldDieSet = $mold
@@ -580,9 +604,6 @@ foreach ($excelPath in $candidateFiles) {
                                 StandardStock = $minStock
                                 StockLeft = $oldStock
                             }
-                        } else {
-                            if ($minStock -gt 1 -and -not $masterMap[$mKey].StandardStock) { $masterMap[$mKey].StandardStock = $minStock }
-                            if ($oldStock -gt 0 -and -not $masterMap[$mKey].StockLeft) { $masterMap[$mKey].StockLeft = $oldStock }
                         }
 
                         # Dynamic unlimited replacement blocks: Lần 1 (7), Lần 2 (11), Lần 3 (15), Lần 4 (19), Lần 5 (23), Lần 6 (27)... unlimited
@@ -625,12 +646,16 @@ foreach ($excelPath in $candidateFiles) {
                                 # Fix P1-8: Deduplicate replacements by RequestId & composite key
                                 $dedupKey = "$partName|$mold|$fullDate|$idRaw"
                                 if ($seenRequests.Add($dedupKey)) {
+                                    $repOldDie = if ($masterFound -and $masterFound.OldDieSet) { $masterFound.OldDieSet } else { $mold }
+                                    $repNewDie = if ($masterFound -and $masterFound.NewDieSet) { $masterFound.NewDieSet } else { $mold }
+                                    $repSeries = if ($masterFound -and $masterFound.Series) { $masterFound.Series } else { $series }
+
                                     [void]$replacements.Add([ordered]@{
                                         Part = $partName
-                                        Series = $series
+                                        Series = $repSeries
                                         DieSet = $mold
-                                        NewDieSet = $mold
-                                        OldDieSet = $mold
+                                        NewDieSet = $repNewDie
+                                        OldDieSet = $repOldDie
                                         ReplaceDate = $fullDate
                                         Label = [string]$qtyVal
                                         RequestId = $idRaw
