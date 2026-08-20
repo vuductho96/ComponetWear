@@ -320,6 +320,31 @@ button.secondary:hover {
   transform: translateY(-1px);
 }
 
+.btn-clear-json {
+  height: 42px;
+  padding: 0 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-clear-json:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
+}
+
 .btn-danger {
   background: linear-gradient(135deg, #ef4444, #dc2626) !important;
   color: #fff !important;

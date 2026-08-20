@@ -269,6 +269,30 @@ try {
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                 $contentType = "application/json; charset=utf-8"
             }
+            elseif ($path -eq '/api/clear-json') {
+                $query = if ($rawPath.Contains('?')) { $rawPath.Split('?')[1] } else { '' }
+                $qType = "all"
+                if ($query -match "type=([^&]+)") { $qType = $matches[1] }
+                
+                $shootFile = Join-Path $DataDir 'shoot-data.json'
+                $repFile = Join-Path $DataDir 'replacement-log.json'
+                
+                if ($qType -eq 'shoot' -or $qType -eq 'all') {
+                    if (Test-Path $shootFile) {
+                        [System.IO.File]::WriteAllText($shootFile, '[]', (New-Object System.Text.UTF8Encoding($false)))
+                    }
+                }
+                if ($qType -eq 'replacements' -or $qType -eq 'all') {
+                    if (Test-Path $repFile) {
+                        [System.IO.File]::WriteAllText($repFile, '[]', (New-Object System.Text.UTF8Encoding($false)))
+                    }
+                }
+                
+                $global:excelDataVersion++
+                $resObj = [pscustomobject]@{ status = "ok"; cleared = $qType; version = $global:excelDataVersion }
+                $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                $contentType = "application/json; charset=utf-8"
+            }
             elseif ($path -eq '/api/sync-excel') {
                 $syncEngine = Trigger-ExcelSync
                 $resObj = [pscustomobject]@{ status = "ok"; engine = $syncEngine; version = $global:excelDataVersion }

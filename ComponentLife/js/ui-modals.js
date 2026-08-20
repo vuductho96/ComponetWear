@@ -256,6 +256,54 @@ function updateWearFilterLabels() {
   if ($('wearFilterSafeLabel') && $('chkWearSafe')) $('wearFilterSafeLabel').classList.toggle('active', $('chkWearSafe').checked);
 }
 
+// ===== CLEAR JSON DATA MODAL =====
+function openClearDataModal() {
+  console.log("%c[MODAL] openClearDataModal", "color:#dc2626; font-weight:bold;");
+  const modal = $("clearDataModal");
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeClearDataModal() {
+  console.log("%c[MODAL] closeClearDataModal", "color:#6b7280;");
+  const modal = $("clearDataModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function confirmClearJsonData() {
+  const selectedRadio = document.querySelector('input[name="clearJsonType"]:checked');
+  const clearType = selectedRadio ? selectedRadio.value : 'all';
+  
+  let label = "toàn bộ dữ liệu (Shot và Lần thay)";
+  if (clearType === 'shoot') label = "dữ liệu Shot Number (sản lượng dập hàng ngày)";
+  else if (clearType === 'replacements') label = "dữ liệu Lần Thay Thế (replace time log)";
+
+  const confirmed = window.confirm(`⚠️ XÁC NHẬN LẦN CUỐI:\n\nBạn có chắc chắn muốn xóa ${label.toUpperCase()} trong file JSON không?\n\n(Dữ liệu JSON lưu trữ sẽ bị làm trống. Bạn có thể nạp lại bất kỳ lúc nào từ file Excel gốc).`);
+  if (!confirmed) return;
+
+  try {
+    msg("⏳ Đang tiến hành xóa dữ liệu JSON...", false);
+    const res = await fetch(`/api/clear-json?type=${clearType}`);
+    const data = await res.json();
+    
+    if (clearType === 'shoot' || clearType === 'all') {
+      db.shoot = [];
+      db.rawShoot = [];
+    }
+    if (clearType === 'replacements' || clearType === 'all') {
+      db.replacements = [];
+    }
+    
+    invalidatePartsCache();
+    closeClearDataModal();
+    renderActiveTabOnly();
+    renderMetrics();
+    msg(`✅ <b>Đã xóa thành công:</b> ${label}!`, false, 5000);
+  } catch (err) {
+    console.error("Lỗi khi xóa JSON:", err);
+    msg("❌ Lỗi kết nối khi xóa dữ liệu JSON.", true);
+  }
+}
+
 window.addEventListener("keydown", function(e) {
-  if (e.key === "Escape") { closeTop5Modal(); cancelDeleteReplacement(); }
+  if (e.key === "Escape") { closeTop5Modal(); cancelDeleteReplacement(); closeClearDataModal(); }
 });
