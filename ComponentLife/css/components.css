@@ -5,25 +5,25 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  min-width: 220px;
-  max-width: 320px;
+  min-width: 250px;
+  max-width: 360px;
   flex: 1;
 }
 
 .search-icon {
   position: absolute;
-  left: 11px;
-  font-size: 13px;
+  left: 13px;
+  font-size: 15px;
   color: var(--ink-light);
   pointer-events: none;
 }
 
 .search-box input#globalSearch,
 .search-box input {
-  height: 36px;
-  padding: 0 30px 0 32px;
-  font-size: 13px;
-  font-weight: 500;
+  height: 42px;
+  padding: 0 32px 0 38px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--ink);
   background: var(--bg);
   border: 1.5px solid var(--border);
@@ -43,19 +43,20 @@
 .search-box input::placeholder {
   color: var(--ink-light);
   font-weight: 400;
+  font-size: 14.5px;
 }
 
 .clear-btn {
   position: absolute;
-  right: 8px;
-  width: 20px;
-  height: 20px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border-radius: 50%;
   background: var(--border);
   color: var(--ink-muted);
   border: none;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   cursor: pointer;
   display: inline-flex;
@@ -72,14 +73,14 @@
 /* ===== FILTER SELECTS & INPUTS ===== */
 .filter-select,
 .filter-input {
-  height: 36px;
-  font-size: 13px;
+  height: 42px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink);
   background-color: var(--bg);
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  padding: 0 10px;
+  padding: 0 14px;
   outline: none;
   font-family: inherit;
   transition: all 0.15s ease;
@@ -177,18 +178,19 @@
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  height: 36px;
+  height: 42px;
+  border-radius: var(--radius);
 }
 
 .zoom-btn {
   background: transparent;
   border: none;
-  width: 32px;
+  width: 38px;
   height: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 800;
   color: var(--ink-secondary);
   cursor: pointer;
@@ -206,14 +208,14 @@
 }
 
 .zoom-label {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 14.5px;
+  font-weight: 800;
   color: var(--ink);
-  min-width: 44px;
+  min-width: 52px;
   text-align: center;
   cursor: pointer;
   user-select: none;
-  padding: 0 4px;
+  padding: 0 6px;
 }
 
 .zoom-label:hover {
@@ -222,33 +224,33 @@
 }
 
 .auto-fit-btn {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   color: var(--primary);
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
-  width: 34px;
+  width: 36px;
 }
 
 /* ===== ACTION BUTTONS ===== */
 button {
-  height: 36px;
+  height: 42px;
   border: 1px solid transparent;
   border-radius: var(--radius);
-  padding: 0 16px;
+  padding: 0 18px;
   color: #fff;
   background: linear-gradient(135deg, #4f46e5, #4338ca);
   box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
   cursor: pointer;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
   transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 button:hover {
@@ -271,9 +273,9 @@ button.secondary:hover {
 }
 
 .btn-import {
-  height: 36px;
-  padding: 0 14px;
-  font-size: 13px;
+  height: 42px;
+  padding: 0 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--ink-secondary);
   background: var(--bg);
@@ -281,7 +283,7 @@ button.secondary:hover {
   border-radius: var(--radius);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
@@ -295,9 +297,9 @@ button.secondary:hover {
 }
 
 .btn-export {
-  height: 36px;
-  padding: 0 16px;
-  font-size: 13px;
+  height: 42px;
+  padding: 0 18px;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, #4f46e5, #4338ca);
@@ -307,7 +309,7 @@ button.secondary:hover {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
@@ -331,11 +333,11 @@ button.secondary:hover {
 }
 
 .quick-reason-btn {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 12px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13.5px;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: #ffffff;
   color: var(--ink-secondary);
@@ -354,22 +356,22 @@ button.secondary:hover {
 .filter-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
 .filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 20px;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 22px;
   background: var(--bg);
   border: 1.5px solid var(--border);
   color: var(--ink-secondary);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
@@ -378,6 +380,8 @@ button.secondary:hover {
 .filter-chip input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
+  width: 16px;
+  height: 16px;
 }
 
 .filter-chip:hover {
@@ -389,7 +393,7 @@ button.secondary:hover {
   background: #fff;
   border-color: var(--primary);
   color: var(--primary);
-  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 2px 5px rgba(79, 70, 229, 0.12);
 }
 
 .filter-chip.critical.active {
@@ -411,11 +415,11 @@ button.secondary:hover {
 }
 
 .chip-count {
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.06);
-  font-size: 11px;
-  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.07);
+  font-size: 12.5px;
+  font-weight: 800;
 }
 
 /* ===== KPI STATUS BARS ===== */
