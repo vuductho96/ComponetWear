@@ -565,18 +565,22 @@ function renderStockTable() {
 // ===== TAB SWITCHING =====
 function switchTab(name) {
   console.log(`%c[TAB] Switched to tab: "${name}"`, "color:#7c3aed; font-weight:bold; font-size:13px;");
-  currentActiveTab = name;
-  document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
+  const isDashboard = (name === "stock" || name === "dashboard" || name === "report");
+  currentActiveTab = isDashboard ? "stock" : name;
+  document.querySelectorAll(".tab").forEach(tab => {
+    const tName = tab.dataset.tab;
+    const active = (tName === name) || (isDashboard && (tName === "stock" || tName === "dashboard"));
+    tab.classList.toggle("active", active);
+  });
   if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
-  if ($("stockTab")) $("stockTab").classList.toggle("hidden", name !== "stock");
-  if ($("reportTab")) $("reportTab").classList.toggle("hidden", name !== "report");
+  if ($("stockTab")) $("stockTab").classList.toggle("hidden", !isDashboard);
+  if ($("reportTab")) $("reportTab").classList.toggle("hidden", true);
   if ($("chartTab")) $("chartTab").classList.toggle("hidden", name !== "chart");
   if ($("viewMonthIndicator")) $("viewMonthIndicator").classList.toggle("hidden", name !== "month");
-  if ($("stockFilterBar")) $("stockFilterBar").classList.toggle("hidden", name !== "stock");
+  if ($("stockFilterBar")) $("stockFilterBar").classList.toggle("hidden", !isDashboard);
   renderMetrics();
   if (name === "month") renderMonth();
-  else if (name === "stock") renderStockTable();
-  else if (name === "report") renderComponentLifeReport();
+  else if (isDashboard) renderStockTable();
   else if (name === "chart") renderChartsTab();
 }
 

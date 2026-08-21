@@ -67,8 +67,7 @@
     <div class="nav-control-bar">
       <div class="tab-bar">
         <div class="tab active" data-tab="month" title="Bảng theo dõi dữ liệu (Month Sheet)">📅 View</div>
-        <div class="tab" data-tab="stock" title="Bảng điều khiển tổng hợp & Quản lý tồn kho linh kiện">📊 Dashboard</div>
-        <div class="tab" data-tab="report" title="Báo cáo tuổi thọ linh kiện (Component Life Report)">📊 Báo Cáo</div>
+        <div class="tab" data-tab="stock" title="Bảng điều khiển tổng hợp: Quản lý tồn kho & Tuổi thọ linh kiện (Dashboard)">📊 Dashboard</div>
         <div class="tab" data-tab="chart" title="Biểu đồ phân tích & cảnh báo tuổi thọ (Charts & Analytics)">📈 Biểu Đồ</div>
       </div>
 
@@ -121,7 +120,7 @@
     <!-- Status Bar -->
     <div id="status" class="status" style="display:none;"></div>
 
-    <!-- ===== TAB: Month Sheet ===== -->
+    <!-- ===== TAB 1: Month Sheet (View) ===== -->
     <section id="monthTab">
       <div class="sheet">
         <table class="grid">
@@ -131,7 +130,7 @@
       </div>
     </section>
 
-    <!-- ===== TAB: Dashboard & Stock Management ===== -->
+    <!-- ===== TAB 2: Dashboard (Tồn Kho & Tuổi Thọ Linh Kiện) ===== -->
     <section id="stockTab" class="hidden">
       <div class="summary-box" style="margin-top:0;">
         <table class="data-table" id="dashboardTable">
@@ -151,16 +150,6 @@
             </tr>
           </thead>
           <tbody id="stockRows"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===== TAB: Component Life Tracking Report ===== -->
-    <section id="reportTab" class="hidden">
-      <div class="summary-box" style="margin-top:0;">
-        <table class="data-table" id="reportTable">
-          <thead id="reportHead"></thead>
-          <tbody id="reportRows"></tbody>
         </table>
       </div>
     </section>

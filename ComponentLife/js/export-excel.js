@@ -943,10 +943,19 @@ function exportStandardLifeTrackingExcel() {
     const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : '';
     const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
 
+    const st = typeof getStockItem === 'function' ? getStockItem(part, moldNew) : {};
+    const masterItem = typeof findMasterItem === 'function' ? findMasterItem(part, moldNew, series) : null;
+    const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
+    let minStock = (st && st.minStock !== undefined) ? Number(st.minStock) || 1 : (masterItem && masterItem.StandardStock !== undefined ? Number(masterItem.StandardStock) || 1 : 1);
+    const statusLabel = stock <= 0 ? 'URGENT (0)' : (stock < minStock ? 'NEED ORDER' : 'NO NEED');
+
     rowsData.push({
       no: 0,
       part,
       moldSeries,
+      stock,
+      minStock,
+      status: statusLabel,
       replacementCount: replacementCount > 0 ? replacementCount : '',
       totalPartsReplacedPcs: totalPartsReplacedPcs > 0 ? totalPartsReplacedPcs : '',
       averageShotLife,
@@ -975,12 +984,15 @@ function exportStandardLifeTrackingExcel() {
       "No.": r.no,
       "Part Name": r.part,
       "Mold + Series": r.moldSeries,
+      "Tồn Kho": r.stock,
+      "Mức Min": r.minStock,
+      "Trạng Thái": r.status,
       "Lượt Thay": r.replacementCount,
       "Tổng Pcs": r.totalPartsReplacedPcs,
       "TB Shot": r.averageShotLife,
+      "Shot HT": r.currentShotCount,
       "Min Shot": r.minShotLife,
-      "Max Shot": r.maxShotLife,
-      "Shot HT": r.currentShotCount
+      "Max Shot": r.maxShotLife
     };
     for (let c = 1; c <= maxCyclesFound; c++) {
       rowObj[`Cycle ${c}`] = (r.cycles && r.cycles[c - 1] !== undefined) ? r.cycles[c - 1] : '';
@@ -993,23 +1005,26 @@ function exportStandardLifeTrackingExcel() {
     { wch: 6 },   // No.
     { wch: 14 },  // Part Name
     { wch: 28 },  // Mold + Series
+    { wch: 10 },  // Tồn Kho
+    { wch: 10 },  // Mức Min
+    { wch: 14 },  // Trạng Thái
     { wch: 12 },  // Lượt Thay
     { wch: 12 },  // Tổng Pcs
     { wch: 14 },  // TB Shot
+    { wch: 14 },  // Shot HT
     { wch: 12 },  // Min Shot
     { wch: 12 },  // Max Shot
-    { wch: 14 },  // Shot HT
   ];
   for (let c = 1; c <= maxCyclesFound; c++) {
     cols.push({ wch: 14 });
   }
   ws['!cols'] = cols;
-  XLSX.utils.book_append_sheet(wb, ws, "Component Life");
+  XLSX.utils.book_append_sheet(wb, ws, "Dashboard");
 
-  const fileName = `Component_Life_Tracking.xlsx`;
+  const fileName = `Component_Life_Dashboard.xlsx`;
   XLSX.writeFile(wb, fileName);
   console.log(`%c[EXPORT] DONE! File: ${fileName} (${excelRows.length} rows, ${maxCyclesFound} cycles)`, "color:#059669; font-weight:bold; font-size:13px;");
-  msg(`<b>Đã xuất báo cáo theo bộ lọc thành công!</b><br>File: <code>${esc(fileName)}</code> (${excelRows.length} linh kiện, ${maxCyclesFound} cycles)`, false, 8000);
+  msg(`<b>Đã xuất báo cáo Dashboard thành công!</b><br>File: <code>${esc(fileName)}</code> (${excelRows.length} linh kiện, ${maxCyclesFound} cycles)`, false, 8000);
 }
 
 // ===== IMPORT EXCEL =====
