@@ -838,19 +838,6 @@ async function injectOpenXMLChartIntoExcelBuffer(xlsxBuffer, top10Items, periodT
             </numRef>
           </val>
         </ser>
-        <dLbls>
-          <showLegendKey val="0"/>
-          <showVal val="1"/>
-          <showCatName val="0"/>
-          <showSerName val="0"/>
-          <showPercent val="0"/>
-          <dLblPos val="outEnd"/>
-          <txPr>
-            <a:bodyPr/>
-            <a:lstStyle/>
-            <a:p><a:pPr><a:defRPr sz="900"><a:solidFill><a:srgbClr val="1E293B"/></a:solidFill></a:defRPr></a:pPr></a:p>
-          </txPr>
-        </dLbls>
         <gapWidth val="140"/>
         <axId val="10"/>
         <axId val="100"/>

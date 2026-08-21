@@ -626,18 +626,11 @@ function renderChartTopReplaced(topList) {
     const yLine = padT + plotH - (pcs / maxPcs) * plotH;
     linePoints.push({ x: cx, y: yLine, pcs });
 
-    // Place bar number INSIDE the bar body so it NEVER collides with the line on top
-    const isTall = hCol >= 18;
-    const yText = isTall ? (yCol + 13) : (yCol - 4);
-    const fillText = isTall ? "#ffffff" : "#2563eb";
-
     colsSvg += `
       <!-- Column: Số lượt thay -->
       <rect x="${xCol.toFixed(1)}" y="${yCol.toFixed(1)}" width="${colW}" height="${hCol.toFixed(1)}" rx="3.5" fill="#3b82f6" fill-opacity="0.9">
         <title>${esc(r.part)} (${esc(r.moldName)}): ${rep} lượt thay ra, ${pcs} pcs</title>
       </rect>
-      <!-- Column Value: Clean inside-bar placement -->
-      <text x="${cx.toFixed(1)}" y="${yText.toFixed(1)}" text-anchor="middle" font-size="11" font-weight="800" fill="${fillText}">${rep}</text>
       <!-- X-Axis Labels -->
       <text x="${cx.toFixed(1)}" y="${(H - 18)}" text-anchor="middle" font-size="11.5" font-weight="800" font-family="monospace" fill="#0f172a">${esc(r.part)}</text>
       <text x="${cx.toFixed(1)}" y="${(H - 5)}" text-anchor="middle" font-size="9.5" font-weight="600" fill="#64748b">${esc(r.moldName)}</text>

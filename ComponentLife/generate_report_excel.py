@@ -192,8 +192,6 @@ def build_excel_report(data_json_path, output_excel_path):
         categories = Reference(ws1, min_col=3, min_row=24, max_row=end_row) # Col C: Mã Linh Kiện
         chart_bar.add_data(data_bar, titles_from_data=True)
         chart_bar.set_categories(categories)
-        chart_bar.dataLabels = DataLabelList()
-        chart_bar.dataLabels.showVal = True
         chart_bar.y_axis.majorGridlines = None
 
         # 2. Line Chart for Replacement Quantity (Col G) on secondary axis
@@ -210,7 +208,7 @@ def build_excel_report(data_json_path, output_excel_path):
         # Combine into Combo Chart
         chart_bar += chart_line
         if chart_bar.legend:
-            chart_bar.legend.legendPos = "tr"
+            chart_bar.legend.legendPos = "b"
 
         # Place chart at B4
         ws1.add_chart(chart_bar, "B4")
