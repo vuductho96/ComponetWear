@@ -216,6 +216,7 @@ function renderActiveTabOnly() {
   if (activeTab === "month") renderMonth();
   else if (activeTab === "stock") renderStockTable();
   else if (activeTab === "report") renderComponentLifeReport();
+  else if (activeTab === "chart") renderChartsTab();
 }
 
 // ===== RENDER COMPONENT LIFE REPORT TAB =====
@@ -398,6 +399,272 @@ function renderComponentLifeReport() {
     () => { _reportRenderLimit += 40; renderComponentLifeReport(); },
     () => { _reportRenderLimit = rowsData.length; renderComponentLifeReport(); }
   );
+}
+
+// ===== RENDER CHARTS & ANALYTICS TAB =====
+function renderChartsTab() {
+  console.log("%c[RENDER:CHARTS] renderChartsTab START", "color:#7c3aed; font-weight:bold;");
+  if (!$("chartTab") || $("chartTab").classList.contains("hidden")) return;
+
+  const ymFilter = selectedMonth();
+  const yFilter = selectedYear();
+  const dFilter = selectedDay();
+
+  // Index Shoots and Replacements with date filtering
+  const shootsByMold = new Map();
+  (db.shoot || []).forEach(s => {
+    if (!s.Date || !s.Output || Number(s.Output) <= 0) return;
+    if (dFilter && s.Date !== dFilter) return;
+    else if (ymFilter && !s.Date.startsWith(ymFilter)) return;
+    else if (!ymFilter && yFilter && !s.Date.startsWith(yFilter)) return;
+
+    const d = String(s.DieSet || '').toLowerCase().trim();
+    const p = String(s.Part || '').toLowerCase().trim();
+    if (d) { if (!shootsByMold.has(d)) shootsByMold.set(d, []); shootsByMold.get(d).push(s); }
+    if (p && p !== d) { if (!shootsByMold.has(p)) shootsByMold.set(p, []); shootsByMold.get(p).push(s); }
+  });
+
+  const repsByPartMold = new Map();
+  (db.replacements || []).forEach(r => {
+    const lbl = String(r.Label || '').trim();
+    if (!r.ReplaceDate || lbl === '-' || lbl === '0' || lbl === '·') return;
+    if (dFilter && r.ReplaceDate !== dFilter) return;
+    else if (ymFilter && !r.ReplaceDate.startsWith(ymFilter)) return;
+    else if (!ymFilter && yFilter && !r.ReplaceDate.startsWith(yFilter)) return;
+
+    const p = String(r.Part || '').toLowerCase().trim();
+    const d = String(r.DieSet || r.NewDieSet || r.OldDieSet || '').toLowerCase().trim();
+    const key = `${p}|${d}`;
+    if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
+    repsByPartMold.get(key).push(r);
+  });
+
+  const allParts = getPartsToRender();
+  const rowsData = [];
+
+  allParts.forEach(item => {
+    const part = item.part;
+    const series = item.series || '-';
+    const moldNew = item.moldNew || item.moldOld || item.part;
+    const moldOld = item.moldOld || '';
+    const moldSeries = formatMoldSeriesDisplay(series, moldOld, moldNew, false);
+
+    const pLower = part.toLowerCase().trim();
+    const dNewLower = (moldNew || '').toLowerCase().trim();
+    const dOldLower = (moldOld || '').toLowerCase().trim();
+
+    let allShoots = [];
+    if (dNewLower && shootsByMold.has(dNewLower)) allShoots.push(...shootsByMold.get(dNewLower));
+    if (dOldLower && dOldLower !== dNewLower && shootsByMold.has(dOldLower)) allShoots.push(...shootsByMold.get(dOldLower));
+    if (pLower && shootsByMold.has(pLower) && !allShoots.length) allShoots.push(...shootsByMold.get(pLower));
+
+    const shootSet = new Set(), sortedShoots = [];
+    allShoots.sort((a, b) => (a.Date || '').localeCompare(b.Date || '')).forEach(s => {
+      const sk = `${s.Date}|${s.Output}|${s.DieSet}`;
+      if (!shootSet.has(sk)) { shootSet.add(sk); sortedShoots.push(s); }
+    });
+
+    const k1 = `${pLower}|${dNewLower}`, k2 = `${pLower}|${dOldLower}`;
+    let allReps = [];
+    if (repsByPartMold.has(k1)) allReps.push(...repsByPartMold.get(k1));
+    if (k2 !== k1 && repsByPartMold.has(k2)) allReps.push(...repsByPartMold.get(k2));
+
+    const repSet = new Set(), sortedReps = [];
+    allReps.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
+      const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
+      if (!repSet.has(rk)) { repSet.add(rk); sortedReps.push(r); }
+    });
+
+    const totalLifetimeShots = sortedShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+    const replacementCount = sortedReps.length;
+    const totalPartsReplacedPcs = sortedReps.reduce((sum, r) => sum + (Number(r.Label) || 1), 0);
+
+    const cycles = [];
+    if (replacementCount > 0) {
+      const c1 = sortedShoots.filter(s => s.Date < sortedReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+      if (c1 > 0) cycles.push(c1);
+      for (let i = 0; i < sortedReps.length - 1; i++) {
+        const cN = sortedShoots.filter(s => s.Date >= sortedReps[i].ReplaceDate && s.Date < sortedReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+        if (cN > 0) cycles.push(cN);
+      }
+    }
+
+    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+    const minShotLife = cycles.length > 0 ? Math.min(...cycles) : '';
+    const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : '';
+    const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+
+    const moldName = (moldNew || moldOld || series || '').trim();
+
+    rowsData.push({
+      part,
+      series,
+      moldName,
+      moldSeries,
+      replacementCount,
+      totalPartsReplacedPcs,
+      averageShotLife,
+      minShotLife,
+      maxShotLife,
+      currentShotCount,
+      cycles
+    });
+  });
+
+  // Sort descending by replacement count
+  rowsData.sort((a, b) => {
+    const repA = Number(a.replacementCount) || 0;
+    const repB = Number(b.replacementCount) || 0;
+    if (repB !== repA) return repB - repA;
+    const pcsA = Number(a.totalPartsReplacedPcs) || 0;
+    const pcsB = Number(b.totalPartsReplacedPcs) || 0;
+    if (pcsB !== pcsA) return pcsB - pcsA;
+    return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  // Render Main Focused Chart: Top 10 Column (Lượt thay) & Line (Pcs thay)
+  const top10 = rowsData.filter(r => Number(r.replacementCount) > 0).slice(0, 10);
+  renderChartTopReplaced(top10);
+  renderTop10DetailTable(top10);
+}
+
+// --- MAIN COMBO CHART: TOP 10 CỘT (LƯỢT THAY) & DÂY (SỐ LƯỢNG PCS) ---
+function renderChartTopReplaced(topList) {
+  const container = $("chartTopReplaced");
+  if (!container) return;
+  if (!topList || topList.length === 0) {
+    container.innerHTML = `<div style="text-align:center;color:var(--ink-muted);font-size:14px;padding:64px 0;">Không có dữ liệu thay thế trong kỳ lọc được chọn.</div>`;
+    return;
+  }
+
+  const items = topList.slice(0, 10);
+  const maxRep = Math.max(...items.map(r => Number(r.replacementCount) || 1), 4);
+  const maxPcs = Math.max(...items.map(r => Number(r.totalPartsReplacedPcs) || 1), 5);
+
+  const W = 920, H = 320, padL = 55, padR = 55, padT = 38, padB = 52;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const stepX = plotW / items.length;
+  const colW = Math.min(46, Math.max(22, stepX * 0.52));
+
+  let colsSvg = "";
+  let dotsSvg = "";
+  const linePoints = [];
+
+  items.forEach((r, i) => {
+    const rep = Number(r.replacementCount) || 0;
+    const pcs = Number(r.totalPartsReplacedPcs) || 0;
+
+    const cx = padL + i * stepX + stepX / 2;
+    const xCol = cx - colW / 2;
+    const hCol = (rep / maxRep) * plotH;
+    const yCol = padT + (plotH - hCol);
+
+    const yLine = padT + plotH - (pcs / maxPcs) * plotH;
+    linePoints.push({ x: cx, y: yLine, pcs });
+
+    colsSvg += `
+      <!-- Column: Số lượt thay -->
+      <rect x="${xCol.toFixed(1)}" y="${yCol.toFixed(1)}" width="${colW}" height="${hCol.toFixed(1)}" rx="5" fill="url(#gradBarMain)" filter="drop-shadow(0 3px 4px rgba(79,70,229,0.18))">
+        <title>${esc(r.part)} (Khuôn: ${esc(r.moldName)}): ${rep} lượt thay ra, ${pcs} pcs</title>
+      </rect>
+      <!-- Column Top Value -->
+      <text x="${cx.toFixed(1)}" y="${(yCol - 7).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="900" fill="#4f46e5">${rep}</text>
+      <!-- X-Axis Labels: Part on line 1, short mold name on line 2 -->
+      <text x="${cx.toFixed(1)}" y="${(H - 28)}" text-anchor="middle" font-size="12" font-weight="800" font-family="monospace" fill="#0f172a">${esc(r.part)}</text>
+      <text x="${cx.toFixed(1)}" y="${(H - 12)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#64748b">${esc(r.moldName)}</text>
+    `;
+  });
+
+  let lineD = "";
+  linePoints.forEach((pt, i) => {
+    lineD += (i === 0 ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}` : ` L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`);
+    dotsSvg += `
+      <circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="5.5" fill="#ef4444" stroke="#ffffff" stroke-width="2.5" filter="drop-shadow(0 2px 3px rgba(239,68,68,0.3))">
+        <title>Số lượng thay: ${pt.pcs} pcs</title>
+      </circle>
+      <text x="${pt.x.toFixed(1)}" y="${(pt.y - 9).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="900" fill="#dc2626">${pt.pcs}</text>
+    `;
+  });
+
+  let gridSvg = "";
+  for (let step = 0; step <= 4; step++) {
+    const yG = padT + (plotH / 4) * step;
+    const valL = Math.round(maxRep - (maxRep / 4) * step);
+    const valR = Math.round(maxPcs - (maxPcs / 4) * step);
+    gridSvg += `
+      <line x1="${padL}" y1="${yG.toFixed(1)}" x2="${W - padR}" y2="${yG.toFixed(1)}" stroke="#f1f5f9" stroke-width="1.2" stroke-dasharray="4,4"/>
+      <text x="${padL - 10}" y="${(yG + 4).toFixed(1)}" text-anchor="end" font-size="11" font-weight="700" fill="#4f46e5">${valL}</text>
+      <text x="${W - padR + 10}" y="${(yG + 4).toFixed(1)}" text-anchor="start" font-size="11" font-weight="700" fill="#dc2626">${valR}</text>
+    `;
+  }
+
+  const svgHtml = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible;">
+      <defs>
+        <linearGradient id="gradBarMain" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#6366f1"/>
+          <stop offset="100%" stop-color="#3730a3"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Center Clean Legend -->
+      <g transform="translate(${(W / 2) - 170}, 14)">
+        <rect x="0" y="0" width="13" height="11" rx="3" fill="#6366f1"/>
+        <text x="18" y="10" font-size="12" font-weight="700" fill="#475569">Cột: Số lượt thay</text>
+        <line x1="145" y1="6" x2="175" y2="6" stroke="#ef4444" stroke-width="3"/>
+        <circle cx="160" cy="6" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
+        <text x="185" y="10" font-size="12" font-weight="700" fill="#dc2626">Dây: Số lượng LK thay (Pcs)</text>
+      </g>
+
+      ${gridSvg}
+      ${colsSvg}
+      <!-- Connecting Line -->
+      <path d="${lineD}" fill="none" stroke="#ef4444" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dotsSvg}
+    </svg>
+  `;
+
+  container.innerHTML = svgHtml;
+}
+
+// --- RENDER TOP 10 DETAIL TABLE ---
+function renderTop10DetailTable(topList) {
+  const tbody = $("top10TableRows");
+  if (!tbody) return;
+  if (!topList || topList.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--ink-muted);padding:24px;">Không có dữ liệu thay thế trong kỳ lọc.</td></tr>`;
+    return;
+  }
+
+  let html = "";
+  topList.forEach((r, idx) => {
+    const rep = Number(r.replacementCount) || 0;
+    const pcs = Number(r.totalPartsReplacedPcs) || 0;
+    const avg = Number(r.averageShotLife) || 0;
+    const cur = Number(r.currentShotCount) || 0;
+    const wearPct = avg > 0 && cur > 0 ? Math.round((cur / avg) * 100) : 0;
+
+    const wearBadgeBg = wearPct >= 95 ? '#fee2e2' : (wearPct >= 80 ? '#fef3c7' : '#d1fae5');
+    const wearBadgeColor = wearPct >= 95 ? '#b91c1c' : (wearPct >= 80 ? '#b45309' : '#047857');
+    const wearStatusText = wearPct >= 95 ? '🔴 Cần thay' : (wearPct >= 80 ? '🟡 Cận hạn' : '🟢 An toàn');
+
+    html += `
+      <tr>
+        <td style="text-align:center;font-weight:800;color:var(--ink-muted);">#${idx + 1}</td>
+        <td style="font-weight:800;font-family:monospace;color:var(--ink-dark);">${esc(r.part)}</td>
+        <td style="color:#475569;font-weight:700;">${esc(r.moldName)}</td>
+        <td style="text-align:center;font-weight:800;color:#4f46e5;font-size:13.5px;">${rep} lượt</td>
+        <td style="text-align:center;font-weight:800;color:#dc2626;font-size:13.5px;">${pcs} pcs</td>
+        <td style="text-align:center;font-weight:700;color:#059669;">${avg > 0 ? avg.toLocaleString() : '-'}</td>
+        <td style="text-align:center;font-weight:700;color:#0284c7;">${cur > 0 ? cur.toLocaleString() : '-'}</td>
+        <td style="text-align:center;">
+          ${wearPct > 0 ? `<span style="background:${wearBadgeBg};color:${wearBadgeColor};padding:3px 8px;border-radius:6px;font-weight:800;font-size:12px;" title="${wearStatusText}">${wearPct}%</span>` : `<span style="color:#94a3b8;">-</span>`}
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
 }
 
 

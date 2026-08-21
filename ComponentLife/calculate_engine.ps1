@@ -151,8 +151,8 @@ function Invoke-CalculationEngine {
         Write-EngineDebug 'GROUP' "  Top group: $($g.Key) = $($g.Value.Count) replacements"
     }
 
-    # ===== STAGE 5: BUILD MASTER LOOKUP =====
-    Write-EngineDebug 'MASTER' '--- STAGE 5: Build master lookup ---' 'Yellow'
+    # ===== STAGE 5: BUILD MASTER LOOKUP & INDEX SHOOTS =====
+    Write-EngineDebug 'MASTER' '--- STAGE 5: Build master lookup & index shoots ---' 'Yellow'
     $masterLookup = @{}
     foreach ($m in $MasterData) {
         if (-not $m.PartName) { continue }
@@ -162,6 +162,22 @@ function Invoke-CalculationEngine {
         if (-not $masterLookup.ContainsKey($p)) { $masterLookup[$p] = $m }
     }
     Write-EngineDebug 'MASTER' "Master lookup entries: $($masterLookup.Count)" 'Green'
+
+    # Index shoots by DieSet and Part for O(1) matching
+    $shootsByDie = @{}
+    $shootsByPart = @{}
+    foreach ($s in $cleanShoot) {
+        $d = if ($s.DieSet) { [string]($s.DieSet).Trim().ToLower() } else { "" }
+        $p = if ($s.Part) { [string]($s.Part).Trim().ToLower() } else { "" }
+        if ($d) {
+            if (-not $shootsByDie.ContainsKey($d)) { $shootsByDie[$d] = [System.Collections.Generic.List[object]]::new() }
+            $shootsByDie[$d].Add($s)
+        }
+        if ($p) {
+            if (-not $shootsByPart.ContainsKey($p)) { $shootsByPart[$p] = [System.Collections.Generic.List[object]]::new() }
+            $shootsByPart[$p].Add($s)
+        }
+    }
 
     # ===== STAGE 6: CALCULATE CYCLES (Plan S5.2) =====
     Write-EngineDebug 'CYCLES' '--- STAGE 6: Calculate cycles ---' 'Yellow'
@@ -177,24 +193,47 @@ function Invoke-CalculationEngine {
         $part = if ($pParts.Count -gt 1) { $pParts[0] } else { [string]$events[0].Part }
         $dieSet = if ($pParts.Count -gt 1) { $pParts[1] } else { $pParts[0] }
 
+        $pLower = $part.Trim().ToLower()
+        $dLower = $dieSet.Trim().ToLower()
+
+        # Resolve mold aliases from master
+        $mItem = $null
+        if ($masterLookup.ContainsKey("$pLower|$dLower")) { $mItem = $masterLookup["$pLower|$dLower"] }
+        elseif ($masterLookup.ContainsKey($pLower)) { $mItem = $masterLookup[$pLower] }
+
+        $newDieLower = if ($mItem -and $mItem.NewDieSet) { [string]$mItem.NewDieSet.Trim().ToLower() } else { "" }
+        $oldDieLower = if ($mItem -and $mItem.OldDieSet) { [string]$mItem.OldDieSet.Trim().ToLower() } else { "" }
+
         # Find best series
-        $bestSeries = ""
-        foreach ($e in $events) {
-            if ($e.Series -and [string]$e.Series.Trim().Length -gt $bestSeries.Length) {
-                $bestSeries = [string]$e.Series.Trim()
+        $bestSeries = if ($mItem -and $mItem.Series) { [string]$mItem.Series.Trim() } else { "" }
+        if (-not $bestSeries) {
+            foreach ($e in $events) {
+                if ($e.Series -and [string]$e.Series.Trim().Length -gt $bestSeries.Length) {
+                    $bestSeries = [string]$e.Series.Trim()
+                }
             }
         }
 
-        # Match shoot records - try Part match first, then DieSet match
-        $shots = @($cleanShoot | Where-Object {
-            $rPart = [string]($_.Part).Trim().ToLower()
-            $rDie = [string]($_.DieSet).Trim().ToLower()
-            $pLower = $part.Trim().ToLower()
-            $dLower = $dieSet.Trim().ToLower()
-            ($rPart -and $pLower -and $rPart -eq $pLower) -or
-            ($rDie -and $dLower -and $rDie -eq $dLower) -or
-            ($rDie -and $pLower -and $rDie -eq $pLower)
-        } | Sort-Object Date)
+        # Match shoot records with deduplication
+        $shotList = [System.Collections.Generic.List[object]]::new()
+        $shotSeen = [System.Collections.Generic.HashSet[string]]::new()
+
+        $addShoots = {
+            param($list)
+            if ($list) {
+                foreach ($s in $list) {
+                    $sk = "$($s.Date)|$($s.Output)|$($s.DieSet)"
+                    if ($shotSeen.Add($sk)) { $shotList.Add($s) }
+                }
+            }
+        }
+
+        if ($dLower -and $shootsByDie.ContainsKey($dLower)) { & $addShoots $shootsByDie[$dLower] }
+        if ($newDieLower -and $newDieLower -ne $dLower -and $shootsByDie.ContainsKey($newDieLower)) { & $addShoots $shootsByDie[$newDieLower] }
+        if ($oldDieLower -and $oldDieLower -ne $dLower -and $oldDieLower -ne $newDieLower -and $shootsByDie.ContainsKey($oldDieLower)) { & $addShoots $shootsByDie[$oldDieLower] }
+        if ($pLower -and $shootsByPart.ContainsKey($pLower)) { & $addShoots $shootsByPart[$pLower] }
+
+        $shots = @($shotList | Sort-Object Date)
 
         # Total shots
         $totalShotsForPart = 0

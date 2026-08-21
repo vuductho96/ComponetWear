@@ -292,12 +292,14 @@ function switchTab(name) {
   if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
   if ($("stockTab")) $("stockTab").classList.toggle("hidden", name !== "stock");
   if ($("reportTab")) $("reportTab").classList.toggle("hidden", name !== "report");
+  if ($("chartTab")) $("chartTab").classList.toggle("hidden", name !== "chart");
   if ($("viewMonthIndicator")) $("viewMonthIndicator").classList.toggle("hidden", name !== "month");
   if ($("stockFilterBar")) $("stockFilterBar").classList.toggle("hidden", name !== "stock");
   renderMetrics();
   if (name === "month") renderMonth();
   else if (name === "stock") renderStockTable();
   else if (name === "report") renderComponentLifeReport();
+  else if (name === "chart") renderChartsTab();
 }
 
 function onDateFilterChange(evt) {
