@@ -742,7 +742,57 @@ async function exportProfessionalReportExcel() {
 
     ws3.autoFilter = { from: 'A1', to: `G${allFilteredReplacements.length + 1}` };
 
-    // 4. WRITE BUFFER, INJECT TRUE OPENXML DYNAMIC EXCEL CHART AND TRIGGER DOWNLOAD
+    // ==========================================
+    // SHEET 4: 04_FULL_COMPONENTS (Full Fleet Scope)
+    // ==========================================
+    const ws4 = wb.addWorksheet('04_FULL_COMPONENTS', {
+      views: [{ state: 'frozen', ySplit: 1, showGridLines: true }]
+    });
+
+    ws4.columns = summaryColumns;
+
+    ws4.getRow(1).height = 22;
+    ws4.getRow(1).eachCell((cell, colNum) => {
+      cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { horizontal: colNum >= 4 && colNum <= 11 ? 'right' : 'center', vertical: 'middle' };
+      cell.border = { bottom: { style: 'medium', color: { argb: 'FF0F172A' } } };
+    });
+
+    componentsData.forEach((c, idx) => {
+      const row = ws4.addRow({
+        no: idx + 1,
+        part: c.part,
+        moldSeries: c.moldSeries || `${c.series || '-'}/${c.moldName || ''}`,
+        replacementCount: c.replacementCount || 0,
+        totalPartsReplacedPcs: c.totalPartsReplacedPcs || 0,
+        cycleCount: c.cycleCount || 0,
+        averageShotLife: c.averageShotLife !== null ? c.averageShotLife : 'N/A',
+        minShotLife: c.minShotLife !== null ? c.minShotLife : 'N/A',
+        maxShotLife: c.maxShotLife !== null ? c.maxShotLife : 'N/A',
+        currentShotCount: c.currentShotCount !== null ? c.currentShotCount : 'N/A',
+        totalLifetimeShots: c.totalLifetimeShots > 0 ? c.totalLifetimeShots : 0,
+        lastReplacementDate: c.lastReplacementDate ? formatDateDisplay(c.lastReplacementDate) : 'N/A'
+      });
+
+      row.height = 18;
+      row.eachCell((cell, colNum) => {
+        cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF0F172A' } };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+        if (colNum >= 4 && colNum <= 11 && typeof cell.value === 'number') {
+          cell.numFmt = '#,##0';
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        } else if (colNum === 1 || colNum === 12) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else {
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        }
+      });
+    });
+
+    ws4.autoFilter = { from: 'A1', to: `L${componentsData.length + 1}` };
+
+    // 5. WRITE BUFFER, INJECT TRUE OPENXML DYNAMIC EXCEL CHART AND TRIGGER DOWNLOAD
     const fileName = sanitizeFilename(`ComponentWear_Report_${filePeriodSlug}.xlsx`);
     const rawBuffer = await wb.xlsx.writeBuffer();
     const finalBuffer = await injectOpenXMLChartIntoExcelBuffer(rawBuffer, top10Components, formattedPeriod);
@@ -758,7 +808,7 @@ async function exportProfessionalReportExcel() {
     URL.revokeObjectURL(link.href);
 
     console.log(`%c[EXPORT] SUCCESS (Native OpenXML Chart): ${fileName} (${componentsData.length} components, ${allFilteredReplacements.length} logs)`, "color:#059669; font-weight:bold; font-size:13px;");
-    msg(`<b>Xuất báo cáo Excel thành công!</b><br>Biểu đồ vẽ trực tiếp từ bảng số liệu thật (True Dynamic Excel Chart).<br>File: <code>${esc(fileName)}</code><br>Gồm 3 Sheet: 01_REPORT, 02_COMPONENT_SUMMARY, 03_REPLACEMENT_LOG`, false, 8000);
+    msg(`<b>Xuất báo cáo Excel thành công!</b><br>Biểu đồ vẽ trực tiếp từ bảng số liệu thật (True Dynamic Excel Chart).<br>File: <code>${esc(fileName)}</code><br>Gồm 4 Sheet: 01_REPORT, 02_COMPONENT_SUMMARY, 03_REPLACEMENT_LOG, 04_FULL_COMPONENTS`, false, 8000);
   } catch (err) {
     console.error("[EXPORT] ERROR:", err);
     msg(`Lỗi khi tạo file Excel: ${err.message}`, true, 8000);

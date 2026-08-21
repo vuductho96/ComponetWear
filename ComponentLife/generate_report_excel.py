@@ -328,6 +328,59 @@ def build_excel_report(data_json_path, output_excel_path):
         col_letter = get_column_letter(col[0].column)
         ws3.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
+    # ==========================================
+    # SHEET 4: 04_FULL_COMPONENTS
+    # ==========================================
+    ws4 = wb.create_sheet(title="04_FULL_COMPONENTS")
+    ws4.views.sheetView[0].showGridLines = True
+    ws4.freeze_panes = "A2"
+
+    ws4.append(summary_headers)
+    ws4.row_dimensions[1].height = 22
+
+    for col_idx, h in enumerate(summary_headers, start=1):
+        cell = ws4.cell(row=1, column=col_idx)
+        cell.font = font_tbl_header
+        cell.fill = fill_tbl_header
+        cell.alignment = Alignment(horizontal='right' if 4 <= col_idx <= 11 else 'center', vertical='center')
+
+    for idx, c in enumerate(components):
+        row_vals = [
+            idx + 1,
+            c.get('part', ''),
+            c.get('moldSeries', '') or f"{c.get('series', '-')}/{c.get('moldName', '')}",
+            int(c.get('replacementCount', 0)),
+            int(c.get('totalPartsReplacedPcs', 0)),
+            int(c.get('cycleCount', 0)),
+            int(c['averageShotLife']) if c.get('averageShotLife') is not None else "N/A",
+            int(c['minShotLife']) if c.get('minShotLife') is not None else "N/A",
+            int(c['maxShotLife']) if c.get('maxShotLife') is not None else "N/A",
+            int(c['currentShotCount']) if c.get('currentShotCount') is not None else "N/A",
+            int(c.get('totalLifetimeShots', 0)),
+            str(c.get('lastReplacementDate', 'N/A') or 'N/A')
+        ]
+        ws4.append(row_vals)
+        r_num = idx + 2
+        ws4.row_dimensions[r_num].height = 18
+        for col_idx in range(1, len(summary_headers) + 1):
+            cell = ws4.cell(row=r_num, column=col_idx)
+            cell.font = font_data
+            cell.border = thin_border
+            if 4 <= col_idx <= 11 and isinstance(row_vals[col_idx - 1], (int, float)):
+                cell.number_format = "#,##0"
+                cell.alignment = Alignment(horizontal='right', vertical='center')
+            elif col_idx in [1, 12]:
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            else:
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+
+    ws4.auto_filter.ref = f"A1:L{len(components) + 1}"
+
+    for col in ws4.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws4.column_dimensions[col_letter].width = max(max_len + 4, 13)
+
     wb.save(output_excel_path)
     print(f"REPORT SAVED: {output_excel_path}")
 
