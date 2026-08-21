@@ -356,17 +356,23 @@ try {
                 [System.IO.File]::WriteAllText($tmpJson, $bodyText, (New-Object System.Text.UTF8Encoding($false)))
                 
                 $pyScript = Join-Path $Root 'generate_report_excel.py'
-                $pyCmd = "python `"$pyScript`" `"$tmpJson`" `"$tmpXlsx`""
-                $null = cmd.exe /c $pyCmd 2>&1
+                
+                # Execute Python generator with fallback
+                $pyOutput = & python "$pyScript" "$tmpJson" "$tmpXlsx" 2>&1
+                if (-not (Test-Path $tmpXlsx)) {
+                    $pyOutput = & py "$pyScript" "$tmpJson" "$tmpXlsx" 2>&1
+                }
 
                 if (Test-Path $tmpXlsx) {
                     $responseBytes = [System.IO.File]::ReadAllBytes($tmpXlsx)
                     $contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     try { Remove-Item $tmpXlsx -Force -ErrorAction SilentlyContinue } catch {}
                     try { Remove-Item $tmpJson -Force -ErrorAction SilentlyContinue } catch {}
+                    Log-Msg "[EXPORT] Native OpenXML Dynamic Excel Report generated successfully." Green
                 } else {
+                    Log-Msg "[EXPORT] Python OpenXML Generation Failed: $pyOutput" Red
                     $statusLine = "HTTP/1.1 500 Internal Server Error`r`n"
-                    $resObj = [pscustomobject]@{ error = "Failed to generate native Excel report via Python openpyxl." }
+                    $resObj = [pscustomobject]@{ error = "Failed to generate native Excel report via Python openpyxl: $pyOutput" }
                     $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                     $contentType = "application/json; charset=utf-8"
                 }

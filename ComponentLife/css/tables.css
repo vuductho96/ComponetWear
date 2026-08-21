@@ -304,18 +304,87 @@ table.summary td {
   white-space: nowrap;
 }
 
+/* ===== REFINED MINIMALIST SORTABLE HEADERS (SAAS GRADE) ===== */
 table.data-table th,
 table.summary th {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: #f1f5f9;
-  color: var(--ink);
+  background: #f8fafc;
+  color: #475569;
   text-transform: uppercase;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  border-bottom: 2px solid var(--border-dark);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 10px 14px;
+  border-bottom: 1.5px solid #e2e8f0;
+}
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sortable-th:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.sortable-th.is-sorted {
+  background-color: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-bottom-color: #3b82f6 !important;
+}
+
+.th-header-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+}
+
+.th-header-cell.align-left {
+  justify-content: flex-start;
+}
+
+.th-header-cell.align-right {
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.th-header-cell.align-center {
+  justify-content: center;
+  width: 100%;
+}
+
+.th-header-cell .th-label {
+  white-space: nowrap;
+  font-weight: 750;
+}
+
+.th-sort-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: #94a3b8;
+  opacity: 0.45;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sortable-th:hover .th-sort-icon-wrap {
+  opacity: 0.85;
+  color: #334155;
+  transform: translateY(1px);
+}
+
+.sortable-th.is-sorted .th-sort-icon-wrap {
+  opacity: 1;
+  color: #2563eb;
+  transform: none;
 }
 
 table.data-table tbody tr:hover,

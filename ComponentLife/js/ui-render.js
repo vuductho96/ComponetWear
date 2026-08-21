@@ -597,7 +597,7 @@ function renderChartTopReplaced(topList) {
   const container = $("chartTopReplaced");
   if (!container) return;
   if (!topList || topList.length === 0) {
-    container.innerHTML = `<div style="text-align:center;color:var(--ink-muted);font-size:14px;padding:64px 0;">Không có dữ liệu thay thế trong kỳ lọc được chọn.</div>`;
+    container.innerHTML = `<div style="text-align:center;color:var(--ink-muted);font-size:13.5px;padding:36px 0;">Không có dữ liệu thay thế trong kỳ lọc được chọn.</div>`;
     return;
   }
 
@@ -605,10 +605,10 @@ function renderChartTopReplaced(topList) {
   const maxRep = Math.max(...items.map(r => Number(r.replacementCount) || 1), 4);
   const maxPcs = Math.max(...items.map(r => Number(r.totalPartsReplacedPcs) || 1), 5);
 
-  const W = 920, H = 325, padL = 55, padR = 55, padT = 48, padB = 52;
+  const W = 860, H = 220, padL = 46, padR = 46, padT = 34, padB = 38;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const stepX = plotW / items.length;
-  const colW = Math.min(46, Math.max(22, stepX * 0.52));
+  const colW = Math.min(30, Math.max(16, stepX * 0.40));
 
   let colsSvg = "";
   let dotsSvg = "";
@@ -626,27 +626,38 @@ function renderChartTopReplaced(topList) {
     const yLine = padT + plotH - (pcs / maxPcs) * plotH;
     linePoints.push({ x: cx, y: yLine, pcs });
 
+    // Place bar number INSIDE the bar body so it NEVER collides with the line on top
+    const isTall = hCol >= 18;
+    const yText = isTall ? (yCol + 13) : (yCol - 4);
+    const fillText = isTall ? "#ffffff" : "#2563eb";
+
     colsSvg += `
       <!-- Column: Số lượt thay -->
-      <rect x="${xCol.toFixed(1)}" y="${yCol.toFixed(1)}" width="${colW}" height="${hCol.toFixed(1)}" rx="5" fill="url(#gradBarMain)" filter="drop-shadow(0 3px 4px rgba(79,70,229,0.18))">
-        <title>${esc(r.part)} (Khuôn: ${esc(r.moldName)}): ${rep} lượt thay ra, ${pcs} pcs</title>
+      <rect x="${xCol.toFixed(1)}" y="${yCol.toFixed(1)}" width="${colW}" height="${hCol.toFixed(1)}" rx="3.5" fill="#3b82f6" fill-opacity="0.9">
+        <title>${esc(r.part)} (${esc(r.moldName)}): ${rep} lượt thay ra, ${pcs} pcs</title>
       </rect>
-      <!-- Column Top Value -->
-      <text x="${cx.toFixed(1)}" y="${(yCol - 7).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="900" fill="#4f46e5">${rep}</text>
-      <!-- X-Axis Labels: Part on line 1, short mold name on line 2 -->
-      <text x="${cx.toFixed(1)}" y="${(H - 28)}" text-anchor="middle" font-size="12" font-weight="800" font-family="monospace" fill="#0f172a">${esc(r.part)}</text>
-      <text x="${cx.toFixed(1)}" y="${(H - 12)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#64748b">${esc(r.moldName)}</text>
+      <!-- Column Value: Clean inside-bar placement -->
+      <text x="${cx.toFixed(1)}" y="${yText.toFixed(1)}" text-anchor="middle" font-size="11" font-weight="800" fill="${fillText}">${rep}</text>
+      <!-- X-Axis Labels -->
+      <text x="${cx.toFixed(1)}" y="${(H - 18)}" text-anchor="middle" font-size="11.5" font-weight="800" font-family="monospace" fill="#0f172a">${esc(r.part)}</text>
+      <text x="${cx.toFixed(1)}" y="${(H - 5)}" text-anchor="middle" font-size="9.5" font-weight="600" fill="#64748b">${esc(r.moldName)}</text>
     `;
   });
 
   let lineD = "";
   linePoints.forEach((pt, i) => {
     lineD += (i === 0 ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}` : ` L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`);
+    const badgeW = String(pt.pcs).length > 2 ? 26 : 20;
+    const badgeH = 14;
+
     dotsSvg += `
-      <circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="5.5" fill="#ef4444" stroke="#ffffff" stroke-width="2.5" filter="drop-shadow(0 2px 3px rgba(239,68,68,0.3))">
-        <title>Số lượng thay: ${pt.pcs} pcs</title>
+      <!-- Line point dot -->
+      <circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.8">
+        <title>Tổng số lượng thay: ${pt.pcs} pcs</title>
       </circle>
-      <text x="${pt.x.toFixed(1)}" y="${(pt.y - 9).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="900" fill="#dc2626">${pt.pcs}</text>
+      <!-- Opaque white badge pill preventing collision -->
+      <rect x="${(pt.x - badgeW / 2).toFixed(1)}" y="${(pt.y - 17).toFixed(1)}" width="${badgeW}" height="${badgeH}" rx="3" fill="#ffffff" stroke="#c4b5fd" stroke-width="1"/>
+      <text x="${pt.x.toFixed(1)}" y="${(pt.y - 6.5).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="800" fill="#7c3aed">${pt.pcs}</text>
     `;
   });
 
@@ -656,34 +667,27 @@ function renderChartTopReplaced(topList) {
     const valL = Math.round(maxRep - (maxRep / 4) * step);
     const valR = Math.round(maxPcs - (maxPcs / 4) * step);
     gridSvg += `
-      <line x1="${padL}" y1="${yG.toFixed(1)}" x2="${W - padR}" y2="${yG.toFixed(1)}" stroke="#f1f5f9" stroke-width="1.2" stroke-dasharray="4,4"/>
-      <text x="${padL - 10}" y="${(yG + 4).toFixed(1)}" text-anchor="end" font-size="11" font-weight="700" fill="#4f46e5">${valL}</text>
-      <text x="${W - padR + 10}" y="${(yG + 4).toFixed(1)}" text-anchor="start" font-size="11" font-weight="700" fill="#dc2626">${valR}</text>
+      <line x1="${padL}" y1="${yG.toFixed(1)}" x2="${W - padR}" y2="${yG.toFixed(1)}" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="${padL - 8}" y="${(yG + 3.5).toFixed(1)}" text-anchor="end" font-size="10.5" font-weight="700" fill="#2563eb">${valL}</text>
+      <text x="${W - padR + 8}" y="${(yG + 3.5).toFixed(1)}" text-anchor="start" font-size="10.5" font-weight="700" fill="#7c3aed">${valR}</text>
     `;
   }
 
   const svgHtml = `
-    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible;">
-      <defs>
-        <linearGradient id="gradBarMain" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#6366f1"/>
-          <stop offset="100%" stop-color="#3730a3"/>
-        </linearGradient>
-      </defs>
-
-      <!-- Clean Top-Right Legend Badge -->
-      <g transform="translate(${W - padR - 250}, 14)">
-        <rect x="0" y="0" width="12" height="10" rx="3" fill="#6366f1"/>
-        <text x="16" y="9" font-size="11" font-weight="700" fill="#475569">Lượt thay</text>
-        <line x1="90" y1="5" x2="114" y2="5" stroke="#ef4444" stroke-width="2.5"/>
-        <circle cx="102" cy="5" r="4" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
-        <text x="122" y="9" font-size="11" font-weight="700" fill="#dc2626">Số lượng (Pcs)</text>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:220px;height:auto;display:block;overflow:visible;">
+      <!-- Clean Top-Right Legend -->
+      <g transform="translate(${W - padR - 210}, 10)">
+        <rect x="0" y="0" width="10" height="9" rx="2" fill="#3b82f6"/>
+        <text x="14" y="8" font-size="10.5" font-weight="700" fill="#475569">Lượt thay</text>
+        <line x1="82" y1="4.5" x2="102" y2="4.5" stroke="#7c3aed" stroke-width="2"/>
+        <circle cx="92" cy="4.5" r="3" fill="#7c3aed" stroke="#ffffff" stroke-width="1"/>
+        <text x="110" y="8" font-size="10.5" font-weight="700" fill="#7c3aed">Số lượng (Pcs)</text>
       </g>
 
       ${gridSvg}
       ${colsSvg}
       <!-- Connecting Line -->
-      <path d="${lineD}" fill="none" stroke="#ef4444" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="${lineD}" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
       ${dotsSvg}
     </svg>
   `;

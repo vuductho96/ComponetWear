@@ -670,7 +670,77 @@ button.secondary:hover {
   justify-content: center;
 }
 
-/* ===== COLUMN PICKER DROPDOWN ===== */
+/* ===== COLUMN PICKER DROPDOWN (REFINED UI) ===== */
+.th-add-col {
+  width: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  padding: 0 !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+  background: #f8fafc !important;
+  border-left: 1px solid #e2e8f0 !important;
+}
+
+.td-add-col {
+  width: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  padding: 0 !important;
+  border-left: 1px solid #f1f5f9 !important;
+  background: transparent !important;
+}
+
+/* Cycle Shot Badge */
+.cycle-shot-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11.5px;
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.csb-idx {
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 700;
+  padding: 1.5px 5px;
+  font-size: 10px;
+}
+
+.csb-val {
+  color: #0f172a;
+  font-weight: 600;
+  padding: 1.5px 6px;
+  font-family: monospace;
+}
+
+.btn-th-add-col {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-th-add-col:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+  transform: scale(1.08);
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15);
+}
+
 .col-picker-container {
   position: relative;
   display: inline-block;
@@ -680,47 +750,53 @@ button.secondary:hover {
 .btn-col-picker {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
+  gap: 7px;
+  height: 32px;
   padding: 0 12px;
   background: #ffffff;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
   color: #334155;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-col-picker:hover {
   background: #f8fafc;
   border-color: #94a3b8;
   color: #0f172a;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
 }
 
 .col-badge {
   background: #eff6ff;
   color: #2563eb;
-  padding: 1px 6px;
-  border-radius: 4px;
+  padding: 1.5px 7px;
+  border-radius: 12px;
   font-size: 11px;
-  font-weight: 800;
-  border: 1px solid #bfdbfe;
+  font-weight: 700;
+  border: 1px solid #dbeafe;
 }
 
 .col-picker-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  width: 250px;
+  position: fixed;
+  width: 330px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  z-index: 50;
-  padding: 8px 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+  z-index: 999999;
+  padding: 0;
+  overflow: hidden;
+  animation: colPickerFadeIn 0.15s ease-out;
+}
+
+@keyframes colPickerFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .col-picker-menu.hidden {
@@ -731,57 +807,79 @@ button.secondary:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 14px 8px;
-  border-bottom: 1px solid #f1f5f9;
-  font-size: 12.5px;
-  color: #0f172a;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .cpm-reset-link {
-  background: none;
-  border: none;
-  color: #2563eb;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
+  padding: 3px 9px;
+  border-radius: 6px;
+  transition: all 0.12s ease;
 }
 
 .cpm-reset-link:hover {
-  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
 }
 
 .cpm-list {
-  max-height: 280px;
+  max-height: 360px;
   overflow-y: auto;
-  padding: 6px 8px;
+  padding: 10px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
-.cpm-group-label {
-  font-size: 11px;
+.cpm-list::-webkit-scrollbar {
+  width: 5px;
+}
+.cpm-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.cpm-group-header {
+  font-size: 10.5px;
   font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
-  padding: 6px 6px 2px;
-  letter-spacing: 0.03em;
+  padding: 8px 6px 4px;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px dashed #edf2f7;
+  margin-bottom: 4px;
+}
+
+.cpm-group-header:not(:first-child) {
+  margin-top: 10px;
 }
 
 .cpm-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   padding: 6px 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1e293b;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #334155;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.1s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .cpm-item:hover {
   background: #f1f5f9;
+  color: #0f172a;
 }
 
 .cpm-item input[type="checkbox"] {
@@ -789,6 +887,42 @@ button.secondary:hover {
   height: 15px;
   accent-color: #2563eb;
   cursor: pointer;
+  margin-left: 10px;
+  flex-shrink: 0;
+}
+
+.cpm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.cpm-btn-done {
+  padding: 4px 14px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cpm-btn-done:hover {
+  background: #1d4ed8;
+}
+
+/* Dashboard Rows */
+.dashboard-main-row {
+  transition: background-color 0.12s ease;
+}
+
+.dashboard-main-row:hover td {
+  background-color: #f8fafc !important;
 }
 
 

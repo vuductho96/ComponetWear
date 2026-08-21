@@ -1,14 +1,184 @@
-/* export-excel.js — Excel Exporter System
-   - Tab 'chart' (Biểu Đồ): Professional Executive 3-Sheet Report (01_REPORT, 02_COMPONENT_SUMMARY, 03_REPLACEMENT_LOG)
-   - Other tabs ('month', 'stock', 'report'): Standard Component_Life_Tracking.xlsx with dynamic cycles
+/* export-excel.js — Tab-Aware Excel Exporter System
+   - Tab 'month' (View): Month View Matrix Excel (Replacements & Shoots by day)
+   - Tab 'stock' (Dashboard): Unified Dashboard Excel with active column configuration
+   - Tab 'chart' (Analytics): Professional Executive 3-Sheet Report (01_REPORT, 02_COMPONENT_SUMMARY, 03_REPLACEMENT_LOG)
 */
 'use strict';
 
 function exportExcelFull() {
-  if (currentActiveTab === "chart") {
+  if (currentActiveTab === "chart" || currentActiveTab === "analytics") {
     return exportProfessionalReportExcel();
   }
+  if (currentActiveTab === "month" || currentActiveTab === "view") {
+    return exportMonthViewExcel();
+  }
   return exportStandardLifeTrackingExcel();
+}
+
+function exportMonthViewExcel() {
+  if ((!db.replacements || !db.replacements.length) && (!db.shoot || !db.shoot.length)) {
+    return msg("Hãy nạp dữ liệu trước khi xuất Excel.", true);
+  }
+
+  const ym = typeof selectedMonth === 'function' ? selectedMonth() : '';
+  const ySel = typeof selectedYear === 'function' ? selectedYear() : '';
+  
+  let days = 31;
+  let filePeriodSlug = "All";
+
+  if (ym) {
+    const [y, m] = ym.split("-").map(Number);
+    days = new Date(y, m, 0).getDate();
+    filePeriodSlug = ym;
+  } else if (ySel) {
+    filePeriodSlug = ySel;
+  }
+
+  // Build replacement and shoot maps
+  const repByPartMold = new Map();
+  (db.replacements || []).forEach(r => {
+    const lbl = String(r.Label || "").trim();
+    if (!r.ReplaceDate || lbl === "-" || lbl === "0" || lbl === "·") return;
+    if (ym && monthKey(r.ReplaceDate) !== ym) return;
+    if (ySel && !r.ReplaceDate.startsWith(ySel)) return;
+
+    const rPart = String(r.Part || "").toLowerCase().trim();
+    const rDie = String(r.DieSet || r.NewDieSet || r.OldDieSet || "").toLowerCase().trim();
+    const keys = [`${rPart}|${rDie}`];
+    const master = typeof findMasterItem === 'function' ? findMasterItem(rPart, rDie, r.Series) : null;
+    if (master) {
+      if (master.NewDieSet) keys.push(`${rPart}|${String(master.NewDieSet).toLowerCase().trim()}`);
+      if (master.OldDieSet) keys.push(`${rPart}|${String(master.OldDieSet).toLowerCase().trim()}`);
+    }
+    keys.forEach(k => {
+      if (!repByPartMold.has(k)) repByPartMold.set(k, []);
+      repByPartMold.get(k).push(r);
+    });
+  });
+
+  const shootByMold = new Map();
+  (db.shoot || []).forEach(row => {
+    if (!row.Date || !row.Output || Number(row.Output) <= 0) return;
+    if (ym && monthKey(row.Date) !== ym) return;
+    if (ySel && !row.Date.startsWith(ySel)) return;
+    const rDie = String(row.DieSet || "").toLowerCase().trim();
+    if (rDie) {
+      if (!shootByMold.has(rDie)) shootByMold.set(rDie, []);
+      shootByMold.get(rDie).push(row);
+    }
+  });
+
+  const allPartsList = typeof getPartsToRender === 'function' ? getPartsToRender('month') : [];
+
+  // Sort parts with replacements first
+  allPartsList.sort((a, b) => {
+    const pA = (a.part || '').toLowerCase(), dNewA = (a.moldNew || a.moldOld || '').toLowerCase();
+    const pB = (b.part || '').toLowerCase(), dNewB = (b.moldNew || b.moldOld || '').toLowerCase();
+    const countA = (repByPartMold.get(`${pA}|${dNewA}`) || []).length;
+    const countB = (repByPartMold.get(`${pB}|${dNewB}`) || []).length;
+    if ((countA > 0) !== (countB > 0)) return countB > 0 ? 1 : -1;
+    if (countA !== countB) return countB - countA;
+    return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  const excelRows = [];
+  allPartsList.forEach((item, idx) => {
+    const dieSet = item.moldNew || item.moldOld || item.part;
+    const partName = item.part;
+    const seriesVal = item.series || (typeof getSeriesForPart === 'function' ? getSeriesForPart(partName, dieSet) : "-") || "-";
+    const moldCombined = item.moldCombined || (typeof formatMoldDisplay === 'function' ? formatMoldDisplay(item.moldOld, item.moldNew || dieSet) : dieSet);
+    const pLower = String(partName || "").toLowerCase().trim();
+    const dLower = String(dieSet || "").toLowerCase().trim();
+
+    const rawReps = repByPartMold.get(`${pLower}|${dLower}`) || [];
+    const replacementMap = new Map();
+    rawReps.forEach(row => {
+      const dayNum = Number(row.ReplaceDate.slice(8, 10));
+      const val = Number(String(row.Label || "").trim().replace(/,/g, "")) || 1;
+      const existing = replacementMap.get(dayNum) || { day: dayNum, totalQty: 0 };
+      existing.totalQty += val;
+      replacementMap.set(dayNum, existing);
+    });
+
+    const rawShoots = shootByMold.get(dLower) || [];
+    const shootMap = new Map();
+    rawShoots.forEach(row => {
+      const dayNum = Number(row.Date.slice(8, 10));
+      const existing = shootMap.get(dayNum) || { Output: 0 };
+      existing.Output += (Number(row.Output) || 0);
+      shootMap.set(dayNum, existing);
+    });
+
+    const displayShootMap = new Map();
+    shootMap.forEach((valObj, dayNum) => {
+      if (valObj.Output > 0) displayShootMap.set(dayNum, valObj.Output);
+    });
+
+    replacementMap.forEach((repItem, repDay) => {
+      if (displayShootMap.has(repDay)) {
+        const valToShift = displayShootMap.get(repDay);
+        if (valToShift > 0) {
+          displayShootMap.delete(repDay);
+          displayShootMap.set(repDay + 1, (displayShootMap.get(repDay + 1) || 0) + valToShift);
+        }
+      }
+    });
+
+    let totalReplacementPcs = 0;
+    replacementMap.forEach(repItem => { totalReplacementPcs += repItem.totalQty; });
+    const totalShoot = Array.from(displayShootMap.values()).reduce((sum, val) => sum + (Number(val) || 0), 0);
+
+    // Row 1: Replacement
+    const repRow = {
+      "No.": idx + 1,
+      "Part": partName,
+      "Series": seriesVal,
+      "Mold / DieSet": moldCombined,
+      "Type": "Replacement (Pcs)"
+    };
+    for (let d = 1; d <= days; d++) {
+      const repItem = replacementMap.get(d);
+      repRow[`D${String(d).padStart(2, '0')}`] = repItem ? repItem.totalQty : "";
+    }
+    repRow["Total"] = totalReplacementPcs > 0 ? totalReplacementPcs : "";
+    excelRows.push(repRow);
+
+    // Row 2: Shoot
+    const shootRow = {
+      "No.": "",
+      "Part": partName,
+      "Series": seriesVal,
+      "Mold / DieSet": moldCombined,
+      "Type": "Shoot (Output)"
+    };
+    for (let d = 1; d <= days; d++) {
+      const out = displayShootMap.get(d);
+      shootRow[`D${String(d).padStart(2, '0')}`] = out > 0 ? out : "";
+    }
+    shootRow["Total"] = totalShoot > 0 ? totalShoot : "";
+    excelRows.push(shootRow);
+  });
+
+  const ws = XLSX.utils.json_to_sheet(excelRows);
+  if (excelRows.length > 0) {
+    const colKeys = Object.keys(excelRows[0]);
+    ws['!cols'] = colKeys.map(k => {
+      if (k === 'No.') return { wch: 6 };
+      if (k === 'Part') return { wch: 14 };
+      if (k === 'Series') return { wch: 10 };
+      if (k === 'Mold / DieSet') return { wch: 24 };
+      if (k === 'Type') return { wch: 18 };
+      if (k === 'Total') return { wch: 10 };
+      return { wch: 6 };
+    });
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Month_View");
+
+  const fileName = `ComponetWear_View_${filePeriodSlug}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  console.log(`%c[EXPORT:MONTH] DONE! File: ${fileName} (${excelRows.length} rows)`, "color:#059669; font-weight:bold;");
+  msg(`<b>Đã xuất file Excel theo dõi ngày/tháng thành công!</b><br>File: <code>${esc(fileName)}</code>`, false, 8000);
 }
 
 async function exportProfessionalReportExcel() {
@@ -257,13 +427,24 @@ async function exportProfessionalReportExcel() {
         replacements: allFilteredReplacements
       };
 
-      const res = await fetch('/api/export-report-excel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
+      let res = null;
+      try {
+        res = await fetch('/api/export-report-excel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e1) {
+        try {
+          res = await fetch('http://127.0.0.1:8787/api/export-report-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+        } catch (e2) {}
+      }
 
-      if (res.ok) {
+      if (res && res.ok) {
         const cType = res.headers.get('content-type') || '';
         if (cType.includes('spreadsheet') || cType.includes('octet-stream')) {
           const blob = await res.blob();
@@ -277,7 +458,7 @@ async function exportProfessionalReportExcel() {
           URL.revokeObjectURL(link.href);
 
           console.log(`%c[EXPORT] SUCCESS (Native Dynamic OpenXML Chart): ${fileName}`, "color:#059669; font-weight:bold; font-size:13px;");
-          msg(`<b>Xuất báo cáo Excel thành công!</b><br>Biểu đồ động Excel tự động thay đổi khi sửa bảng số liệu.<br>File: <code>${esc(fileName)}</code>`, false, 8000);
+          msg(`<b>Xuất báo cáo Excel thành công!</b><br>Biểu đồ vẽ trực tiếp từ bảng số liệu thật (True Dynamic Excel Chart).<br>File: <code>${esc(fileName)}</code>`, false, 8000);
           return;
         }
       }
@@ -317,42 +498,28 @@ async function exportProfessionalReportExcel() {
       { width: 4 }    // M: Margin
     ];
 
-    // Header Block
+    // Header Block with dynamic period
+    const formattedPeriod = formatReportPeriodTitle(periodLabel);
     ws1.mergeCells('B2:L2');
     const titleCell = ws1.getCell('B2');
-    titleCell.value = 'TOP 10 LINH KIỆN THAY NHIỀU NHẤT';
-    titleCell.font = { name: 'Segoe UI', size: 15, bold: true, color: { argb: 'FF1E293B' } };
+    titleCell.value = `TOP 10 LINH KIỆN THAY NHIỀU NHẤT - ${formattedPeriod}`;
+    titleCell.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: 'FF1E293B' } };
     titleCell.alignment = { vertical: 'middle' };
     ws1.getRow(2).height = 24;
 
-    // Generate Full-Width Top 10 Combo Chart (Cột: Số lượt thay, Dây: Số lượng Pcs)
+    // Set row heights for chart placement (Rows 4 to 20)
     const chartRowStart = 4;
-    const chartRowEnd = 19;
-
-    try {
-      const comboChartImgBase64 = generateTop10ComboChartBase64(top10Components);
-      if (comboChartImgBase64) {
-        const imgId = wb.addImage({ base64: comboChartImgBase64, extension: 'png' });
-        ws1.addImage(imgId, {
-          tl: { col: 1, row: chartRowStart - 1 },
-          br: { col: 12, row: chartRowEnd }
-        });
-      }
-    } catch (chartErr) {
-      console.warn("[EXPORT] Canvas chart rendering fallback:", chartErr);
-    }
-
-    // Set chart row heights
+    const chartRowEnd = 20;
     for (let r = chartRowStart; r <= chartRowEnd; r++) {
       ws1.getRow(r).height = 18;
     }
 
-    // Section Header: Summary Table
+    // Section Header: Summary Table with dynamic period
     const tableHeaderRow = chartRowEnd + 2;
     ws1.getRow(tableHeaderRow - 1).height = 20;
     ws1.mergeCells(`B${tableHeaderRow - 1}:L${tableHeaderRow - 1}`);
     const tblTitle = ws1.getCell(`B${tableHeaderRow - 1}`);
-    tblTitle.value = 'BẢNG CHI TIẾT TOP 10 LINH KIỆN THAY NHIỀU NHẤT';
+    tblTitle.value = `BẢNG CHI TIẾT TOP 10 LINH KIỆN THAY NHIỀU NHẤT (${formattedPeriod})`;
     tblTitle.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FF1E293B' } };
     tblTitle.alignment = { vertical: 'middle' };
 
@@ -450,17 +617,8 @@ async function exportProfessionalReportExcel() {
       curRow++;
     });
 
-    // Report Footer
-    curRow += 1;
-    ws1.mergeCells(`B${curRow}:L${curRow}`);
-    const footerCell = ws1.getCell(`B${curRow}`);
-    footerCell.value = `DATA SOURCE: SPP Control + Shoot Data  |  REPORT PERIOD: ${periodLabel}  |  FILTER: Mold: ${moldFilterLabel}, Series: ${seriesFilterLabel}  |  GENERATED BY: ComponetWear at ${generatedTimestamp}`;
-    footerCell.font = { name: 'Segoe UI', size: 8, italic: true, color: { argb: 'FF94A3B8' } };
-    footerCell.alignment = { vertical: 'middle' };
-    ws1.getRow(curRow).height = 14;
-
     // ==========================================
-    // SHEET 2: 02_COMPONENT_SUMMARY (Full Dataset)
+    // SHEET 2: 02_COMPONENT_SUMMARY (Only Components with Replacements)
     // ==========================================
     const ws2 = wb.addWorksheet('02_COMPONENT_SUMMARY', {
       views: [{ state: 'frozen', ySplit: 1, showGridLines: true }]
@@ -492,8 +650,10 @@ async function exportProfessionalReportExcel() {
       cell.border = { bottom: { style: 'medium', color: { argb: 'FF0F172A' } } };
     });
 
-    // Populate Rows
-    componentsData.forEach((c, idx) => {
+    // Populate Rows: ONLY components that have recorded replacements in the active scope
+    const replacedComponents = componentsData.filter(c => (Number(c.replacementCount) || 0) > 0 || (Number(c.totalPartsReplacedPcs) || 0) > 0);
+
+    replacedComponents.forEach((c, idx) => {
       const row = ws2.addRow({
         no: idx + 1,
         part: c.part,
@@ -524,7 +684,7 @@ async function exportProfessionalReportExcel() {
       });
     });
 
-    ws2.autoFilter = { from: 'A1', to: `L${componentsData.length + 1}` };
+    ws2.autoFilter = { from: 'A1', to: `L${replacedComponents.length + 1}` };
 
     // ==========================================
     // SHEET 3: 03_REPLACEMENT_LOG (Audit Trail)
@@ -582,10 +742,11 @@ async function exportProfessionalReportExcel() {
 
     ws3.autoFilter = { from: 'A1', to: `G${allFilteredReplacements.length + 1}` };
 
-    // 4. WRITE BUFFER AND TRIGGER DOWNLOAD
+    // 4. WRITE BUFFER, INJECT TRUE OPENXML DYNAMIC EXCEL CHART AND TRIGGER DOWNLOAD
     const fileName = sanitizeFilename(`ComponentWear_Report_${filePeriodSlug}.xlsx`);
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const rawBuffer = await wb.xlsx.writeBuffer();
+    const finalBuffer = await injectOpenXMLChartIntoExcelBuffer(rawBuffer, top10Components, formattedPeriod);
+    const blob = new Blob([finalBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     
     // Browser download anchor
     const link = document.createElement('a');
@@ -596,181 +757,237 @@ async function exportProfessionalReportExcel() {
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
 
-    console.log(`%c[EXPORT] SUCCESS: ${fileName} (${componentsData.length} components, ${allFilteredReplacements.length} logs)`, "color:#059669; font-weight:bold; font-size:13px;");
-    msg(`<b>Xuất báo cáo Excel thành công!</b><br>File: <code>${esc(fileName)}</code><br>Gồm 3 Sheet: 01_REPORT, 02_COMPONENT_SUMMARY, 03_REPLACEMENT_LOG`, false, 8000);
+    console.log(`%c[EXPORT] SUCCESS (Native OpenXML Chart): ${fileName} (${componentsData.length} components, ${allFilteredReplacements.length} logs)`, "color:#059669; font-weight:bold; font-size:13px;");
+    msg(`<b>Xuất báo cáo Excel thành công!</b><br>Biểu đồ vẽ trực tiếp từ bảng số liệu thật (True Dynamic Excel Chart).<br>File: <code>${esc(fileName)}</code><br>Gồm 3 Sheet: 01_REPORT, 02_COMPONENT_SUMMARY, 03_REPLACEMENT_LOG`, false, 8000);
   } catch (err) {
     console.error("[EXPORT] ERROR:", err);
     msg(`Lỗi khi tạo file Excel: ${err.message}`, true, 8000);
   }
 }
 
-// ===== HELPER: GENERATE EXACT TOP 10 COMBO CHART IMAGE (CỘT: LƯỢT THAY & DÂY: SỐ LƯỢNG PCS) =====
-function generateTop10ComboChartBase64(top10) {
-  if (!top10 || top10.length === 0) return null;
-  const canvas = document.createElement('canvas');
-  const W = 880, H = 340;
-  canvas.width = W * 2; // 2x resolution for crisp print
-  canvas.height = H * 2;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(2, 2);
-
-  // Background
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, W, H);
-
-  // Top-Right Clean Legend
-  const legendX = W - 280;
-  const legendY = 14;
-  
-  // Legend Item 1: Cột (Lượt thay)
-  ctx.fillStyle = '#4F46E5';
-  roundRect(ctx, legendX, legendY, 12, 10, 3);
-  ctx.fill();
-  ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = '#475569';
-  ctx.textAlign = 'left';
-  ctx.fillText('Lượt thay', legendX + 16, legendY + 9);
-
-  // Legend Item 2: Dây (Số lượng Pcs)
-  const l2X = legendX + 105;
-  ctx.strokeStyle = '#EF4444';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(l2X, legendY + 5);
-  ctx.lineTo(l2X + 22, legendY + 5);
-  ctx.stroke();
-
-  ctx.fillStyle = '#EF4444';
-  ctx.beginPath();
-  ctx.arc(l2X + 11, legendY + 5, 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-
-  ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = '#DC2626';
-  ctx.textAlign = 'left';
-  ctx.fillText('Số lượng (Pcs)', l2X + 28, legendY + 9);
-
-  const items = top10.slice(0, 10);
-  const maxRep = Math.max(...items.map(r => Number(r.replacementCount) || 1), 4);
-  const maxPcs = Math.max(...items.map(r => Number(r.totalPartsReplacedPcs) || 1), 5);
-
-  const padL = 55, padR = 55, padT = 46, padB = 48;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
-  const stepX = plotW / items.length;
-  const colW = Math.min(48, Math.max(24, stepX * 0.52));
-
-  // Grid Lines & Dual Y-Axes Labels
-  ctx.strokeStyle = '#F1F5F9';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
-
-  for (let s = 0; s <= 4; s++) {
-    const yG = padT + (plotH / 4) * s;
-    ctx.beginPath();
-    ctx.moveTo(padL, yG);
-    ctx.lineTo(W - padR, yG);
-    ctx.stroke();
-
-    const valL = Math.round(maxRep - (maxRep / 4) * s);
-    const valR = Math.round(maxPcs - (maxPcs / 4) * s);
-
-    // Left Y Axis (Lượt thay - Blue)
-    ctx.font = 'bold 10px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#4F46E5';
-    ctx.textAlign = 'right';
-    ctx.fillText(valL.toString(), padL - 8, yG + 3.5);
-
-    // Right Y Axis (Pcs - Red)
-    ctx.font = 'bold 10px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#DC2626';
-    ctx.textAlign = 'left';
-    ctx.fillText(valR.toString(), W - padR + 8, yG + 3.5);
+// ===== PURE CLIENT-SIDE OPENXML DYNAMIC CHART INJECTOR (ZERO IMAGE / 100% TRUE EXCEL CHART) =====
+async function injectOpenXMLChartIntoExcelBuffer(xlsxBuffer, top10Items, periodTitle) {
+  if (typeof JSZip === 'undefined' && (typeof window === 'undefined' || !window.JSZip)) {
+    console.warn("[EXPORT] JSZip not loaded, returning original buffer");
+    return xlsxBuffer;
   }
-  ctx.setLineDash([]);
+  const ZipConstructor = typeof JSZip !== 'undefined' ? JSZip : window.JSZip;
 
-  // Draw Columns (Số lượt thay)
-  const linePoints = [];
-  items.forEach((r, i) => {
-    const rep = Number(r.replacementCount) || 0;
-    const pcs = Number(r.totalPartsReplacedPcs) || 0;
+  try {
+    const zip = await ZipConstructor.loadAsync(xlsxBuffer);
+    const headerRow = 22;
+    const startRow = 23;
+    const items = Array.isArray(top10Items) ? top10Items : [];
+    const count = Math.max(1, items.length);
+    const endRow = startRow + count - 1;
 
-    const cx = padL + i * stepX + stepX / 2;
-    const xCol = cx - colW / 2;
-    const hCol = (rep / maxRep) * plotH;
-    const yCol = padT + (plotH - hCol);
+    let strPts = `<ptCount val="${items.length}"/>`;
+    let valFPts = `<ptCount val="${items.length}"/>`;
+    let valGPts = `<ptCount val="${items.length}"/>`;
 
-    const yLine = padT + plotH - (pcs / maxPcs) * plotH;
-    linePoints.push({ x: cx, y: yLine, pcs });
+    items.forEach((item, i) => {
+      strPts += `<pt idx="${i}"><v>${escapeXmlStr(item.part || '')}</v></pt>`;
+      valFPts += `<pt idx="${i}"><v>${Number(item.replacementCount) || 0}</v></pt>`;
+      valGPts += `<pt idx="${i}"><v>${Number(item.totalPartsReplacedPcs) || 0}</v></pt>`;
+    });
 
-    // Solid fill for column
-    ctx.fillStyle = '#4F46E5';
-    roundRect(ctx, xCol, yCol, colW, hCol, 4);
-    ctx.fill();
+    const fullChartTitle = `TOP 10 LINH KIỆN THAY NHIỀU NHẤT - ${periodTitle || 'BÁO CÁO'}`;
 
-    // Column Top Value Label
-    ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#4F46E5';
-    ctx.textAlign = 'center';
-    ctx.fillText(rep.toString(), cx, yCol - 6);
+    // 1. Exact OpenXML Chart XML matching user reference layout
+    const chartXml = `<chartSpace xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <style val="10"/>
+  <chart>
+    <title>
+      <tx>
+        <rich>
+          <a:bodyPr/>
+          <a:lstStyle/>
+          <a:p>
+            <a:pPr><a:defRPr sz="1300" b="1"><a:solidFill><a:srgbClr val="1E293B"/></a:solidFill></a:defRPr></a:pPr>
+            <a:r>
+              <a:rPr lang="vi-VN" sz="1300" b="1"><a:solidFill><a:srgbClr val="1E293B"/></a:solidFill></a:rPr>
+              <a:t>${escapeXmlStr(fullChartTitle)}</a:t>
+            </a:r>
+          </a:p>
+        </rich>
+      </tx>
+      <layout/>
+    </title>
+    <plotArea>
+      <layout/>
+      <barChart>
+        <barDir val="col"/>
+        <grouping val="clustered"/>
+        <ser>
+          <idx val="0"/>
+          <order val="0"/>
+          <tx><strRef><f>'01_REPORT'!$F$${headerRow}</f><strCache><ptCount val="1"/><pt idx="0"><v>Lượt Thay</v></pt></strCache></strRef></tx>
+          <spPr>
+            <a:solidFill><a:srgbClr val="4472C4"/></a:solidFill>
+          </spPr>
+          <cat>
+            <strRef>
+              <f>'01_REPORT'!$C$${startRow}:$C$${endRow}</f>
+              <strCache>${strPts}</strCache>
+            </strRef>
+          </cat>
+          <val>
+            <numRef>
+              <f>'01_REPORT'!$F$${startRow}:$F$${endRow}</f>
+              <numCache><formatCode>#,##0</formatCode>${valFPts}</numCache>
+            </numRef>
+          </val>
+        </ser>
+        <dLbls>
+          <showLegendKey val="0"/>
+          <showVal val="1"/>
+          <showCatName val="0"/>
+          <showSerName val="0"/>
+          <showPercent val="0"/>
+          <dLblPos val="outEnd"/>
+          <txPr>
+            <a:bodyPr/>
+            <a:lstStyle/>
+            <a:p><a:pPr><a:defRPr sz="900"><a:solidFill><a:srgbClr val="1E293B"/></a:solidFill></a:defRPr></a:pPr></a:p>
+          </txPr>
+        </dLbls>
+        <gapWidth val="140"/>
+        <axId val="10"/>
+        <axId val="100"/>
+      </barChart>
+      <lineChart>
+        <grouping val="standard"/>
+        <ser>
+          <idx val="1"/>
+          <order val="1"/>
+          <tx><strRef><f>'01_REPORT'!$G$${headerRow}</f><strCache><ptCount val="1"/><pt idx="0"><v>Số Lượng (Pcs)</v></pt></strCache></strRef></tx>
+          <spPr>
+            <a:ln w="31750"><a:solidFill><a:srgbClr val="C00000"/></a:solidFill></a:ln>
+          </spPr>
+          <marker>
+            <symbol val="circle"/>
+            <size val="5"/>
+            <spPr>
+              <a:solidFill><a:srgbClr val="C00000"/></a:solidFill>
+              <a:ln w="9525"><a:solidFill><a:srgbClr val="C00000"/></a:solidFill></a:ln>
+            </spPr>
+          </marker>
+          <val>
+            <numRef>
+              <f>'01_REPORT'!$G$${startRow}:$G$${endRow}</f>
+              <numCache><formatCode>#,##0</formatCode>${valGPts}</numCache>
+            </numRef>
+          </val>
+          <smooth val="1"/>
+        </ser>
+        <dLbls>
+          <showLegendKey val="0"/>
+          <showVal val="1"/>
+          <showCatName val="0"/>
+          <showSerName val="0"/>
+          <showPercent val="0"/>
+          <dLblPos val="t"/>
+          <txPr>
+            <a:bodyPr/>
+            <a:lstStyle/>
+            <a:p><a:pPr><a:defRPr sz="900" b="1"><a:solidFill><a:srgbClr val="900000"/></a:solidFill></a:defRPr></a:pPr></a:p>
+          </txPr>
+        </dLbls>
+        <axId val="10"/>
+        <axId val="200"/>
+      </lineChart>
+      <catAx>
+        <axId val="10"/>
+        <scaling><orientation val="minMax"/></scaling>
+        <axPos val="b"/>
+        <majorTickMark val="none"/>
+        <minorTickMark val="none"/>
+        <tickLblPos val="nextTo"/>
+        <crossAx val="100"/>
+        <lblOffset val="100"/>
+        <txPr>
+          <a:bodyPr/>
+          <a:lstStyle/>
+          <a:p><a:pPr><a:defRPr sz="900"><a:solidFill><a:srgbClr val="1E293B"/></a:solidFill></a:defRPr></a:pPr></a:p>
+        </txPr>
+      </catAx>
+      <valAx>
+        <axId val="100"/>
+        <scaling><orientation val="minMax"/></scaling>
+        <axPos val="l"/>
+        <majorGridlines>
+          <spPr>
+            <a:ln w="9525"><a:solidFill><a:srgbClr val="E2E8F0"/></a:solidFill></a:ln>
+          </spPr>
+        </majorGridlines>
+        <majorTickMark val="none"/>
+        <minorTickMark val="none"/>
+        <crossAx val="10"/>
+        <crosses val="autoZero"/>
+      </valAx>
+      <valAx>
+        <axId val="200"/>
+        <scaling><orientation val="minMax"/></scaling>
+        <axPos val="r"/>
+        <majorTickMark val="none"/>
+        <minorTickMark val="none"/>
+        <crossAx val="10"/>
+        <crosses val="max"/>
+      </valAx>
+    </plotArea>
+    <legend>
+      <legendPos val="b"/>
+      <layout/>
+      <txPr>
+        <a:bodyPr/>
+        <a:lstStyle/>
+        <a:p><a:pPr><a:defRPr sz="900"/></a:pPr></a:p>
+      </txPr>
+    </legend>
+    <plotVisOnly val="1"/>
+    <dispBlanksAs val="gap"/>
+  </chart>
+</chartSpace>`;
+    zip.file('xl/charts/chart1.xml', chartXml);
 
-    // X-Axis Line 1: Part Name
-    ctx.font = 'bold 11.5px "Segoe UI", Arial, monospace';
-    ctx.fillStyle = '#0F172A';
-    ctx.textAlign = 'center';
-    ctx.fillText(r.part, cx, H - 24);
+    // 2. Exact OpenXML Drawing XML (Ample height so component names and labels render crisply)
+    const drawingXml = `<wsDr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"><oneCellAnchor><from><col>1</col><colOff>0</colOff><row>3</row><rowOff>0</rowOff></from><ext cx="9800000" cy="4100000" /><graphicFrame><nvGraphicFramePr><cNvPr id="1" name="Chart 1" /><cNvGraphicFramePr /></nvGraphicFramePr><xfrm /><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart r:id="rId1" /></a:graphicData></a:graphic></graphicFrame><clientData /></oneCellAnchor></wsDr>`;
+    zip.file('xl/drawings/drawing1.xml', drawingXml);
 
-    // X-Axis Line 2: Mold Name
-    ctx.font = 'bold 9.5px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#64748B';
-    ctx.textAlign = 'center';
-    ctx.fillText(r.moldName, cx, H - 10);
-  });
+    // 3. Exact Drawing Rels
+    const drawingRelsXml = `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="/xl/charts/chart1.xml" Id="rId1" /></Relationships>`;
+    zip.file('xl/drawings/_rels/drawing1.xml.rels', drawingRelsXml);
 
-  // Draw Connecting Red Line
-  ctx.strokeStyle = '#EF4444';
-  ctx.lineWidth = 2.8;
-  ctx.beginPath();
-  linePoints.forEach((pt, i) => {
-    if (i === 0) ctx.moveTo(pt.x, pt.y);
-    else ctx.lineTo(pt.x, pt.y);
-  });
-  ctx.stroke();
+    // 4. Exact Sheet1 Rels
+    const sheet1RelsContent = `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="/xl/drawings/drawing1.xml" Id="rId1" /></Relationships>`;
+    zip.file('xl/worksheets/_rels/sheet1.xml.rels', sheet1RelsContent);
 
-  // Draw Dots & Pcs Value Labels
-  linePoints.forEach(pt => {
-    ctx.fillStyle = '#EF4444';
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.stroke();
+    // 5. Update Sheet1 XML (Drawing MUST be placed at the very end before </worksheet>)
+    const sheet1File = zip.file('xl/worksheets/sheet1.xml');
+    if (sheet1File) {
+      let s1 = await sheet1File.async('text');
+      s1 = s1.replace(/<drawing[^>]*\/>/g, '');
+      s1 = s1.replace('</worksheet>', '<drawing xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId1" /></worksheet>');
+      zip.file('xl/worksheets/sheet1.xml', s1);
+    }
 
-    ctx.font = 'bold 10.5px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#DC2626';
-    ctx.textAlign = 'center';
-    ctx.fillText(pt.pcs.toString(), pt.x, pt.y - 8);
-  });
+    // 6. Content Types
+    const ctFile = zip.file('[Content_Types].xml');
+    if (ctFile) {
+      let ct = await ctFile.async('text');
+      if (!ct.includes('/xl/charts/chart1.xml')) {
+        const extra = `<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml" /><Override PartName="/xl/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml" /></Types>`;
+        ct = ct.replace('</Types>', extra);
+        zip.file('[Content_Types].xml', ct);
+      }
+    }
 
-  return canvas.toDataURL('image/png').split(',')[1];
-}
-
-// Helper: Canvas Rounded Rectangle
-function roundRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
+    const arrayBuffer = await zip.generateAsync({ type: 'arraybuffer', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    return arrayBuffer;
+  } catch (injectErr) {
+    console.warn("[EXPORT] OpenXML chart injection fallback to raw buffer:", injectErr);
+    return xlsxBuffer;
+  }
 }
 
 // Helper: Factual Observations Generator
@@ -837,6 +1054,39 @@ function formatDateTimeDisplay(d) {
   return `${day}-${m}-${y} ${hh}:${mm}`;
 }
 
+// Helper: Format Period Title for Professional Reports
+function formatReportPeriodTitle(periodLabel) {
+  if (!periodLabel || periodLabel === 'All') return 'TẤT CẢ THỜI GIAN';
+  const mMatch = String(periodLabel).match(/^([A-Za-z]{3})-(\d{4})$/);
+  if (mMatch) {
+    const monthNames = { 'Jan':'01', 'Feb':'02', 'Mar':'03', 'Apr':'04', 'May':'05', 'Jun':'06', 'Jul':'07', 'Aug':'08', 'Sep':'09', 'Oct':'10', 'Nov':'11', 'Dec':'12' };
+    const mNum = monthNames[mMatch[1]] || mMatch[1];
+    return `THÁNG ${mNum}/${mMatch[2]}`;
+  }
+  const isoMatch = String(periodLabel).match(/^(\d{4})-(\d{2})$/);
+  if (isoMatch) {
+    return `THÁNG ${isoMatch[2]}/${isoMatch[1]}`;
+  }
+  if (/^\d{4}$/.test(String(periodLabel))) {
+    return `NĂM ${periodLabel}`;
+  }
+  return String(periodLabel).toUpperCase();
+}
+
+// Helper: XML string escape
+function escapeXmlStr(str) {
+  return String(str || '').replace(/[<>&'"]/g, c => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+}
+
 // ===== STANDARD EXCEL EXPORT (FOR VIEW / STOCK / REPORT TABS) =====
 function exportStandardLifeTrackingExcel() {
   if ((!db.replacements || !db.replacements.length) && (!db.shoot || !db.shoot.length) && (!masterData || !masterData.length)) {
@@ -853,13 +1103,10 @@ function exportStandardLifeTrackingExcel() {
   const yFilter = typeof selectedYear === 'function' ? selectedYear() : '';
   const dFilter = typeof selectedDay === 'function' ? selectedDay() : '';
 
-  // Index Shoots and Replacements with date filtering if active
+  // Index ALL historical shoot data
   const shootsByMold = new Map();
   (db.shoot || []).forEach(s => {
     if (!s.Date || !s.Output || Number(s.Output) <= 0) return;
-    if (dFilter && s.Date !== dFilter) return;
-    else if (ymFilter && !s.Date.startsWith(ymFilter)) return;
-    else if (!ymFilter && yFilter && !s.Date.startsWith(yFilter)) return;
 
     const d = String(s.DieSet || '').toLowerCase().trim();
     const p = String(s.Part || '').toLowerCase().trim();
@@ -867,19 +1114,28 @@ function exportStandardLifeTrackingExcel() {
     if (p && p !== d) { if (!shootsByMold.has(p)) shootsByMold.set(p, []); shootsByMold.get(p).push(s); }
   });
 
-  const repsByPartMold = new Map();
+  // Index 1: All historical replacements; Index 2: Period filtered replacements
+  const allHistoricalReps = new Map();
+  const periodReps = new Map();
+
   (db.replacements || []).forEach(r => {
     const lbl = String(r.Label || '').trim();
     if (!r.ReplaceDate || lbl === '-' || lbl === '0' || lbl === '·') return;
-    if (dFilter && r.ReplaceDate !== dFilter) return;
-    else if (ymFilter && !r.ReplaceDate.startsWith(ymFilter)) return;
-    else if (!ymFilter && yFilter && !r.ReplaceDate.startsWith(yFilter)) return;
 
     const p = String(r.Part || '').toLowerCase().trim();
     const d = String(r.DieSet || r.NewDieSet || r.OldDieSet || '').toLowerCase().trim();
     const key = `${p}|${d}`;
-    if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
-    repsByPartMold.get(key).push(r);
+
+    if (!allHistoricalReps.has(key)) allHistoricalReps.set(key, []);
+    allHistoricalReps.get(key).push(r);
+
+    const inPeriod = (!dFilter || r.ReplaceDate === dFilter) &&
+                     (!ymFilter || r.ReplaceDate.startsWith(ymFilter)) &&
+                     (!yFilter || ymFilter || r.ReplaceDate.startsWith(yFilter));
+    if (inPeriod) {
+      if (!periodReps.has(key)) periodReps.set(key, []);
+      periodReps.get(key).push(r);
+    }
   });
 
   // getPartsToRender applies Global Search, Part, Mold, Series filters
@@ -899,7 +1155,34 @@ function exportStandardLifeTrackingExcel() {
     const pLower = part.toLowerCase().trim();
     const dNewLower = (moldNew || '').toLowerCase().trim();
     const dOldLower = (moldOld || '').toLowerCase().trim();
+    const k1 = `${pLower}|${dNewLower}`, k2 = `${pLower}|${dOldLower}`;
 
+    // Period replacements (for period Replace Time & Qty Used)
+    let periodRepsList = [];
+    if (periodReps.has(k1)) periodRepsList.push(...periodReps.get(k1));
+    if (k2 !== k1 && periodReps.has(k2)) periodRepsList.push(...periodReps.get(k2));
+
+    const repSet = new Set(), sortedPeriodReps = [];
+    periodRepsList.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
+      const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
+      if (!repSet.has(rk)) { repSet.add(rk); sortedPeriodReps.push(r); }
+    });
+
+    const replacementCount = sortedPeriodReps.length;
+    const totalPartsReplacedPcs = sortedPeriodReps.reduce((sum, r) => sum + (Number(r.Label) || 1), 0);
+
+    // All-time historical replacements (for absolute latest replacement date & cycles)
+    let allHistoryRepsList = [];
+    if (allHistoricalReps.has(k1)) allHistoryRepsList.push(...allHistoricalReps.get(k1));
+    if (k2 !== k1 && allHistoricalReps.has(k2)) allHistoryRepsList.push(...allHistoricalReps.get(k2));
+
+    const allRepSet = new Set(), sortedHistoryReps = [];
+    allHistoryRepsList.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
+      const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
+      if (!allRepSet.has(rk)) { allRepSet.add(rk); sortedHistoryReps.push(r); }
+    });
+
+    // All historical shoots sorted by date
     let allShoots = [];
     if (dNewLower && shootsByMold.has(dNewLower)) allShoots.push(...shootsByMold.get(dNewLower));
     if (dOldLower && dOldLower !== dNewLower && shootsByMold.has(dOldLower)) allShoots.push(...shootsByMold.get(dOldLower));
@@ -911,27 +1194,14 @@ function exportStandardLifeTrackingExcel() {
       if (!shootSet.has(sk)) { shootSet.add(sk); sortedShoots.push(s); }
     });
 
-    const k1 = `${pLower}|${dNewLower}`, k2 = `${pLower}|${dOldLower}`;
-    let allReps = [];
-    if (repsByPartMold.has(k1)) allReps.push(...repsByPartMold.get(k1));
-    if (k2 !== k1 && repsByPartMold.has(k2)) allReps.push(...repsByPartMold.get(k2));
-
-    const repSet = new Set(), sortedReps = [];
-    allReps.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
-      const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
-      if (!repSet.has(rk)) { repSet.add(rk); sortedReps.push(r); }
-    });
-
     const totalLifetimeShots = sortedShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
-    const replacementCount = sortedReps.length;
-    const totalPartsReplacedPcs = sortedReps.reduce((sum, r) => sum + (Number(r.Label) || 1), 0);
 
     const cycles = [];
-    if (replacementCount > 0) {
-      const c1 = sortedShoots.filter(s => s.Date < sortedReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+    if (sortedHistoryReps.length > 0) {
+      const c1 = sortedShoots.filter(s => s.Date < sortedHistoryReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
       if (c1 > 0) cycles.push(c1);
-      for (let i = 0; i < sortedReps.length - 1; i++) {
-        const cN = sortedShoots.filter(s => s.Date >= sortedReps[i].ReplaceDate && s.Date < sortedReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+      for (let i = 0; i < sortedHistoryReps.length - 1; i++) {
+        const cN = sortedShoots.filter(s => s.Date >= sortedHistoryReps[i].ReplaceDate && s.Date < sortedHistoryReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
         if (cN > 0) cycles.push(cN);
       }
     }
@@ -941,17 +1211,25 @@ function exportStandardLifeTrackingExcel() {
     const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
     const minShotLife = cycles.length > 0 ? Math.min(...cycles) : '';
     const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : '';
-    const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+
+    // CURRENT SHOT: ALWAYS calculated from absolute latest replacement date up to the present date!
+    const absoluteLastRepDate = sortedHistoryReps.length > 0 ? sortedHistoryReps[sortedHistoryReps.length - 1].ReplaceDate : null;
+    const currentShotCount = absoluteLastRepDate
+      ? sortedShoots.filter(s => s.Date >= absoluteLastRepDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0)
+      : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
 
     const st = typeof getStockItem === 'function' ? getStockItem(part, moldNew) : {};
     const masterItem = typeof findMasterItem === 'function' ? findMasterItem(part, moldNew, series) : null;
     const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
     let minStock = (st && st.minStock !== undefined) ? Number(st.minStock) || 1 : (masterItem && masterItem.StandardStock !== undefined ? Number(masterItem.StandardStock) || 1 : 1);
-    const statusLabel = stock <= 0 ? 'URGENT (0)' : (stock < minStock ? 'NEED ORDER' : 'NO NEED');
+    const lastRepDate = absoluteLastRepDate || '';
 
     rowsData.push({
       no: 0,
       part,
+      series,
+      moldNew,
+      moldOld,
       moldSeries,
       stock,
       minStock,
@@ -962,6 +1240,7 @@ function exportStandardLifeTrackingExcel() {
       minShotLife,
       maxShotLife,
       currentShotCount,
+      lastRepDate,
       cycles
     });
   });
@@ -979,52 +1258,60 @@ function exportStandardLifeTrackingExcel() {
 
   rowsData.forEach((r, idx) => { r.no = idx + 1; });
 
+  const visibleCols = typeof getDashboardVisibleCols === 'function' ? getDashboardVisibleCols() : DEFAULT_DASHBOARD_COLS;
+
   const excelRows = rowsData.map(r => {
     const rowObj = {
       "No.": r.no,
-      "Part Name": r.part,
-      "Mold + Series": r.moldSeries,
-      "Tồn Kho": r.stock,
-      "Mức Min": r.minStock,
-      "Trạng Thái": r.status,
-      "Lượt Thay": r.replacementCount,
-      "Tổng Pcs": r.totalPartsReplacedPcs,
-      "TB Shot": r.averageShotLife,
-      "Shot HT": r.currentShotCount,
-      "Min Shot": r.minShotLife,
-      "Max Shot": r.maxShotLife
+      "Part": r.part,
+      "Mold / Series": r.moldSeries
     };
-    for (let c = 1; c <= maxCyclesFound; c++) {
-      rowObj[`Cycle ${c}`] = (r.cycles && r.cycles[c - 1] !== undefined) ? r.cycles[c - 1] : '';
+
+    if (visibleCols.timesCount) rowObj["Replace Time"] = r.replacementCount;
+    if (visibleCols.used) rowObj["Qty Used"] = r.totalPartsReplacedPcs;
+    if (visibleCols.avgShot) rowObj["Avg Shot"] = r.averageShotLife;
+    if (visibleCols.currentShot) rowObj["Current Shot"] = r.currentShotCount;
+    if (visibleCols.minShot) rowObj["Min Shot"] = r.minShotLife;
+    if (visibleCols.maxShot) rowObj["Max Shot"] = r.maxShotLife;
+    if (visibleCols.minMaxShot) rowObj["Min - Max Shot"] = (r.minShotLife && r.maxShotLife) ? `${r.minShotLife} - ${r.maxShotLife}` : '';
+    if (visibleCols.wearPercent) {
+      const pct = r.averageShotLife > 0 ? Math.min(100, Math.round((r.currentShotCount / r.averageShotLife) * 100)) : 0;
+      rowObj["Tiến Độ Mòn (%)"] = `${pct}%`;
     }
+    if (visibleCols.cycleCount) rowObj["Số Chu Kỳ"] = r.cycles ? r.cycles.length : 0;
+    if (visibleCols.cycles) {
+      for (let c = 1; c <= maxCyclesFound; c++) {
+        rowObj[`Cycle ${c}`] = (r.cycles && r.cycles[c - 1] !== undefined) ? r.cycles[c - 1] : '';
+      }
+    }
+    if (visibleCols.lastRepDate) rowObj["Last Replacement"] = r.lastRepDate || '';
+    if (visibleCols.stock) rowObj["Tồn Kho"] = r.stock;
+    if (visibleCols.minStock) rowObj["Mức Min"] = r.minStock;
+    if (visibleCols.status) rowObj["Trạng Thái"] = r.status;
+    if (visibleCols.moldOld) rowObj["Mã Khuôn Cũ"] = r.moldOld || '';
+    if (visibleCols.moldNew) rowObj["Mã Khuôn Mới"] = r.moldNew || '';
     return rowObj;
   });
 
   const ws = XLSX.utils.json_to_sheet(excelRows);
-  const cols = [
-    { wch: 6 },   // No.
-    { wch: 14 },  // Part Name
-    { wch: 28 },  // Mold + Series
-    { wch: 10 },  // Tồn Kho
-    { wch: 10 },  // Mức Min
-    { wch: 14 },  // Trạng Thái
-    { wch: 12 },  // Lượt Thay
-    { wch: 12 },  // Tổng Pcs
-    { wch: 14 },  // TB Shot
-    { wch: 14 },  // Shot HT
-    { wch: 12 },  // Min Shot
-    { wch: 12 },  // Max Shot
-  ];
-  for (let c = 1; c <= maxCyclesFound; c++) {
-    cols.push({ wch: 14 });
+  if (excelRows.length > 0) {
+    const colKeys = Object.keys(excelRows[0]);
+    ws['!cols'] = colKeys.map(k => {
+      if (k === 'No.') return { wch: 6 };
+      if (k === 'Part') return { wch: 14 };
+      if (k === 'Mold / Series') return { wch: 28 };
+      if (k === 'Trạng Thái') return { wch: 14 };
+      if (k === 'Lần Thay Cuối') return { wch: 14 };
+      if (k.startsWith('Cycle')) return { wch: 13 };
+      return { wch: 12 };
+    });
   }
-  ws['!cols'] = cols;
   XLSX.utils.book_append_sheet(wb, ws, "Dashboard");
 
   const fileName = `Component_Life_Dashboard.xlsx`;
   XLSX.writeFile(wb, fileName);
-  console.log(`%c[EXPORT] DONE! File: ${fileName} (${excelRows.length} rows, ${maxCyclesFound} cycles)`, "color:#059669; font-weight:bold; font-size:13px;");
-  msg(`<b>Đã xuất báo cáo Dashboard thành công!</b><br>File: <code>${esc(fileName)}</code> (${excelRows.length} linh kiện, ${maxCyclesFound} cycles)`, false, 8000);
+  console.log(`%c[EXPORT] DONE! File: ${fileName} (${excelRows.length} rows, dynamic columns based on Dashboard)`, "color:#059669; font-weight:bold; font-size:13px;");
+  msg(`<b>Đã xuất báo cáo Dashboard thành công!</b><br>File: <code>${esc(fileName)}</code> (${excelRows.length} linh kiện, đồng bộ cột Dashboard)`, false, 8000);
 }
 
 // ===== IMPORT EXCEL =====

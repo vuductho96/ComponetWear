@@ -10,6 +10,21 @@ from openpyxl.utils import get_column_letter
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
+def format_report_period_title(period_label):
+    if not period_label or period_label == 'All':
+        return 'TẤT CẢ THỜI GIAN'
+    import re
+    m = re.match(r'^([A-Za-z]{3})-(\d{4})$', str(period_label))
+    if m:
+        months = {'Jan':'01', 'Feb':'02', 'Mar':'03', 'Apr':'04', 'May':'05', 'Jun':'06', 'Jul':'07', 'Aug':'08', 'Sep':'09', 'Oct':'10', 'Nov':'11', 'Dec':'12'}
+        return f"THÁNG {months.get(m.group(1), m.group(1))}/{m.group(2)}"
+    m2 = re.match(r'^(\d{4})-(\d{2})$', str(period_label))
+    if m2:
+        return f"THÁNG {m2.group(2)}/{m2.group(1)}"
+    if re.match(r'^\d{4}$', str(period_label)):
+        return f"NĂM {period_label}"
+    return str(period_label).upper()
+
 def build_excel_report(data_json_path, output_excel_path):
     with open(data_json_path, 'r', encoding='utf-8') as f:
         payload = json.load(f)
@@ -75,8 +90,10 @@ def build_excel_report(data_json_path, output_excel_path):
     for col, w in col_widths.items():
         ws1.column_dimensions[col].width = w
 
+    formatted_period = format_report_period_title(period_label)
+
     # Header
-    ws1['B2'] = "TOP 10 LINH KIỆN THAY NHIỀU NHẤT"
+    ws1['B2'] = f"TOP 10 LINH KIỆN THAY NHIỀU NHẤT - {formatted_period}"
     ws1['B2'].font = font_title
     ws1['B2'].alignment = Alignment(vertical='center')
     ws1.row_dimensions[2].height = 24
@@ -86,7 +103,7 @@ def build_excel_report(data_json_path, output_excel_path):
         ws1.row_dimensions[r].height = 18
 
     # Section Table Header (Row 22)
-    ws1['B22'] = "BẢNG CHI TIẾT TOP 10 LINH KIỆN THAY NHIỀU NHẤT"
+    ws1['B22'] = f"BẢNG CHI TIẾT TOP 10 LINH KIỆN THAY NHIỀU NHẤT ({formatted_period})"
     ws1['B22'].font = font_sec_header
     ws1['B22'].alignment = Alignment(vertical='center')
     ws1.row_dimensions[22].height = 20
@@ -160,19 +177,24 @@ def build_excel_report(data_json_path, output_excel_path):
         # ========================================================
         # NATIVE EXCEL COMBO CHART (Columns = Lượt thay, Line = Pcs)
         # ========================================================
+        from openpyxl.chart.label import DataLabelList
+
         # 1. Bar Chart for Replacement Count (Col F)
         chart_bar = BarChart()
-        chart_bar.title = "TOP 10 LINH KIỆN THAY NHIỀU NHẤT"
-        chart_bar.style = 13
+        chart_bar.title = f"TOP 10 LINH KIỆN THAY NHIỀU NHẤT - {formatted_period}"
+        chart_bar.style = 10
         chart_bar.y_axis.title = "Số lượt thay"
         chart_bar.x_axis.title = "Mã Linh Kiện"
-        chart_bar.width = 24
-        chart_bar.height = 10.5
+        chart_bar.width = 25
+        chart_bar.height = 11
 
         data_bar = Reference(ws1, min_col=6, min_row=23, max_row=end_row) # Col F: Lượt Thay
         categories = Reference(ws1, min_col=3, min_row=24, max_row=end_row) # Col C: Mã Linh Kiện
         chart_bar.add_data(data_bar, titles_from_data=True)
         chart_bar.set_categories(categories)
+        chart_bar.dataLabels = DataLabelList()
+        chart_bar.dataLabels.showVal = True
+        chart_bar.y_axis.majorGridlines = None
 
         # 2. Line Chart for Replacement Quantity (Col G) on secondary axis
         chart_line = LineChart()
@@ -181,6 +203,9 @@ def build_excel_report(data_json_path, output_excel_path):
         chart_line.y_axis.title = "Số lượng (Pcs)"
         chart_line.y_axis.axId = 200
         chart_line.y_axis.crosses = "max"
+        chart_line.dataLabels = DataLabelList()
+        chart_line.dataLabels.showVal = True
+        chart_line.y_axis.majorGridlines = None
 
         # Combine into Combo Chart
         chart_bar += chart_line
@@ -211,7 +236,9 @@ def build_excel_report(data_json_path, output_excel_path):
         cell.fill = fill_tbl_header
         cell.alignment = Alignment(horizontal='right' if col_idx in [4,5,6,7,8,9,10,11] else 'center', vertical='center')
 
-    for idx, c in enumerate(components):
+    replaced_components = [c for c in components if int(c.get('replacementCount', 0)) > 0 or int(c.get('totalPartsReplacedPcs', 0)) > 0]
+
+    for idx, c in enumerate(replaced_components):
         row_vals = [
             idx + 1,
             c.get('part', ''),
@@ -241,7 +268,7 @@ def build_excel_report(data_json_path, output_excel_path):
             else:
                 cell.alignment = Alignment(horizontal='left', vertical='center')
 
-    ws2.auto_filter.ref = f"A1:L{len(components) + 1}"
+    ws2.auto_filter.ref = f"A1:L{len(replaced_components) + 1}"
 
     # Auto column widths for Sheet 2
     for col in ws2.columns:

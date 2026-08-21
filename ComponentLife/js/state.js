@@ -25,6 +25,61 @@ let _stockRenderLimit = 40;
 let _wearRenderLimit = 35;
 let _reportRenderLimit = 40;
 
+// ===== UNIFIED DASHBOARD COLUMN CONFIGURATION & SCHEMA =====
+const DASHBOARD_COLUMNS_SCHEMA = {
+  // HISTORY / ANALYSIS (Default Visible)
+  timesCount:   { id: 'timesCount',   label: 'Replace Time',         group: 'HISTORY_ANALYSIS', default: true,  align: 'center', desc: 'Số lượt thay thế linh kiện (Replace Time)' },
+  used:         { id: 'used',         label: 'Qty Used',             group: 'HISTORY_ANALYSIS', default: true,  align: 'center', desc: 'Tổng số linh kiện đã thay ra (Qty Used / Pcs)' },
+
+  // COMPONENT LIFE (Default Visible: avgShot, currentShot)
+  avgShot:      { id: 'avgShot',      label: 'Avg Shot',             group: 'COMPONENT_LIFE',   default: true,  align: 'right',  desc: 'Tuổi thọ trung bình theo các chu kỳ dập' },
+  currentShot:  { id: 'currentShot',  label: 'Current Shot',         group: 'COMPONENT_LIFE',   default: true,  align: 'right',  desc: 'Số Shot dập đã chạy của chu kỳ hiện tại' },
+  minShot:      { id: 'minShot',      label: 'Min Shot',             group: 'COMPONENT_LIFE',   default: false, align: 'right',  desc: 'Chu kỳ dập ngắn nhất từng ghi nhận' },
+  maxShot:      { id: 'maxShot',      label: 'Max Shot',             group: 'COMPONENT_LIFE',   default: false, align: 'right',  desc: 'Chu kỳ dập dài nhất từng ghi nhận' },
+  minMaxShot:   { id: 'minMaxShot',   label: 'Min - Max Shot',       group: 'COMPONENT_LIFE',   default: false, align: 'center', desc: 'Khoảng dao động tuổi thọ Min đến Max' },
+  wearPercent:  { id: 'wearPercent',  label: 'Tiến Độ Mòn (%)',      group: 'COMPONENT_LIFE',   default: false, align: 'center', desc: 'Tỷ lệ % Shot hiện tại so với tuổi thọ trung bình' },
+  cycleCount:   { id: 'cycleCount',   label: 'Số Chu Kỳ',            group: 'COMPONENT_LIFE',   default: false, align: 'center', desc: 'Số lượng chu kỳ thay thế hoàn chỉnh' },
+  cycles:       { id: 'cycles',       label: 'Cycle (Các chu kỳ shot)', group: 'COMPONENT_LIFE', default: false, align: 'right',  desc: 'Tự động hiển thị các cột Cycle 1, Cycle 2, Cycle 3... theo số chu kỳ thực tế' },
+  lastRepDate:  { id: 'lastRepDate',  label: 'Last Replacement',     group: 'COMPONENT_LIFE',   default: false, align: 'center', desc: 'Ngày phát sinh lượt thay thế gần nhất' },
+
+  // INVENTORY (Optional Add-on)
+  stock:        { id: 'stock',        label: 'Tồn Kho (Stock)',      group: 'INVENTORY',        default: false, align: 'center', desc: 'Số lượng tồn kho thực tế hiện tại' },
+  minStock:     { id: 'minStock',     label: 'Mức Min (Min Stock)',  group: 'INVENTORY',        default: false, align: 'center', desc: 'Mức tồn kho an toàn tối thiểu' },
+  status:       { id: 'status',       label: 'Trạng Thái (Status)', group: 'INVENTORY',        default: false, align: 'center', desc: 'Cảnh báo mức tồn kho: Urgent / Need Order / No Need' },
+
+  // TRACEABILITY (Optional Add-on)
+  moldOld:      { id: 'moldOld',      label: 'Mã Khuôn Cũ',          group: 'TRACEABILITY',     default: false, align: 'left',   desc: 'Mã khuôn gốc ban đầu (Old Die Set)' },
+  moldNew:      { id: 'moldNew',      label: 'Mã Khuôn Mới',         group: 'TRACEABILITY',     default: false, align: 'left',   desc: 'Mã khuôn chuẩn hóa mới (New Die Set)' }
+};
+
+const DEFAULT_DASHBOARD_COLS = Object.keys(DASHBOARD_COLUMNS_SCHEMA).reduce((acc, k) => {
+  acc[k] = DASHBOARD_COLUMNS_SCHEMA[k].default;
+  return acc;
+}, {});
+
+const DASHBOARD_COLS_STORAGE_KEY = 'componetwear_dashboard_visible_cols_v3';
+
+function getDashboardVisibleCols() {
+  try {
+    const saved = localStorage.getItem(DASHBOARD_COLS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return Object.assign({}, DEFAULT_DASHBOARD_COLS, parsed);
+    }
+  } catch (e) {
+    console.warn('[STATE] Error reading dashboard column visibility from localStorage:', e);
+  }
+  return Object.assign({}, DEFAULT_DASHBOARD_COLS);
+}
+
+function saveDashboardVisibleCols(cols) {
+  try {
+    localStorage.setItem(DASHBOARD_COLS_STORAGE_KEY, JSON.stringify(cols));
+  } catch (e) {
+    console.warn('[STATE] Error saving dashboard column visibility to localStorage:', e);
+  }
+}
+
 // Global pagination dock callbacks
 window.gpdMoreAction = null;
 window.gpdAllAction = null;

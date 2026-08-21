@@ -304,6 +304,204 @@ async function confirmClearJsonData() {
   }
 }
 
+// ===== COMPONENT FULL DETAILS MODAL / DRAWER =====
+function openComponentDetailModal(partName, moldNew, moldOld, seriesVal) {
+  const modal = $("componentDetailModal");
+  const titleEl = $("detailModalTitle");
+  const subtitleEl = $("detailModalSubtitle");
+  const bodyEl = $("detailModalBody");
+  if (!modal || !bodyEl) return;
+
+  const pLower = String(partName || '').toLowerCase().trim();
+  const dNewLower = String(moldNew || '').toLowerCase().trim();
+  const dOldLower = String(moldOld || '').toLowerCase().trim();
+
+  // 1. Traceability & Master Item
+  const masterItem = typeof findMasterItem === 'function' ? findMasterItem(partName, moldNew || moldOld, seriesVal) : null;
+  const finalSeries = seriesVal || (masterItem ? masterItem.Series : '') || '-';
+  const finalOld = moldOld || (masterItem ? masterItem.OldDieSet : '') || '-';
+  const finalNew = moldNew || (masterItem ? masterItem.NewDieSet : '') || '-';
+  const fullCode = `${finalSeries}/${finalOld}/${finalNew}`;
+
+  // 2. Inventory & Stock
+  const st = typeof getStockItem === 'function' ? getStockItem(partName, moldNew || moldOld) : {};
+  const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
+  const minStock = Number(st.minStock !== undefined ? st.minStock : (masterItem ? masterItem.StandardStock : 1)) || 1;
+  const status = stock <= 0 ? 'CRITICAL' : (stock < minStock ? 'WARNING' : 'SAFE');
+  const statusBadge = status === 'CRITICAL' 
+    ? `<span class="badge-stock critical" style="font-size:12px;padding:3px 8px;font-weight:700;">🔴 URGENT</span>` 
+    : (status === 'WARNING' 
+      ? `<span class="badge-stock warning" style="font-size:12px;padding:3px 8px;font-weight:700;">🟡 NEED ORDER</span>` 
+      : `<span class="badge-stock safe" style="font-size:12px;padding:3px 8px;font-weight:700;">🟢 NO NEED</span>`);
+
+  // 3. Shoots & Replacements
+  let allShoots = [];
+  (db.shoot || []).forEach(s => {
+    if (!s.Date || !s.Output || Number(s.Output) <= 0) return;
+    const d = String(s.DieSet || '').toLowerCase().trim();
+    if ((dNewLower && d === dNewLower) || (dOldLower && d === dOldLower)) allShoots.push(s);
+  });
+  allShoots.sort((a, b) => (a.Date || '').localeCompare(b.Date || ''));
+
+  let allReps = [];
+  (db.replacements || []).forEach(r => {
+    if (!r.ReplaceDate) return;
+    const p = String(r.Part || '').toLowerCase().trim();
+    const d = String(r.DieSet || r.NewDieSet || r.OldDieSet || '').toLowerCase().trim();
+    if (p === pLower && ((dNewLower && d === dNewLower) || (dOldLower && d === dOldLower))) {
+      allReps.push(r);
+    }
+  });
+  allReps.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || ''));
+
+  const totalShoots = allShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+  const totalRepsCount = allReps.length;
+  const totalUsedPcs = allReps.reduce((sum, r) => sum + (Number(r.Label) || 1), 0);
+
+  // Cycles calculation
+  const cycles = [];
+  if (allReps.length > 0) {
+    const c1 = allShoots.filter(s => s.Date < allReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+    if (c1 > 0) cycles.push(c1);
+    for (let i = 0; i < allReps.length - 1; i++) {
+      const cN = allShoots.filter(s => s.Date >= allReps[i].ReplaceDate && s.Date < allReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+      if (cN > 0) cycles.push(cN);
+    }
+  }
+
+  const avgShot = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalShoots > 0 ? totalShoots : 0);
+  const minShot = cycles.length > 0 ? Math.min(...cycles) : 0;
+  const maxShot = cycles.length > 0 ? Math.max(...cycles) : 0;
+  const currentShot = allReps.length > 0 ? allShoots.filter(s => s.Date >= allReps[allReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : totalShoots;
+  const wearPct = avgShot > 0 ? Math.min(100, Math.round((currentShot / avgShot) * 100)) : 0;
+
+  if (titleEl) titleEl.innerHTML = `Linh Kiện: <span style="color:#2563eb; font-family:monospace; background:#eff6ff; padding:2px 8px; border-radius:6px; border:1px solid #bfdbfe;">${esc(partName)}</span>`;
+  if (subtitleEl) subtitleEl.textContent = `Mã khuôn & Series: ${fullCode}`;
+
+  bodyEl.innerHTML = `
+    <!-- Section 1: INVENTORY & STOCK -->
+    <div class="detail-section-box">
+      <div class="detail-section-title">
+        <span>📦 1. INVENTORY (Quản Lý Tồn Kho)</span>
+        <div style="margin-left:auto;">${statusBadge}</div>
+      </div>
+      <div class="detail-kpi-grid">
+        <div class="detail-kpi-card">
+          <span class="detail-kpi-label">Tồn Kho Hiện Tại</span>
+          <span class="detail-kpi-val" style="color:${stock <= 0 ? '#dc2626' : (stock < minStock ? '#d97706' : '#0f172a')}; font-size:17px;">${stock} pcs</span>
+        </div>
+        <div class="detail-kpi-card">
+          <span class="detail-kpi-label">Mức Min An Toàn</span>
+          <span class="detail-kpi-val" style="color:#64748b; font-size:17px;">${minStock} pcs</span>
+        </div>
+        <div class="detail-kpi-card">
+          <span class="detail-kpi-label">Cần Đặt Bổ Sung</span>
+          <span class="detail-kpi-val" style="color:${stock < minStock ? '#dc2626' : '#059669'}; font-size:17px;">${Math.max(0, minStock - stock)} pcs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: COMPONENT LIFE -->
+    <div class="detail-section-box">
+      <div class="detail-section-title">
+        <span>⚡ 2. COMPONENT LIFE (Tuổi Thọ &amp; Chu Kỳ Dập)</span>
+        <span style="margin-left:auto; font-size:12px; color:var(--ink-muted); font-weight:600;">Tiến độ mòn: <b style="color:${wearPct >= 90 ? '#dc2626' : (wearPct >= 70 ? '#d97706' : '#059669')}">${wearPct}%</b></span>
+      </div>
+      <div class="detail-kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="detail-kpi-card">
+          <span class="detail-kpi-label">Shot Hiện Tại</span>
+          <span class="detail-kpi-val" style="color:#2563eb;">${currentShot > 0 ? currentShot.toLocaleString() : '0'}</span>
+        </div>
+        <div class="detail-kpi-card">
+          <span class="detail-kpi-label">Tuổi Thọ TB</span>
+          <span class="detail-kpi-val" style="color:#0284c7;">${avgShot > 0 ? avgShot.toLocaleString() : '-'}</span>
+        </div>
+        <div class="detail-kpi-card">
+          <span class="detail-kpi-label">Min Shot</span>
+          <span class="detail-kpi-val" style="color:#059669;">${minShot > 0 ? minShot.toLocaleString() : '-'}</span>
+        </div>
+        <div class="detail-kpi-card">
+          <span class="detail-kpi-label">Max Shot</span>
+          <span class="detail-kpi-val" style="color:#d97706;">${maxShot > 0 ? maxShot.toLocaleString() : '-'}</span>
+        </div>
+      </div>
+
+      <!-- Cycles Mini Table -->
+      <div style="margin-top:10px;">
+        <div style="font-size:12px; font-weight:700; color:var(--ink-secondary); margin-bottom:6px;">Danh sách chu kỳ đã hoàn thành (${cycles.length} chu kỳ):</div>
+        <table class="detail-mini-table">
+          <thead>
+            <tr>
+              <th style="width:70px; text-align:center;">Chu Kỳ</th>
+              <th style="text-align:right;">Sản Lượng Dập (Shots)</th>
+              <th style="text-align:center;">Đánh Giá So Với TB</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cycles.length > 0 ? cycles.map((cVal, i) => {
+              const diff = avgShot > 0 ? Math.round(((cVal - avgShot) / avgShot) * 100) : 0;
+              const diffBadge = diff > 10 ? `<span style="color:#059669; font-weight:700;">+${diff}% (Bền tốt)</span>` : (diff < -10 ? `<span style="color:#dc2626; font-weight:700;">${diff}% (Mòn sớm)</span>` : `<span style="color:#64748b;">Chuẩn (~TB)</span>`);
+              return `<tr><td style="text-align:center; font-weight:700;">Cycle ${i + 1}</td><td style="text-align:right; font-weight:700; color:#0f172a;">${cVal.toLocaleString()}</td><td style="text-align:center;">${diffBadge}</td></tr>`;
+            }).join('') : `<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:10px;">Đang chạy chu kỳ đầu tiên. Chưa phát sinh đủ 2 lần thay để chốt chu kỳ.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 3: REPLACEMENT HISTORY -->
+    <div class="detail-section-box">
+      <div class="detail-section-title">
+        <span>🔄 3. REPLACEMENT HISTORY (Lịch Sử Thay Thế)</span>
+        <span style="margin-left:auto; font-size:12px; color:var(--ink-muted); font-weight:600;">Tổng: <b>${totalRepsCount}</b> lượt (<b>${totalUsedPcs}</b> pcs)</span>
+      </div>
+      <div style="max-height:180px; overflow-y:auto; border:1px solid var(--border); border-radius:6px;">
+        <table class="detail-mini-table">
+          <thead>
+            <tr>
+              <th style="width:45px; text-align:center;">Lần</th>
+              <th>Ngày Thay</th>
+              <th style="text-align:center;">Số Lượng (Pcs)</th>
+              <th>Mã Phiếu / Request ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allReps.length > 0 ? allReps.map((r, i) => `
+              <tr>
+                <td style="text-align:center; font-weight:700; color:#64748b;">${i + 1}</td>
+                <td><span style="font-family:monospace; font-weight:700;">📅 ${r.ReplaceDate}</span></td>
+                <td style="text-align:center;"><b style="color:#7c3aed;">${r.Label || 1} pcs</b></td>
+                <td>${r.RequestId ? `<span style="font-family:monospace; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px;">#${esc(r.RequestId)}</span>` : '<span style="color:#94a3b8;">-</span>'}</td>
+              </tr>
+            `).join('') : `<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:12px;">Chưa có lịch sử thay thế nào được ghi nhận.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 4: TRACEABILITY -->
+    <div class="detail-section-box">
+      <div class="detail-section-title">
+        <span>🔍 4. TRACEABILITY (Truy Xuất Nguồn Gốc)</span>
+      </div>
+      <div class="detail-trace-grid">
+        <div class="detail-trace-item"><span>Mã Part:</span> <b style="color:#0f172a; font-family:monospace;">${esc(partName)}</b></div>
+        <div class="detail-trace-item"><span>Series / Dòng Máy:</span> <b style="color:#0284c7; font-family:monospace;">${esc(finalSeries)}</b></div>
+        <div class="detail-trace-item"><span>Mã Khuôn Cũ:</span> <b style="color:#475569; font-family:monospace;">${esc(finalOld)}</b></div>
+        <div class="detail-trace-item"><span>Mã Khuôn Mới:</span> <b style="color:#166534; font-family:monospace;">${esc(finalNew)}</b></div>
+        <div class="detail-trace-item" style="grid-column: 1 / -1;"><span>Chuỗi Định Danh Đầy Đủ:</span> <b style="color:#0f172a; font-family:monospace; background:#f1f5f9; padding:3px 8px; border-radius:4px;">${esc(fullCode)}</b></div>
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove("hidden");
+}
+
+function closeComponentDetailModal() {
+  const modal = $("componentDetailModal");
+  if (modal) modal.classList.add("hidden");
+}
+
 window.addEventListener("keydown", function(e) {
-  if (e.key === "Escape") { closeTop5Modal(); cancelDeleteReplacement(); closeClearDataModal(); }
+  if (e.key === "Escape") { closeTop5Modal(); cancelDeleteReplacement(); closeClearDataModal(); closeComponentDetailModal(); }
 });
+

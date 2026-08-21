@@ -10,6 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
   <!-- SheetJS -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <!-- JSZip (Native OpenXML Chart Engine) -->
+  <script src="js/jszip.min.js?v=20260821_v3"></script>
   <!-- ExcelJS (CDN + Local Fallback for offline support) -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script>
@@ -66,54 +68,15 @@
     <!-- ===== NAVIGATION & SUB-FILTERS ===== -->
     <div class="nav-control-bar">
       <div class="tab-bar">
-        <div class="tab active" data-tab="month" title="Bảng theo dõi dữ liệu (Month Sheet)">📅 View</div>
-        <div class="tab" data-tab="stock" title="Bảng điều khiển tổng hợp: Quản lý tồn kho & Tuổi thọ linh kiện (Dashboard)">📊 Dashboard</div>
-        <div class="tab" data-tab="chart" title="Biểu đồ phân tích & cảnh báo tuổi thọ (Charts & Analytics)">📈 Biểu Đồ</div>
+        <div class="tab active" data-tab="month" title="Bảng theo dõi dữ liệu theo ngày (Month Sheet)">📅 View</div>
+        <div class="tab" data-tab="stock" title="Bảng điều khiển quản lý tổng hợp (Unified Dashboard)">📊 Dashboard</div>
+        <div class="tab" data-tab="chart" title="Biểu đồ phân tích & cảnh báo tuổi thọ (Analytics)">📈 Analytics</div>
       </div>
 
       <!-- View Tab Active Month Badge -->
       <div id="viewMonthIndicator" class="view-month-badge">
         <span class="vmb-icon">📅</span>
         <span id="viewMonthText">Đang tải tháng...</span>
-      </div>
-
-      <!-- Contextual Filter Chips (Visible when Dashboard tab is active) -->
-      <div id="stockFilterBar" class="filter-bar hidden">
-        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          <label id="stockFilterAllLabel" class="filter-chip active"><input type="checkbox" id="chkAll" checked onchange="toggleStockCheckboxAll(this)"> Tất cả <span class="chip-count" id="cntAll">0</span></label>
-          <label id="stockFilterReplacedLabel" class="filter-chip"><input type="checkbox" id="chkReplaced" onchange="toggleStockStatusCheckbox()"> Đã thay <span class="chip-count" id="cntReplaced">0</span></label>
-          <label id="stockFilterCriticalLabel" class="filter-chip critical active"><input type="checkbox" id="chkCritical" checked onchange="toggleStockStatusCheckbox()"> 🔴 Urgent <span class="chip-count" id="cntCritical">0</span></label>
-          <label id="stockFilterWarningLabel" class="filter-chip warning active"><input type="checkbox" id="chkWarning" checked onchange="toggleStockStatusCheckbox()"> 🟡 Need Order <span class="chip-count" id="cntWarning">0</span></label>
-          <label id="stockFilterSafeLabel" class="filter-chip safe active"><input type="checkbox" id="chkSafe" checked onchange="toggleStockStatusCheckbox()"> 🟢 No Need <span class="chip-count" id="cntSafe">0</span></label>
-        </div>
-
-        <!-- Dynamic Column Picker (Tùy chọn thêm/ẩn cột) -->
-        <div class="col-picker-container">
-          <button type="button" class="btn-col-picker" id="btnColPicker" onclick="toggleColumnPicker(event)" title="Thêm hoặc ẩn các cột thông tin">
-            ⚙️ Tùy chỉnh cột <span class="col-badge" id="colActiveBadge">Cơ bản</span> ▾
-          </button>
-          <div id="colPickerMenu" class="col-picker-menu hidden" onclick="event.stopPropagation()">
-            <div class="cpm-header">
-              <b>⚙️ Chọn cột hiển thị</b>
-              <button type="button" class="cpm-reset-link" onclick="resetDefaultDashboardCols()">Mặc định</button>
-            </div>
-            <div class="cpm-list">
-              <div class="cpm-group-label">Cột chính (Mặc định):</div>
-              <label class="cpm-item"><input type="checkbox" data-col="stock" checked onchange="onColCheckboxChange(this)"> 📦 Tồn Kho</label>
-              <label class="cpm-item"><input type="checkbox" data-col="minStock" checked onchange="onColCheckboxChange(this)"> 🎯 Mức Min</label>
-              <label class="cpm-item"><input type="checkbox" data-col="status" checked onchange="onColCheckboxChange(this)"> 🚦 Trạng Thái</label>
-              <label class="cpm-item"><input type="checkbox" data-col="timesCount" checked onchange="onColCheckboxChange(this)"> 🔄 Lượt Thay</label>
-              <label class="cpm-item"><input type="checkbox" data-col="used" checked onchange="onColCheckboxChange(this)"> 🔢 Tổng Pcs</label>
-
-              <div class="cpm-group-label">Thêm cột nâng cao (Tùy chọn):</div>
-              <label class="cpm-item"><input type="checkbox" data-col="currentShot" onchange="onColCheckboxChange(this)"> ⚡ Shot Hiện Tại (Shot HT)</label>
-              <label class="cpm-item"><input type="checkbox" data-col="avgShot" onchange="onColCheckboxChange(this)"> ⏱️ Tuổi Thọ TB (TB Shot)</label>
-              <label class="cpm-item"><input type="checkbox" data-col="minMaxShot" onchange="onColCheckboxChange(this)"> 📊 Min - Max Shot</label>
-              <label class="cpm-item"><input type="checkbox" data-col="wearPercent" onchange="onColCheckboxChange(this)"> 📈 Độ Mòn / Tiến Độ (%)</label>
-              <label class="cpm-item"><input type="checkbox" data-col="lastRepDate" onchange="onColCheckboxChange(this)"> 📅 Lần Thay Cuối</label>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -130,45 +93,135 @@
       </div>
     </section>
 
-    <!-- ===== TAB 2: Dashboard (Tồn Kho & Tuổi Thọ Linh Kiện) ===== -->
+    <!-- ===== TAB 2: Unified Dashboard (Quản Lý Tồn Kho & Tuổi Thọ) ===== -->
     <section id="stockTab" class="hidden">
       <div class="summary-box" style="margin-top:0;">
         <table class="data-table" id="dashboardTable">
           <thead>
             <tr>
               <th style="width:45px;text-align:center;">#</th>
-              <th style="min-width:90px;">Part Name</th>
-              <th style="min-width:160px;">Mold + Series</th>
-              <th style="text-align:center;" title="Số lượng tồn kho hiện tại">Tồn Kho</th>
-              <th style="text-align:center;" title="Mức tồn kho tối thiểu">Min</th>
-              <th style="text-align:center;" title="Trạng thái tồn kho">Trạng Thái</th>
-              <th style="text-align:center;" title="Tổng số lần thay ra">Lượt Thay</th>
-              <th style="text-align:center;" title="Tổng số chi tiết đã thay thế (Pcs)">Tổng Pcs</th>
-              <th style="text-align:right;" title="Tuổi thọ shot trung bình">TB Shot</th>
-              <th style="text-align:right;" title="Số shot đang chạy hiện tại">Shot HT</th>
-              <th style="text-align:center;width:105px;" title="Nhấn để mở rộng/thu gọn chi tiết linh kiện">Chi Tiết</th>
+              <th class="sortable-th" style="min-width:90px;" onclick="handleDashboardSort('part')" title="Lọc / Sắp xếp Part">
+                <div class="th-header-cell align-left">
+                  <span class="th-label">Part</span>
+                  <span class="th-sort-icon-wrap" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                  </span>
+                </div>
+              </th>
+              <th class="sortable-th" style="min-width:160px;" onclick="handleDashboardSort('moldSeries')" title="Lọc / Sắp xếp Mold / Series">
+                <div class="th-header-cell align-left">
+                  <span class="th-label">Mold / Series</span>
+                  <span class="th-sort-icon-wrap" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                  </span>
+                </div>
+              </th>
+              <th class="sortable-th" onclick="handleDashboardSort('timesCount')" title="Lọc / Sắp xếp Replace Time">
+                <div class="th-header-cell align-center">
+                  <span class="th-label">Replace Time</span>
+                  <span class="th-sort-icon-wrap" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                  </span>
+                </div>
+              </th>
+              <th class="sortable-th" onclick="handleDashboardSort('used')" title="Lọc / Sắp xếp Qty Used">
+                <div class="th-header-cell align-center">
+                  <span class="th-label">Qty Used</span>
+                  <span class="th-sort-icon-wrap" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                  </span>
+                </div>
+              </th>
+              <th class="sortable-th" onclick="handleDashboardSort('avgShot')" title="Lọc / Sắp xếp Avg Shot">
+                <div class="th-header-cell align-right">
+                  <span class="th-label">Avg Shot</span>
+                  <span class="th-sort-icon-wrap" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                  </span>
+                </div>
+              </th>
+              <th class="sortable-th" onclick="handleDashboardSort('currentShot')" title="Lọc / Sắp xếp Current Shot">
+                <div class="th-header-cell align-right">
+                  <span class="th-label">Current Shot</span>
+                  <span class="th-sort-icon-wrap" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                  </span>
+                </div>
+              </th>
+              <th class="th-add-col" style="width:38px; text-align:center; padding:0;" title="Thêm hoặc ẩn cột dữ liệu">
+                <button type="button" class="btn-th-add-col" id="btnColPicker" onclick="toggleColumnPicker(event)" title="Thêm / Ẩn cột hiển thị">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5V12.5M3.5 8H12.5"/></svg>
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody id="stockRows"></tbody>
         </table>
       </div>
+
+      <!-- Floating Column Picker Menu Popover -->
+      <div id="colPickerMenu" class="col-picker-menu hidden" onclick="event.stopPropagation()">
+        <div class="cpm-header">
+          <div>
+            <div style="font-weight:700; font-size:13px; color:#0f172a; display:flex; align-items:center; gap:6px;">
+              <span>⚙️</span> Tùy chỉnh cột hiển thị
+            </div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">Chọn các trường dữ liệu hiển thị trên Dashboard</div>
+          </div>
+          <button type="button" class="cpm-reset-link" onclick="resetDefaultDashboardCols()">Mặc định</button>
+        </div>
+        <div class="cpm-list">
+          <!-- Group 1: HISTORY / ANALYSIS (Default Visible) -->
+          <div class="cpm-group-header"><span>🔄</span> HISTORY &amp; ANALYSIS</div>
+          <label class="cpm-item"><span>Replace Time (Số lượt thay)</span><input type="checkbox" data-col="timesCount" checked onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Qty Used (Tổng linh kiện thay Pcs)</span><input type="checkbox" data-col="used" checked onchange="onColCheckboxChange(this)"></label>
+
+          <!-- Group 2: COMPONENT LIFE (Default Visible: avgShot, currentShot) -->
+          <div class="cpm-group-header"><span>⚡</span> COMPONENT LIFE</div>
+          <label class="cpm-item"><span>Avg Shot (Tuổi thọ trung bình)</span><input type="checkbox" data-col="avgShot" checked onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Current Shot (Số shot hiện tại)</span><input type="checkbox" data-col="currentShot" checked onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Cycle (Các chu kỳ shot thực tế)</span><input type="checkbox" data-col="cycles" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Min Shot (Chu kỳ ngắn nhất)</span><input type="checkbox" data-col="minShot" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Max Shot (Chu kỳ dài nhất)</span><input type="checkbox" data-col="maxShot" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Min - Max Shot</span><input type="checkbox" data-col="minMaxShot" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Tiến Độ Mòn (%)</span><input type="checkbox" data-col="wearPercent" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Số Chu Kỳ Hoàn Chỉnh</span><input type="checkbox" data-col="cycleCount" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Last Replacement (Lần thay cuối)</span><input type="checkbox" data-col="lastRepDate" onchange="onColCheckboxChange(this)"></label>
+
+          <!-- Group 3: INVENTORY (Optional Add-on) -->
+          <div class="cpm-group-header"><span>📦</span> INVENTORY</div>
+          <label class="cpm-item"><span>Tồn Kho Hiện Tại (Stock)</span><input type="checkbox" data-col="stock" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Mức Min An Toàn (Min Stock)</span><input type="checkbox" data-col="minStock" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Trạng Thái Cảnh Báo (Status)</span><input type="checkbox" data-col="status" onchange="onColCheckboxChange(this)"></label>
+
+          <!-- Group 4: TRACEABILITY (Optional Add-on) -->
+          <div class="cpm-group-header"><span>🔍</span> TRACEABILITY</div>
+          <label class="cpm-item"><span>Mã Khuôn Cũ (Old Die Set)</span><input type="checkbox" data-col="moldOld" onchange="onColCheckboxChange(this)"></label>
+          <label class="cpm-item"><span>Mã Khuôn Mới (New Die Set)</span><input type="checkbox" data-col="moldNew" onchange="onColCheckboxChange(this)"></label>
+        </div>
+        <div class="cpm-footer">
+          <span style="font-size:11px; color:#94a3b8;">Tự động lưu vào trình duyệt</span>
+          <button type="button" class="cpm-btn-done" onclick="toggleColumnPicker(event)">Đóng</button>
+        </div>
+      </div>
     </section>
 
-    <!-- ===== TAB: Charts & Analytics ===== -->
+    <!-- ===== TAB 3: Analytics (Biểu Đồ & Phân Tích) ===== -->
     <section id="chartTab" class="hidden">
       <!-- Main Focused Chart Box: Top 10 Combo Column (Lượt thay) & Line (Pcs thay) -->
-      <div class="report-chart-box" style="margin-top:0; margin-bottom: 18px; padding: 20px 24px;">
-        <div class="chart-box-header" style="margin-bottom: 8px; padding-bottom: 8px;">
-          <span class="chart-box-title" style="font-size: 16.5px; font-weight:800; color:var(--ink-dark);">
+      <div class="report-chart-box" style="margin-top:0; margin-bottom: 14px; padding: 14px 20px;">
+        <div class="chart-box-header" style="margin-bottom: 6px; padding-bottom: 6px;">
+          <span class="chart-box-title" style="font-size: 14.5px; font-weight:800; color:var(--ink);">
             📊 Top 10 Linh Kiện Thay Nhiều Nhất
           </span>
+          <span style="font-size:11.5px; color:var(--ink-muted); margin-left:auto;">(So sánh Số lượt thay &amp; Tổng linh kiện thay Pcs)</span>
         </div>
-        <div id="chartTopReplaced" class="chart-box-body" style="min-height: 330px;"></div>
+        <div id="chartTopReplaced" class="chart-box-body" style="min-height: 220px; max-height: 240px;"></div>
       </div>
 
       <!-- Top 10 Detail Table -->
       <div class="summary-box" style="margin-top:0;">
-        <div style="padding: 12px 18px; font-weight:800; font-size:14px; color:var(--ink); background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <div style="padding: 12px 18px; font-weight:800; font-size:13.5px; color:var(--ink); background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
           <span>📋 Chi Tiết Top 10 Linh Kiện Tiêu Hao</span>
         </div>
         <table class="data-table">
@@ -196,13 +249,40 @@
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <select id="top5ModalYearSelect" onchange="onTop5ModalYearChange(this.value)" class="top5-year-select"></select>
-          <button class="top5-close-btn" onclick="closeTop5Modal()">✕</button>
+        <button class="top5-close-btn" onclick="closeTop5Modal()">✕</button>
         </div>
       </div>
       <div class="top5-modal-body" id="top5ModalBody"></div>
       <div class="top5-modal-footer">
         <div id="top5ModalSummary" style="font-size:12px;color:var(--ink-muted);font-weight:600;"></div>
         <button class="top5-btn-close-action" onclick="closeTop5Modal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Component Full Details Modal / Drawer -->
+  <div id="componentDetailModal" class="top5-modal-overlay hidden" onclick="if(event.target===this)closeComponentDetailModal()">
+    <div class="top5-modal-container detail-modal-container" style="max-width:820px; width:92vw;">
+      <div class="top5-modal-header" style="background:#f8fafc; border-bottom:1px solid var(--border);">
+        <div class="top5-header-title">
+          <span class="top5-header-icon" style="background:#eff6ff; border-color:#bfdbfe; color:#2563eb;">🔍</span>
+          <div>
+            <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:8px;" id="detailModalTitle">
+              Chi Tiết Linh Kiện
+            </h3>
+            <p style="margin:2px 0 0; font-size:12px; color:var(--ink-muted);" id="detailModalSubtitle">
+              Toàn bộ thông tin tồn kho, tuổi thọ dập và lịch sử thay thế
+            </p>
+          </div>
+        </div>
+        <button class="top5-close-btn" onclick="closeComponentDetailModal()" title="Đóng (Esc)">✕</button>
+      </div>
+      <div class="top5-modal-body" id="detailModalBody" style="padding:16px 20px; gap:16px; max-height:calc(85vh - 120px); overflow-y:auto;">
+        <!-- Categorized sections injected dynamically -->
+      </div>
+      <div class="top5-modal-footer" style="padding:10px 20px; background:#f8fafc; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:12px; color:var(--ink-muted);" id="detailModalFooterNote">ComponetWear Manufacturing System</span>
+        <button type="button" class="top5-btn-close-action" onclick="closeComponentDetailModal()">Đóng</button>
       </div>
     </div>
   </div>
