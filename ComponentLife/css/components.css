@@ -670,3 +670,125 @@ button.secondary:hover {
   justify-content: center;
 }
 
+/* ===== COLUMN PICKER DROPDOWN ===== */
+.col-picker-container {
+  position: relative;
+  display: inline-block;
+  user-select: none;
+}
+
+.btn-col-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+}
+
+.btn-col-picker:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.col-badge {
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid #bfdbfe;
+}
+
+.col-picker-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 250px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  padding: 8px 0;
+}
+
+.col-picker-menu.hidden {
+  display: none !important;
+}
+
+.cpm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12.5px;
+  color: #0f172a;
+}
+
+.cpm-reset-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.cpm-reset-link:hover {
+  color: #1d4ed8;
+}
+
+.cpm-list {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 6px 8px;
+}
+
+.cpm-group-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  padding: 6px 6px 2px;
+  letter-spacing: 0.03em;
+}
+
+.cpm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.cpm-item:hover {
+  background: #f1f5f9;
+}
+
+.cpm-item input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+

@@ -150,17 +150,132 @@ function renderMonth() {
   console.log(`%c[RENDER:MONTH] renderMonth DONE in ${elapsed}ms: ${partsList.length}/${allPartsList.length} rows rendered`, "color:#0284c7;");
 }
 
-// ===== RENDER STOCK TABLE =====
+// Global tracking for expanded Dashboard rows & column visibility
+window._expandedDashboardRows = window._expandedDashboardRows || new Set();
+
+const DEFAULT_DASHBOARD_COLS = {
+  stock: true,
+  minStock: true,
+  status: true,
+  timesCount: true,
+  used: true,
+  currentShot: false,
+  avgShot: false,
+  minMaxShot: false,
+  wearPercent: false,
+  lastRepDate: false
+};
+
+function getDashboardVisibleCols() {
+  try {
+    const saved = localStorage.getItem('dashboard_visible_cols_v1');
+    if (saved) return JSON.parse(saved);
+  } catch (e) {}
+  return { ...DEFAULT_DASHBOARD_COLS };
+}
+
+function saveDashboardVisibleCols(cols) {
+  try {
+    localStorage.setItem('dashboard_visible_cols_v1', JSON.stringify(cols));
+  } catch (e) {}
+}
+
+window.toggleColumnPicker = function(evt) {
+  if (evt) evt.stopPropagation();
+  const menu = document.getElementById("colPickerMenu");
+  if (menu) menu.classList.toggle("hidden");
+};
+
+window.onColCheckboxChange = function(cb) {
+  const colKey = cb.dataset.col;
+  const cols = getDashboardVisibleCols();
+  cols[colKey] = cb.checked;
+  saveDashboardVisibleCols(cols);
+  renderStockTable();
+};
+
+window.resetDefaultDashboardCols = function() {
+  saveDashboardVisibleCols({ ...DEFAULT_DASHBOARD_COLS });
+  renderStockTable();
+  const menu = document.getElementById("colPickerMenu");
+  if (menu) menu.classList.add("hidden");
+};
+
+// Close column picker on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.col-picker-container')) {
+    const menu = document.getElementById("colPickerMenu");
+    if (menu && !menu.classList.contains("hidden")) menu.classList.add("hidden");
+  }
+});
+
+window.toggleDashboardRowDetail = function(rowId, evt) {
+  if (evt) {
+    if (evt.target && (evt.target.tagName === 'INPUT' || evt.target.tagName === 'SELECT')) return;
+    evt.stopPropagation();
+  }
+  if (_expandedDashboardRows.has(rowId)) {
+    _expandedDashboardRows.delete(rowId);
+  } else {
+    _expandedDashboardRows.add(rowId);
+  }
+  const rowEl = document.getElementById(`row_${rowId}`);
+  const detailEl = document.getElementById(`detail_${rowId}`);
+  const btnEl = document.getElementById(`btn_${rowId}`);
+  const isExpanded = _expandedDashboardRows.has(rowId);
+  if (rowEl) rowEl.classList.toggle("is-expanded", isExpanded);
+  if (detailEl) detailEl.classList.toggle("hidden", !isExpanded);
+  if (btnEl) btnEl.innerHTML = isExpanded ? 'Thu gọn ▲' : 'Chi tiết ▾';
+};
+
+// ===== RENDER DASHBOARD (STOCK & LIFETIME TRACKING) =====
 function renderStockTable() {
-  console.log("%c[RENDER:STOCK] renderStockTable START", "color:#0284c7; font-weight:bold;");
+  console.log("%c[RENDER:DASHBOARD] renderStockTable START", "color:#0284c7; font-weight:bold;");
   const t0 = performance.now();
   const allParts = getPartsToRender('stock');
   const currentYm = selectedMonth(), currentDay = selectedDay(), currentYear = selectedYear();
   if ($("stockNote")) {
-    if (currentYm) { const [y, m] = currentYm.split("-").map(Number); $("stockNote").innerHTML = `Thống kê thay thế <b>tháng ${monthNames[m-1]} ${y}</b>`; }
-    else if (currentYear) { $("stockNote").innerHTML = `Thống kê thay thế <b>năm ${currentYear}</b>`; }
-    else { $("stockNote").innerHTML = `Thống kê thay thế <b>tất cả thời gian</b>`; }
+    if (currentYm) { const [y, m] = currentYm.split("-").map(Number); $("stockNote").innerHTML = `Thống kê tổng hợp <b>tháng ${monthNames[m-1]} ${y}</b>`; }
+    else if (currentYear) { $("stockNote").innerHTML = `Thống kê tổng hợp <b>năm ${currentYear}</b>`; }
+    else { $("stockNote").innerHTML = `Thống kê tổng hợp <b>tất cả thời gian</b>`; }
   }
+
+  const cols = getDashboardVisibleCols();
+
+  // Sync checkboxes in colPickerMenu
+  document.querySelectorAll('#colPickerMenu input[data-col]').forEach(input => {
+    const k = input.dataset.col;
+    if (cols[k] !== undefined) input.checked = !!cols[k];
+  });
+
+  // Calculate active extra count
+  const extraCount = Object.keys(cols).filter(k => !DEFAULT_DASHBOARD_COLS[k] && cols[k]).length;
+  if ($("colActiveBadge")) {
+    $("colActiveBadge").textContent = extraCount > 0 ? `+${extraCount} cột` : 'Cơ bản';
+  }
+
+  // Generate Table Header HTML dynamically
+  let colSpanCount = 3; // #, Part Name, Mold+Series
+  let headColsHtml = `
+    <th style="width:45px;text-align:center;">#</th>
+    <th style="min-width:90px;">Part Name</th>
+    <th style="min-width:160px;">Mold + Series</th>
+  `;
+  if (cols.stock) { headColsHtml += `<th style="text-align:center;" title="Số lượng tồn kho hiện tại">Tồn Kho</th>`; colSpanCount++; }
+  if (cols.minStock) { headColsHtml += `<th style="text-align:center;" title="Mức tồn kho tối thiểu">Min</th>`; colSpanCount++; }
+  if (cols.status) { headColsHtml += `<th style="text-align:center;" title="Trạng thái tồn kho">Trạng Thái</th>`; colSpanCount++; }
+  if (cols.timesCount) { headColsHtml += `<th style="text-align:center;" title="Tổng số lần thay ra">Lượt Thay</th>`; colSpanCount++; }
+  if (cols.used) { headColsHtml += `<th style="text-align:center;" title="Tổng số chi tiết đã thay thế (Pcs)">Tổng Pcs</th>`; colSpanCount++; }
+  if (cols.currentShot) { headColsHtml += `<th style="text-align:right;" title="Số shot đang chạy hiện tại">Shot HT</th>`; colSpanCount++; }
+  if (cols.avgShot) { headColsHtml += `<th style="text-align:right;" title="Tuổi thọ shot trung bình">TB Shot</th>`; colSpanCount++; }
+  if (cols.minMaxShot) { headColsHtml += `<th style="text-align:center;" title="Khoảng Shot nhỏ nhất / lớn nhất">Min - Max Shot</th>`; colSpanCount++; }
+  if (cols.wearPercent) { headColsHtml += `<th style="text-align:center;" title="Tỷ lệ % đã dập so với tuổi thọ TB">Độ Mòn (%)</th>`; colSpanCount++; }
+  if (cols.lastRepDate) { headColsHtml += `<th style="text-align:center;" title="Ngày thay thế gần nhất">Lần Thay Cuối</th>`; colSpanCount++; }
+  headColsHtml += `<th style="text-align:center;width:105px;" title="Nhấn để mở rộng/thu gọn chi tiết">Chi Tiết</th>`;
+  colSpanCount++;
+
+  const theadEl = document.querySelector('#dashboardTable thead');
+  if (theadEl) theadEl.innerHTML = `<tr>${headColsHtml}</tr>`;
 
   // Index replacements with normalized keys (matching both OldDieSet, NewDieSet, DieSet)
   const repsByPartMold = new Map();
@@ -185,6 +300,16 @@ function renderStockTable() {
       if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
       repsByPartMold.get(key).push(evObj);
     });
+  });
+
+  // Index shoot production data
+  const shootsByMold = new Map();
+  (db.shoot || []).forEach(s => {
+    if (!s.Date || Number(s.Output) <= 0) return;
+    const d = String(s.DieSet || '').toLowerCase().trim();
+    const p = String(s.Part || '').toLowerCase().trim();
+    if (d) { if (!shootsByMold.has(d)) shootsByMold.set(d, []); shootsByMold.get(d).push(s); }
+    if (p && p !== d) { if (!shootsByMold.has(p)) shootsByMold.set(p, []); shootsByMold.get(p).push(s); }
   });
 
   let totalCount = 0, safeCount = 0, warningCount = 0, criticalCount = 0, replacedCount = 0;
@@ -223,10 +348,46 @@ function renderStockTable() {
     let status = 'SAFE';
     if (stock <= 0) { status = 'CRITICAL'; criticalCount++; } else if (stock < minStock) { status = 'WARNING'; warningCount++; } else { safeCount++; }
     totalCount++;
-    return { part, series, moldNew, moldOld, moldSeries, moldSeriesHtml, stock, minStock, used, timesCount: allEvents.length, events: allEvents, status };
+
+    // Calculate lifetime cycles & shot metrics
+    let allShoots = [];
+    if (dNewLower && shootsByMold.has(dNewLower)) allShoots.push(...shootsByMold.get(dNewLower));
+    if (dOldLower && dOldLower !== dNewLower && shootsByMold.has(dOldLower)) allShoots.push(...shootsByMold.get(dOldLower));
+    if (pLower && shootsByMold.has(pLower) && !allShoots.length) allShoots.push(...shootsByMold.get(pLower));
+
+    const shootSet = new Set(), sortedShoots = [];
+    allShoots.sort((a, b) => (a.Date || '').localeCompare(b.Date || '')).forEach(s => {
+      const sk = `${s.Date}|${s.Output}|${s.DieSet}`;
+      if (!shootSet.has(sk)) { shootSet.add(sk); sortedShoots.push(s); }
+    });
+
+    const totalLifetimeShots = sortedShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+    const cycles = [];
+    if (allEvents.length > 0) {
+      const c1 = sortedShoots.filter(s => s.Date < allEvents[0].date).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+      if (c1 > 0) cycles.push(c1);
+      for (let i = 0; i < allEvents.length - 1; i++) {
+        const cN = sortedShoots.filter(s => s.Date >= allEvents[i].date && s.Date < allEvents[i + 1].date).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+        if (cN > 0) cycles.push(cN);
+      }
+    }
+
+    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
+    const minShotLife = cycles.length > 0 ? Math.min(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
+    const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
+    const currentShotCount = allEvents.length > 0 ? sortedShoots.filter(s => s.Date >= allEvents[allEvents.length - 1].date).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : totalLifetimeShots;
+
+    return {
+      part, series, moldNew, moldOld, moldSeries, moldSeriesHtml,
+      stock, minStock, used, timesCount: allEvents.length, events: allEvents, status,
+      cycles, averageShotLife, minShotLife, maxShotLife, currentShotCount
+    };
   });
 
-  processedList.sort((a, b) => { if ((a.used > 0) !== (b.used > 0)) return b.used > 0 ? 1 : -1; return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' }); });
+  processedList.sort((a, b) => {
+    if ((a.used > 0) !== (b.used > 0)) return b.used > 0 ? 1 : -1;
+    return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+  });
 
   if ($("cntAll")) $("cntAll").textContent = totalCount.toLocaleString();
   if ($("cntReplaced")) $("cntReplaced").textContent = replacedCount.toLocaleString();
@@ -254,32 +415,149 @@ function renderStockTable() {
 
   if ($("stockRows")) {
     if (!visibleList.length) {
-      $("stockRows").innerHTML = `<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--muted);">Không có linh kiện nào phù hợp.</td></tr>`;
+      $("stockRows").innerHTML = `<tr><td colspan="${colSpanCount}" style="text-align:center;padding:28px;color:var(--muted);">Không có linh kiện nào phù hợp.</td></tr>`;
     } else {
-      $("stockRows").innerHTML = visibleList.map((row, idx) => {
-        const statusBadge = row.status === 'CRITICAL' ? `<span class="badge-stock critical">🔴 URGENT</span>` : (row.status === 'WARNING' ? `<span class="badge-stock warning">🟡 NEED ORDER</span>` : `<span class="badge-stock safe">🟢 NO NEED</span>`);
-        const datesHtml = row.events.length > 0 ? row.events.map((ev, i) => { const dp = (ev.date || '').split('-'); return `<span class="date-chip" title="Lần ${i+1}">${dp.length === 3 ? `${dp[2]}/${dp[1]}` : ev.date}</span>`; }).join(' ') : '-';
-        const qtyHtml = row.events.length > 0 ? row.events.map(ev => `<span class="qty-chip">${ev.qty} pcs</span>`).join(' ') : '-';
-        const reqHtml = row.events.length > 0 ? row.events.map(ev => ev.requestId ? `<span class="date-chip" style="background:#f1f5f9;color:#334155;font-weight:700;">#${esc(ev.requestId)}</span>` : '').filter(Boolean).join(' ') || '-' : '-';
-        return `<tr>
+      let rowsHtml = "";
+      visibleList.forEach((row, idx) => {
+        const rowId = `dash_${idx}_${String(row.part).replace(/[^a-zA-Z0-9]/g, '_')}_${String(row.moldNew || row.moldOld).replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const isExpanded = _expandedDashboardRows.has(rowId);
+        const statusBadge = row.status === 'CRITICAL' 
+          ? `<span class="badge-stock critical" title="Tồn kho = 0 (Hết hàng)">🔴 URGENT</span>` 
+          : (row.status === 'WARNING' 
+            ? `<span class="badge-stock warning" title="Tồn kho < Min (Cần đặt hàng)">🟡 NEED ORDER</span>` 
+            : `<span class="badge-stock safe" title="Tồn kho ≥ Min (Đủ an toàn)">🟢 NO NEED</span>`);
+
+        let rowCellsHtml = `
           <td style="text-align:center;color:var(--ink-muted);font-weight:600;">${idx + 1}</td>
           <td style="font-weight:800;color:var(--ink-dark);"><span style="font-family:monospace;background:#f8fafc;padding:3px 7px;border-radius:4px;border:1px solid #e2e8f0;color:#0f172a;">${esc(row.part)}</span></td>
           <td style="font-weight:600;color:#475569;"><span style="font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${row.moldSeriesHtml || esc(row.moldSeries)}</span></td>
-          <td style="text-align:center;font-weight:600;color:#64748b;">${row.minStock}</td>
-          <td style="text-align:center;font-weight:800;color:${row.stock <= 0 ? '#dc2626' : '#0f172a'};">${row.stock}</td>
-          <td style="text-align:center;font-weight:700;">${row.used > 0 ? `<b style="color:#7c3aed;">${row.used}</b>` : '-'}</td>
-          <td style="text-align:center;font-weight:700;">${row.timesCount > 0 ? `<span class="stock-pill-count">${row.timesCount}</span>` : '-'}</td>
-          <td style="font-size:12px;">${datesHtml}</td>
-          <td style="font-size:12px;">${qtyHtml}</td>
-          <td style="font-size:12px;">${reqHtml}</td>
-          <td style="text-align:center;">${statusBadge}</td>
-        </tr>`;
-      }).join("");
+        `;
+        if (cols.stock) {
+          rowCellsHtml += `<td style="text-align:center;font-weight:800;color:${row.stock <= 0 ? '#dc2626' : (row.stock < row.minStock ? '#d97706' : '#0f172a')}; font-size:14.5px;">${row.stock}</td>`;
+        }
+        if (cols.minStock) {
+          rowCellsHtml += `<td style="text-align:center;font-weight:600;color:#64748b; font-size:13.5px;">${row.minStock}</td>`;
+        }
+        if (cols.status) {
+          rowCellsHtml += `<td style="text-align:center;">${statusBadge}</td>`;
+        }
+        if (cols.timesCount) {
+          rowCellsHtml += `<td style="text-align:center;font-weight:700;">${row.timesCount > 0 ? `<span class="stock-pill-count">${row.timesCount}</span>` : '-'}</td>`;
+        }
+        if (cols.used) {
+          rowCellsHtml += `<td style="text-align:center;font-weight:700;">${row.used > 0 ? `<b style="color:#7c3aed;">${row.used}</b>` : '-'}</td>`;
+        }
+        if (cols.currentShot) {
+          rowCellsHtml += `<td style="text-align:right;font-weight:700;color:#0f172a;">${row.currentShotCount > 0 ? row.currentShotCount.toLocaleString() : '-'}</td>`;
+        }
+        if (cols.avgShot) {
+          rowCellsHtml += `<td style="text-align:right;font-weight:700;color:#0369a1;">${row.averageShotLife > 0 ? row.averageShotLife.toLocaleString() : '-'}</td>`;
+        }
+        if (cols.minMaxShot) {
+          rowCellsHtml += `<td style="text-align:center;font-size:12px;color:#475569;">${row.minShotLife && row.maxShotLife ? `${row.minShotLife.toLocaleString()} - ${row.maxShotLife.toLocaleString()}` : '-'}</td>`;
+        }
+        if (cols.wearPercent) {
+          const pct = row.averageShotLife > 0 ? Math.min(100, Math.round((row.currentShotCount / row.averageShotLife) * 100)) : 0;
+          const barColor = pct >= 90 ? '#dc2626' : (pct >= 70 ? '#d97706' : '#059669');
+          rowCellsHtml += `<td style="text-align:center;"><div style="display:inline-flex;align-items:center;gap:6px;"><div style="width:45px;height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${barColor};"></div></div><b style="font-size:11.5px;color:${barColor};">${pct}%</b></div></td>`;
+        }
+        if (cols.lastRepDate) {
+          const lastDate = row.events.length > 0 ? row.events[row.events.length - 1].date : '-';
+          rowCellsHtml += `<td style="text-align:center;font-size:12px;color:#475569;font-weight:600;">${lastDate}</td>`;
+        }
+        rowCellsHtml += `
+          <td style="text-align:center;">
+            <button id="btn_${rowId}" class="btn-expand-detail" onclick="toggleDashboardRowDetail('${rowId}', event)">
+              ${isExpanded ? 'Thu gọn ▲' : 'Chi tiết ▾'}
+            </button>
+          </td>
+        `;
+
+        rowsHtml += `
+          <tr id="row_${rowId}" class="dashboard-main-row ${isExpanded ? 'is-expanded' : ''}" onclick="toggleDashboardRowDetail('${rowId}', event)">
+            ${rowCellsHtml}
+          </tr>
+          <tr id="detail_${rowId}" class="dashboard-detail-row ${isExpanded ? '' : 'hidden'}">
+            <td colspan="${colSpanCount}" style="padding:0;">
+              <div class="dashboard-drawer-panel">
+                <!-- Card 1: Lịch Sử Thay Thế Chi Tiết -->
+                <div class="drawer-card">
+                  <div class="drawer-card-title">
+                    <span>📦 Lịch Sử Thay Thế Chi Tiết</span>
+                    <span style="font-size:11.5px; font-weight:600; color:#64748b; margin-left:auto;">(${row.timesCount} lượt thay, tổng ${row.used} pcs)</span>
+                  </div>
+                  <div class="drawer-table-wrap">
+                    <table class="drawer-mini-table">
+                      <thead>
+                        <tr>
+                          <th style="width:40px; text-align:center;">Lần</th>
+                          <th>Ngày Thay</th>
+                          <th style="text-align:center;">Số Lượng</th>
+                          <th>Mã Request ID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${row.events.length > 0 ? row.events.map((ev, i) => `
+                          <tr>
+                            <td style="text-align:center; font-weight:700; color:#64748b;">${i + 1}</td>
+                            <td><span class="date-chip" style="font-size:11px;">📅 ${ev.date}</span></td>
+                            <td style="text-align:center;"><span class="qty-chip" style="font-size:11px;">${ev.qty} pcs</span></td>
+                            <td>${ev.requestId ? `<span class="date-chip" style="background:#f1f5f9;color:#1e293b;font-weight:700;font-size:11px;">#${esc(ev.requestId)}</span>` : '<span style="color:#94a3b8;">-</span>'}</td>
+                          </tr>
+                        `).join('') : '<tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:12px;">Chưa phát sinh lượt thay thế nào trong kỳ.</td></tr>'}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Card 2: Phân Tích Chu Kỳ & Tuổi Thọ Dập -->
+                <div class="drawer-card">
+                  <div class="drawer-card-title">
+                    <span>⚡ Chu Kỳ &amp; Tuổi Thọ Dập (Shot Cycles)</span>
+                    <span style="font-size:11.5px; font-weight:600; color:#0284c7; margin-left:auto;">(${row.cycles.length} chu kỳ hoàn chỉnh)</span>
+                  </div>
+                  <div class="drawer-kpi-grid">
+                    <div class="kpi-mini-pill"><span>TB Shot:</span> <b style="color:#0284c7;">${row.averageShotLife ? row.averageShotLife.toLocaleString() : '-'}</b></div>
+                    <div class="kpi-mini-pill"><span>Shot Min:</span> <b style="color:#059669;">${row.minShotLife ? row.minShotLife.toLocaleString() : '-'}</b></div>
+                    <div class="kpi-mini-pill"><span>Shot Max:</span> <b style="color:#d97706;">${row.maxShotLife ? row.maxShotLife.toLocaleString() : '-'}</b></div>
+                    <div class="kpi-mini-pill"><span>Shot Hiện Tại:</span> <b style="color:#7c3aed;">${row.currentShotCount ? row.currentShotCount.toLocaleString() : '-'}</b></div>
+                  </div>
+                  <div class="drawer-table-wrap">
+                    <table class="drawer-mini-table">
+                      <thead>
+                        <tr>
+                          <th style="width:65px; text-align:center;">Chu Kỳ</th>
+                          <th style="text-align:right;">Sản Lượng (Shots)</th>
+                          <th style="text-align:center;">Đánh Giá So Với TB</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${row.cycles.length > 0 ? row.cycles.map((cVal, i) => {
+                          const diff = row.averageShotLife > 0 ? Math.round(((cVal - row.averageShotLife) / row.averageShotLife) * 100) : 0;
+                          const diffBadge = diff > 10 ? `<span style="color:#059669; font-weight:700;">+${diff}% (Bền tốt)</span>` : (diff < -10 ? `<span style="color:#dc2626; font-weight:700;">${diff}% (Mòn sớm)</span>` : `<span style="color:#64748b;">Chuẩn (~TB)</span>`);
+                          return `
+                            <tr>
+                              <td style="text-align:center; font-weight:700;">Cycle ${i + 1}</td>
+                              <td style="text-align:right; font-weight:700; color:#0f172a;">${cVal.toLocaleString()}</td>
+                              <td style="text-align:center;">${diffBadge}</td>
+                            </tr>
+                          `;
+                        }).join('') : `<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:12px;">Đang chạy chu kỳ đầu tiên (Shot hiện tại: ${row.currentShotCount ? row.currentShotCount.toLocaleString() : '0'}).</td></tr>`}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+      $("stockRows").innerHTML = rowsHtml;
     }
     updateGlobalPaginationDock('stock', limit, filtered.length, () => { _stockRenderLimit += 40; renderStockTable(); }, () => { _stockRenderLimit = filtered.length; renderStockTable(); });
   }
   const elapsed = Math.round(performance.now() - t0);
-  console.log(`%c[RENDER:STOCK] renderStockTable DONE in ${elapsed}ms: ${visibleList.length}/${filtered.length} rows (Total: ${totalCount}, Critical: ${criticalCount}, Warning: ${warningCount}, Safe: ${safeCount})`, "color:#0284c7;");
+  console.log(`%c[RENDER:DASHBOARD] renderStockTable DONE in ${elapsed}ms: ${visibleList.length}/${filtered.length} rows (Total: ${totalCount}, Critical: ${criticalCount}, Warning: ${warningCount}, Safe: ${safeCount})`, "color:#0284c7;");
 }
 
 
