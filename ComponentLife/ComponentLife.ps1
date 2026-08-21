@@ -349,6 +349,28 @@ try {
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                 $contentType = "application/json; charset=utf-8"
             }
+            elseif ($path -eq '/api/export-report-excel' -and $method -eq 'POST') {
+                # Professional Native Dynamic Excel Report Export with OpenXML Chart
+                $tmpJson = Join-Path $DataDir '.export_payload.json'
+                $tmpXlsx = Join-Path $DataDir '.export_out.xlsx'
+                [System.IO.File]::WriteAllText($tmpJson, $bodyText, (New-Object System.Text.UTF8Encoding($false)))
+                
+                $pyScript = Join-Path $Root 'generate_report_excel.py'
+                $pyCmd = "python `"$pyScript`" `"$tmpJson`" `"$tmpXlsx`""
+                $null = cmd.exe /c $pyCmd 2>&1
+
+                if (Test-Path $tmpXlsx) {
+                    $responseBytes = [System.IO.File]::ReadAllBytes($tmpXlsx)
+                    $contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    try { Remove-Item $tmpXlsx -Force -ErrorAction SilentlyContinue } catch {}
+                    try { Remove-Item $tmpJson -Force -ErrorAction SilentlyContinue } catch {}
+                } else {
+                    $statusLine = "HTTP/1.1 500 Internal Server Error`r`n"
+                    $resObj = [pscustomobject]@{ error = "Failed to generate native Excel report via Python openpyxl." }
+                    $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
+                    $contentType = "application/json; charset=utf-8"
+                }
+            }
             elseif ($path.StartsWith("/data/") -or $path.StartsWith("/css/") -or $path.StartsWith("/js/") -or $path.EndsWith(".json") -or $path.EndsWith(".js") -or $path.EndsWith(".css") -or $path.EndsWith(".html")) {
                 $rel = $path.TrimStart('/').Replace('/', [System.IO.Path]::DirectorySeparatorChar)
                 $targetFile = Join-Path $Root $rel

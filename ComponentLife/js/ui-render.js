@@ -402,9 +402,32 @@ function renderComponentLifeReport() {
 }
 
 // ===== RENDER CHARTS & ANALYTICS TAB =====
+let _chartSortCol = 'replacementCount'; // default sort column
+let _chartSortAsc = false; // default: high to low (descending)
+
+function toggleChartSort(col) {
+  if (_chartSortCol === col) {
+    _chartSortAsc = !_chartSortAsc;
+  } else {
+    _chartSortCol = col;
+    _chartSortAsc = false; // Always start high to low (top to low)
+  }
+  renderChartsTab();
+}
+
+function getSortIndicator(col) {
+  if (_chartSortCol === col) {
+    return _chartSortAsc
+      ? `<span class="sort-tri active asc" title="Sắp xếp: Thấp đến Cao (Bấm để đổi)">▲</span>`
+      : `<span class="sort-tri active desc" title="Sắp xếp: Cao đến Thấp (Bấm để đổi)">▼</span>`;
+  }
+  return `<span class="sort-tri inactive" title="Bấm để lọc từ Cao đến Thấp">▽</span>`;
+}
+
+// --- RENDER CHARTS TAB ---
 function renderChartsTab() {
-  console.log("%c[RENDER:CHARTS] renderChartsTab START", "color:#7c3aed; font-weight:bold;");
-  if (!$("chartTab") || $("chartTab").classList.contains("hidden")) return;
+  const chartTab = $("chartTab");
+  if (!chartTab || chartTab.classList.contains("hidden")) return;
 
   const ymFilter = selectedMonth();
   const yFilter = selectedYear();
@@ -412,18 +435,16 @@ function renderChartsTab() {
 
   // Index Shoots and Replacements with date filtering
   const shootsByMold = new Map();
+  // A. Full Shoot Index (Unfiltered by date to accurately compute full cycle shots)
   (db.shoot || []).forEach(s => {
     if (!s.Date || !s.Output || Number(s.Output) <= 0) return;
-    if (dFilter && s.Date !== dFilter) return;
-    else if (ymFilter && !s.Date.startsWith(ymFilter)) return;
-    else if (!ymFilter && yFilter && !s.Date.startsWith(yFilter)) return;
-
     const d = String(s.DieSet || '').toLowerCase().trim();
     const p = String(s.Part || '').toLowerCase().trim();
     if (d) { if (!shootsByMold.has(d)) shootsByMold.set(d, []); shootsByMold.get(d).push(s); }
     if (p && p !== d) { if (!shootsByMold.has(p)) shootsByMold.set(p, []); shootsByMold.get(p).push(s); }
   });
 
+  // B. Filtered Replacements for the selected scope
   const repsByPartMold = new Map();
   (db.replacements || []).forEach(r => {
     const lbl = String(r.Label || '').trim();
@@ -437,6 +458,18 @@ function renderChartsTab() {
     const key = `${p}|${d}`;
     if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
     repsByPartMold.get(key).push(r);
+  });
+
+  // C. All Historical Replacements for baseline lifecycle calculation
+  const allHistRepsByPartMold = new Map();
+  (db.replacements || []).forEach(r => {
+    const lbl = String(r.Label || '').trim();
+    if (!r.ReplaceDate || lbl === '-' || lbl === '0' || lbl === '·') return;
+    const p = String(r.Part || '').toLowerCase().trim();
+    const d = String(r.DieSet || r.NewDieSet || r.OldDieSet || '').toLowerCase().trim();
+    const key = `${p}|${d}`;
+    if (!allHistRepsByPartMold.has(key)) allHistRepsByPartMold.set(key, []);
+    allHistRepsByPartMold.get(key).push(r);
   });
 
   const allParts = getPartsToRender();
@@ -475,16 +508,24 @@ function renderChartsTab() {
       if (!repSet.has(rk)) { repSet.add(rk); sortedReps.push(r); }
     });
 
+    // Get all historical reps for cycle calculation
+    let histReps = [];
+    if (allHistRepsByPartMold.has(k1)) histReps.push(...allHistRepsByPartMold.get(k1));
+    if (k2 !== k1 && allHistRepsByPartMold.has(k2)) histReps.push(...allHistRepsByPartMold.get(k2));
+    const histRepSet = new Set(), sortedHistReps = [];
+    histReps.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
+      const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
+      if (!histRepSet.has(rk)) { histRepSet.add(rk); sortedHistReps.push(r); }
+    });
+
     const totalLifetimeShots = sortedShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
     const replacementCount = sortedReps.length;
     const totalPartsReplacedPcs = sortedReps.reduce((sum, r) => sum + (Number(r.Label) || 1), 0);
 
     const cycles = [];
-    if (replacementCount > 0) {
-      const c1 = sortedShoots.filter(s => s.Date < sortedReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
-      if (c1 > 0) cycles.push(c1);
-      for (let i = 0; i < sortedReps.length - 1; i++) {
-        const cN = sortedShoots.filter(s => s.Date >= sortedReps[i].ReplaceDate && s.Date < sortedReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+    if (sortedHistReps.length > 1) {
+      for (let i = 0; i < sortedHistReps.length - 1; i++) {
+        const cN = sortedShoots.filter(s => s.Date >= sortedHistReps[i].ReplaceDate && s.Date < sortedHistReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
         if (cN > 0) cycles.push(cN);
       }
     }
@@ -492,7 +533,7 @@ function renderChartsTab() {
     const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
     const minShotLife = cycles.length > 0 ? Math.min(...cycles) : '';
     const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : '';
-    const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+    const currentShotCount = sortedHistReps.length > 0 ? sortedShoots.filter(s => s.Date >= sortedHistReps[sortedHistReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
 
     const moldName = (moldNew || moldOld || series || '').trim();
 
@@ -511,19 +552,42 @@ function renderChartsTab() {
     });
   });
 
-  // Sort descending by replacement count
+  // Dynamic Sorting by user chosen column
   rowsData.sort((a, b) => {
-    const repA = Number(a.replacementCount) || 0;
-    const repB = Number(b.replacementCount) || 0;
-    if (repB !== repA) return repB - repA;
-    const pcsA = Number(a.totalPartsReplacedPcs) || 0;
-    const pcsB = Number(b.totalPartsReplacedPcs) || 0;
-    if (pcsB !== pcsA) return pcsB - pcsA;
-    return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+    let valA, valB;
+    if (_chartSortCol === 'wearRate') {
+      const avgA = Number(a.averageShotLife) || 0, curA = Number(a.currentShotCount) || 0;
+      const avgB = Number(b.averageShotLife) || 0, curB = Number(b.currentShotCount) || 0;
+      valA = avgA > 0 ? (curA / avgA) : 0;
+      valB = avgB > 0 ? (curB / avgB) : 0;
+    } else {
+      valA = a[_chartSortCol];
+      valB = b[_chartSortCol];
+    }
+
+    if (_chartSortCol === 'part' || _chartSortCol === 'moldName' || _chartSortCol === 'series') {
+      const cmp = String(valA || '').localeCompare(String(valB || ''), undefined, { numeric: true, sensitivity: 'base' });
+      return _chartSortAsc ? cmp : -cmp;
+    } else {
+      const numA = Number(valA) || 0;
+      const numB = Number(valB) || 0;
+      if (numB !== numA) {
+        return _chartSortAsc ? numA - numB : numB - numA;
+      }
+      return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
+    }
   });
 
+  // Pick top 10 items based on active sort
+  let top10 = [];
+  if (_chartSortCol === 'replacementCount' || _chartSortCol === 'totalPartsReplacedPcs') {
+    const active = rowsData.filter(r => (Number(r[_chartSortCol]) || 0) > 0);
+    top10 = (active.length > 0 ? active : rowsData).slice(0, 10);
+  } else {
+    top10 = rowsData.slice(0, 10);
+  }
+
   // Render Main Focused Chart: Top 10 Column (Lượt thay) & Line (Pcs thay)
-  const top10 = rowsData.filter(r => Number(r.replacementCount) > 0).slice(0, 10);
   renderChartTopReplaced(top10);
   renderTop10DetailTable(top10);
 }
@@ -541,7 +605,7 @@ function renderChartTopReplaced(topList) {
   const maxRep = Math.max(...items.map(r => Number(r.replacementCount) || 1), 4);
   const maxPcs = Math.max(...items.map(r => Number(r.totalPartsReplacedPcs) || 1), 5);
 
-  const W = 920, H = 320, padL = 55, padR = 55, padT = 38, padB = 52;
+  const W = 920, H = 325, padL = 55, padR = 55, padT = 48, padB = 52;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const stepX = plotW / items.length;
   const colW = Math.min(46, Math.max(22, stepX * 0.52));
@@ -607,13 +671,13 @@ function renderChartTopReplaced(topList) {
         </linearGradient>
       </defs>
 
-      <!-- Center Clean Legend -->
-      <g transform="translate(${(W / 2) - 170}, 14)">
-        <rect x="0" y="0" width="13" height="11" rx="3" fill="#6366f1"/>
-        <text x="18" y="10" font-size="12" font-weight="700" fill="#475569">Cột: Số lượt thay</text>
-        <line x1="145" y1="6" x2="175" y2="6" stroke="#ef4444" stroke-width="3"/>
-        <circle cx="160" cy="6" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
-        <text x="185" y="10" font-size="12" font-weight="700" fill="#dc2626">Dây: Số lượng LK thay (Pcs)</text>
+      <!-- Clean Top-Right Legend Badge -->
+      <g transform="translate(${W - padR - 250}, 14)">
+        <rect x="0" y="0" width="12" height="10" rx="3" fill="#6366f1"/>
+        <text x="16" y="9" font-size="11" font-weight="700" fill="#475569">Lượt thay</text>
+        <line x1="90" y1="5" x2="114" y2="5" stroke="#ef4444" stroke-width="2.5"/>
+        <circle cx="102" cy="5" r="4" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
+        <text x="122" y="9" font-size="11" font-weight="700" fill="#dc2626">Số lượng (Pcs)</text>
       </g>
 
       ${gridSvg}
@@ -629,6 +693,36 @@ function renderChartTopReplaced(topList) {
 
 // --- RENDER TOP 10 DETAIL TABLE ---
 function renderTop10DetailTable(topList) {
+  const thead = $("top10TableHead");
+  if (thead) {
+    thead.innerHTML = `
+      <tr>
+        <th style="width:50px; text-align:center;">#</th>
+        <th class="sortable-th" onclick="toggleChartSort('part')" style="min-width:110px; text-align:left;">
+          PART NAME ${getSortIndicator('part')}
+        </th>
+        <th class="sortable-th" onclick="toggleChartSort('moldName')" style="min-width:140px; text-align:left;">
+          TÊN KHUÔN ${getSortIndicator('moldName')}
+        </th>
+        <th class="sortable-th" onclick="toggleChartSort('replacementCount')" style="text-align:center; color:#4f46e5;" title="Số lượt thay ra">
+          LƯỢT THAY ${getSortIndicator('replacementCount')}
+        </th>
+        <th class="sortable-th" onclick="toggleChartSort('totalPartsReplacedPcs')" style="text-align:center; color:#dc2626;" title="Tổng số linh kiện thay thế">
+          SỐ LƯỢNG (PCS) ${getSortIndicator('totalPartsReplacedPcs')}
+        </th>
+        <th class="sortable-th" onclick="toggleChartSort('averageShotLife')" style="text-align:center;" title="Tuổi thọ shot trung bình các chu kỳ">
+          TB SHOT ${getSortIndicator('averageShotLife')}
+        </th>
+        <th class="sortable-th" onclick="toggleChartSort('currentShotCount')" style="text-align:center;" title="Số shot đang chạy hiện tại">
+          SHOT HT ${getSortIndicator('currentShotCount')}
+        </th>
+        <th class="sortable-th" onclick="toggleChartSort('wearRate')" style="text-align:center;" title="Mức độ hao mòn hiện tại">
+          ĐỘ MÒN (%) ${getSortIndicator('wearRate')}
+        </th>
+      </tr>
+    `;
+  }
+
   const tbody = $("top10TableRows");
   if (!tbody) return;
   if (!topList || topList.length === 0) {

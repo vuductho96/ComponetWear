@@ -75,19 +75,17 @@ async function exportProfessionalReportExcel() {
     const generatedTimestamp = formatDateTimeDisplay(new Date());
 
     // 2. INDEX SHOOT & REPLACEMENT DATA
+    // A. Full Shoot Index (Unfiltered by date to accurately compute full cycle shots)
     const shootsByMold = new Map();
     (db.shoot || []).forEach(s => {
       if (!s.Date || !s.Output || Number(s.Output) <= 0) return;
-      if (dFilter && s.Date !== dFilter) return;
-      else if (ymFilter && !s.Date.startsWith(ymFilter)) return;
-      else if (!ymFilter && yFilter && !s.Date.startsWith(yFilter)) return;
-
       const d = String(s.DieSet || '').toLowerCase().trim();
       const p = String(s.Part || '').toLowerCase().trim();
       if (d) { if (!shootsByMold.has(d)) shootsByMold.set(d, []); shootsByMold.get(d).push(s); }
       if (p && p !== d) { if (!shootsByMold.has(p)) shootsByMold.set(p, []); shootsByMold.get(p).push(s); }
     });
 
+    // B. Filtered Replacements for the selected scope
     const repsByPartMold = new Map();
     const allFilteredReplacements = [];
     (db.replacements || []).forEach(r => {
@@ -102,7 +100,26 @@ async function exportProfessionalReportExcel() {
       const key = `${p}|${d}`;
       if (!repsByPartMold.has(key)) repsByPartMold.set(key, []);
       repsByPartMold.get(key).push(r);
+
+      const master = typeof findMasterItem === 'function' ? findMasterItem(r.Part, r.DieSet || r.NewDieSet || r.OldDieSet, r.Series) : null;
+      const s = r.Series || (master ? master.Series : '');
+      const o = (master ? master.OldDieSet : '') || r.OldDieSet || r.DieSet || '';
+      const n = (master ? master.NewDieSet : '') || r.NewDieSet || r.DieSet || '';
+      r.moldSeries = typeof formatMoldSeriesDisplay === 'function' ? formatMoldSeriesDisplay(s, o, n, false) : (s ? `${s}/${n}` : n);
+
       allFilteredReplacements.push(r);
+    });
+
+    // C. All Historical Replacements for baseline lifecycle calculation
+    const allHistRepsByPartMold = new Map();
+    (db.replacements || []).forEach(r => {
+      const lbl = String(r.Label || '').trim();
+      if (!r.ReplaceDate || lbl === '-' || lbl === '0' || lbl === '·') return;
+      const p = String(r.Part || '').toLowerCase().trim();
+      const d = String(r.DieSet || r.NewDieSet || r.OldDieSet || '').toLowerCase().trim();
+      const key = `${p}|${d}`;
+      if (!allHistRepsByPartMold.has(key)) allHistRepsByPartMold.set(key, []);
+      allHistRepsByPartMold.get(key).push(r);
     });
 
     // 3. COMPUTE COMPONENT-LEVEL METRICS (Matches Calculation Engine)
@@ -149,6 +166,16 @@ async function exportProfessionalReportExcel() {
         if (!repSet.has(rk)) { repSet.add(rk); sortedReps.push(r); }
       });
 
+      // Get all historical reps for cycle calculation
+      let histReps = [];
+      if (allHistRepsByPartMold.has(k1)) histReps.push(...allHistRepsByPartMold.get(k1));
+      if (k2 !== k1 && allHistRepsByPartMold.has(k2)) histReps.push(...allHistRepsByPartMold.get(k2));
+      const histRepSet = new Set(), sortedHistReps = [];
+      histReps.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
+        const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
+        if (!histRepSet.has(rk)) { histRepSet.add(rk); sortedHistReps.push(r); }
+      });
+
       const totalLifetimeShots = sortedShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
       const replacementCount = sortedReps.length;
       const totalPartsReplacedPcs = sortedReps.reduce((sum, r) => sum + (Number(r.Label) || 1), 0);
@@ -169,13 +196,11 @@ async function exportProfessionalReportExcel() {
         }
       });
 
-      // Calculate completed cycles
+      // Calculate completed cycles across full historical shoot records
       const cycles = [];
-      if (replacementCount > 0) {
-        const c1 = sortedShoots.filter(s => s.Date < sortedReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
-        if (c1 > 0) cycles.push(c1);
-        for (let i = 0; i < sortedReps.length - 1; i++) {
-          const cN = sortedShoots.filter(s => s.Date >= sortedReps[i].ReplaceDate && s.Date < sortedReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+      if (sortedHistReps.length > 1) {
+        for (let i = 0; i < sortedHistReps.length - 1; i++) {
+          const cN = sortedShoots.filter(s => s.Date >= sortedHistReps[i].ReplaceDate && s.Date < sortedHistReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
           if (cN > 0) cycles.push(cN);
         }
       }
@@ -183,12 +208,12 @@ async function exportProfessionalReportExcel() {
       totalCompletedCyclesCount += cycles.length;
       cycles.forEach(c => { totalCompletedCycleShotsSum += c; });
 
-      const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : null;
-      const medianLife = cycles.length > 0 ? calculateMedian(cycles) : null;
-      const minShotLife = cycles.length > 0 ? Math.min(...cycles) : null;
-      const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : null;
-      const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
-      const lastRepDate = sortedReps.length > 0 ? sortedReps[sortedReps.length - 1].ReplaceDate : null;
+      const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
+      const medianLife = cycles.length > 0 ? calculateMedian(cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
+      const minShotLife = cycles.length > 0 ? Math.min(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
+      const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
+      const currentShotCount = sortedHistReps.length > 0 ? sortedShoots.filter(s => s.Date >= sortedHistReps[sortedHistReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
+      const lastRepDate = sortedHistReps.length > 0 ? sortedHistReps[sortedHistReps.length - 1].ReplaceDate : null;
 
       componentsData.push({
         part,
@@ -219,8 +244,49 @@ async function exportProfessionalReportExcel() {
     const top10Components = componentsData.filter(c => c.totalPartsReplacedPcs > 0).slice(0, 10);
     const overallAverageLife = totalCompletedCyclesCount > 0 ? Math.round(totalCompletedCycleShotsSum / totalCompletedCyclesCount) : null;
 
+    // =========================================================================
+    // 1. TRY NATIVE EXCEL EXPORT (True Dynamic OpenXML Chart linked to Cells)
+    // =========================================================================
+    try {
+      const payload = {
+        periodLabel,
+        moldFilter: moldFilterLabel,
+        generatedAt: generatedTimestamp,
+        top10: top10Components,
+        components: componentsData,
+        replacements: allFilteredReplacements
+      };
+
+      const res = await fetch('/api/export-report-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const cType = res.headers.get('content-type') || '';
+        if (cType.includes('spreadsheet') || cType.includes('octet-stream')) {
+          const blob = await res.blob();
+          const fileName = sanitizeFilename(`ComponentWear_Report_${filePeriodSlug}.xlsx`);
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(link.href);
+
+          console.log(`%c[EXPORT] SUCCESS (Native Dynamic OpenXML Chart): ${fileName}`, "color:#059669; font-weight:bold; font-size:13px;");
+          msg(`<b>Xuất báo cáo Excel thành công!</b><br>Biểu đồ động Excel tự động thay đổi khi sửa bảng số liệu.<br>File: <code>${esc(fileName)}</code>`, false, 8000);
+          return;
+        }
+      }
+    } catch (backendErr) {
+      console.log("[EXPORT] Backend native export not reachable, generating via browser ExcelJS engine...", backendErr);
+    }
+
     // ==========================================
-    // SHEET 1: 01_REPORT (Presentation Sheet)
+    // 2. FALLBACK: IN-BROWSER EXCELJS EXPORTER
     // ==========================================
     const ws1 = wb.addWorksheet('01_REPORT', {
       views: [{ showGridLines: false }],
@@ -259,17 +325,9 @@ async function exportProfessionalReportExcel() {
     titleCell.alignment = { vertical: 'middle' };
     ws1.getRow(2).height = 24;
 
-    // Subtitle & Filter Info
-    ws1.mergeCells('B3:L3');
-    const subCell = ws1.getCell('B3');
-    subCell.value = `Kỳ báo cáo: ${periodLabel}   |   Khuôn lọc: ${moldFilterLabel}   |   Thời gian xuất: ${generatedTimestamp}`;
-    subCell.font = { name: 'Segoe UI', size: 9.5, color: { argb: 'FF64748B' } };
-    subCell.alignment = { vertical: 'middle' };
-    ws1.getRow(3).height = 18;
-
     // Generate Full-Width Top 10 Combo Chart (Cột: Số lượt thay, Dây: Số lượng Pcs)
-    const chartRowStart = 5;
-    const chartRowEnd = 20;
+    const chartRowStart = 4;
+    const chartRowEnd = 19;
 
     try {
       const comboChartImgBase64 = generateTop10ComboChartBase64(top10Components);
@@ -410,20 +468,17 @@ async function exportProfessionalReportExcel() {
 
     const summaryColumns = [
       { header: 'No.', key: 'no', width: 8 },
-      { header: 'Part Name', key: 'part', width: 16 },
-      { header: 'Series', key: 'series', width: 14 },
-      { header: 'Mold Name', key: 'mold', width: 20 },
-      { header: 'Mold + Series', key: 'moldSeries', width: 28 },
-      { header: 'Replacement Events', key: 'replacementCount', width: 18 },
-      { header: 'Replacement Qty (Pcs)', key: 'totalPartsReplacedPcs', width: 22 },
-      { header: 'Completed Cycles', key: 'cycleCount', width: 16 },
-      { header: 'Average Life (Shots)', key: 'averageShotLife', width: 20 },
-      { header: 'Median Life (Shots)', key: 'medianLife', width: 18 },
-      { header: 'Min Life (Shots)', key: 'minShotLife', width: 16 },
-      { header: 'Max Life (Shots)', key: 'maxShotLife', width: 16 },
-      { header: 'Current Shot (HT)', key: 'currentShotCount', width: 18 },
-      { header: 'Total Lifetime Shot', key: 'totalLifetimeShots', width: 20 },
-      { header: 'Last Replacement Date', key: 'lastReplacementDate', width: 22 }
+      { header: 'Mã Linh Kiện (Part)', key: 'part', width: 16 },
+      { header: 'Khuôn (Series/Old/New)', key: 'moldSeries', width: 28 },
+      { header: 'Số Lượt Thay', key: 'replacementCount', width: 14 },
+      { header: 'Số Lượng (Pcs)', key: 'totalPartsReplacedPcs', width: 16 },
+      { header: 'Số Chu Kỳ', key: 'cycleCount', width: 14 },
+      { header: 'TB Shot / CK', key: 'averageShotLife', width: 16 },
+      { header: 'Min Shot', key: 'minShotLife', width: 14 },
+      { header: 'Max Shot', key: 'maxShotLife', width: 14 },
+      { header: 'Shot HT', key: 'currentShotCount', width: 16 },
+      { header: 'Tổng Shot Tích Lũy', key: 'totalLifetimeShots', width: 18 },
+      { header: 'Lần Thay Cuối', key: 'lastReplacementDate', width: 18 }
     ];
 
     ws2.columns = summaryColumns;
@@ -433,7 +488,7 @@ async function exportProfessionalReportExcel() {
     ws2.getRow(1).eachCell((cell, colNum) => {
       cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-      cell.alignment = { horizontal: colNum >= 6 && colNum <= 14 ? 'right' : 'center', vertical: 'middle' };
+      cell.alignment = { horizontal: colNum >= 4 && colNum <= 11 ? 'right' : 'center', vertical: 'middle' };
       cell.border = { bottom: { style: 'medium', color: { argb: 'FF0F172A' } } };
     });
 
@@ -442,14 +497,11 @@ async function exportProfessionalReportExcel() {
       const row = ws2.addRow({
         no: idx + 1,
         part: c.part,
-        series: c.series,
-        mold: c.moldName,
-        moldSeries: c.moldSeries,
+        moldSeries: c.moldSeries || `${c.series || '-'}/${c.moldName || ''}`,
         replacementCount: c.replacementCount,
         totalPartsReplacedPcs: c.totalPartsReplacedPcs,
         cycleCount: c.cycleCount,
         averageShotLife: c.averageShotLife !== null ? c.averageShotLife : 'N/A',
-        medianLife: c.medianLife !== null ? c.medianLife : 'N/A',
         minShotLife: c.minShotLife !== null ? c.minShotLife : 'N/A',
         maxShotLife: c.maxShotLife !== null ? c.maxShotLife : 'N/A',
         currentShotCount: c.currentShotCount !== null ? c.currentShotCount : 'N/A',
@@ -461,10 +513,10 @@ async function exportProfessionalReportExcel() {
       row.eachCell((cell, colNum) => {
         cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF0F172A' } };
         cell.border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
-        if (colNum >= 6 && colNum <= 14 && typeof cell.value === 'number') {
+        if (colNum >= 4 && colNum <= 11 && typeof cell.value === 'number') {
           cell.numFmt = '#,##0';
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
-        } else if (colNum === 1 || colNum === 3 || colNum === 15) {
+        } else if (colNum === 1 || colNum === 12) {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
         } else {
           cell.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -472,7 +524,7 @@ async function exportProfessionalReportExcel() {
       });
     });
 
-    ws2.autoFilter = { from: 'A1', to: `O${componentsData.length + 1}` };
+    ws2.autoFilter = { from: 'A1', to: `L${componentsData.length + 1}` };
 
     // ==========================================
     // SHEET 3: 03_REPLACEMENT_LOG (Audit Trail)
@@ -483,13 +535,12 @@ async function exportProfessionalReportExcel() {
 
     const logColumns = [
       { header: 'No.', key: 'no', width: 8 },
-      { header: 'Replace Date', key: 'date', width: 16 },
-      { header: 'Part Name', key: 'part', width: 16 },
-      { header: 'Series', key: 'series', width: 14 },
-      { header: 'Die Set / Mold', key: 'die', width: 22 },
-      { header: 'Quantity (Pcs)', key: 'qty', width: 16 },
-      { header: 'Request ID', key: 'reqId', width: 16 },
-      { header: 'Component Label / Note', key: 'label', width: 26 }
+      { header: 'Ngày Thay', key: 'date', width: 16 },
+      { header: 'Mã Linh Kiện (Part)', key: 'part', width: 16 },
+      { header: 'Khuôn (Series/Old/New)', key: 'moldSeries', width: 28 },
+      { header: 'Số Lượng (Pcs)', key: 'qty', width: 16 },
+      { header: 'Mã Yêu Cầu (Req ID)', key: 'reqId', width: 16 },
+      { header: 'Ghi Chú / Serial', key: 'label', width: 22 }
     ];
 
     ws3.columns = logColumns;
@@ -498,7 +549,7 @@ async function exportProfessionalReportExcel() {
     ws3.getRow(1).eachCell((cell, colNum) => {
       cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-      cell.alignment = { horizontal: colNum === 6 ? 'right' : 'center', vertical: 'middle' };
+      cell.alignment = { horizontal: colNum === 5 ? 'right' : 'center', vertical: 'middle' };
       cell.border = { bottom: { style: 'medium', color: { argb: 'FF0F172A' } } };
     });
 
@@ -508,8 +559,7 @@ async function exportProfessionalReportExcel() {
         no: idx + 1,
         date: r.ReplaceDate ? formatDateDisplay(r.ReplaceDate) : 'N/A',
         part: r.Part || '',
-        series: r.Series || '',
-        die: r.DieSet || r.NewDieSet || r.OldDieSet || '',
+        moldSeries: r.moldSeries || `${r.Series || ''}/${r.DieSet || ''}`,
         qty: qty,
         reqId: r.RequestId || '',
         label: r.Label || ''
@@ -519,10 +569,10 @@ async function exportProfessionalReportExcel() {
       row.eachCell((cell, colNum) => {
         cell.font = { name: 'Segoe UI', size: 9, color: { argb: 'FF0F172A' } };
         cell.border = { bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
-        if (colNum === 6) {
+        if (colNum === 5) {
           cell.numFmt = '#,##0';
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
-        } else if (colNum === 1 || colNum === 2 || colNum === 4 || colNum === 7) {
+        } else if (colNum === 1 || colNum === 2 || colNum === 6) {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
         } else {
           cell.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -530,7 +580,7 @@ async function exportProfessionalReportExcel() {
       });
     });
 
-    ws3.autoFilter = { from: 'A1', to: `H${allFilteredReplacements.length + 1}` };
+    ws3.autoFilter = { from: 'A1', to: `G${allFilteredReplacements.length + 1}` };
 
     // 4. WRITE BUFFER AND TRIGGER DOWNLOAD
     const fileName = sanitizeFilename(`ComponentWear_Report_${filePeriodSlug}.xlsx`);
@@ -568,31 +618,31 @@ function generateTop10ComboChartBase64(top10) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, W, H);
 
-  // Center Legend
-  const legendX = W / 2 - 165;
+  // Top-Right Clean Legend
+  const legendX = W - 280;
   const legendY = 14;
   
   // Legend Item 1: Cột (Lượt thay)
   ctx.fillStyle = '#4F46E5';
-  roundRect(ctx, legendX, legendY, 14, 12, 3);
+  roundRect(ctx, legendX, legendY, 12, 10, 3);
   ctx.fill();
   ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = '#334155';
+  ctx.fillStyle = '#475569';
   ctx.textAlign = 'left';
-  ctx.fillText('Cột: Số lượt thay', legendX + 20, legendY + 10);
+  ctx.fillText('Lượt thay', legendX + 16, legendY + 9);
 
   // Legend Item 2: Dây (Số lượng Pcs)
-  const l2X = legendX + 145;
+  const l2X = legendX + 105;
   ctx.strokeStyle = '#EF4444';
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.moveTo(l2X, legendY + 6);
-  ctx.lineTo(l2X + 26, legendY + 6);
+  ctx.moveTo(l2X, legendY + 5);
+  ctx.lineTo(l2X + 22, legendY + 5);
   ctx.stroke();
 
   ctx.fillStyle = '#EF4444';
   ctx.beginPath();
-  ctx.arc(l2X + 13, legendY + 6, 4.5, 0, Math.PI * 2);
+  ctx.arc(l2X + 11, legendY + 5, 4, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = '#FFFFFF';
   ctx.lineWidth = 1.5;
@@ -601,13 +651,13 @@ function generateTop10ComboChartBase64(top10) {
   ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
   ctx.fillStyle = '#DC2626';
   ctx.textAlign = 'left';
-  ctx.fillText('Dây: Số lượng LK thay (Pcs)', l2X + 34, legendY + 10);
+  ctx.fillText('Số lượng (Pcs)', l2X + 28, legendY + 9);
 
   const items = top10.slice(0, 10);
   const maxRep = Math.max(...items.map(r => Number(r.replacementCount) || 1), 4);
   const maxPcs = Math.max(...items.map(r => Number(r.totalPartsReplacedPcs) || 1), 5);
 
-  const padL = 55, padR = 55, padT = 38, padB = 48;
+  const padL = 55, padR = 55, padT = 46, padB = 48;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const stepX = plotW / items.length;
   const colW = Math.min(48, Math.max(24, stepX * 0.52));

@@ -519,3 +519,44 @@ table.summary tbody tr:hover {
   color: #059669;
   border: 1px solid #a7f3d0;
 }
+
+/* ===== SORTABLE TABLE HEADERS ===== */
+.sortable-th {
+  cursor: pointer !important;
+  user-select: none;
+  transition: background-color 0.15s, color 0.15s;
+  position: relative;
+}
+.sortable-th:hover {
+  background: #e2e8f0 !important;
+  color: var(--ink-dark) !important;
+}
+.sort-tri {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  font-size: 10px;
+  line-height: 1;
+  vertical-align: middle;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+.sort-tri.inactive {
+  color: #94a3b8;
+  opacity: 0.45;
+}
+.sortable-th:hover .sort-tri.inactive {
+  opacity: 1;
+  color: #4f46e5;
+  background: #ede9fe;
+}
+.sort-tri.active {
+  color: #4f46e5;
+  font-weight: 900;
+  opacity: 1;
+  background: #e0e7ff;
+  transform: scale(1.15);
+}

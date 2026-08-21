@@ -10,6 +10,10 @@ ComponentLife/reports/*.csv
 ComponentLife/reports/*.xlsx
 !ComponentLife/reports/.gitkeep
 
+# Python cache
+__pycache__/
+*.py[cod]
+
 # System / OS / Archive files
 *.rar
 *.zip
