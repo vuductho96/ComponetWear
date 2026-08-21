@@ -344,7 +344,19 @@ def build_excel_report(data_json_path, output_excel_path):
         cell.fill = fill_tbl_header
         cell.alignment = Alignment(horizontal='right' if 4 <= col_idx <= 11 else 'center', vertical='center')
 
-    for idx, c in enumerate(components):
+    # Sort components: Active first, all N/A at the bottom
+    def comp_score(c):
+        rep = int(c.get('replacementCount', 0)) + int(c.get('totalPartsReplacedPcs', 0))
+        if rep > 0:
+            return (3, rep, int(c.get('currentShotCount') or 0))
+        has_act = (c.get('currentShotCount') is not None and int(c.get('currentShotCount')) > 0) or int(c.get('totalLifetimeShots', 0)) > 0 or int(c.get('cycleCount', 0)) > 0
+        if has_act:
+            return (2, 0, int(c.get('currentShotCount') or 0))
+        return (1, 0, 0)
+
+    sorted_components = sorted(components, key=lambda c: (comp_score(c)[0], comp_score(c)[1], comp_score(c)[2]), reverse=True)
+
+    for idx, c in enumerate(sorted_components):
         row_vals = [
             idx + 1,
             c.get('part', ''),

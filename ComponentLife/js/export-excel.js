@@ -759,7 +759,27 @@ async function exportProfessionalReportExcel() {
       cell.border = { bottom: { style: 'medium', color: { argb: 'FF0F172A' } } };
     });
 
-    componentsData.forEach((c, idx) => {
+    // Smart Sort: Active replaced components first, then active shots/cycles, pure N/A pushed to bottom
+    const sortedFullComponents = [...componentsData].sort((a, b) => {
+      const repA = (Number(a.replacementCount) || 0) + (Number(a.totalPartsReplacedPcs) || 0);
+      const repB = (Number(b.replacementCount) || 0) + (Number(b.totalPartsReplacedPcs) || 0);
+      const actA = (Number(a.currentShotCount) || 0) > 0 || (Number(a.totalLifetimeShots) || 0) > 0 || (Number(a.cycleCount) || 0) > 0;
+      const actB = (Number(b.currentShotCount) || 0) > 0 || (Number(b.totalLifetimeShots) || 0) > 0 || (Number(b.cycleCount) || 0) > 0;
+
+      const scoreA = repA > 0 ? 3 : (actA ? 2 : 1);
+      const scoreB = repB > 0 ? 3 : (actB ? 2 : 1);
+
+      if (scoreA !== scoreB) return scoreB - scoreA;
+      if (scoreA === 3) {
+        if (repA !== repB) return repB - repA;
+      } else if (scoreA === 2) {
+        const shotDiff = (Number(b.currentShotCount) || 0) - (Number(a.currentShotCount) || 0);
+        if (shotDiff !== 0) return shotDiff;
+      }
+      return (a.part || '').localeCompare(b.part || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    sortedFullComponents.forEach((c, idx) => {
       const row = ws4.addRow({
         no: idx + 1,
         part: c.part,
@@ -790,7 +810,7 @@ async function exportProfessionalReportExcel() {
       });
     });
 
-    ws4.autoFilter = { from: 'A1', to: `L${componentsData.length + 1}` };
+    ws4.autoFilter = { from: 'A1', to: `L${sortedFullComponents.length + 1}` };
 
     // 5. WRITE BUFFER, INJECT TRUE OPENXML DYNAMIC EXCEL CHART AND TRIGGER DOWNLOAD
     const fileName = sanitizeFilename(`ComponentWear_Report_${filePeriodSlug}.xlsx`);

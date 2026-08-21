@@ -68,13 +68,18 @@ function renderMonth() {
     if (rDie) { if (!shootByMold.has(rDie)) shootByMold.set(rDie, []); shootByMold.get(rDie).push(row); }
   });
 
-  // Sort: parts with replacements first
+  // Sort: parts with replacements first, then active shoots, pure N/A pushed to bottom
   allPartsList.sort((a, b) => {
     const pA = (a.part || '').toLowerCase(), dNewA = (a.moldNew || a.moldOld || '').toLowerCase();
     const pB = (b.part || '').toLowerCase(), dNewB = (b.moldNew || b.moldOld || '').toLowerCase();
     const countA = (repByPartMold.get(`${pA}|${dNewA}`) || []).length;
     const countB = (repByPartMold.get(`${pB}|${dNewB}`) || []).length;
-    if ((countA > 0) !== (countB > 0)) return countB > 0 ? 1 : -1;
+    const shootsA = (shootByMold.get(dNewA) || []).length;
+    const shootsB = (shootByMold.get(dNewB) || []).length;
+
+    const scoreA = countA > 0 ? 3 : (shootsA > 0 ? 2 : 1);
+    const scoreB = countB > 0 ? 3 : (shootsB > 0 ? 2 : 1);
+    if (scoreA !== scoreB) return scoreB - scoreA;
     if (countA !== countB) return countB - countA;
     return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
   });
@@ -471,8 +476,27 @@ function renderStockTable() {
   const theadEl = document.querySelector('#dashboardTable thead');
   if (theadEl) theadEl.innerHTML = `<tr>${headColsHtml}</tr>`;
 
+  function getCompActivityScore(x) {
+    const reps = (Number(x.used) || 0) + (Number(x.timesCount) || 0);
+    if (reps > 0) return 3;
+    const currentShot = Number(x.currentShotCount) || 0;
+    const avgShot = Number(x.averageShotLife) || 0;
+    const lifetime = Number(x.totalLifetimeShots) || 0;
+    const cycles = (x.cycles && x.cycles.length > 0) ? x.cycles.length : 0;
+    if (currentShot > 0 || avgShot > 0 || lifetime > 0 || cycles > 0) return 2;
+    return 1; // All N/A -> push to bottom!
+  }
+
   processedList.sort((a, b) => {
-    if ((a.used > 0) !== (b.used > 0)) return b.used > 0 ? 1 : -1;
+    const sA = getCompActivityScore(a), sB = getCompActivityScore(b);
+    if (sA !== sB) return sB - sA;
+    if (sA === 3) {
+      const uDiff = (Number(b.used) || 0) - (Number(a.used) || 0);
+      if (uDiff !== 0) return uDiff;
+    } else if (sA === 2) {
+      const shotDiff = (Number(b.currentShotCount) || 0) - (Number(a.currentShotCount) || 0);
+      if (shotDiff !== 0) return shotDiff;
+    }
     return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
   });
 
@@ -547,9 +571,17 @@ function renderStockTable() {
       return isAsc ? numA - numB : numB - numA;
     });
   } else {
-    // Default sort: items with replacements first, then alphabet by part
+    // Default sort: items with replacements first, then active shots, then pure N/A pushed to bottom
     filtered.sort((a, b) => {
-      if ((a.used > 0) !== (b.used > 0)) return b.used > 0 ? 1 : -1;
+      const sA = getCompActivityScore(a), sB = getCompActivityScore(b);
+      if (sA !== sB) return sB - sA;
+      if (sA === 3) {
+        const uDiff = (Number(b.used) || 0) - (Number(a.used) || 0);
+        if (uDiff !== 0) return uDiff;
+      } else if (sA === 2) {
+        const shotDiff = (Number(b.currentShotCount) || 0) - (Number(a.currentShotCount) || 0);
+        if (shotDiff !== 0) return shotDiff;
+      }
       return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
     });
   }
