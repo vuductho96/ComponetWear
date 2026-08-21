@@ -368,7 +368,12 @@ async function exportProfessionalReportExcel() {
 
       // Calculate completed cycles across full historical shoot records
       const cycles = [];
-      if (sortedHistReps.length > 1) {
+      if (sortedHistReps.length > 0) {
+        // Cycle 1: Shoots before the very first replacement event
+        const c1 = sortedShoots.filter(s => s.Date < sortedHistReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+        if (c1 > 0) cycles.push(c1);
+
+        // Cycle 2..N: Shoots between consecutive replacement events
         for (let i = 0; i < sortedHistReps.length - 1; i++) {
           const cN = sortedShoots.filter(s => s.Date >= sortedHistReps[i].ReplaceDate && s.Date < sortedHistReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
           if (cN > 0) cycles.push(cN);
