@@ -258,6 +258,10 @@ function updateWearFilterLabels() {
 
 // ===== CLEAR JSON DATA MODAL =====
 function openClearDataModal() {
+  if (typeof isRemoteOrCloudflare === 'function' && isRemoteOrCloudflare()) {
+    msg("⚠️ Tính năng Xóa Dữ Liệu bị khóa khi truy cập từ xa qua Cloudflare để bảo đảm an toàn.", true, 5000);
+    return;
+  }
   console.log("%c[MODAL] openClearDataModal", "color:#dc2626; font-weight:bold;");
   const modal = $("clearDataModal");
   if (modal) modal.classList.remove("hidden");
@@ -270,6 +274,10 @@ function closeClearDataModal() {
 }
 
 async function confirmClearJsonData() {
+  if (typeof isRemoteOrCloudflare === 'function' && isRemoteOrCloudflare()) {
+    msg("⚠️ Thao tác xóa dữ liệu bị từ chối khi truy cập qua Cloudflare.", true, 5000);
+    return;
+  }
   const selectedRadio = document.querySelector('input[name="clearJsonType"]:checked');
   const clearType = selectedRadio ? selectedRadio.value : 'all';
   

@@ -948,8 +948,26 @@ function initApp() {
   window.addEventListener('drop', (e) => {
     e.preventDefault();
     if ($("cbDropZone")) $("cbDropZone").classList.remove("cb-drag-over");
+    if (typeof isRemoteOrCloudflare === 'function' && isRemoteOrCloudflare()) {
+      msg("⚠️ Tính năng Import Excel bị khóa khi truy cập từ xa qua Cloudflare để bảo đảm an toàn dữ liệu.", true, 5000);
+      return;
+    }
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) importExcelFile(e.dataTransfer.files[0]);
   });
+
+  // Cloudflare Remote Access Security Locks
+  if (typeof isRemoteOrCloudflare === 'function' && isRemoteOrCloudflare()) {
+    console.log("%c[SECURITY] Remote Cloudflare access detected: Locking Import Excel and Clear Data.", "color:#e11d48; font-weight:bold; font-size:12px;");
+    document.body.classList.add('is-remote-access');
+    const importBtn = document.getElementById('btnImportExcel') || document.querySelector('.btn-import');
+    if (importBtn) {
+      importBtn.style.display = 'none';
+    }
+    const clearBtn = document.getElementById('btnClearJsonData') || document.querySelector('.btn-clear-json');
+    if (clearBtn) {
+      clearBtn.style.display = 'none';
+    }
+  }
 
   // Start engines
   console.log("%c[BOOT] Initializing ScreenFitEngine, Heartbeat, DataLoader...", "color:#6b7280;");

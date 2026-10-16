@@ -126,16 +126,16 @@
           <select id="dayPick" class="filter-select" title="Lọc theo ngày"></select>
 
           <!-- Action Buttons with Tabler Icons -->
-          <label class="btn-import" title="Kéo thả hoặc chọn file Excel (.xlsx)">
+          <label class="btn-import" id="btnImportExcel" title="Kéo thả hoặc chọn file Excel (.xlsx)">
             <span id="importIcon"></span>
             <span>Import Excel</span>
-            <input type="file" accept=".xlsx,.xls,.csv,.json" onchange="importExcelFile(this.files[0])" style="display:none;">
+            <input type="file" id="fileInputExcel" accept=".xlsx,.xls,.csv,.json" onchange="importExcelFile(this.files[0])" style="display:none;">
           </label>
-          <button class="btn-export" onclick="exportExcelFull()" title="Xuất báo cáo Excel">
+          <button class="btn-export" id="btnExportReport" onclick="exportExcelFull()" title="Xuất báo cáo Excel">
             <span id="exportIcon"></span>
             <span>Export Excel</span>
           </button>
-          <button class="btn-clear-json" onclick="openClearDataModal()" title="Xóa dữ liệu JSON (Shot number, Replace time)">
+          <button class="btn-clear-json" id="btnClearJsonData" onclick="openClearDataModal()" title="Xóa dữ liệu JSON (Shot number, Replace time)">
             <span id="trashIcon"></span>
             <span>Xóa Dữ Liệu</span>
           </button>

@@ -1685,6 +1685,11 @@ function parseSheetMatrix(ws, type) {
 
 function importExcelFile(file) {
   if (!file) return;
+  if (typeof isRemoteOrCloudflare === 'function' && isRemoteOrCloudflare()) {
+    console.warn("[SECURITY] Blocked importExcelFile: Cloudflare remote access.");
+    msg("⚠️ Tính năng Import Excel bị khóa khi truy cập từ xa qua Cloudflare để bảo đảm an toàn dữ liệu. Vui lòng thao tác trực tiếp trên máy chủ.", true, 6000);
+    return;
+  }
   console.log(`%c[IMPORT] === Importing file: ${file.name} (${(file.size/1024).toFixed(1)}KB) ===`, "color:#4f46e5; font-weight:bold; font-size:13px;");
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'json') { console.log("%c[IMPORT] JSON backup file", "color:#6b7280;"); return; }
