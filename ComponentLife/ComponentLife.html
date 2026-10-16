@@ -1,13 +1,15 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-bs-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ComponetWear | Component Life Tracking Engine</title>
-  <!-- Google Fonts -->
+  <title>ComponetWear | Manufacturing Intelligence Dashboard</title>
+  
+  <!-- Local Fonts & Tabler Foundations (100% Offline Ready) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  
   <!-- SheetJS -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <!-- JSZip (Native OpenXML Chart Engine) -->
@@ -19,217 +21,365 @@
       document.write('<script src="js/exceljs.min.js"><\/script>');
     }
   </script>
-  <!-- Modular CSS (Plan §7) -->
-  <link rel="stylesheet" href="css/variables.css?v=20260821_v3">
-  <link rel="stylesheet" href="css/layout.css?v=20260821_v3">
-  <link rel="stylesheet" href="css/components.css?v=20260821_v3">
-  <link rel="stylesheet" href="css/tables.css?v=20260821_v3">
-  <link rel="stylesheet" href="css/modals.css?v=20260821_v3">
+
+  <!-- Local Tabler CSS & Modular Design System -->
+  <link rel="stylesheet" href="css/tabler.min.css?v=20261016_v3">
+  <link rel="stylesheet" href="css/variables.css?v=20261016_v3">
+  <link rel="stylesheet" href="css/layout.css?v=20261016_v3">
+  <link rel="stylesheet" href="css/components.css?v=20261016_v3">
+  <link rel="stylesheet" href="css/tables.css?v=20261016_v3">
+  <link rel="stylesheet" href="css/modals.css?v=20261016_v3">
+
+  <!-- Tabler SVG Icons (Offline standalone library) -->
+  <script src="js/icons.js?v=20261016_v3"></script>
 </head>
 <body>
-  <div class="app" id="app">
-    <!-- ===== TOP HEADER ===== -->
-    <div class="top-header">
-      <div class="brand-group">
-        <div class="brand-icon">⚙️</div>
-        <div>
-          <h1>ComponetWear <span class="app-badge">v2</span></h1>
-          <p class="subtitle">Component Life Tracking Engine — PowerShell + JSON + HTML/JS</p>
+  <div class="app app-layout" id="app">
+    <!-- ===== COLLAPSIBLE DARK SIDEBAR ===== -->
+    <aside class="app-sidebar" id="appSidebar">
+      <!-- Brand Logo & Title -->
+      <div class="sidebar-brand">
+        <div class="brand-icon-box" title="ComponetWear Manufacturing Intelligence">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2c0 3.5 -3 5.5 -3 8.5a6 6 0 0 0 12 0c0 -3 -3 -5 -3 -8.5c0 3 -1.5 4.5 -3 4.5s-3 -1.5 -3 -4.5z"/>
+          </svg>
+        </div>
+        <div class="brand-details">
+          <div class="brand-title">ComponetWear <span class="brand-version">v3</span></div>
+          <div class="brand-subtitle">Manufacturing Intelligence</div>
         </div>
       </div>
-    </div>
 
-    <!-- ===== TOOLBAR ===== -->
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <!-- Global Search -->
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="globalSearch" placeholder="Tìm nhanh Part, Mold, Series..." list="searchList" autocomplete="off">
-          <button id="clearSearchBtn" onclick="clearGlobalSearch()" style="display:none;" class="clear-btn" title="Xóa tìm kiếm">✕</button>
-          <datalist id="searchList"></datalist>
+      <!-- Navigation Tabs -->
+      <nav class="sidebar-nav">
+        <div class="sidebar-nav-section-title">Navigation</div>
+
+        <div class="tab active" data-tab="overview" title="Tổng quan thông số & cảnh báo (Overview)">
+          <span class="tab-icon" id="tabIconOverview"></span>
+          <span class="tab-label">Tổng Quan</span>
         </div>
-        <!-- Date Filters -->
-        <select id="yearPick" class="filter-select" title="Lọc theo năm"></select>
-        <select id="monthPick" class="filter-select" title="Lọc theo tháng"></select>
-        <select id="dayPick" class="filter-select" title="Lọc theo ngày"></select>
-      </div>
-      <div class="toolbar-right">
-        <!-- Actions -->
-        <label class="btn-import" title="Kéo thả hoặc chọn file Excel (.xlsx)">
-          📥 Import Excel
-          <input type="file" accept=".xlsx,.xls,.csv,.json" onchange="importExcelFile(this.files[0])" style="display:none;">
-        </label>
-        <button class="btn-export" onclick="exportExcelFull()" title="Xuất báo cáo Excel">📊 Export Excel</button>
-        <button class="btn-clear-json" onclick="openClearDataModal()" title="Xóa dữ liệu JSON (Shot number, Replace time)">🗑️ Xóa Dữ Liệu</button>
-      </div>
-    </div>
 
-    <!-- ===== NAVIGATION & SUB-FILTERS ===== -->
-    <div class="nav-control-bar">
-      <div class="tab-bar">
-        <div class="tab active" data-tab="month" title="Bảng theo dõi dữ liệu theo ngày (Month Sheet)">📅 View</div>
-        <div class="tab" data-tab="stock" title="Bảng điều khiển quản lý tổng hợp (Unified Dashboard)">📊 Dashboard</div>
-        <div class="tab" data-tab="chart" title="Biểu đồ phân tích & cảnh báo tuổi thọ (Analytics)">📈 Analytics</div>
+        <div class="tab" data-tab="month" title="Bảng theo dõi dữ liệu theo ngày (Month Sheet)">
+          <span class="tab-icon" id="tabIconMonth"></span>
+          <span class="tab-label">Theo Dõi Tháng</span>
+        </div>
+
+        <div class="tab" data-tab="stock" title="Bảng điều khiển quản lý tổng hợp (Unified Dashboard)">
+          <span class="tab-icon" id="tabIconStock"></span>
+          <span class="tab-label">Quản Lý Linh Kiện</span>
+        </div>
+
+        <div class="tab" data-tab="chart" title="Biểu đồ phân tích & cảnh báo tuổi thọ (Analytics)">
+          <span class="tab-icon" id="tabIconChart"></span>
+          <span class="tab-label">Phân Tích &amp; Biểu Đồ</span>
+        </div>
+      </nav>
+
+      <!-- Sidebar Footer (Theme, Collapse, Server Status) -->
+      <div class="sidebar-footer">
+        <div class="sidebar-server-status" title="PowerShell Backend Server">
+          <span class="status-dot-pulse"></span>
+          <span>Hệ Thống Trực Tuyến</span>
+        </div>
+
+        <div class="sidebar-action-row">
+          <button type="button" class="sidebar-icon-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ Sáng / Tối">
+            <span id="themeToggleIcon"></span>
+            <span class="btn-collapse-text" id="themeToggleText">Chế độ tối</span>
+          </button>
+          <button type="button" class="sidebar-icon-btn" id="sidebarCollapseBtn" onclick="toggleSidebar()" title="Thu nhỏ / Mở rộng thanh bên">
+            <span id="sidebarCollapseIcon"></span>
+          </button>
+        </div>
       </div>
+    </aside>
 
-      <!-- View Tab Active Month Badge -->
-      <div id="viewMonthIndicator" class="view-month-badge">
-        <span class="vmb-icon">📅</span>
-        <span id="viewMonthText">Đang tải tháng...</span>
-      </div>
-    </div>
-
-    <!-- Status Bar -->
-    <div id="status" class="status" style="display:none;"></div>
-
-    <!-- ===== TAB 1: Month Sheet (View) ===== -->
-    <section id="monthTab">
-      <div class="sheet">
-        <table class="grid">
-          <thead id="dayHead"></thead>
-          <tbody id="dayBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===== TAB 2: Unified Dashboard (Quản Lý Tồn Kho & Tuổi Thọ) ===== -->
-    <section id="stockTab" class="hidden">
-      <div class="summary-box" style="margin-top:0;">
-        <table class="data-table" id="dashboardTable">
-          <thead>
-            <tr>
-              <th style="width:45px;text-align:center;">#</th>
-              <th class="sortable-th" style="min-width:90px;" onclick="handleDashboardSort('part')" title="Lọc / Sắp xếp Part">
-                <div class="th-header-cell align-left">
-                  <span class="th-label">Part</span>
-                  <span class="th-sort-icon-wrap" aria-hidden="true">
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
-                  </span>
-                </div>
-              </th>
-              <th class="sortable-th" style="min-width:160px;" onclick="handleDashboardSort('moldSeries')" title="Lọc / Sắp xếp Mold / Series">
-                <div class="th-header-cell align-left">
-                  <span class="th-label">Mold / Series</span>
-                  <span class="th-sort-icon-wrap" aria-hidden="true">
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
-                  </span>
-                </div>
-              </th>
-              <th class="sortable-th" onclick="handleDashboardSort('timesCount')" title="Lọc / Sắp xếp Replace Time">
-                <div class="th-header-cell align-center">
-                  <span class="th-label">Replace Time</span>
-                  <span class="th-sort-icon-wrap" aria-hidden="true">
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
-                  </span>
-                </div>
-              </th>
-              <th class="sortable-th" onclick="handleDashboardSort('used')" title="Lọc / Sắp xếp Qty Used">
-                <div class="th-header-cell align-center">
-                  <span class="th-label">Qty Used</span>
-                  <span class="th-sort-icon-wrap" aria-hidden="true">
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
-                  </span>
-                </div>
-              </th>
-              <th class="sortable-th" onclick="handleDashboardSort('avgShot')" title="Lọc / Sắp xếp Avg Shot">
-                <div class="th-header-cell align-right">
-                  <span class="th-label">Avg Shot</span>
-                  <span class="th-sort-icon-wrap" aria-hidden="true">
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
-                  </span>
-                </div>
-              </th>
-              <th class="sortable-th" onclick="handleDashboardSort('currentShot')" title="Lọc / Sắp xếp Current Shot">
-                <div class="th-header-cell align-right">
-                  <span class="th-label">Current Shot</span>
-                  <span class="th-sort-icon-wrap" aria-hidden="true">
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
-                  </span>
-                </div>
-              </th>
-              <th class="th-add-col" style="width:38px; text-align:center; padding:0;" title="Thêm hoặc ẩn cột dữ liệu">
-                <button type="button" class="btn-th-add-col" id="btnColPicker" onclick="toggleColumnPicker(event)" title="Thêm / Ẩn cột hiển thị">
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5V12.5M3.5 8H12.5"/></svg>
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody id="stockRows"></tbody>
-        </table>
-      </div>
-
-      <!-- Floating Column Picker Menu Popover -->
-      <div id="colPickerMenu" class="col-picker-menu hidden" onclick="event.stopPropagation()">
-        <div class="cpm-header">
-          <div>
-            <div style="font-weight:700; font-size:13px; color:#0f172a; display:flex; align-items:center; gap:6px;">
-              <span>⚙️</span> Tùy chỉnh cột hiển thị
-            </div>
-            <div style="font-size:11px; color:#64748b; margin-top:2px;">Chọn các trường dữ liệu hiển thị trên Dashboard</div>
+    <!-- ===== MAIN WORKSPACE ===== -->
+    <main class="app-main">
+      <!-- TOP ACTION BAR -->
+      <header class="app-topbar">
+        <div class="topbar-left">
+          <h2 class="topbar-page-title" id="topbarTitle">
+            <span>Tổng Quan Sản Xuất</span>
+          </h2>
+          <!-- View Month Badge for Month Sheet -->
+          <div id="viewMonthIndicator" class="view-month-badge hidden">
+            <span class="vmb-icon" id="vmbCalendarIcon"></span>
+            <span id="viewMonthText">Đang tải tháng...</span>
           </div>
-          <button type="button" class="cpm-reset-link" onclick="resetDefaultDashboardCols()">Mặc định</button>
         </div>
-        <div class="cpm-list">
-          <!-- Group 1: HISTORY / ANALYSIS (Default Visible) -->
-          <div class="cpm-group-header"><span>🔄</span> HISTORY &amp; ANALYSIS</div>
-          <label class="cpm-item"><span>Replace Time (Số lượt thay)</span><input type="checkbox" data-col="timesCount" checked onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Qty Used (Tổng linh kiện thay Pcs)</span><input type="checkbox" data-col="used" checked onchange="onColCheckboxChange(this)"></label>
 
-          <!-- Group 2: COMPONENT LIFE (Default Visible: avgShot, currentShot) -->
-          <div class="cpm-group-header"><span>⚡</span> COMPONENT LIFE</div>
-          <label class="cpm-item"><span>Avg Shot (Tuổi thọ trung bình)</span><input type="checkbox" data-col="avgShot" checked onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Current Shot (Số shot hiện tại)</span><input type="checkbox" data-col="currentShot" checked onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Cycle (Các chu kỳ shot thực tế)</span><input type="checkbox" data-col="cycles" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Min Shot (Chu kỳ ngắn nhất)</span><input type="checkbox" data-col="minShot" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Max Shot (Chu kỳ dài nhất)</span><input type="checkbox" data-col="maxShot" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Min - Max Shot</span><input type="checkbox" data-col="minMaxShot" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Tiến Độ Mòn (%)</span><input type="checkbox" data-col="wearPercent" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Số Chu Kỳ Hoàn Chỉnh</span><input type="checkbox" data-col="cycleCount" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Last Replacement (Lần thay cuối)</span><input type="checkbox" data-col="lastRepDate" onchange="onColCheckboxChange(this)"></label>
-
-          <!-- Group 3: INVENTORY (Optional Add-on) -->
-          <div class="cpm-group-header"><span>📦</span> INVENTORY</div>
-          <label class="cpm-item"><span>Tồn Kho Hiện Tại (Stock)</span><input type="checkbox" data-col="stock" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Mức Min An Toàn (Min Stock)</span><input type="checkbox" data-col="minStock" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Trạng Thái Cảnh Báo (Status)</span><input type="checkbox" data-col="status" onchange="onColCheckboxChange(this)"></label>
-
-          <!-- Group 4: TRACEABILITY (Optional Add-on) -->
-          <div class="cpm-group-header"><span>🔍</span> TRACEABILITY</div>
-          <label class="cpm-item"><span>Mã Khuôn Cũ (Old Die Set)</span><input type="checkbox" data-col="moldOld" onchange="onColCheckboxChange(this)"></label>
-          <label class="cpm-item"><span>Mã Khuôn Mới (New Die Set)</span><input type="checkbox" data-col="moldNew" onchange="onColCheckboxChange(this)"></label>
+        <div class="topbar-center">
+          <!-- Global Search -->
+          <div class="search-box">
+            <span class="search-icon" id="searchBoxIcon"></span>
+            <input type="text" id="globalSearch" placeholder="Tìm nhanh Part, Mold, Series..." list="searchList" autocomplete="off">
+            <button id="clearSearchBtn" onclick="clearGlobalSearch()" style="display:none;" class="clear-btn" title="Xóa tìm kiếm">✕</button>
+            <datalist id="searchList"></datalist>
+          </div>
         </div>
-        <div class="cpm-footer">
-          <span style="font-size:11px; color:#94a3b8;">Tự động lưu vào trình duyệt</span>
-          <button type="button" class="cpm-btn-done" onclick="toggleColumnPicker(event)">Đóng</button>
+
+        <div class="topbar-right">
+          <!-- Date Filters -->
+          <select id="yearPick" class="filter-select" title="Lọc theo năm"></select>
+          <select id="monthPick" class="filter-select" title="Lọc theo tháng"></select>
+          <select id="dayPick" class="filter-select" title="Lọc theo ngày"></select>
+
+          <!-- Action Buttons with Tabler Icons -->
+          <label class="btn-import" title="Kéo thả hoặc chọn file Excel (.xlsx)">
+            <span id="importIcon"></span>
+            <span>Import Excel</span>
+            <input type="file" accept=".xlsx,.xls,.csv,.json" onchange="importExcelFile(this.files[0])" style="display:none;">
+          </label>
+          <button class="btn-export" onclick="exportExcelFull()" title="Xuất báo cáo Excel">
+            <span id="exportIcon"></span>
+            <span>Export Excel</span>
+          </button>
+          <button class="btn-clear-json" onclick="openClearDataModal()" title="Xóa dữ liệu JSON (Shot number, Replace time)">
+            <span id="trashIcon"></span>
+            <span>Xóa Dữ Liệu</span>
+          </button>
         </div>
+      </header>
+
+      <!-- CONTENT PANELS -->
+      <div class="app-content">
+        <!-- Status Toast Notification -->
+        <div id="status" class="status" style="display:none;"></div>
+
+        <!-- ===== TAB 0: OVERVIEW (NEW IN V3) ===== -->
+        <section id="overviewTab">
+          <div class="overview-container">
+            <!-- 4 Top KPI Stat Cards -->
+            <div class="overview-kpi-grid">
+              <div class="overview-stat-card">
+                <div class="stat-icon-wrapper blue" id="kpiIconFleet"></div>
+                <div class="stat-info">
+                  <span class="stat-label">Tổng Linh Kiện Theo Dõi</span>
+                  <div class="stat-value" id="totalPartsVal">-</div>
+                  <div class="stat-sub">Trong danh mục master</div>
+                </div>
+              </div>
+
+              <div class="overview-stat-card">
+                <div class="stat-icon-wrapper emerald" id="kpiIconOutput"></div>
+                <div class="stat-info">
+                  <span class="stat-label">Tổng Sản Lượng Dập (Shots)</span>
+                  <div class="stat-value" id="totalOutputShotsVal">-</div>
+                  <div class="stat-sub">Sản lượng kỳ đã chọn</div>
+                </div>
+              </div>
+
+              <div class="overview-stat-card">
+                <div class="stat-icon-wrapper rose" id="kpiIconReps"></div>
+                <div class="stat-info">
+                  <span class="stat-label">Tổng Lượt Thay Thế</span>
+                  <div class="stat-value" id="totalReplacementsVal">-</div>
+                  <div class="stat-sub" id="overviewRepsSub">Trong năm được chọn</div>
+                </div>
+              </div>
+
+              <div class="overview-stat-card">
+                <div class="stat-icon-wrapper amber" id="kpiIconLife"></div>
+                <div class="stat-info">
+                  <span class="stat-label">Tuổi Thọ TB Chu Kỳ (Shots)</span>
+                  <div class="stat-value" id="avgLifeVal">-</div>
+                  <div class="stat-sub">Từ các chu kỳ hoàn chỉnh</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Two-Column Widgets Section -->
+            <div class="overview-sections-grid">
+              <!-- Left Widget: Top 5 Replaced Components -->
+              <div class="overview-card">
+                <div class="overview-card-header">
+                  <div class="overview-card-title">
+                    <span id="overviewTop5Icon"></span>
+                    <span>Top Linh Kiện Thay Thế Nhiều Nhất</span>
+                  </div>
+                  <button type="button" class="overview-card-action" onclick="openTop5Modal()">
+                    <span>Xem chi tiết năm</span>
+                    <span id="overviewArrowIcon1"></span>
+                  </button>
+                </div>
+                <div class="overview-card-body">
+                  <div id="overviewTopList" class="overview-rank-list">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Widget: Critical Inventory & Life Alerts -->
+              <div class="overview-card">
+                <div class="overview-card-header">
+                  <div class="overview-card-title">
+                    <span id="overviewAlertsIcon"></span>
+                    <span>Cảnh Báo Tồn Kho &amp; Tuổi Thọ</span>
+                  </div>
+                  <button type="button" class="overview-card-action" onclick="switchTab('stock')">
+                    <span>Đến Quản Lý</span>
+                    <span id="overviewArrowIcon2"></span>
+                  </button>
+                </div>
+                <div class="overview-card-body">
+                  <div id="overviewAlertsList" class="overview-alert-list">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== TAB 1: MONTH SHEET (VIEW) ===== -->
+        <section id="monthTab" class="hidden">
+          <div class="sheet">
+            <table class="grid">
+              <thead id="dayHead"></thead>
+              <tbody id="dayBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== TAB 2: UNIFIED DASHBOARD ===== -->
+        <section id="stockTab" class="hidden">
+          <div class="summary-box">
+            <table class="data-table" id="dashboardTable">
+              <thead>
+                <tr>
+                  <th style="width:45px;text-align:center;">#</th>
+                  <th class="sortable-th" style="min-width:90px;" onclick="handleDashboardSort('part')" title="Lọc / Sắp xếp Part">
+                    <div class="th-header-cell align-left">
+                      <span class="th-label">Part</span>
+                      <span class="th-sort-icon-wrap" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="sortable-th" style="min-width:160px;" onclick="handleDashboardSort('moldSeries')" title="Lọc / Sắp xếp Mold / Series">
+                    <div class="th-header-cell align-left">
+                      <span class="th-label">Mold / Series</span>
+                      <span class="th-sort-icon-wrap" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="sortable-th" onclick="handleDashboardSort('timesCount')" title="Lọc / Sắp xếp Replace Time">
+                    <div class="th-header-cell align-center">
+                      <span class="th-label">Replace Time</span>
+                      <span class="th-sort-icon-wrap" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="sortable-th" onclick="handleDashboardSort('used')" title="Lọc / Sắp xếp Qty Used">
+                    <div class="th-header-cell align-center">
+                      <span class="th-label">Qty Used</span>
+                      <span class="th-sort-icon-wrap" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="sortable-th" onclick="handleDashboardSort('avgShot')" title="Lọc / Sắp xếp Avg Shot">
+                    <div class="th-header-cell align-right">
+                      <span class="th-label">Avg Shot</span>
+                      <span class="th-sort-icon-wrap" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="sortable-th" onclick="handleDashboardSort('currentShot')" title="Lọc / Sắp xếp Current Shot">
+                    <div class="th-header-cell align-right">
+                      <span class="th-label">Current Shot</span>
+                      <span class="th-sort-icon-wrap" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L8 10L12 6"/></svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="th-add-col" style="width:38px; text-align:center; padding:0;" title="Thêm hoặc ẩn cột dữ liệu">
+                    <button type="button" class="btn-th-add-col" id="btnColPicker" onclick="toggleColumnPicker(event)" title="Thêm / Ẩn cột hiển thị">
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5V12.5M3.5 8H12.5"/></svg>
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="stockRows"></tbody>
+            </table>
+          </div>
+
+          <!-- Floating Column Picker Menu Popover -->
+          <div id="colPickerMenu" class="col-picker-menu hidden" onclick="event.stopPropagation()">
+            <div class="cpm-header">
+              <div>
+                <div style="font-weight:700; font-size:13px; color:var(--ink); display:flex; align-items:center; gap:6px;">
+                  <span id="cpmGearIcon"></span> Tùy chỉnh cột hiển thị
+                </div>
+                <div style="font-size:11px; color:var(--ink-muted); margin-top:2px;">Chọn các trường dữ liệu hiển thị trên Dashboard</div>
+              </div>
+              <button type="button" class="cpm-reset-link" onclick="resetDefaultDashboardCols()">Mặc định</button>
+            </div>
+            <div class="cpm-list">
+              <!-- Group 1: HISTORY / ANALYSIS -->
+              <div class="cpm-group-header">HISTORY &amp; ANALYSIS</div>
+              <label class="cpm-item"><span>Replace Time (Số lượt thay)</span><input type="checkbox" data-col="timesCount" checked onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Qty Used (Tổng linh kiện thay Pcs)</span><input type="checkbox" data-col="used" checked onchange="onColCheckboxChange(this)"></label>
+
+              <!-- Group 2: COMPONENT LIFE -->
+              <div class="cpm-group-header">COMPONENT LIFE</div>
+              <label class="cpm-item"><span>Avg Shot (Tuổi thọ trung bình)</span><input type="checkbox" data-col="avgShot" checked onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Current Shot (Số shot hiện tại)</span><input type="checkbox" data-col="currentShot" checked onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Cycle (Các chu kỳ shot thực tế)</span><input type="checkbox" data-col="cycles" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Min Shot (Chu kỳ ngắn nhất)</span><input type="checkbox" data-col="minShot" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Max Shot (Chu kỳ dài nhất)</span><input type="checkbox" data-col="maxShot" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Min - Max Shot</span><input type="checkbox" data-col="minMaxShot" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Tiến Độ Mòn (%)</span><input type="checkbox" data-col="wearPercent" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Số Chu Kỳ Hoàn Chỉnh</span><input type="checkbox" data-col="cycleCount" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Last Replacement (Lần thay cuối)</span><input type="checkbox" data-col="lastRepDate" onchange="onColCheckboxChange(this)"></label>
+
+              <!-- Group 3: INVENTORY -->
+              <div class="cpm-group-header">INVENTORY</div>
+              <label class="cpm-item"><span>Tồn Kho Hiện Tại (Stock)</span><input type="checkbox" data-col="stock" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Mức Min An Toàn (Min Stock)</span><input type="checkbox" data-col="minStock" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Trạng Thái Cảnh Báo (Status)</span><input type="checkbox" data-col="status" onchange="onColCheckboxChange(this)"></label>
+
+              <!-- Group 4: TRACEABILITY -->
+              <div class="cpm-group-header">TRACEABILITY</div>
+              <label class="cpm-item"><span>Mã Khuôn Cũ (Old Die Set)</span><input type="checkbox" data-col="moldOld" onchange="onColCheckboxChange(this)"></label>
+              <label class="cpm-item"><span>Mã Khuôn Mới (New Die Set)</span><input type="checkbox" data-col="moldNew" onchange="onColCheckboxChange(this)"></label>
+            </div>
+            <div class="cpm-footer">
+              <span style="font-size:11px; color:var(--ink-muted);">Tự động lưu vào trình duyệt</span>
+              <button type="button" class="cpm-btn-done" onclick="toggleColumnPicker(event)">Đóng</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== TAB 3: ANALYTICS & CHARTS ===== -->
+        <section id="chartTab" class="hidden">
+          <div class="report-chart-box" style="margin-top:0; margin-bottom: 14px; padding: 16px 20px;">
+            <div class="chart-box-header" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
+              <span class="chart-box-title" style="font-size: 15px; font-weight:800; color:var(--ink);">
+                Top 10 Linh Kiện Thay Nhiều Nhất
+              </span>
+              <span style="font-size:11.5px; color:var(--ink-muted); margin-left:auto;">(So sánh Số lượt thay &amp; Tổng linh kiện thay Pcs)</span>
+            </div>
+            <div id="chartTopReplaced" class="chart-box-body" style="min-height: 220px; max-height: 240px;"></div>
+          </div>
+
+          <!-- Top 10 Detail Table -->
+          <div class="summary-box" style="margin-top:0;">
+            <div style="padding: 12px 18px; font-weight:800; font-size:13.5px; color:var(--ink); background:var(--bg-subtle); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <span>Chi Tiết Top 10 Linh Kiện Tiêu Hao</span>
+            </div>
+            <table class="data-table">
+              <thead id="top10TableHead"></thead>
+              <tbody id="top10TableRows"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
-    </section>
-
-    <!-- ===== TAB 3: Analytics (Biểu Đồ & Phân Tích) ===== -->
-    <section id="chartTab" class="hidden">
-      <!-- Main Focused Chart Box: Top 10 Combo Column (Lượt thay) & Line (Pcs thay) -->
-      <div class="report-chart-box" style="margin-top:0; margin-bottom: 14px; padding: 14px 20px;">
-        <div class="chart-box-header" style="margin-bottom: 6px; padding-bottom: 6px;">
-          <span class="chart-box-title" style="font-size: 14.5px; font-weight:800; color:var(--ink);">
-            📊 Top 10 Linh Kiện Thay Nhiều Nhất
-          </span>
-          <span style="font-size:11.5px; color:var(--ink-muted); margin-left:auto;">(So sánh Số lượt thay &amp; Tổng linh kiện thay Pcs)</span>
-        </div>
-        <div id="chartTopReplaced" class="chart-box-body" style="min-height: 220px; max-height: 240px;"></div>
-      </div>
-
-      <!-- Top 10 Detail Table -->
-      <div class="summary-box" style="margin-top:0;">
-        <div style="padding: 12px 18px; font-weight:800; font-size:13.5px; color:var(--ink); background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
-          <span>📋 Chi Tiết Top 10 Linh Kiện Tiêu Hao</span>
-        </div>
-        <table class="data-table">
-          <thead id="top10TableHead"></thead>
-          <tbody id="top10TableRows"></tbody>
-        </table>
-      </div>
-    </section>
+    </main>
   </div>
 
   <!-- ===== MODALS ===== -->
@@ -238,18 +388,18 @@
     <div class="top5-modal-container">
       <div class="top5-modal-header">
         <div class="top5-header-title">
-          <span class="top5-header-icon">🏆</span>
+          <span class="top5-header-icon" id="top5ModalHeaderIcon"></span>
           <div>
-            <h3 style="margin:0;font-size:16.5px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <h3 style="margin:0;font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span>Top 5 Part List Thay Ra Nhiều Nhất</span>
               <span class="top5-badge-pill" id="top5BadgeYear">Năm 2026</span>
             </h3>
-            <p style="margin:3px 0 0;font-size:12px;color:var(--ink-muted);">Thống kê 5 mã linh kiện có số lần thay thế nhiều nhất tính theo năm</p>
+            <p style="margin:2px 0 0;font-size:12px;color:var(--ink-muted);">Thống kê 5 mã linh kiện có số lần thay thế nhiều nhất tính theo năm</p>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <select id="top5ModalYearSelect" onchange="onTop5ModalYearChange(this.value)" class="top5-year-select"></select>
-        <button class="top5-close-btn" onclick="closeTop5Modal()">✕</button>
+          <button class="top5-close-btn" onclick="closeTop5Modal()">✕</button>
         </div>
       </div>
       <div class="top5-modal-body" id="top5ModalBody"></div>
@@ -263,9 +413,9 @@
   <!-- Component Full Details Modal / Drawer -->
   <div id="componentDetailModal" class="top5-modal-overlay hidden" onclick="if(event.target===this)closeComponentDetailModal()">
     <div class="top5-modal-container detail-modal-container" style="max-width:820px; width:92vw;">
-      <div class="top5-modal-header" style="background:#f8fafc; border-bottom:1px solid var(--border);">
+      <div class="top5-modal-header">
         <div class="top5-header-title">
-          <span class="top5-header-icon" style="background:#eff6ff; border-color:#bfdbfe; color:#2563eb;">🔍</span>
+          <span class="top5-header-icon" id="detailModalHeaderIcon"></span>
           <div>
             <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:8px;" id="detailModalTitle">
               Chi Tiết Linh Kiện
@@ -280,8 +430,8 @@
       <div class="top5-modal-body" id="detailModalBody" style="padding:16px 20px; gap:16px; max-height:calc(85vh - 120px); overflow-y:auto;">
         <!-- Categorized sections injected dynamically -->
       </div>
-      <div class="top5-modal-footer" style="padding:10px 20px; background:#f8fafc; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-size:12px; color:var(--ink-muted);" id="detailModalFooterNote">ComponetWear Manufacturing System</span>
+      <div class="top5-modal-footer">
+        <span style="font-size:12px; color:var(--ink-muted);" id="detailModalFooterNote">ComponetWear Manufacturing Intelligence</span>
         <button type="button" class="top5-btn-close-action" onclick="closeComponentDetailModal()">Đóng</button>
       </div>
     </div>
@@ -290,35 +440,35 @@
   <!-- Delete Confirmation Modal -->
   <div id="deleteReasonModal" class="top5-modal-overlay hidden" onclick="if(event.target===this)cancelDeleteReplacement()">
     <div class="top5-modal-container" style="max-width:520px;">
-      <div class="top5-modal-header" style="background:linear-gradient(180deg,#fff,#fff1f2);border-bottom:1px solid #fecaca;">
+      <div class="top5-modal-header" style="background:var(--rose-light);border-bottom:1px solid var(--rose-border);">
         <div class="top5-header-title">
-          <span class="top5-header-icon" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;">🗑️</span>
+          <span class="top5-header-icon" style="background:var(--rose-light);border-color:var(--rose-border);color:var(--rose);" id="deleteModalIcon"></span>
           <div>
-            <h3 style="margin:0;font-size:16px;font-weight:800;color:#991b1b;">Xác Nhận Xóa Lượt Thay Thế</h3>
+            <h3 style="margin:0;font-size:15.5px;font-weight:800;color:var(--rose-dark);">Xác Nhận Xóa Lượt Thay Thế</h3>
             <p style="margin:2px 0 0;font-size:12px;color:var(--ink-muted);">Vui lòng nhập lý do xóa để lưu vào nhật ký kiểm soát</p>
           </div>
         </div>
         <button class="top5-close-btn" onclick="cancelDeleteReplacement()">✕</button>
       </div>
       <div class="top5-modal-body" style="gap:14px;">
-        <div id="deleteTargetInfo" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;"></div>
+        <div id="deleteTargetInfo" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;"></div>
         <div>
-          <label for="deleteReasonText" style="display:block;font-size:12.5px;font-weight:700;margin-bottom:6px;">Lý do xóa <span style="color:#dc2626;">*</span>:</label>
-          <textarea id="deleteReasonText" placeholder="Nhập lý do xóa..." rows="3" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:inherit;font-size:13px;outline:none;resize:vertical;"></textarea>
+          <label for="deleteReasonText" style="display:block;font-size:12.5px;font-weight:700;margin-bottom:6px;">Lý do xóa <span style="color:var(--rose);">*</span>:</label>
+          <textarea id="deleteReasonText" placeholder="Nhập lý do xóa..." rows="3" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--ink);font-family:inherit;font-size:13px;outline:none;resize:vertical;"></textarea>
         </div>
         <div>
           <div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;margin-bottom:6px;">Gợi ý nhanh:</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            <button type="button" onclick="setQuickDeleteReason('Nhập nhầm ngày / nhầm cột')" class="quick-reason-btn">🏷️ Nhập nhầm ngày</button>
-            <button type="button" onclick="setQuickDeleteReason('Hủy yêu cầu thay thế linh kiện')" class="quick-reason-btn">🏷️ Hủy yêu cầu thay</button>
-            <button type="button" onclick="setQuickDeleteReason('Nhập trùng dữ liệu phiếu thay')" class="quick-reason-btn">🏷️ Nhập trùng dữ liệu</button>
-            <button type="button" onclick="setQuickDeleteReason('Linh kiện thực tế chưa thay thế')" class="quick-reason-btn">🏷️ Chưa thay thực tế</button>
+            <button type="button" onclick="setQuickDeleteReason('Nhập nhầm ngày / nhầm cột')" class="quick-reason-btn">Nhập nhầm ngày</button>
+            <button type="button" onclick="setQuickDeleteReason('Hủy yêu cầu thay thế linh kiện')" class="quick-reason-btn">Hủy yêu cầu thay</button>
+            <button type="button" onclick="setQuickDeleteReason('Nhập trùng dữ liệu phiếu thay')" class="quick-reason-btn">Nhập trùng dữ liệu</button>
+            <button type="button" onclick="setQuickDeleteReason('Linh kiện thực tế chưa thay thế')" class="quick-reason-btn">Chưa thay thực tế</button>
           </div>
         </div>
       </div>
-      <div class="top5-modal-footer" style="background:#fff1f2;border-top:1px solid #fecaca;display:flex;justify-content:flex-end;gap:10px;">
+      <div class="top5-modal-footer" style="background:var(--rose-light);border-top:1px solid var(--rose-border);display:flex;justify-content:flex-end;gap:10px;">
         <button class="top5-btn-close-action" onclick="cancelDeleteReplacement()">Hủy bỏ</button>
-        <button onclick="confirmDeleteReplacement()" class="btn-danger">🗑️ Xác Nhận Xóa</button>
+        <button onclick="confirmDeleteReplacement()" class="btn-danger">Xác Nhận Xóa</button>
       </div>
     </div>
   </div>
@@ -326,50 +476,50 @@
   <!-- Clear Data Confirmation Modal -->
   <div id="clearDataModal" class="top5-modal-overlay hidden" onclick="if(event.target===this)closeClearDataModal()">
     <div class="top5-modal-container" style="max-width:540px;">
-      <div class="top5-modal-header" style="background:linear-gradient(180deg,#fff,#fff1f2);border-bottom:1px solid #fecaca;">
+      <div class="top5-modal-header" style="background:var(--rose-light);border-bottom:1px solid var(--rose-border);">
         <div class="top5-header-title">
-          <span class="top5-header-icon" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626;">🗑️</span>
+          <span class="top5-header-icon" style="background:var(--rose-light);border-color:var(--rose-border);color:var(--rose);" id="clearModalIcon"></span>
           <div>
-            <h3 style="margin:0;font-size:17px;font-weight:800;color:#991b1b;">Xóa Dữ Liệu JSON Lưu Trữ</h3>
-            <p style="margin:3px 0 0;font-size:13px;color:var(--ink-muted);">Chọn loại dữ liệu JSON bạn muốn làm sạch</p>
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:var(--rose-dark);">Xóa Dữ Liệu JSON Lưu Trữ</h3>
+            <p style="margin:2px 0 0;font-size:12px;color:var(--ink-muted);">Chọn loại dữ liệu JSON bạn muốn làm sạch</p>
           </div>
         </div>
         <button class="top5-close-btn" onclick="closeClearDataModal()">✕</button>
       </div>
-      <div class="top5-modal-body" style="gap:16px;padding:20px 24px;">
-        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 16px;color:#991b1b;font-size:13.5px;line-height:1.5;">
-          <b>⚠️ Cảnh báo quan trọng:</b> Thao tác này sẽ làm trống dữ liệu trong file JSON lưu trữ. Sau khi xóa, bạn có thể nạp lại bất kỳ lúc nào bằng cách bấm nút <b>📥 Import Excel</b>.
+      <div class="top5-modal-body" style="gap:14px;padding:18px 20px;">
+        <div style="background:var(--rose-light);border:1px solid var(--rose-border);border-radius:var(--radius-sm);padding:12px 14px;color:var(--rose-text);font-size:13px;line-height:1.5;">
+          <b>Cảnh báo quan trọng:</b> Thao tác này sẽ làm trống dữ liệu trong file JSON lưu trữ. Sau khi xóa, bạn có thể nạp lại bất kỳ lúc nào bằng cách bấm nút <b>Import Excel</b>.
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <label style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;background:#fff;transition:border-color 0.15s;">
-            <input type="radio" name="clearJsonType" value="shoot" checked style="margin-top:3px;width:18px;height:18px;cursor:pointer;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);">
+            <input type="radio" name="clearJsonType" value="shoot" checked style="margin-top:3px;cursor:pointer;">
             <div>
-              <div style="font-weight:800;font-size:14.5px;color:var(--ink);">1. Dữ liệu Shot Number (Sản lượng dập)</div>
-              <div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">Xóa sạch toàn bộ số shot dập hàng ngày trong <code>shoot-data.json</code></div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--ink);">1. Dữ liệu Shot Number (Sản lượng dập)</div>
+              <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">Xóa sạch toàn bộ số shot dập hàng ngày trong <code>shoot-data.json</code></div>
             </div>
           </label>
 
-          <label style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;background:#fff;transition:border-color 0.15s;">
-            <input type="radio" name="clearJsonType" value="replacements" style="margin-top:3px;width:18px;height:18px;cursor:pointer;">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:var(--surface);">
+            <input type="radio" name="clearJsonType" value="replacements" style="margin-top:3px;cursor:pointer;">
             <div>
-              <div style="font-weight:800;font-size:14.5px;color:var(--ink);">2. Dữ liệu Lần Thay Thế (Replace Time Log)</div>
-              <div style="font-size:13px;color:var(--ink-muted);margin-top:2px;">Xóa sạch toàn bộ lịch sử các lần thay linh kiện trong <code>replacement-log.json</code></div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--ink);">2. Dữ liệu Lần Thay Thế (Replace Time Log)</div>
+              <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">Xóa sạch toàn bộ lịch sử các lần thay linh kiện trong <code>replacement-log.json</code></div>
             </div>
           </label>
 
-          <label style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1.5px solid #fca5a5;border-radius:10px;cursor:pointer;background:#fff5f5;transition:border-color 0.15s;">
-            <input type="radio" name="clearJsonType" value="all" style="margin-top:3px;width:18px;height:18px;cursor:pointer;">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--rose-border);border-radius:var(--radius-sm);cursor:pointer;background:var(--rose-light);">
+            <input type="radio" name="clearJsonType" value="all" style="margin-top:3px;cursor:pointer;">
             <div>
-              <div style="font-weight:800;font-size:14.5px;color:#dc2626;">3. Xóa Cả Hai (Shot Number &amp; Lần Thay Thế)</div>
-              <div style="font-size:13px;color:#991b1b;margin-top:2px;">Làm trống toàn bộ cả 2 file <code>shoot-data.json</code> và <code>replacement-log.json</code></div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--rose-dark);">3. Xóa Cả Hai (Shot Number &amp; Lần Thay Thế)</div>
+              <div style="font-size:12px;color:var(--rose-text);margin-top:2px;">Làm trống toàn bộ cả 2 file <code>shoot-data.json</code> và <code>replacement-log.json</code></div>
             </div>
           </label>
         </div>
       </div>
-      <div class="top5-modal-footer" style="background:#fff1f2;border-top:1px solid #fecaca;display:flex;justify-content:flex-end;gap:12px;padding:12px 20px;">
+      <div class="top5-modal-footer" style="background:var(--rose-light);border-top:1px solid var(--rose-border);display:flex;justify-content:flex-end;gap:10px;">
         <button class="top5-btn-close-action" onclick="closeClearDataModal()">Hủy bỏ</button>
-        <button onclick="confirmClearJsonData()" class="btn-danger" style="height:40px;font-size:14.5px;">🗑️ Tiến Hành Xóa</button>
+        <button onclick="confirmClearJsonData()" class="btn-danger">Tiến Hành Xóa</button>
       </div>
     </div>
   </div>
@@ -389,15 +539,15 @@
     </div>
   </div>
 
-  <!-- ===== MODULAR JS (Plan §7: UI không tính toán) ===== -->
-  <script src="js/utils.js?v=20260821_v3"></script>
-  <script src="js/state.js?v=20260821_v3"></script>
-  <script src="js/api.js?v=20260821_v3"></script>
-  <script src="js/screen-fit.js?v=20260821_v3"></script>
-  <script src="js/ui-render.js?v=20260821_v3"></script>
-  <script src="js/ui-modals.js?v=20260821_v3"></script>
-  <script src="js/export-excel.js?v=20260821_v3"></script>
-  <script src="js/heartbeat.js?v=20260821_v3"></script>
-  <script src="js/app.js?v=20260821_v3"></script>
+  <!-- ===== MODULAR JS ===== -->
+  <script src="js/utils.js?v=20261016_v3"></script>
+  <script src="js/state.js?v=20261016_v3"></script>
+  <script src="js/api.js?v=20261016_v3"></script>
+  <script src="js/screen-fit.js?v=20261016_v3"></script>
+  <script src="js/ui-render.js?v=20261016_v3"></script>
+  <script src="js/ui-modals.js?v=20261016_v3"></script>
+  <script src="js/export-excel.js?v=20261016_v3"></script>
+  <script src="js/heartbeat.js?v=20261016_v3"></script>
+  <script src="js/app.js?v=20261016_v3"></script>
 </body>
 </html>

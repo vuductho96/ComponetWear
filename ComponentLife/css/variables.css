@@ -1,47 +1,173 @@
-/* CSS Variables */
+/* variables.css — ComponetWear V3 Design Tokens */
 :root {
-      --bg: #f8fafc;
-      --surface: #ffffff;
-      --surface-hover: #f1f5f9;
-      --surface-active: #e2e8f0;
-      --ink: #0f172a;
-      --ink-secondary: #334155;
-      --ink-muted: #64748b;
-      --ink-light: #94a3b8;
-      --border: #e2e8f0;
-      --border-dark: #cbd5e1;
-      --primary: #4f46e5;
-      --primary-hover: #4338ca;
-      --primary-dark: #3730a3;
-      --primary-light: #eef2ff;
-      --primary-ring: rgba(79, 70, 229, 0.18);
-      --primary-border: #c7d2fe;
-      --emerald: #059669;
-      --emerald-dark: #047857;
-      --emerald-light: #ecfdf5;
-      --emerald-border: #a7f3d0;
-      --amber: #d97706;
-      --amber-dark: #b45309;
-      --amber-bg: #fffbe6;
-      --amber-light: #fef3c7;
-      --amber-border: #fde68a;
-      --amber-text: #92400e;
-      --rose: #e11d48;
-      --rose-dark: #dc2626;
-      --rose-light: #fef2f2;
-      --rose-border: #fca5a5;
-      --purple: #9333ea;
-      --purple-light: #faf5ff;
-      --purple-border: #e9d5ff;
-      --blue: #2563eb;
-      --blue-light: #eff6ff;
-      --blue-border: #bfdbfe;
-      --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-      --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
-      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-      --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
-      --radius-sm: 6px;
-      --radius: 10px;
-      --radius-lg: 14px;
-      --radius-full: 9999px;
-    }
+  /* Color Palette - Light Mode */
+  --bg: #f8fafc;
+  --bg-subtle: #f1f5f9;
+  --surface: #ffffff;
+  --surface-hover: #f8fafc;
+  --surface-active: #f1f5f9;
+  --surface-card: #ffffff;
+  --surface-popover: #ffffff;
+  
+  /* Text & Ink */
+  --ink: #0f172a;
+  --ink-secondary: #334155;
+  --ink-muted: #64748b;
+  --ink-light: #94a3b8;
+  --ink-disabled: #cbd5e1;
+  --ink-inverse: #ffffff;
+  
+  /* Borders */
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-dark: #cbd5e1;
+  --border-focus: #3b82f6;
+
+  /* Sidebar (Dark industrial slate) */
+  --sidebar-bg: #0f172a;
+  --sidebar-bg-hover: #1e293b;
+  --sidebar-bg-active: #1d4ed8;
+  --sidebar-border: #1e293b;
+  --sidebar-text: #94a3b8;
+  --sidebar-text-bright: #f8fafc;
+  --sidebar-text-muted: #64748b;
+  --sidebar-width: 250px;
+  --sidebar-width-collapsed: 68px;
+
+  /* Topbar */
+  --topbar-height: 64px;
+  --topbar-bg: #ffffff;
+  --topbar-border: #e2e8f0;
+
+  /* Brand / Primary */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-dark: #1e40af;
+  --primary-light: #eff6ff;
+  --primary-border: #bfdbfe;
+  --primary-ring: rgba(37, 99, 235, 0.18);
+
+  /* Status / Accents */
+  --emerald: #10b981;
+  --emerald-dark: #059669;
+  --emerald-light: #ecfdf5;
+  --emerald-border: #a7f3d0;
+  --emerald-text: #065f46;
+
+  --amber: #f59e0b;
+  --amber-dark: #d97706;
+  --amber-bg: #fffbe6;
+  --amber-light: #fef3c7;
+  --amber-border: #fde68a;
+  --amber-text: #92400e;
+
+  --rose: #ef4444;
+  --rose-dark: #dc2626;
+  --rose-light: #fef2f2;
+  --rose-border: #fca5a5;
+  --rose-text: #991b1b;
+
+  --purple: #8b5cf6;
+  --purple-light: #f5f3ff;
+  --purple-border: #ddd6fe;
+  --purple-text: #5b21b6;
+
+  --blue: #2563eb;
+  --blue-light: #eff6ff;
+  --blue-border: #bfdbfe;
+
+  --cyan: #06b6d4;
+  --cyan-light: #ecfeff;
+  --cyan-border: #a5f3fc;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --trans-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --trans-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --trans-smooth: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Dark Mode Tokens */
+[data-bs-theme="dark"] {
+  --bg: #0b1120;
+  --bg-subtle: #111827;
+  --surface: #1e293b;
+  --surface-hover: #26354a;
+  --surface-active: #334155;
+  --surface-card: #182234;
+  --surface-popover: #1e293b;
+
+  --ink: #f8fafc;
+  --ink-secondary: #cbd5e1;
+  --ink-muted: #94a3b8;
+  --ink-light: #64748b;
+  --ink-disabled: #475569;
+  --ink-inverse: #0f172a;
+
+  --border: #334155;
+  --border-light: #1e293b;
+  --border-dark: #475569;
+  --border-focus: #60a5fa;
+
+  --sidebar-bg: #080d1a;
+  --sidebar-bg-hover: #151f32;
+  --sidebar-bg-active: #2563eb;
+  --sidebar-border: #1e293b;
+  --sidebar-text: #94a3b8;
+  --sidebar-text-bright: #ffffff;
+  --sidebar-text-muted: #64748b;
+
+  --topbar-bg: #111827;
+  --topbar-border: #1f2937;
+
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-dark: #2563eb;
+  --primary-light: rgba(59, 130, 246, 0.15);
+  --primary-border: #2563eb;
+  --primary-ring: rgba(59, 130, 246, 0.3);
+
+  --emerald: #34d399;
+  --emerald-dark: #10b981;
+  --emerald-light: rgba(16, 185, 129, 0.15);
+  --emerald-border: #059669;
+  --emerald-text: #a7f3d0;
+
+  --amber: #fbbf24;
+  --amber-dark: #f59e0b;
+  --amber-bg: rgba(245, 158, 11, 0.1);
+  --amber-light: rgba(245, 158, 11, 0.15);
+  --amber-border: #b45309;
+  --amber-text: #fde68a;
+
+  --rose: #f87171;
+  --rose-dark: #ef4444;
+  --rose-light: rgba(239, 68, 68, 0.15);
+  --rose-border: #b91c1c;
+  --rose-text: #fca5a5;
+
+  --purple: #a78bfa;
+  --purple-light: rgba(139, 92, 246, 0.15);
+  --purple-border: #7c3aed;
+  --purple-text: #ddd6fe;
+
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}

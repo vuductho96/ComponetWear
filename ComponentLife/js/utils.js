@@ -191,3 +191,16 @@ function msg(text, bad = false, duration = 6500) {
     _statusTimeout = setTimeout(() => { if (el) el.style.display = "none"; }, duration);
   }
 }
+
+if (typeof window !== 'undefined') {
+  window.$ = $;
+  window.esc = esc;
+  window.msg = msg;
+  window.monthNames = monthNames;
+  window.norm = norm;
+  window.normKey = normKey;
+  window.monthKey = monthKey;
+  window.toIso = toIso;
+  window.formatMoldDisplay = formatMoldDisplay;
+  window.formatMoldSeriesDisplay = formatMoldSeriesDisplay;
+}

@@ -378,9 +378,13 @@ function Invoke-CalculationEngine {
         }
 
         # Tinh trang (Status per sample report format)
-        $tinhTrang = "GOOD"
-        if ($wearPercent -ge 95) { $tinhTrang = "CAN THAY THE" }
-        elseif ($wearPercent -ge 80) { $tinhTrang = "SAP DEN HAN" }
+        $tinhTrang = if ($avgVal -gt 0) {
+            if ($wearPercent -ge 95) { "CAN THAY THE" }
+            elseif ($wearPercent -ge 80) { "SAP DEN HAN" }
+            else { "GOOD" }
+        } else {
+            "THEO DOI"
+        }
 
         $componentStateList += [pscustomobject]@{
             Component = $canonicalCode

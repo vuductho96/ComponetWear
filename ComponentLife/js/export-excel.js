@@ -12,7 +12,7 @@ function exportExcelFull() {
   if (currentActiveTab === "month" || currentActiveTab === "view") {
     return exportMonthViewExcel();
   }
-  return exportStandardLifeTrackingExcel();
+  return exportDashboardExcel();
 }
 
 function exportMonthViewExcel() {
@@ -383,10 +383,10 @@ async function exportProfessionalReportExcel() {
       totalCompletedCyclesCount += cycles.length;
       cycles.forEach(c => { totalCompletedCycleShotsSum += c; });
 
-      const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
-      const medianLife = cycles.length > 0 ? calculateMedian(cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
-      const minShotLife = cycles.length > 0 ? Math.min(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
-      const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
+      const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : null;
+      const medianLife = cycles.length > 0 ? calculateMedian(cycles) : null;
+      const minShotLife = cycles.length > 0 ? Math.min(...cycles) : null;
+      const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : null;
       const currentShotCount = sortedHistReps.length > 0 ? sortedShoots.filter(s => s.Date >= sortedHistReps[sortedHistReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : null);
       const lastRepDate = sortedHistReps.length > 0 ? sortedHistReps[sortedHistReps.length - 1].ReplaceDate : null;
 
@@ -1149,102 +1149,135 @@ function escapeXmlStr(str) {
   });
 }
 
-// ===== STANDARD EXCEL EXPORT (FOR VIEW / STOCK / REPORT TABS) =====
-function exportStandardLifeTrackingExcel() {
+// ===== DASHBOARD EXCEL EXPORT (DYNAMIC COLUMNS & ACTIVE FILTERS) =====
+async function exportDashboardExcel() {
   if ((!db.replacements || !db.replacements.length) && (!db.shoot || !db.shoot.length) && (!masterData || !masterData.length)) {
     return msg("Hãy nạp dữ liệu trước khi xuất Excel.", true);
   }
-  if (typeof XLSX === 'undefined') return msg("Thư viện SheetJS chưa sẵn sàng.", true);
 
-  console.log("%c[EXPORT] Starting standard Component_Life_Tracking export...", "color:#4f46e5; font-weight:bold;");
+  console.log("%c[EXPORT:DASHBOARD] Starting Dashboard Excel export with active columns...", "color:#4f46e5; font-weight:bold; font-size:13px;");
+  msg("Đang xuất bảng Dashboard Excel với các cột đã chọn...", false, 3000);
 
-  const wb = XLSX.utils.book_new();
-
-  // Get active filters from UI toolbar
+  // 1. EXTRACT ACTIVE FILTER STATE
   const ymFilter = typeof selectedMonth === 'function' ? selectedMonth() : '';
   const yFilter = typeof selectedYear === 'function' ? selectedYear() : '';
   const dFilter = typeof selectedDay === 'function' ? selectedDay() : '';
+  const globalQ = $("globalSearch") ? $("globalSearch").value.trim() : '';
 
-  // Index ALL historical shoot data
+  let periodLabel = "Tất cả thời gian";
+  let filePeriodSlug = "All";
+  if (dFilter) {
+    periodLabel = typeof formatDateDisplay === 'function' ? formatDateDisplay(dFilter) : dFilter;
+    filePeriodSlug = dFilter;
+  } else if (ymFilter) {
+    const [y, m] = ymFilter.split('-');
+    const mIdx = parseInt(m, 10) - 1;
+    const mName = typeof monthNames !== 'undefined' && monthNames[mIdx] ? monthNames[mIdx] : `Tháng ${m}`;
+    periodLabel = `${mName} ${y}`;
+    filePeriodSlug = ymFilter;
+  } else if (yFilter) {
+    periodLabel = `Năm ${yFilter}`;
+    filePeriodSlug = yFilter;
+  }
+
+  const generatedTimestamp = typeof formatDateTimeDisplay === 'function' ? formatDateTimeDisplay(new Date()) : new Date().toLocaleString('vi-VN');
+
+  // 2. INDEX DATA (Matches renderStockTable)
+  const allHistoricalReps = new Map();
+  const periodReps = new Map();
+
+  (db.replacements || []).forEach(r => {
+    const lbl = String(r.Label || "").trim();
+    const repDate = String(r.ReplaceDate || "").trim();
+    if (!repDate || lbl === "-" || lbl === "0" || lbl === "·") return;
+
+    const val = Number(lbl.replace(/,/g, "")) || 1;
+    const reqId = String(r.RequestId || "").trim();
+    const p = String(r.Part || "").toLowerCase().trim();
+    const dList = [r.DieSet, r.NewDieSet, r.OldDieSet].map(d => String(d || "").toLowerCase().trim()).filter(Boolean);
+    const uniqueDies = [...new Set(dList)];
+    if (!uniqueDies.length && p) uniqueDies.push(p);
+
+    const evObj = { date: repDate, qty: val, requestId: reqId };
+
+    // All-time historical map
+    uniqueDies.forEach(d => {
+      const key = `${p}|${d}`;
+      if (!allHistoricalReps.has(key)) allHistoricalReps.set(key, []);
+      allHistoricalReps.get(key).push(evObj);
+    });
+
+    // Period-filtered map
+    const inPeriod = (!ymFilter || monthKey(repDate) === ymFilter) &&
+                     (!yFilter || ymFilter || repDate.startsWith(yFilter)) &&
+                     (!dFilter || repDate.slice(8, 10) === dFilter);
+    if (inPeriod) {
+      uniqueDies.forEach(d => {
+        const key = `${p}|${d}`;
+        if (!periodReps.has(key)) periodReps.set(key, []);
+        periodReps.get(key).push(evObj);
+      });
+    }
+  });
+
+  // Shoot data index
   const shootsByMold = new Map();
   (db.shoot || []).forEach(s => {
-    if (!s.Date || !s.Output || Number(s.Output) <= 0) return;
-
+    if (!s.Date || Number(s.Output) <= 0) return;
     const d = String(s.DieSet || '').toLowerCase().trim();
     const p = String(s.Part || '').toLowerCase().trim();
     if (d) { if (!shootsByMold.has(d)) shootsByMold.set(d, []); shootsByMold.get(d).push(s); }
     if (p && p !== d) { if (!shootsByMold.has(p)) shootsByMold.set(p, []); shootsByMold.get(p).push(s); }
   });
 
-  // Index 1: All historical replacements; Index 2: Period filtered replacements
-  const allHistoricalReps = new Map();
-  const periodReps = new Map();
-
-  (db.replacements || []).forEach(r => {
-    const lbl = String(r.Label || '').trim();
-    if (!r.ReplaceDate || lbl === '-' || lbl === '0' || lbl === '·') return;
-
-    const p = String(r.Part || '').toLowerCase().trim();
-    const d = String(r.DieSet || r.NewDieSet || r.OldDieSet || '').toLowerCase().trim();
-    const key = `${p}|${d}`;
-
-    if (!allHistoricalReps.has(key)) allHistoricalReps.set(key, []);
-    allHistoricalReps.get(key).push(r);
-
-    const inPeriod = (!dFilter || r.ReplaceDate === dFilter) &&
-                     (!ymFilter || r.ReplaceDate.startsWith(ymFilter)) &&
-                     (!yFilter || ymFilter || r.ReplaceDate.startsWith(yFilter));
-    if (inPeriod) {
-      if (!periodReps.has(key)) periodReps.set(key, []);
-      periodReps.get(key).push(r);
-    }
-  });
-
-  // getPartsToRender applies Global Search, Part, Mold, Series filters
-  const allParts = typeof getPartsToRender === 'function' ? getPartsToRender() : [];
-
-  let maxCyclesFound = 3;
-  const rowsData = [];
-
-  allParts.forEach((item, index) => {
+  const allParts = typeof getPartsToRender === 'function' ? getPartsToRender('stock') : [];
+  const processedList = allParts.map(item => {
     const part = item.part;
-    const series = item.series || '-';
+    const series = item.series || "-";
     const moldNew = item.moldNew || item.moldOld || item.part;
-    const moldOld = item.moldOld || '';
-    
-    const moldSeries = typeof formatMoldSeriesDisplay === 'function' ? formatMoldSeriesDisplay(series, moldOld, moldNew, false) : `${series} / ${moldNew}`;
+    const moldOld = item.moldOld || "";
+    const moldSeries = typeof formatMoldSeriesDisplay === 'function' ? formatMoldSeriesDisplay(series, moldOld, moldNew, false) : (series ? `${series}/${moldNew}` : moldNew);
 
-    const pLower = part.toLowerCase().trim();
-    const dNewLower = (moldNew || '').toLowerCase().trim();
-    const dOldLower = (moldOld || '').toLowerCase().trim();
+    const st = typeof getStockItem === 'function' ? getStockItem(part, moldNew) : {};
+    const masterItem = typeof findMasterItem === 'function' ? findMasterItem(part, moldNew, series) : null;
+    const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
+    let minStock = (st && st.minStock !== undefined) ? Number(st.minStock) || 1 : (masterItem && masterItem.StandardStock !== undefined ? Number(masterItem.StandardStock) || 1 : 1);
+
+    const pLower = String(part || "").toLowerCase().trim();
+    const dNewLower = String(moldNew || "").toLowerCase().trim();
+    const dOldLower = String(moldOld || "").toLowerCase().trim();
     const k1 = `${pLower}|${dNewLower}`, k2 = `${pLower}|${dOldLower}`;
 
-    // Period replacements (for period Replace Time & Qty Used)
-    let periodRepsList = [];
-    if (periodReps.has(k1)) periodRepsList.push(...periodReps.get(k1));
-    if (k2 !== k1 && periodReps.has(k2)) periodRepsList.push(...periodReps.get(k2));
-
-    const repSet = new Set(), sortedPeriodReps = [];
-    periodRepsList.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
-      const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
-      if (!repSet.has(rk)) { repSet.add(rk); sortedPeriodReps.push(r); }
+    // Period events
+    const periodEvents = [];
+    const periodEventSet = new Set();
+    [...(periodReps.get(k1) || []), ...(periodReps.get(k2) || [])].forEach(ev => {
+      const ek = `${ev.date}|${ev.requestId}|${ev.qty}`;
+      if (!periodEventSet.has(ek)) {
+        periodEventSet.add(ek);
+        periodEvents.push(ev);
+      }
     });
+    periodEvents.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const used = periodEvents.reduce((sum, ev) => sum + (Number(ev.qty) || 0), 0);
 
-    const replacementCount = sortedPeriodReps.length;
-    const totalPartsReplacedPcs = sortedPeriodReps.reduce((sum, r) => sum + (Number(r.Label) || 1), 0);
+    let status = 'SAFE';
+    if (stock <= 0) status = 'CRITICAL';
+    else if (stock < minStock) status = 'WARNING';
 
-    // All-time historical replacements (for absolute latest replacement date & cycles)
-    let allHistoryRepsList = [];
-    if (allHistoricalReps.has(k1)) allHistoryRepsList.push(...allHistoricalReps.get(k1));
-    if (k2 !== k1 && allHistoricalReps.has(k2)) allHistoryRepsList.push(...allHistoricalReps.get(k2));
-
-    const allRepSet = new Set(), sortedHistoryReps = [];
-    allHistoryRepsList.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || '')).forEach(r => {
-      const rk = `${r.ReplaceDate}|${r.RequestId || ''}|${r.Label}`;
-      if (!allRepSet.has(rk)) { allRepSet.add(rk); sortedHistoryReps.push(r); }
+    // All-time historical events
+    const allHistoryEvents = [];
+    const allHistorySet = new Set();
+    [...(allHistoricalReps.get(k1) || []), ...(allHistoricalReps.get(k2) || [])].forEach(ev => {
+      const ek = `${ev.date}|${ev.requestId}|${ev.qty}`;
+      if (!allHistorySet.has(ek)) {
+        allHistorySet.add(ek);
+        allHistoryEvents.push(ev);
+      }
     });
+    allHistoryEvents.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
-    // All historical shoots sorted by date
+    // All historical shoots
     let allShoots = [];
     if (dNewLower && shootsByMold.has(dNewLower)) allShoots.push(...shootsByMold.get(dNewLower));
     if (dOldLower && dOldLower !== dNewLower && shootsByMold.has(dOldLower)) allShoots.push(...shootsByMold.get(dOldLower));
@@ -1257,123 +1290,348 @@ function exportStandardLifeTrackingExcel() {
     });
 
     const totalLifetimeShots = sortedShoots.reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
-
     const cycles = [];
-    if (sortedHistoryReps.length > 0) {
-      const c1 = sortedShoots.filter(s => s.Date < sortedHistoryReps[0].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+    if (allHistoryEvents.length > 0) {
+      const c1 = sortedShoots.filter(s => s.Date < allHistoryEvents[0].date).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
       if (c1 > 0) cycles.push(c1);
-      for (let i = 0; i < sortedHistoryReps.length - 1; i++) {
-        const cN = sortedShoots.filter(s => s.Date >= sortedHistoryReps[i].ReplaceDate && s.Date < sortedHistoryReps[i + 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
+      for (let i = 0; i < allHistoryEvents.length - 1; i++) {
+        const cN = sortedShoots.filter(s => s.Date >= allHistoryEvents[i].date && s.Date < allHistoryEvents[i + 1].date).reduce((sum, s) => sum + (Number(s.Output) || 0), 0);
         if (cN > 0) cycles.push(cN);
       }
     }
 
-    if (cycles.length > maxCyclesFound) maxCyclesFound = cycles.length;
+    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
+    const minShotLife = cycles.length > 0 ? Math.min(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
+    const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
 
-    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
-    const minShotLife = cycles.length > 0 ? Math.min(...cycles) : '';
-    const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : '';
-
-    // CURRENT SHOT: ALWAYS calculated from absolute latest replacement date up to the present date!
-    const absoluteLastRepDate = sortedHistoryReps.length > 0 ? sortedHistoryReps[sortedHistoryReps.length - 1].ReplaceDate : null;
+    const absoluteLastRepDate = allHistoryEvents.length > 0 ? allHistoryEvents[allHistoryEvents.length - 1].date : null;
     const currentShotCount = absoluteLastRepDate
       ? sortedShoots.filter(s => s.Date >= absoluteLastRepDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0)
-      : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+      : totalLifetimeShots;
 
-    const st = typeof getStockItem === 'function' ? getStockItem(part, moldNew) : {};
-    const masterItem = typeof findMasterItem === 'function' ? findMasterItem(part, moldNew, series) : null;
-    const stock = Number(st.stock !== undefined ? st.stock : (masterItem ? masterItem.StockLeft : 0)) || 0;
-    let minStock = (st && st.minStock !== undefined) ? Number(st.minStock) || 1 : (masterItem && masterItem.StandardStock !== undefined ? Number(masterItem.StandardStock) || 1 : 1);
-    const lastRepDate = absoluteLastRepDate || '';
-
-    rowsData.push({
-      no: 0,
-      part,
-      series,
-      moldNew,
-      moldOld,
-      moldSeries,
-      stock,
-      minStock,
-      status: statusLabel,
-      replacementCount: replacementCount > 0 ? replacementCount : '',
-      totalPartsReplacedPcs: totalPartsReplacedPcs > 0 ? totalPartsReplacedPcs : '',
-      averageShotLife,
-      minShotLife,
-      maxShotLife,
-      currentShotCount,
-      lastRepDate,
-      cycles
-    });
-  });
-
-  // Prioritize sorting descending by replacement count
-  rowsData.sort((a, b) => {
-    const repA = Number(a.replacementCount) || 0;
-    const repB = Number(b.replacementCount) || 0;
-    if (repB !== repA) return repB - repA;
-    const pcsA = Number(a.totalPartsReplacedPcs) || 0;
-    const pcsB = Number(b.totalPartsReplacedPcs) || 0;
-    if (pcsB !== pcsA) return pcsB - pcsA;
-    return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
-  });
-
-  rowsData.forEach((r, idx) => { r.no = idx + 1; });
-
-  const visibleCols = typeof getDashboardVisibleCols === 'function' ? getDashboardVisibleCols() : DEFAULT_DASHBOARD_COLS;
-
-  const excelRows = rowsData.map(r => {
-    const rowObj = {
-      "No.": r.no,
-      "Part": r.part,
-      "Mold / Series": r.moldSeries
+    return {
+      part, series, moldNew, moldOld, moldSeries,
+      stock, minStock, used, timesCount: periodEvents.length, events: periodEvents, status,
+      cycles, averageShotLife, minShotLife, maxShotLife, currentShotCount, lastRepDate: absoluteLastRepDate || '-',
+      totalLifetimeShots
     };
-
-    if (visibleCols.timesCount) rowObj["Replace Time"] = r.replacementCount;
-    if (visibleCols.used) rowObj["Qty Used"] = r.totalPartsReplacedPcs;
-    if (visibleCols.avgShot) rowObj["Avg Shot"] = r.averageShotLife;
-    if (visibleCols.currentShot) rowObj["Current Shot"] = r.currentShotCount;
-    if (visibleCols.minShot) rowObj["Min Shot"] = r.minShotLife;
-    if (visibleCols.maxShot) rowObj["Max Shot"] = r.maxShotLife;
-    if (visibleCols.minMaxShot) rowObj["Min - Max Shot"] = (r.minShotLife && r.maxShotLife) ? `${r.minShotLife} - ${r.maxShotLife}` : '';
-    if (visibleCols.wearPercent) {
-      const pct = r.averageShotLife > 0 ? Math.min(100, Math.round((r.currentShotCount / r.averageShotLife) * 100)) : 0;
-      rowObj["Tiến Độ Mòn (%)"] = `${pct}%`;
-    }
-    if (visibleCols.cycleCount) rowObj["Số Chu Kỳ"] = r.cycles ? r.cycles.length : 0;
-    if (visibleCols.cycles) {
-      for (let c = 1; c <= maxCyclesFound; c++) {
-        rowObj[`Cycle ${c}`] = (r.cycles && r.cycles[c - 1] !== undefined) ? r.cycles[c - 1] : '';
-      }
-    }
-    if (visibleCols.lastRepDate) rowObj["Last Replacement"] = r.lastRepDate || '';
-    if (visibleCols.stock) rowObj["Tồn Kho"] = r.stock;
-    if (visibleCols.minStock) rowObj["Mức Min"] = r.minStock;
-    if (visibleCols.status) rowObj["Trạng Thái"] = r.status;
-    if (visibleCols.moldOld) rowObj["Mã Khuôn Cũ"] = r.moldOld || '';
-    if (visibleCols.moldNew) rowObj["Mã Khuôn Mới"] = r.moldNew || '';
-    return rowObj;
   });
 
-  const ws = XLSX.utils.json_to_sheet(excelRows);
-  if (excelRows.length > 0) {
-    const colKeys = Object.keys(excelRows[0]);
-    ws['!cols'] = colKeys.map(k => {
-      if (k === 'No.') return { wch: 6 };
-      if (k === 'Part') return { wch: 14 };
-      if (k === 'Mold / Series') return { wch: 28 };
-      if (k === 'Trạng Thái') return { wch: 14 };
-      if (k === 'Lần Thay Cuối') return { wch: 14 };
-      if (k.startsWith('Cycle')) return { wch: 13 };
-      return { wch: 12 };
+  // Apply status filter checkboxes (same as renderStockTable)
+  let filtered = [...processedList];
+  if ($("chkAll") || $("chkCritical") || $("chkWarning") || $("chkSafe") || $("chkReplaced")) {
+    const isAllChecked = $("chkAll") ? $("chkAll").checked : false;
+    const isCriticalChecked = $("chkCritical") ? $("chkCritical").checked : true;
+    const isWarningChecked = $("chkWarning") ? $("chkWarning").checked : true;
+    const isSafeChecked = $("chkSafe") ? $("chkSafe").checked : true;
+    const isReplacedChecked = $("chkReplaced") ? $("chkReplaced").checked : false;
+
+    if (!isAllChecked) {
+      filtered = processedList.filter(x => {
+        if (isReplacedChecked && x.used > 0) return true;
+        if (isCriticalChecked && x.status === 'CRITICAL') return true;
+        if (isWarningChecked && x.status === 'WARNING') return true;
+        if (isSafeChecked && x.status === 'SAFE') return true;
+        return false;
+      });
+    }
+  }
+
+  function getCompScore(x) {
+    const reps = (Number(x.used) || 0) + (Number(x.timesCount) || 0);
+    if (reps > 0) return 3;
+    const currentShot = Number(x.currentShotCount) || 0;
+    const avgShot = Number(x.averageShotLife) || 0;
+    const lifetime = Number(x.totalLifetimeShots) || 0;
+    const cycles = (x.cycles && x.cycles.length > 0) ? x.cycles.length : 0;
+    if (currentShot > 0 || avgShot > 0 || lifetime > 0 || cycles > 0) return 2;
+    return 1;
+  }
+
+  // Apply sorting (same as renderStockTable)
+  if (typeof _dashboardSort !== 'undefined' && _dashboardSort && _dashboardSort.key) {
+    const k = _dashboardSort.key;
+    const isAsc = _dashboardSort.order === 'asc';
+    filtered.sort((a, b) => {
+      let valA, valB;
+      if (k === 'part') { valA = a.part || ''; valB = b.part || ''; }
+      else if (k === 'moldSeries') { valA = a.moldSeries || ''; valB = b.moldSeries || ''; }
+      else if (k === 'timesCount') { valA = a.timesCount || 0; valB = b.timesCount || 0; }
+      else if (k === 'used') { valA = a.used || 0; valB = b.used || 0; }
+      else if (k === 'avgShot') { valA = a.averageShotLife || 0; valB = b.averageShotLife || 0; }
+      else if (k === 'currentShot') { valA = a.currentShotCount || 0; valB = b.currentShotCount || 0; }
+      else if (k === 'minShot') { valA = a.minShotLife || 0; valB = b.minShotLife || 0; }
+      else if (k === 'maxShot') { valA = a.maxShotLife || 0; valB = b.maxShotLife || 0; }
+      else if (k === 'stock') { valA = a.stock || 0; valB = b.stock || 0; }
+      else if (k === 'minStock') { valA = a.minStock || 0; valB = b.minStock || 0; }
+      else if (k === 'cycleCount') { valA = (a.cycles || []).length; valB = (b.cycles || []).length; }
+      else if (k.startsWith('cycle_')) {
+        const cIdx = parseInt(k.replace('cycle_', ''), 10) - 1;
+        valA = (a.cycles && a.cycles[cIdx] !== undefined) ? a.cycles[cIdx] : 0;
+        valB = (b.cycles && b.cycles[cIdx] !== undefined) ? b.cycles[cIdx] : 0;
+      }
+      else if (k === 'wearPercent') {
+        valA = a.averageShotLife > 0 ? (a.currentShotCount / a.averageShotLife) : 0;
+        valB = b.averageShotLife > 0 ? (b.currentShotCount / b.averageShotLife) : 0;
+      }
+      else if (k === 'status') {
+        const weight = { 'CRITICAL': 3, 'WARNING': 2, 'SAFE': 1 };
+        valA = weight[a.status] || 0; valB = weight[b.status] || 0;
+      }
+      else if (k === 'lastRepDate') {
+        valA = (a.events && a.events.length > 0) ? a.events[a.events.length - 1].date : '';
+        valB = (b.events && b.events.length > 0) ? b.events[b.events.length - 1].date : '';
+      }
+      else if (k === 'moldOld') { valA = a.moldOld || ''; valB = b.moldOld || ''; }
+      else if (k === 'moldNew') { valA = a.moldNew || ''; valB = b.moldNew || ''; }
+      else { valA = a[k] || 0; valB = b[k] || 0; }
+
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+        return isAsc ? cmp : -cmp;
+      }
+      const numA = Number(valA) || 0, numB = Number(valB) || 0;
+      return isAsc ? numA - numB : numB - numA;
+    });
+  } else {
+    filtered.sort((a, b) => {
+      const sA = getCompScore(a), sB = getCompScore(b);
+      if (sA !== sB) return sB - sA;
+      if (sA === 3) {
+        const uDiff = (Number(b.used) || 0) - (Number(a.used) || 0);
+        if (uDiff !== 0) return uDiff;
+      } else if (sA === 2) {
+        const shotDiff = (Number(b.currentShotCount) || 0) - (Number(a.currentShotCount) || 0);
+        if (shotDiff !== 0) return shotDiff;
+      }
+      return a.part.localeCompare(b.part, undefined, { numeric: true, sensitivity: 'base' });
     });
   }
-  XLSX.utils.book_append_sheet(wb, ws, "Dashboard");
 
-  const fileName = `Component_Life_Dashboard.xlsx`;
-  XLSX.writeFile(wb, fileName);
-  console.log(`%c[EXPORT] DONE! File: ${fileName} (${excelRows.length} rows, dynamic columns based on Dashboard)`, "color:#059669; font-weight:bold; font-size:13px;");
-  msg(`<b>Đã xuất báo cáo Dashboard thành công!</b><br>File: <code>${esc(fileName)}</code> (${excelRows.length} linh kiện, đồng bộ cột Dashboard)`, false, 8000);
+  const visibleCols = typeof getDashboardVisibleCols === 'function' ? getDashboardVisibleCols() : DEFAULT_DASHBOARD_COLS;
+  const maxCyclesFound = Math.max(1, ...filtered.map(r => (r.cycles ? r.cycles.length : 0)));
+
+  // 3. DEFINE COLUMNS TO EXPORT
+  const exportColumns = [
+    { key: 'no', header: 'STT', width: 6, align: 'center' },
+    { key: 'part', header: 'Part (Linh Kiện)', width: 14, align: 'left', fontBold: true },
+    { key: 'moldSeries', header: 'Mold / Series', width: 28, align: 'left' }
+  ];
+
+  if (visibleCols.timesCount) exportColumns.push({ key: 'timesCount', header: 'Replace Time (Lần)', width: 14, align: 'center', numFmt: '#,##0' });
+  if (visibleCols.used) exportColumns.push({ key: 'used', header: 'Qty Used (Pcs)', width: 15, align: 'center', numFmt: '#,##0', fontBold: true });
+  if (visibleCols.avgShot) exportColumns.push({ key: 'avgShot', header: 'Avg Shot (Tuổi Thọ TB)', width: 18, align: 'right', numFmt: '#,##0', fontBold: true });
+  if (visibleCols.currentShot) exportColumns.push({ key: 'currentShot', header: 'Current Shot (Hiện Tại)', width: 18, align: 'right', numFmt: '#,##0', fontBold: true });
+  if (visibleCols.minShot) exportColumns.push({ key: 'minShot', header: 'Min Shot', width: 14, align: 'right', numFmt: '#,##0' });
+  if (visibleCols.maxShot) exportColumns.push({ key: 'maxShot', header: 'Max Shot', width: 14, align: 'right', numFmt: '#,##0' });
+  if (visibleCols.minMaxShot) exportColumns.push({ key: 'minMaxShot', header: 'Min - Max Shot', width: 20, align: 'center' });
+  if (visibleCols.wearPercent) exportColumns.push({ key: 'wearPercent', header: 'Tiến Độ Mòn (%)', width: 16, align: 'center' });
+  if (visibleCols.cycleCount) exportColumns.push({ key: 'cycleCount', header: 'Số Chu Kỳ', width: 12, align: 'center', numFmt: '#,##0' });
+  if (visibleCols.cycles) {
+    for (let c = 1; c <= maxCyclesFound; c++) {
+      exportColumns.push({ key: `cycle_${c}`, header: `Cycle ${c}`, width: 14, align: 'right', numFmt: '#,##0' });
+    }
+  }
+  if (visibleCols.lastRepDate) exportColumns.push({ key: 'lastRepDate', header: 'Last Replacement', width: 16, align: 'center' });
+  if (visibleCols.stock) exportColumns.push({ key: 'stock', header: 'Tồn Kho', width: 12, align: 'center', numFmt: '#,##0', fontBold: true });
+  if (visibleCols.minStock) exportColumns.push({ key: 'minStock', header: 'Mức Min', width: 12, align: 'center', numFmt: '#,##0' });
+  if (visibleCols.status) exportColumns.push({ key: 'status', header: 'Trạng Thái', width: 16, align: 'center', fontBold: true });
+  if (visibleCols.moldOld) exportColumns.push({ key: 'moldOld', header: 'Khuôn Cũ', width: 14, align: 'left' });
+  if (visibleCols.moldNew) exportColumns.push({ key: 'moldNew', header: 'Khuôn Mới', width: 14, align: 'left', fontBold: true });
+
+  const fileName = `ComponetWear_Dashboard_${filePeriodSlug}.xlsx`;
+
+  // 4. EXCELJS EXPORT (If available)
+  if (typeof ExcelJS !== 'undefined') {
+    try {
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'ComponetWear';
+      wb.created = new Date();
+
+      const ws = wb.addWorksheet('Dashboard', {
+        views: [{ state: 'frozen', ySplit: 3 }]
+      });
+
+      // Title & Subtitle
+      ws.addRow([`COMPONETWEAR — BẢNG ĐIỀU KHIỂN THEO DÕI LINH KIỆN (DASHBOARD)`]);
+      ws.addRow([`Kỳ báo cáo: ${periodLabel}   |   Ngày xuất: ${generatedTimestamp}   |   Tổng số: ${filtered.length} linh kiện`]);
+
+      ws.mergeCells(1, 1, 1, exportColumns.length);
+      ws.mergeCells(2, 1, 2, exportColumns.length);
+
+      const titleRow = ws.getRow(1);
+      titleRow.height = 24;
+      titleRow.getCell(1).font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF1E293B' } };
+      titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+
+      const subRow = ws.getRow(2);
+      subRow.height = 18;
+      subRow.getCell(1).font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF64748B' } };
+      subRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+
+      // Header Row
+      const headerRowValues = exportColumns.map(c => c.header);
+      const headerRow = ws.addRow(headerRowValues);
+      headerRow.height = 26;
+      headerRow.eachCell((cell, colNum) => {
+        cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        cell.alignment = { horizontal: exportColumns[colNum - 1].align || 'center', vertical: 'middle', wrapText: false };
+        cell.border = {
+          top: { style: 'medium', color: { argb: 'FF0F172A' } },
+          bottom: { style: 'medium', color: { argb: 'FF0F172A' } },
+          left: { style: 'thin', color: { argb: 'FF334155' } },
+          right: { style: 'thin', color: { argb: 'FF334155' } }
+        };
+      });
+
+      // Data Rows
+      filtered.forEach((r, idx) => {
+        const rowData = exportColumns.map(col => {
+          if (col.key === 'no') return idx + 1;
+          if (col.key === 'part') return r.part;
+          if (col.key === 'moldSeries') return r.moldSeries;
+          if (col.key === 'timesCount') return r.timesCount > 0 ? r.timesCount : '';
+          if (col.key === 'used') return r.used > 0 ? r.used : '';
+          if (col.key === 'avgShot') return r.averageShotLife > 0 ? r.averageShotLife : '';
+          if (col.key === 'currentShot') return r.currentShotCount > 0 ? r.currentShotCount : '';
+          if (col.key === 'minShot') return r.minShotLife > 0 ? r.minShotLife : '';
+          if (col.key === 'maxShot') return r.maxShotLife > 0 ? r.maxShotLife : '';
+          if (col.key === 'minMaxShot') return (r.minShotLife && r.maxShotLife) ? `${Number(r.minShotLife).toLocaleString()} - ${Number(r.maxShotLife).toLocaleString()}` : '';
+          if (col.key === 'wearPercent') {
+            const pct = r.averageShotLife > 0 ? Math.min(100, Math.round((r.currentShotCount / r.averageShotLife) * 100)) : 0;
+            return `${pct}%`;
+          }
+          if (col.key === 'cycleCount') return (r.cycles ? r.cycles.length : 0);
+          if (col.key.startsWith('cycle_')) {
+            const cIdx = parseInt(col.key.replace('cycle_', ''), 10) - 1;
+            return (r.cycles && r.cycles[cIdx] !== undefined) ? r.cycles[cIdx] : '';
+          }
+          if (col.key === 'lastRepDate') return r.lastRepDate || '-';
+          if (col.key === 'stock') return r.stock;
+          if (col.key === 'minStock') return r.minStock;
+          if (col.key === 'status') {
+            return r.status === 'CRITICAL' ? 'URGENT (Hết hàng)' : (r.status === 'WARNING' ? 'NEED ORDER (Cần đặt)' : 'NO NEED (An toàn)');
+          }
+          if (col.key === 'moldOld') return r.moldOld || '-';
+          if (col.key === 'moldNew') return r.moldNew || '-';
+          return '';
+        });
+
+        const dataRow = ws.addRow(rowData);
+        dataRow.height = 20;
+        const isZebra = idx % 2 === 1;
+
+        dataRow.eachCell((cell, colNum) => {
+          const colDef = exportColumns[colNum - 1];
+          cell.font = {
+            name: 'Segoe UI',
+            size: 9,
+            bold: !!colDef.fontBold,
+            color: { argb: 'FF0F172A' }
+          };
+          cell.alignment = { horizontal: colDef.align || 'left', vertical: 'middle' };
+          cell.border = {
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+            right: { style: 'thin', color: { argb: 'FFF1F5F9' } }
+          };
+
+          if (isZebra) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+          }
+
+          if (colDef.numFmt && typeof cell.value === 'number') {
+            cell.numFmt = colDef.numFmt;
+          }
+
+          // Status Badge Highlight
+          if (colDef.key === 'status') {
+            if (r.status === 'CRITICAL') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+              cell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF991B1B' } };
+            } else if (r.status === 'WARNING') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+              cell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF92400E' } };
+            } else if (r.status === 'SAFE') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+              cell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF166534' } };
+            }
+          }
+        });
+      });
+
+      // Set column widths & AutoFilter
+      ws.columns = exportColumns.map(col => ({ width: col.width || 14 }));
+      ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: filtered.length + 3, column: exportColumns.length } };
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      console.log(`%c[EXPORT:DASHBOARD] SUCCESS: ${fileName} (${filtered.length} rows, ${exportColumns.length} columns)`, "color:#059669; font-weight:bold; font-size:13px;");
+      msg(`<b>Đã xuất bảng Dashboard Excel thành công!</b><br>File: <code>${esc(fileName)}</code> (${filtered.length} linh kiện, ${exportColumns.length} cột đã chọn)`, false, 8000);
+      return;
+    } catch (e) {
+      console.warn("[EXPORT:DASHBOARD] ExcelJS export error, falling back to SheetJS:", e);
+    }
+  }
+
+  // 5. SHEETJS FALLBACK
+  if (typeof XLSX !== 'undefined') {
+    const wb = XLSX.utils.book_new();
+    const excelRows = filtered.map((r, idx) => {
+      const rowObj = {};
+      exportColumns.forEach(col => {
+        if (col.key === 'no') rowObj[col.header] = idx + 1;
+        else if (col.key === 'part') rowObj[col.header] = r.part;
+        else if (col.key === 'moldSeries') rowObj[col.header] = r.moldSeries;
+        else if (col.key === 'timesCount') rowObj[col.header] = r.timesCount > 0 ? r.timesCount : '';
+        else if (col.key === 'used') rowObj[col.header] = r.used > 0 ? r.used : '';
+        else if (col.key === 'avgShot') rowObj[col.header] = r.averageShotLife > 0 ? r.averageShotLife : '';
+        else if (col.key === 'currentShot') rowObj[col.header] = r.currentShotCount > 0 ? r.currentShotCount : '';
+        else if (col.key === 'minShot') rowObj[col.header] = r.minShotLife > 0 ? r.minShotLife : '';
+        else if (col.key === 'maxShot') rowObj[col.header] = r.maxShotLife > 0 ? r.maxShotLife : '';
+        else if (col.key === 'minMaxShot') rowObj[col.header] = (r.minShotLife && r.maxShotLife) ? `${r.minShotLife} - ${r.maxShotLife}` : '';
+        else if (col.key === 'wearPercent') {
+          const pct = r.averageShotLife > 0 ? Math.min(100, Math.round((r.currentShotCount / r.averageShotLife) * 100)) : 0;
+          rowObj[col.header] = `${pct}%`;
+        }
+        else if (col.key === 'cycleCount') rowObj[col.header] = (r.cycles ? r.cycles.length : 0);
+        else if (col.key.startsWith('cycle_')) {
+          const cIdx = parseInt(col.key.replace('cycle_', ''), 10) - 1;
+          rowObj[col.header] = (r.cycles && r.cycles[cIdx] !== undefined) ? r.cycles[cIdx] : '';
+        }
+        else if (col.key === 'lastRepDate') rowObj[col.header] = r.lastRepDate || '-';
+        else if (col.key === 'stock') rowObj[col.header] = r.stock;
+        else if (col.key === 'minStock') rowObj[col.header] = r.minStock;
+        else if (col.key === 'status') {
+          rowObj[col.header] = r.status === 'CRITICAL' ? 'URGENT (Hết hàng)' : (r.status === 'WARNING' ? 'NEED ORDER (Cần đặt)' : 'NO NEED (An toàn)');
+        }
+        else if (col.key === 'moldOld') rowObj[col.header] = r.moldOld || '-';
+        else if (col.key === 'moldNew') rowObj[col.header] = r.moldNew || '-';
+      });
+      return rowObj;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(excelRows);
+    ws['!cols'] = exportColumns.map(c => ({ wch: c.width || 14 }));
+    XLSX.utils.book_append_sheet(wb, ws, "Dashboard");
+    XLSX.writeFile(wb, fileName);
+    console.log(`%c[EXPORT:DASHBOARD] SheetJS fallback DONE! File: ${fileName}`, "color:#059669; font-weight:bold;");
+    msg(`<b>Đã xuất báo cáo Dashboard thành công!</b><br>File: <code>${esc(fileName)}</code> (${filtered.length} linh kiện, ${exportColumns.length} cột đã chọn)`, false, 8000);
+  }
+}
+
+// Alias for backwards compatibility
+function exportStandardLifeTrackingExcel() {
+  return exportDashboardExcel();
 }
 
 // ===== IMPORT EXCEL =====

@@ -7,6 +7,7 @@ import os
 from datetime import datetime, timedelta
 
 sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 root_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(root_dir)
@@ -61,7 +62,7 @@ def auto_sync():
     for search_path in [parent_dir, root_dir]:
         if os.path.exists(search_path):
             for fname in os.listdir(search_path):
-                if fname.endswith('.xlsx') and not fname.startswith('~$'):
+                if fname.endswith('.xlsx') and not fname.startswith('~$') and not fname.startswith('BAO_CAO_') and not fname.startswith('REPORT_'):
                     full_path = os.path.join(search_path, fname)
                     candidate_files.append(full_path)
 
@@ -69,10 +70,14 @@ def auto_sync():
         print("ℹ️ No Excel files found to auto-sync.")
         return
 
+    # Ensure Master files are parsed first so master_map is primed with OldDieSet and NewDieSet mappings
+    candidate_files.sort(key=lambda x: 0 if 'master' in os.path.basename(x).lower() else 1)
+
     master_map = {}
     replacements = []
     stock_data = {}
     shoot_records = {}
+    seen_requests = set()
     synced_sheets_count = 0
 
     for file_path in candidate_files:
@@ -202,12 +207,14 @@ def auto_sync():
                     name = s.attrib.get('name', '').strip()
                     target_path = rel_map.get(s.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'))
                     
-                    m_match = re.match(r'^(\d{1,2})[-/](\d{4})$', name)
+                    m_match = re.search(r'(?:th[aá]ng\s*|t\s*)?(\d{1,2})[\s\-_/]+(\d{4})', name, re.IGNORECASE)
                     if not m_match:
                         continue
                         
                     m_num = int(m_match.group(1))
                     y_num = int(m_match.group(2))
+                    if not (1 <= m_num <= 12 and 2000 <= y_num <= 2100):
+                        continue
                     ym = f"{y_num:04d}-{m_num:02d}"
                     month_sheets.append((ym, name, target_path))
 
@@ -313,6 +320,7 @@ def auto_sync():
                                 except:
                                     pass
 
+                        m_key = f"{part_name}|{mold}"
                         if m_key not in stock_data:
                             stock_data[m_key] = {
                                 "stock": curr_ton if curr_ton >= 0 else 0,
@@ -331,9 +339,16 @@ def auto_sync():
                         if master_item:
                             master_item["StockLeft"] = curr_ton
 
-                        # 5 OUT SPARE PART GROUPS
-                        out_cols = [(7,8,9), (11,12,13), (15,16,17), (19,20,21), (23,24,25)]
-                        for group_idx, (c_qty, c_id, c_date) in enumerate(out_cols):
+                        # Dynamic replacement blocks: Lần 1 (7), Lần 2 (11), Lần 3 (15), Lần 4 (19), Lần 5 (23)
+                        # Note: Col 26 is Ton, Col 27+ is Purchase Order (PO/Date Oder), DO NOT scan >= 26
+                        for c_start in range(7, 24, 4):
+                            c_qty = c_start
+                            c_id = c_start + 1
+                            c_date = c_start + 2
+
+                            if c_qty not in row_dict and c_id not in row_dict and c_date not in row_dict:
+                                continue
+
                             qty_raw = row_dict.get(c_qty, '').strip()
                             id_raw = row_dict.get(c_id, '').strip()
                             date_raw = row_dict.get(c_date, '').strip()
@@ -342,29 +357,68 @@ def auto_sync():
                                 try:
                                     qty_val = int(float(qty_raw)) if qty_raw else 1
                                 except:
+                                    continue
+                                if qty_val <= 0:
                                     qty_val = 1
 
                                 try:
-                                    day_val = int(float(date_raw)) if date_raw else 1
+                                    day_val = int(float(date_raw))
                                 except:
-                                    day_val = 1
+                                    continue
 
-                                day_clamped = max(1, min(31, day_val))
-                                full_date = f"{ym}-{day_clamped:02d}"
+                                if day_val < 1 or day_val > 31:
+                                    continue
 
-                                replacements.append({
-                                    "Part": part_name,
-                                    "Series": series,
-                                    "DieSet": mold,
-                                    "NewDieSet": mold,
-                                    "OldDieSet": mold,
-                                    "ReplaceDate": full_date,
-                                    "Label": str(qty_val),
-                                    "RequestId": id_raw
-                                })
+                                full_date = f"{ym}-{day_val:02d}"
+                                dedup_key = f"{part_name}|{mold}|{full_date}|{id_raw}"
+                                if dedup_key not in seen_requests:
+                                    seen_requests.add(dedup_key)
+                                    rep_old = master_item.get("OldDieSet", mold) if master_item else mold
+                                    rep_new = master_item.get("NewDieSet", mold) if master_item else mold
+                                    rep_series = master_item.get("Series", series) if master_item else series
+
+                                    replacements.append({
+                                        "Part": part_name,
+                                        "Series": rep_series,
+                                        "DieSet": mold,
+                                        "NewDieSet": rep_new,
+                                        "OldDieSet": rep_old,
+                                        "ReplaceDate": full_date,
+                                        "Label": str(qty_val),
+                                        "RequestId": id_raw
+                                    })
 
         except Exception as err:
             print(f"⚠️ Error reading {file_path}: {err}")
+
+    # Cross-resolve Old <-> New DieSet
+    known_new_by_old = {}
+    known_old_by_new = {}
+    for item in master_map.values():
+        o = item.get("OldDieSet", "").strip().lower()
+        n = item.get("NewDieSet", "").strip().lower()
+        if o and n and o != n:
+            known_new_by_old[o] = item.get("NewDieSet", "").strip()
+            known_old_by_new[n] = item.get("OldDieSet", "").strip()
+
+    for item in master_map.values():
+        o = item.get("OldDieSet", "").strip().lower()
+        n = item.get("NewDieSet", "").strip().lower()
+        if (o == n or not n) and o in known_new_by_old:
+            item["NewDieSet"] = known_new_by_old[o]
+        elif (o == n or not o) and n in known_old_by_new:
+            item["OldDieSet"] = known_old_by_new[n]
+
+    for r in replacements:
+        d = r.get("DieSet", "").strip().lower()
+        o = r.get("OldDieSet", "").strip().lower()
+        lookup_key = o if o else d
+        if lookup_key in known_new_by_old:
+            r["NewDieSet"] = known_new_by_old[lookup_key]
+            if not r.get("OldDieSet") or r.get("OldDieSet") == r.get("NewDieSet"):
+                r["OldDieSet"] = lookup_key.upper()
+        elif lookup_key in known_old_by_new:
+            r["OldDieSet"] = known_old_by_new[lookup_key]
 
     if shoot_records:
         shoot_list = []

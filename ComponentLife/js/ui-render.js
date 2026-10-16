@@ -25,6 +25,50 @@ function rebuild(showMessage = true) {
   });
   console.log(`%c[REBUILD] 2. Formed ${Object.keys(groups).length} replacement groups`, "color:#0284c7;");
 
+  // Index shoot data by DieSet and Part for fast O(1) lookups
+  const shootsByDie = new Map();
+  const shootsByPart = new Map();
+  (db.shoot || []).forEach(row => {
+    if (!row.Output || Number(row.Output) <= 0) return;
+    const rPart = String(row.Part || "").toLowerCase().trim();
+    const rDie = String(row.DieSet || "").toLowerCase().trim();
+    if (rDie) {
+      let list = shootsByDie.get(rDie);
+      if (!list) { list = []; shootsByDie.set(rDie, list); }
+      list.push(row);
+    }
+    if (rPart && rPart !== rDie) {
+      let list = shootsByPart.get(rPart);
+      if (!list) { list = []; shootsByPart.set(rPart, list); }
+      list.push(row);
+    }
+  });
+
+  // Helper to retrieve matched shoots for a part and dieSet
+  function getMatchedShoots(partName, dieSetName) {
+    const p = String(partName || "").toLowerCase().trim();
+    const d = String(dieSetName || "").toLowerCase().trim();
+    const seen = new Set();
+    const matched = [];
+
+    const addShoots = (list) => {
+      if (!list) return;
+      for (let i = 0; i < list.length; i++) {
+        const s = list[i];
+        const sk = `${s.Date}|${s.Output}|${s.DieSet}`;
+        if (!seen.has(sk)) {
+          seen.add(sk);
+          matched.push(s);
+        }
+      }
+    };
+
+    if (d && shootsByDie.has(d)) addShoots(shootsByDie.get(d));
+    if (p && shootsByPart.has(p)) addShoots(shootsByPart.get(p));
+
+    return matched.sort((a, b) => (a.Date || '').localeCompare(b.Date || ''));
+  }
+
   Object.entries(groups).forEach(([key, events]) => {
     events.sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
     const parts = key.split("|");
@@ -33,16 +77,7 @@ function rebuild(showMessage = true) {
     let series = events.find(e => e.Series && e.Series.trim())?.Series || $("series").value.trim();
     if (!series) series = getSeriesForPart(part, dieSet);
 
-    const shots = db.shoot.filter(row => {
-      if (!row.Output || Number(row.Output) <= 0) return false;
-      const rPart = String(row.Part || "").toLowerCase().trim();
-      const rDie = String(row.DieSet || "").toLowerCase().trim();
-      const dDie = String(dieSet || "").toLowerCase().trim();
-      const pName = String(part || "").toLowerCase().trim();
-      if (rPart && pName) return rPart === pName;
-      return (pName && rDie === pName) || (dDie && rDie === dDie);
-    }).sort((a, b) => a.Date.localeCompare(b.Date));
-
+    const shots = getMatchedShoots(part, dieSet);
     if (!shots.length) return;
 
     const firstRepDate = events[0].ReplaceDate;
@@ -63,6 +98,42 @@ function rebuild(showMessage = true) {
   });
   console.log(`%c[REBUILD] 3. Calculated completed cycles: ${cycles.length}`, "color:#059669; font-weight:bold;");
 
+  // Pre-index cycles by part and dieSet
+  const cyclesByPart = new Map();
+  const cyclesByDie = new Map();
+  cycles.forEach(c => {
+    const cP = String(c.Part || "").toLowerCase().trim();
+    const cD = String(c.DieSet || "").toLowerCase().trim();
+    if (cP) {
+      let list = cyclesByPart.get(cP);
+      if (!list) { list = []; cyclesByPart.set(cP, list); }
+      list.push(c);
+    }
+    if (cD) {
+      let list = cyclesByDie.get(cD);
+      if (!list) { list = []; cyclesByDie.set(cD, list); }
+      list.push(c);
+    }
+  });
+
+  // Pre-index replacements by part and dieSet
+  const repsByPart = new Map();
+  const repsByDie = new Map();
+  validReps.forEach(r => {
+    const rP = String(r.Part || "").toLowerCase().trim();
+    const rD = String(r.DieSet || "").toLowerCase().trim();
+    if (rP) {
+      let list = repsByPart.get(rP);
+      if (!list) { list = []; repsByPart.set(rP, list); }
+      list.push(r);
+    }
+    if (rD) {
+      let list = repsByDie.get(rD);
+      if (!list) { list = []; repsByDie.set(rD, list); }
+      list.push(r);
+    }
+  });
+
   const partsToRender = getPartsToRender();
   const rawSummaryList = [];
 
@@ -71,38 +142,47 @@ function rebuild(showMessage = true) {
     const dieSet = item.moldNew || item.moldOld || item.part;
     const series = getSeriesForPart(part, dieSet) || item.series || "-";
 
-    const matchedCycles = cycles.filter(c => {
-      const cP = String(c.Part || "").toLowerCase().trim();
-      const cD = String(c.DieSet || "").toLowerCase().trim();
-      return (cP && part.toLowerCase().trim() === cP) || (cD && dieSet.toLowerCase().trim() === cD);
-    });
+    const pLower = String(part || "").toLowerCase().trim();
+    const dLower = String(dieSet || "").toLowerCase().trim();
+
+    // Match cycles using index
+    const matchedCycleSet = new Set();
+    const matchedCycles = [];
+    const addCycle = (c) => {
+      if (!matchedCycleSet.has(c)) {
+        matchedCycleSet.add(c);
+        matchedCycles.push(c);
+      }
+    };
+    if (pLower && cyclesByPart.has(pLower)) cyclesByPart.get(pLower).forEach(addCycle);
+    if (dLower && cyclesByDie.has(dLower)) cyclesByDie.get(dLower).forEach(addCycle);
 
     const cycleValues = matchedCycles.map(c => c.CycleShots);
     const completedCount = matchedCycles.length;
 
-    const matchedShoots = db.shoot.filter(row => {
-      if (!row.Output || Number(row.Output) <= 0) return false;
-      const rPart = String(row.Part || "").toLowerCase().trim();
-      const rDie = String(row.DieSet || "").toLowerCase().trim();
-      return (rPart && part.toLowerCase().trim() === rPart) || (rDie && dieSet.toLowerCase().trim() === rDie);
-    }).sort((a, b) => a.Date.localeCompare(b.Date));
-
+    const matchedShoots = getMatchedShoots(part, dieSet);
     const totalShots = matchedShoots.reduce((sum, r) => sum + (Number(r.Output) || 0), 0);
 
-    const partRepEvents = db.replacements.filter(r => {
-      const rP = String(r.Part || "").toLowerCase().trim();
-      const rD = String(r.DieSet || "").toLowerCase().trim();
-      const lbl = String(r.Label || "").trim();
-      return lbl && lbl !== "-" && lbl !== "0" && lbl !== "·" && ((rP && part.toLowerCase().trim() === rP) || (rD && dieSet.toLowerCase().trim() === rD));
-    }).sort((a, b) => a.ReplaceDate.localeCompare(b.ReplaceDate));
+    // Match replacements using index
+    const repEventSet = new Set();
+    const partRepEvents = [];
+    const addRep = (r) => {
+      if (!repEventSet.has(r)) {
+        repEventSet.add(r);
+        partRepEvents.push(r);
+      }
+    };
+    if (pLower && repsByPart.has(pLower)) repsByPart.get(pLower).forEach(addRep);
+    if (dLower && repsByDie.has(dLower)) repsByDie.get(dLower).forEach(addRep);
+    partRepEvents.sort((a, b) => (a.ReplaceDate || '').localeCompare(b.ReplaceDate || ''));
 
     const repCount = partRepEvents.length;
     const repCumulativeShots = partRepEvents.map(e => matchedShoots.filter(r => r.Date < e.ReplaceDate).reduce((sum, r) => sum + (Number(r.Output) || 0), 0));
 
     const totalCycleLife = cycleValues.reduce((a, b) => a + b, 0);
-    const avgLife = completedCount > 0 ? Math.round(totalCycleLife / completedCount) : totalShots;
-    const minShots = cycleValues.length > 0 ? Math.min(...cycleValues) : totalShots;
-    const maxShots = cycleValues.length > 0 ? Math.max(...cycleValues) : totalShots;
+    const avgLife = completedCount > 0 ? Math.round(totalCycleLife / completedCount) : 0;
+    const minShots = cycleValues.length > 0 ? Math.min(...cycleValues) : 0;
+    const maxShots = cycleValues.length > 0 ? Math.max(...cycleValues) : 0;
 
     rawSummaryList.push({
       Part: part, Series: series, DieSet: dieSet,
@@ -162,6 +242,19 @@ function renderMetrics() {
   if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
   if ($("totalReplacementsVal")) $("totalReplacementsVal").textContent = totalRepsInYear.toLocaleString();
   if ($("avgLifeVal")) $("avgLifeVal").textContent = avgLifeVal > 0 ? (avgLifeVal >= 1000 ? Math.round(avgLifeVal / 1000) + "k" : avgLifeVal) : "-";
+  if ($("overviewRepsSub")) $("overviewRepsSub").textContent = currentYear ? `Trong năm ${currentYear}` : "Tất cả các năm";
+
+  // Calculate Output shots for current period
+  const ymFilter = selectedMonth(), yFilter = selectedYear();
+  let totalOutput = 0;
+  (db.shoot || []).forEach(s => {
+    if (!s.Date || !s.Output) return;
+    if (ymFilter && monthKey(s.Date) !== ymFilter) return;
+    if (yFilter && !s.Date.startsWith(yFilter)) return;
+    totalOutput += (Number(s.Output) || 0);
+  });
+  if ($("totalOutputShotsVal")) $("totalOutputShotsVal").textContent = totalOutput > 0 ? totalOutput.toLocaleString() : "0";
+
   if ($("mostReplacedVal")) {
     if (topPart) {
       $("mostReplacedVal").textContent = `#1: ${topPart.Part} (${topPart.DieSet})`;
@@ -172,6 +265,110 @@ function renderMetrics() {
     }
   }
   console.log(`%c[METRICS] Year: "${currentYear || 'ALL'}" | Parts: ${totalPartsCount} | TotalReps: ${totalRepsInYear} | AvgLife: ${avgLifeVal} | Top: ${topPart ? `${topPart.Part} (${topPart.YearlyReplacements} reps)` : 'None'}`, "color:#6b7280;");
+}
+
+// ===== OVERVIEW TAB (V3 Dashboard) =====
+function renderOverviewTab() {
+  console.log("%c[RENDER:OVERVIEW] renderOverviewTab START", "color:#0284c7; font-weight:bold;");
+  renderMetrics();
+
+  // Populate Top 5 list in Overview
+  const topListEl = $("overviewTopList");
+  if (topListEl) {
+    const top5 = window._top5Parts || [];
+    if (top5.length === 0) {
+      topListEl.innerHTML = `
+        <div style="text-align:center; padding:28px 14px; color:var(--ink-muted);">
+          <div style="font-size:13px; font-weight:600;">Chưa ghi nhận lượt thay thế nào trong kỳ đã chọn.</div>
+        </div>
+      `;
+    } else {
+      topListEl.innerHTML = top5.map((item, idx) => {
+        const rankClass = idx === 0 ? 'top-1' : (idx === 1 ? 'top-2' : (idx === 2 ? 'top-3' : 'top-other'));
+        const avgLifeFormatted = item.AverageShots > 0 ? `${item.AverageShots.toLocaleString()} shots` : 'Chưa có chu kỳ';
+        return `
+          <div class="overview-rank-item" onclick="openComponentDetailByName('${esc(item.Part)}', '${esc(item.DieSet)}', '${esc(item.Series || '')}')" title="Bấm để xem chi tiết linh kiện">
+            <div class="rank-badge ${rankClass}">#${idx + 1}</div>
+            <div class="rank-item-info">
+              <div class="rank-item-part">${esc(item.Part)}</div>
+              <div class="rank-item-sub">Khuôn: <b>${esc(item.DieSet || '-')}</b> · Series: ${esc(item.Series || '-')} · TB: ${avgLifeFormatted}</div>
+            </div>
+            <div class="rank-item-metric">
+              <div class="rank-rep-count">${item.YearlyReplacements.toLocaleString()} lượt</div>
+              <div class="rank-rep-label">thay thế</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  // Populate Inventory & Wear Alerts in Overview
+  const alertsListEl = $("overviewAlertsList");
+  if (alertsListEl) {
+    const alerts = [];
+    
+    // 1. Stock deficits
+    (masterData || []).forEach(m => {
+      const partName = m.PartName;
+      const mold = m.NewDieSet || m.OldDieSet || '';
+      const stockItem = typeof getStockItem === 'function' ? getStockItem(partName, mold) : {};
+      const stock = Number(stockItem.stock !== undefined ? stockItem.stock : m.StockLeft) || 0;
+      const minStock = Number(stockItem.minStock !== undefined ? stockItem.minStock : m.StandardStock) || 0;
+
+      if (minStock > 0 && stock <= 0) {
+        alerts.push({
+          severity: 'critical',
+          title: `Hết hàng tồn kho: ${partName}`,
+          desc: `Tồn kho: 0 pcs (Định mức tối thiểu: ${minStock} pcs) - Mã khuôn: ${mold || '-'}`,
+          part: partName,
+          mold: mold
+        });
+      } else if (minStock > 0 && stock < minStock) {
+        alerts.push({
+          severity: 'warning',
+          title: `Tồn kho dưới mức an toàn: ${partName}`,
+          desc: `Tồn kho: ${stock} pcs (Thiếu ${minStock - stock} pcs so với định mức ${minStock} pcs)`,
+          part: partName,
+          mold: mold
+        });
+      }
+    });
+
+    // 2. High shot wear ratio vs average life
+    const summaryList = result.summary || [];
+    summaryList.forEach(s => {
+      if (s.AverageShots > 0 && s.CurrentShot && s.CurrentShot >= s.AverageShots) {
+        alerts.push({
+          severity: 'warning',
+          title: `Linh kiện vượt chu kỳ TB: ${s.Part}`,
+          desc: `Đã dập ${s.CurrentShot.toLocaleString()} shots (Tuổi thọ TB: ${s.AverageShots.toLocaleString()} shots)`,
+          part: s.Part,
+          mold: s.DieSet
+        });
+      }
+    });
+
+    if (alerts.length === 0) {
+      alertsListEl.innerHTML = `
+        <div style="text-align:center; padding:28px 14px; color:var(--emerald-text); background:var(--emerald-light); border-radius:var(--radius-sm); border:1px solid var(--emerald-border);">
+          <div style="font-weight:700; font-size:13.5px;">Hệ Thống Vận Hành An Toàn</div>
+          <div style="font-size:12px; margin-top:3px; opacity:0.9;">Tất cả linh kiện đang ở mức tồn kho và chu kỳ dập ổn định.</div>
+        </div>
+      `;
+    } else {
+      alertsListEl.innerHTML = alerts.slice(0, 5).map(a => `
+        <div class="overview-alert-card ${a.severity}" onclick="openComponentDetailByName('${esc(a.part)}', '${esc(a.mold)}')" style="cursor:pointer;" title="Bấm để xem chi tiết">
+          <div style="font-size:16px;">${a.severity === 'critical' ? '🔴' : '🟡'}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:13px;">${esc(a.title)}</div>
+            <div style="font-size:11.5px; opacity:0.85; margin-top:1px;">${esc(a.desc)}</div>
+          </div>
+          <button type="button" class="btn-expand-detail" style="flex-shrink:0;">Chi tiết</button>
+        </div>
+      `).join('');
+    }
+  }
 }
 
 // ===== GLOBAL PAGINATION DOCK =====
@@ -213,7 +410,8 @@ function renderActiveTabOnly() {
   const activeTab = currentActiveTab || "month";
   console.log(`%c[RENDER] renderActiveTabOnly -> "${activeTab}"`, "color:#0284c7; font-weight:bold;");
   renderMetrics();
-  if (activeTab === "month") renderMonth();
+  if (activeTab === "overview") renderOverviewTab();
+  else if (activeTab === "month") renderMonth();
   else if (activeTab === "stock") renderStockTable();
   else if (activeTab === "report") renderComponentLifeReport();
   else if (activeTab === "chart") renderChartsTab();
@@ -313,7 +511,7 @@ function renderComponentLifeReport() {
 
     if (cycles.length > maxCyclesFound) maxCyclesFound = cycles.length;
 
-    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : '';
     const minShotLife = cycles.length > 0 ? Math.min(...cycles) : '';
     const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : '';
     const currentShotCount = replacementCount > 0 ? sortedShoots.filter(s => s.Date >= sortedReps[sortedReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
@@ -530,7 +728,7 @@ function renderChartsTab() {
       }
     }
 
-    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
+    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : '';
     const minShotLife = cycles.length > 0 ? Math.min(...cycles) : '';
     const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : '';
     const currentShotCount = sortedHistReps.length > 0 ? sortedShoots.filter(s => s.Date >= sortedHistReps[sortedHistReps.length - 1].ReplaceDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0) : (totalLifetimeShots > 0 ? totalLifetimeShots : '');
@@ -790,22 +988,24 @@ function buildMonthOptions(preferredYm = null) {
 
   const months = new Set();
   for (let y = minYear; y <= maxYear; y++) for (let m = 1; m <= 12; m++) months.add(`${y}-${String(m).padStart(2, "0")}`);
-  select.innerHTML = `<option value="">Tất cả tháng</option>` + [...months].sort().map(ym => {
-    const [year, month] = ym.split("-").map(Number);
-    return `<option value="${ym}">${monthNames[month - 1]} ${year}</option>`;
-  }).join("");
+  if (select) {
+    select.innerHTML = `<option value="">Tất cả tháng</option>` + [...months].sort().map(ym => {
+      const [year, month] = ym.split("-").map(Number);
+      return `<option value="${ym}">${monthNames[month - 1]} ${year}</option>`;
+    }).join("");
 
-  if (preferredYm && months.has(preferredYm)) {
-    select.value = preferredYm;
-  } else {
-    const repMonths = [...new Set(db.replacements.map(r => r.ReplaceDate ? r.ReplaceDate.slice(0, 7) : "").filter(Boolean))];
-    const shootMonths = [...new Set(db.shoot.map(r => r.Date ? r.Date.slice(0, 7) : "").filter(Boolean))];
-    const allDataMonths = [...new Set([...shootMonths, ...repMonths])].sort();
-    const latestDataMonth = allDataMonths.length ? allDataMonths[allDataMonths.length - 1] : "";
-    const systemYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-    if (db.shoot.some(r => r.Date && r.Date.startsWith(systemYm))) select.value = systemYm;
-    else if (latestDataMonth && months.has(latestDataMonth)) select.value = latestDataMonth;
-    else select.value = months.has(systemYm) ? systemYm : "2026-08";
+    if (preferredYm && months.has(preferredYm)) {
+      select.value = preferredYm;
+    } else {
+      const repMonths = [...new Set(db.replacements.map(r => r.ReplaceDate ? r.ReplaceDate.slice(0, 7) : "").filter(Boolean))];
+      const shootMonths = [...new Set(db.shoot.map(r => r.Date ? r.Date.slice(0, 7) : "").filter(Boolean))];
+      const allDataMonths = [...new Set([...shootMonths, ...repMonths])].sort();
+      const latestDataMonth = allDataMonths.length ? allDataMonths[allDataMonths.length - 1] : "";
+      const systemYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+      if (db.shoot.some(r => r.Date && r.Date.startsWith(systemYm))) select.value = systemYm;
+      else if (latestDataMonth && months.has(latestDataMonth)) select.value = latestDataMonth;
+      else select.value = months.has(systemYm) ? systemYm : "2026-08";
+    }
   }
-  if (select.value && select.value.length >= 4 && yearSelect && !yearSelect.value) yearSelect.value = select.value.slice(0, 4);
+  if (select && select.value && select.value.length >= 4 && yearSelect && !yearSelect.value) yearSelect.value = select.value.slice(0, 4);
 }

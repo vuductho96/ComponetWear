@@ -27,16 +27,18 @@ function renderMonth() {
 
   if ($("viewMonthText")) $("viewMonthText").textContent = timeLabel;
 
-  $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-series">Series</th><th class="col-mold">Mold</th><th class="col-type">Loại</th>` +
-    Array.from({ length: days }, (_, i) => {
-      const dNum = i + 1, isSelected = selDayNum === dNum;
-      const style = isSelected ? 'style="background:#2563eb;color:#ffffff;font-weight:900;border-radius:4px;"' : '';
-      return `<th ${style}>${String(dNum).padStart(2, "0")}</th>`;
-    }).join("") + `<th class="col-total">Total</th></tr>`;
+  if ($("dayHead")) {
+    $("dayHead").innerHTML = `<tr><th class="col-part">Part list</th><th class="col-series">Series</th><th class="col-mold">Mold</th><th class="col-type">Loại</th>` +
+      Array.from({ length: days }, (_, i) => {
+        const dNum = i + 1, isSelected = selDayNum === dNum;
+        const style = isSelected ? 'style="background:#2563eb;color:#ffffff;font-weight:900;border-radius:4px;"' : '';
+        return `<th ${style}>${String(dNum).padStart(2, "0")}</th>`;
+      }).join("") + `<th class="col-total">Total</th></tr>`;
+  }
 
   const allPartsList = getPartsToRender();
   if (allPartsList.length === 0) {
-    $("dayBody").innerHTML = `<tr><td colspan="${days + 5}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
+    if ($("dayBody")) $("dayBody").innerHTML = `<tr><td colspan="${days + 5}" style="text-align:center; padding:20px; color:var(--muted);">Chưa có dữ liệu linh kiện.</td></tr>`;
     renderMetrics();
     console.log("%c[RENDER:MONTH] No parts to render", "color:#6b7280;");
     return;
@@ -148,7 +150,7 @@ function renderMonth() {
     bodyHtml += `<tr><td class="col-part" rowspan="2"><b>${esc(partName)}</b></td><td class="col-series" rowspan="2"><span class="app-badge-series">${esc(seriesVal)}</span></td><td class="col-mold" rowspan="2" title="${esc(moldCombined)}"><b>${esc(moldCombined)}</b></td><td class="col-type">Replacement</td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "replacement")).join("")}<td class="col-total"><div class="cell col-total-val" style="color:var(--amber-text);background:var(--amber-light);">${totalReplacementPcs > 0 ? totalReplacementPcs : '-'}</div></td></tr><tr><td class="col-type">Shoot</td>${Array.from({ length: days }, (_, i) => makeCell(i + 1, "shoot")).join("")}<td class="col-total"><div class="cell col-total-val">${formatShootDisplay(totalShoot)}</div></td></tr>`;
   });
 
-  $("dayBody").innerHTML = bodyHtml;
+  if ($("dayBody")) $("dayBody").innerHTML = bodyHtml;
   renderMetrics();
   updateGlobalPaginationDock('month', limit, allPartsList.length, () => { _monthRenderLimit += 30; renderMonth(); }, () => { _monthRenderLimit = allPartsList.length; renderMonth(); });
   const elapsed = Math.round(performance.now() - t0);
@@ -415,11 +417,11 @@ function renderStockTable() {
       }
     }
 
-    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
-    const minShotLife = cycles.length > 0 ? Math.min(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
-    const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : (totalLifetimeShots > 0 ? totalLifetimeShots : 0);
+    const averageShotLife = cycles.length > 0 ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : 0;
+    const minShotLife = cycles.length > 0 ? Math.min(...cycles) : 0;
+    const maxShotLife = cycles.length > 0 ? Math.max(...cycles) : 0;
 
-    // CURRENT SHOT: ALWAYS calculated from the absolute latest replacement date up to the present date
+    // CURRENT SHOT: ALWAYS calculated from the absolute latest replacement date up to the present date (or total lifetime shots if never replaced)
     const absoluteLastRepDate = allHistoryEvents.length > 0 ? allHistoryEvents[allHistoryEvents.length - 1].date : null;
     const currentShotCount = absoluteLastRepDate
       ? sortedShoots.filter(s => s.Date >= absoluteLastRepDate).reduce((sum, s) => sum + (Number(s.Output) || 0), 0)
@@ -631,9 +633,13 @@ function renderStockTable() {
           rowCellsHtml += `<td style="text-align:center;font-size:12px;color:#475569;">${row.minShotLife && row.maxShotLife ? `${row.minShotLife.toLocaleString()} - ${row.maxShotLife.toLocaleString()}` : '-'}</td>`;
         }
         if (cols.wearPercent) {
-          const pct = row.averageShotLife > 0 ? Math.min(100, Math.round((row.currentShotCount / row.averageShotLife) * 100)) : 0;
-          const barColor = pct >= 90 ? '#dc2626' : (pct >= 70 ? '#d97706' : '#059669');
-          rowCellsHtml += `<td style="text-align:center;"><div style="display:inline-flex;align-items:center;gap:6px;"><div style="width:45px;height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${barColor};"></div></div><b style="font-size:11.5px;color:${barColor};">${pct}%</b></div></td>`;
+          if (row.averageShotLife > 0) {
+            const pct = Math.min(100, Math.round((row.currentShotCount / row.averageShotLife) * 100));
+            const barColor = pct >= 90 ? '#dc2626' : (pct >= 70 ? '#d97706' : '#059669');
+            rowCellsHtml += `<td style="text-align:center;"><div style="display:inline-flex;align-items:center;gap:6px;"><div style="width:45px;height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${barColor};"></div></div><b style="font-size:11.5px;color:${barColor};">${pct}%</b></div></td>`;
+          } else {
+            rowCellsHtml += `<td style="text-align:center;color:#94a3b8;font-size:12px;" title="Chưa có chu kỳ thay thế để tính độ mòn">-</td>`;
+          }
         }
         if (cols.cycleCount) {
           rowCellsHtml += `<td style="text-align:center;font-weight:700;color:#64748b;">${row.cycles ? row.cycles.length : 0}</td>`;
@@ -685,23 +691,40 @@ function renderStockTable() {
 function switchTab(name) {
   console.log(`%c[TAB] Switched to tab: "${name}"`, "color:#7c3aed; font-weight:bold; font-size:13px;");
   const isDashboard = (name === "stock" || name === "dashboard" || name === "report");
-  currentActiveTab = isDashboard ? "stock" : name;
-  document.querySelectorAll(".tab").forEach(tab => {
+  const isOverview = (name === "overview");
+  currentActiveTab = isDashboard ? "stock" : (isOverview ? "overview" : name);
+
+  document.querySelectorAll(".sidebar-nav .tab, .tab-bar .tab, .tab").forEach(tab => {
     const tName = tab.dataset.tab;
     const active = (tName === name) || (isDashboard && (tName === "stock" || tName === "dashboard"));
     tab.classList.toggle("active", active);
   });
+
+  if ($("overviewTab")) $("overviewTab").classList.toggle("hidden", !isOverview);
   if ($("monthTab")) $("monthTab").classList.toggle("hidden", name !== "month");
   if ($("stockTab")) $("stockTab").classList.toggle("hidden", !isDashboard);
   if ($("reportTab")) $("reportTab").classList.toggle("hidden", true);
   if ($("chartTab")) $("chartTab").classList.toggle("hidden", name !== "chart");
   if ($("viewMonthIndicator")) $("viewMonthIndicator").classList.toggle("hidden", name !== "month");
   if ($("stockFilterBar")) $("stockFilterBar").classList.toggle("hidden", !isDashboard);
+
+  // Update topbar title
+  if ($("topbarTitle")) {
+    let titleText = "Bảng Theo Dõi Tháng";
+    if (isOverview) titleText = "Tổng Quan Sản Xuất";
+    else if (isDashboard) titleText = "Quản Lý Linh Kiện & Tuổi Thọ";
+    else if (name === "chart") titleText = "Phân Tích & Biểu Đồ Tiêu Hao";
+    $("topbarTitle").innerHTML = `<span>${titleText}</span>`;
+  }
+
   renderMetrics();
-  if (name === "month") renderMonth();
+  if (isOverview) { if (typeof renderOverviewTab === 'function') renderOverviewTab(); }
+  else if (name === "month") renderMonth();
   else if (isDashboard) renderStockTable();
   else if (name === "chart") renderChartsTab();
 }
+window.switchTab = switchTab;
+
 
 function onDateFilterChange(evt) {
   console.log(`%c[FILTER] Date filter changed by ${evt?.target?.id || 'code'}`, "color:#6b7280;");
@@ -778,9 +801,103 @@ function autoFillMold() {
   renderMonth(); renderMetrics();
 }
 
+// ===== THEME CONTROLS (LIGHT / DARK) =====
+function initTheme() {
+  const storedTheme = localStorage.getItem("componetwear_theme") || "light";
+  setTheme(storedTheme);
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-bs-theme", theme);
+  localStorage.setItem("componetwear_theme", theme);
+  const iconEl = $("themeToggleIcon");
+  const textEl = $("themeToggleText");
+  if (iconEl && typeof getIconSvg === 'function') {
+    iconEl.innerHTML = theme === "dark" ? getIconSvg('sun', 16) : getIconSvg('moon', 16);
+  }
+  if (textEl) {
+    textEl.textContent = theme === "dark" ? "Chế độ sáng" : "Chế độ tối";
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-bs-theme") || "light";
+  const next = current === "dark" ? "light" : "dark";
+  setTheme(next);
+}
+
+window.toggleTheme = toggleTheme;
+window.setTheme = setTheme;
+
+// ===== SIDEBAR CONTROLS (COLLAPSE / EXPAND) =====
+function initSidebar() {
+  const isCollapsed = localStorage.getItem("componetwear_sidebar_collapsed") === "true";
+  const layout = document.querySelector(".app-layout") || document.querySelector(".app");
+  if (layout && isCollapsed) {
+    layout.classList.add("sidebar-collapsed");
+  }
+  updateSidebarCollapseIcon();
+}
+
+function updateSidebarCollapseIcon() {
+  const layout = document.querySelector(".app-layout") || document.querySelector(".app");
+  const isCollapsed = layout ? layout.classList.contains("sidebar-collapsed") : false;
+  const iconEl = $("sidebarCollapseIcon");
+  if (iconEl && typeof getIconSvg === 'function') {
+    iconEl.innerHTML = isCollapsed ? getIconSvg('chevronRight', 16) : getIconSvg('chevronLeft', 16);
+  }
+}
+
+function toggleSidebar() {
+  const layout = document.querySelector(".app-layout") || document.querySelector(".app");
+  if (!layout) return;
+  const nowCollapsed = layout.classList.toggle("sidebar-collapsed");
+  localStorage.setItem("componetwear_sidebar_collapsed", nowCollapsed ? "true" : "false");
+  updateSidebarCollapseIcon();
+}
+
+window.toggleSidebar = toggleSidebar;
+
+// ===== STATIC ICONS INITIALIZATION =====
+function populateStaticIcons() {
+  if (typeof getIconSvg !== 'function') return;
+  if ($("tabIconOverview")) $("tabIconOverview").innerHTML = getIconSvg('overview', 18);
+  if ($("tabIconMonth")) $("tabIconMonth").innerHTML = getIconSvg('calendar', 18);
+  if ($("tabIconStock")) $("tabIconStock").innerHTML = getIconSvg('table', 18);
+  if ($("tabIconChart")) $("tabIconChart").innerHTML = getIconSvg('chart', 18);
+
+  if ($("vmbCalendarIcon")) $("vmbCalendarIcon").innerHTML = getIconSvg('calendar', 15);
+  if ($("searchBoxIcon")) $("searchBoxIcon").innerHTML = getIconSvg('search', 15);
+  if ($("importIcon")) $("importIcon").innerHTML = getIconSvg('import', 15);
+  if ($("exportIcon")) $("exportIcon").innerHTML = getIconSvg('export', 15);
+  if ($("trashIcon")) $("trashIcon").innerHTML = getIconSvg('trash', 15);
+
+  if ($("kpiIconFleet")) $("kpiIconFleet").innerHTML = getIconSvg('layers', 24);
+  if ($("kpiIconOutput")) $("kpiIconOutput").innerHTML = getIconSvg('activity', 24);
+  if ($("kpiIconReps")) $("kpiIconReps").innerHTML = getIconSvg('tool', 24);
+  if ($("kpiIconLife")) $("kpiIconLife").innerHTML = getIconSvg('shield', 24);
+
+  if ($("overviewTop5Icon")) $("overviewTop5Icon").innerHTML = getIconSvg('trophy', 17);
+  if ($("overviewAlertsIcon")) $("overviewAlertsIcon").innerHTML = getIconSvg('alert', 17);
+  if ($("overviewArrowIcon1")) $("overviewArrowIcon1").innerHTML = getIconSvg('arrowUpRight', 14);
+  if ($("overviewArrowIcon2")) $("overviewArrowIcon2").innerHTML = getIconSvg('arrowUpRight', 14);
+
+  if ($("cpmGearIcon")) $("cpmGearIcon").innerHTML = getIconSvg('gear', 14);
+  if ($("top5ModalHeaderIcon")) $("top5ModalHeaderIcon").innerHTML = getIconSvg('trophy', 20);
+  if ($("detailModalHeaderIcon")) $("detailModalHeaderIcon").innerHTML = getIconSvg('search', 20);
+  if ($("deleteModalIcon")) $("deleteModalIcon").innerHTML = getIconSvg('trash', 20);
+  if ($("clearModalIcon")) $("clearModalIcon").innerHTML = getIconSvg('trash', 20);
+}
+
 // ===== INITIALIZATION =====
 function initApp() {
   console.log("%c[BOOT] ========== initApp START ==========", "color:#7c3aed; font-weight:bold; font-size:15px;");
+  
+  // Theme, Sidebar & Icons
+  initTheme();
+  initSidebar();
+  populateStaticIcons();
+
   // Tab click handlers
   document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => switchTab(tab.dataset.tab)));
 
@@ -844,3 +961,4 @@ function initApp() {
 
 // Run on DOM ready
 initApp();
+

@@ -240,13 +240,13 @@ function updateStockQty(part, dieSet, delta) {
 function toggleWearCheckboxAll(masterCb) {
   const isChecked = masterCb.checked;
   [$('chkWearCritical'), $('chkWearWarning'), $('chkWearSafe')].forEach(chk => { if (chk) chk.checked = isChecked; });
-  updateWearFilterLabels(); renderWearTable();
+  updateWearFilterLabels(); renderStockTable();
 }
 
 function toggleWearStatusCheckbox() {
   const allChecked = [$('chkWearCritical'), $('chkWearWarning'), $('chkWearSafe')].every(chk => chk && chk.checked);
   if ($('chkWearAll')) $('chkWearAll').checked = allChecked;
-  updateWearFilterLabels(); renderWearTable();
+  updateWearFilterLabels(); renderStockTable();
 }
 
 function updateWearFilterLabels() {
@@ -501,7 +501,21 @@ function closeComponentDetailModal() {
   if (modal) modal.classList.add("hidden");
 }
 
+function openComponentDetailByName(partName, dieSetName = '', seriesVal = '') {
+  if (!partName) return;
+  const master = typeof findMasterItem === 'function' ? findMasterItem(partName, dieSetName, seriesVal) : null;
+  const moldNew = master ? master.NewDieSet : dieSetName;
+  const moldOld = master ? master.OldDieSet : dieSetName;
+  const series = seriesVal || (master ? master.Series : '');
+  openComponentDetailModal(partName, moldNew, moldOld, series);
+}
+
+window.openComponentDetailByName = openComponentDetailByName;
+window.openComponentDetailModal = openComponentDetailModal;
+window.closeComponentDetailModal = closeComponentDetailModal;
+
 window.addEventListener("keydown", function(e) {
   if (e.key === "Escape") { closeTop5Modal(); cancelDeleteReplacement(); closeClearDataModal(); closeComponentDetailModal(); }
 });
+
 

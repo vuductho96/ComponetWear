@@ -12,11 +12,28 @@ let db = {
 
 let result = { cycles: [], summary: [], errors: [] };
 let masterData = [];
+
+// Expose state objects on window for tooling and integrations
+Object.defineProperty(window, 'db', {
+  get: () => db,
+  set: (v) => { db = v; },
+  configurable: true
+});
+Object.defineProperty(window, 'result', {
+  get: () => result,
+  set: (v) => { result = v; },
+  configurable: true
+});
+Object.defineProperty(window, 'masterData', {
+  get: () => masterData,
+  set: (v) => { masterData = v; },
+  configurable: true
+});
 let _stockData = {};
 let _stockFilter = 'all';
 let _masterLookupMap = null;
 let _allPartsCache = null;
-let currentActiveTab = "month";
+let currentActiveTab = "overview";
 let _currentDataVersion = null;
 
 // Render limits

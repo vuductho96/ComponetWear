@@ -564,9 +564,9 @@ foreach ($excelPath in $candidateFiles) {
 
                     if ($partName -and $partName.Length -ge 2) {
                         $minStock = 1
-                        if ($rDict.ContainsKey(5)) { [int]::TryParse($rDict[5], [ref]$minStock) | Out-Null }
+                        if ($rDict.ContainsKey(2)) { [int]::TryParse($rDict[2], [ref]$minStock) | Out-Null }
                         $oldStock = 0
-                        if ($rDict.ContainsKey(6)) { [int]::TryParse($rDict[6], [ref]$oldStock) | Out-Null }
+                        if ($rDict.ContainsKey(3)) { [int]::TryParse($rDict[3], [ref]$oldStock) | Out-Null }
 
                         # Fix P0-3: Populate stockData
                         $mKey = "$partName|$mold"
@@ -611,14 +611,14 @@ foreach ($excelPath in $candidateFiles) {
                             }
                         }
 
-                        # Dynamic unlimited replacement blocks: Lần 1 (7), Lần 2 (11), Lần 3 (15), Lần 4 (19), Lần 5 (23), Lần 6 (27)... unlimited
-                        for ($cStart = 7; $cStart -le 300; $cStart += 4) {
+                        # Dynamic replacement blocks: Lần 1 (7), Lần 2 (11), Lần 3 (15), Lần 4 (19), Lần 5 (23)
+                        # Note: Col 26 is Ton, Col 27+ is Purchase Order (PO/Date Oder), DO NOT scan >= 26
+                        for ($cStart = 7; $cStart -le 23; $cStart += 4) {
                             $cQty = $cStart
                             $cId = $cStart + 1
                             $cDate = $cStart + 2
 
                             if (-not $rDict.ContainsKey($cQty) -and -not $rDict.ContainsKey($cId) -and -not $rDict.ContainsKey($cDate)) {
-                                if ($cStart -gt 40) { break }
                                 continue
                             }
 
