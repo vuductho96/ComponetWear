@@ -19,10 +19,15 @@ function initHeartbeat() {
 
   const notifyExit = () => {
     try {
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon("/api/shutdown");
-      } else {
-        fetch("/api/shutdown", { method: "POST", keepalive: true }).catch(() => {});
+      // Do not shut down backend server when tabs are closed, especially for remote Cloudflare viewers
+      const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+      const urlParams = new URLSearchParams(window.location.search);
+      if (isLocal && urlParams.get('autoclose') === '1') {
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon("/api/shutdown");
+        } else {
+          fetch("/api/shutdown", { method: "POST", keepalive: true }).catch(() => {});
+        }
       }
     } catch (e) {}
   };

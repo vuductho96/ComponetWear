@@ -128,7 +128,19 @@ function Check-ExcelFileChanges {
                     $global:fileTimestamps[$key] = $lastM
                 }
             } else {
+                # Newly added file detected (e.g. new month file copied into folder)
+                $hasChanged = $true
                 $global:fileTimestamps[$key] = $lastM
+            }
+        }
+
+        # Check for deleted or removed Excel files
+        $currentKeys = @($candidateFiles | ForEach-Object { $_.FullName })
+        $deletedKeys = @($global:fileTimestamps.Keys | Where-Object { $currentKeys -notcontains $_ })
+        if ($deletedKeys.Count -gt 0) {
+            $hasChanged = $true
+            foreach ($dk in $deletedKeys) {
+                $global:fileTimestamps.Remove($dk)
             }
         }
         if ($hasChanged) {
