@@ -113,6 +113,25 @@ function Trigger-ExcelSync {
     return $executedEngine
 }
 
+function Deploy-ToCloudflareWorkers {
+    try {
+        $parent = Split-Path $Root -Parent
+        $wranglerJson = Join-Path $parent 'wrangler.jsonc'
+        if (Test-Path $wranglerJson) {
+            Log-Msg "☁️ [Cloudflare] Dang tu dong day du lieu moi len https://componetlife.vuductho-th.workers.dev..." Cyan
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "cmd.exe"
+            $psi.Arguments = "/c cd /d `"$parent`" && npx --yes wrangler@4.86.0 deploy"
+            $psi.CreateNoWindow = $true
+            $psi.UseShellExecute = $false
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+            [System.Diagnostics.Process]::Start($psi) | Out-Null
+        }
+    } catch {
+        Log-Msg "⚠️ Khong the auto-deploy Cloudflare: $_" Yellow
+    }
+}
+
 function Check-ExcelFileChanges {
     try {
         if ($global:isSyncing) { return }
@@ -149,6 +168,7 @@ function Check-ExcelFileChanges {
             Start-Sleep -Milliseconds 800
             Trigger-ExcelSync | Out-Null
             Log-Msg "✅ Preload hoan tat! Data Version = v$global:excelDataVersion" Green
+            Deploy-ToCloudflareWorkers
         }
     } catch {
         Log-Msg "⚠️ Thong bao doc file Excel: $_" Yellow
