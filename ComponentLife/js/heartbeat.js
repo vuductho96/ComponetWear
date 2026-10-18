@@ -2,20 +2,41 @@
 'use strict';
 
 function initHeartbeat() {
+  let failedHeartbeats = 0;
+  let heartbeatTimer = null;
+  let versionTimer = null;
+
   const ping = () => {
     fetch("/api/heartbeat", { method: "POST" })
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) {
+          failedHeartbeats++;
+          if (failedHeartbeats >= 3) {
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+            if (versionTimer) clearInterval(versionTimer);
+          }
+          return null;
+        }
+        failedHeartbeats = 0;
+        return r.json();
+      })
       .then(data => {
         if (data && data.closeUi) {
           window.open('', '_self', '');
           window.close();
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        failedHeartbeats++;
+        if (failedHeartbeats >= 3) {
+          if (heartbeatTimer) clearInterval(heartbeatTimer);
+          if (versionTimer) clearInterval(versionTimer);
+        }
+      });
   };
   ping();
-  setInterval(ping, 1000);
-  setInterval(checkDataVersionLoop, 1500);
+  heartbeatTimer = setInterval(ping, 2000);
+  versionTimer = setInterval(checkDataVersionLoop, 3000);
 
   const notifyExit = () => {
     try {
