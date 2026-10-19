@@ -1,4 +1,4 @@
-﻿# Simulation-only auto fill for the rows currently visible in measurement preview.
+﻿# Fill visible NG actual values in one workbook save.
 $saveModule = Join-Path $PSScriptRoot 'InspectionTool.DimensionSave.ps1'
 if (Test-Path -LiteralPath $saveModule) { . $saveModule }
 
@@ -30,70 +30,65 @@ function New-InspectionTestRows([int]$Seed = -1) {
                 $result = 'TEST · Trong giới hạn'
             }
         }
-        $items.Add([pscustomobject]@{ Point=[string]$row.Cells[0].Value; Sample=[string]$row.Cells[5].Value; Nominal=[string]$row.Cells[1].Value; TolMinus=[string]$row.Cells[2].Value; TolPlus=[string]$row.Cells[3].Value; Lower=$lower; Upper=$upper; Actual=$value; Result=$result; IsTest=$true })
+        $items.Add([pscustomobject]@{ RowIndex=$row.Index; Point=[string]$row.Cells[0].Value; Sample=[string]$row.Cells[5].Value; Nominal=[string]$row.Cells[1].Value; TolMinus=[string]$row.Cells[2].Value; TolPlus=[string]$row.Cells[3].Value; Lower=$lower; Upper=$upper; Actual=$value; Result=$result; IsTest=$true })
     }
     return $items.ToArray()
 }
 
-function Set-InspectionTestPreview($Dialog) {
-    $data = @(New-InspectionTestRows)
-    $Dialog.Tag.Rows = $data
-    $Dialog.Tag.Grid.Rows.Clear()
-    foreach ($item in $data) { [void]$Dialog.Tag.Grid.Rows.Add($item.Point,$item.Sample,$item.Nominal,$item.TolMinus,$item.TolPlus,$item.Actual,$item.Result) }
-    $Dialog.Tag.Summary.Text = "DỮ LIỆU TEST · $($data.Count) mẫu từ các dòng đang hiển thị"
-}
-
-function New-InspectionQuickEditDialog {
-    $dialog=New-Object System.Windows.Forms.Form
-    $dialog.Text='Auto fill kết quả — DỮ LIỆU TEST'
-    $dialog.ClientSize=New-Object System.Drawing.Size(900,510)
-    $dialog.StartPosition=[System.Windows.Forms.FormStartPosition]::CenterParent
-    $dialog.MinimumSize=New-Object System.Drawing.Size(720,420)
-    $dialog.Font=New-Object System.Drawing.Font('Segoe UI',9)
-    $summary=New-Object System.Windows.Forms.Label
-    $summary.SetBounds(16,15,850,24)
-    $summary.Font=New-Object System.Drawing.Font('Segoe UI',10,[Drawing.FontStyle]::Bold)
-    $summary.ForeColor=[Drawing.Color]::FromArgb(150,88,0)
-    $dialog.Controls.Add($summary)
-    $hint=New-Object System.Windows.Forms.Label
-    $hint.SetBounds(16,43,850,28)
-    $hint.Text='Giá trị mô phỏng theo Nominal và dung sai · Xem trước / xuất CSV riêng cho mục đích test.'
-    $dialog.Controls.Add($hint)
-    $preview=New-Object System.Windows.Forms.DataGridView
-    $preview.Name='testPreview';$preview.SetBounds(16,78,868,365)
-    $preview.Anchor=[Windows.Forms.AnchorStyles]'Top,Bottom,Left,Right'
-    $preview.AllowUserToAddRows=$false;$preview.AllowUserToDeleteRows=$false;$preview.ReadOnly=$true
-    $preview.RowHeadersVisible=$false;$preview.AutoSizeColumnsMode='Fill';$preview.BackgroundColor=[Drawing.Color]::White
-    $preview.ColumnCount=7
-    $names=@('Point','Sample','Nominal','Tol (-)','Tol (+)','Actual (TEST)','Kết quả mẫu')
-    for($i=0;$i -lt $names.Count;$i++){$preview.Columns[$i].Name=$names[$i]}
-    $preview.Columns[6].FillWeight=160
-    $dialog.Controls.Add($preview)
-    $again=New-Object System.Windows.Forms.Button
-    $again.Name='testRegenerate';$again.Text='Tạo lại';$again.SetBounds(16,460,100,32)
-    $again.Anchor=[Windows.Forms.AnchorStyles]'Bottom,Left';$dialog.Controls.Add($again)
-    $export=New-Object System.Windows.Forms.Button
-    $export.Name='testExport';$export.Text='Xuất CSV TEST';$export.SetBounds(634,460,130,32)
-    $export.Anchor=[Windows.Forms.AnchorStyles]'Bottom,Right';$dialog.Controls.Add($export)
-    $close=New-Object System.Windows.Forms.Button
-    $close.Text='Đóng';$close.SetBounds(774,460,110,32)
-    $close.Anchor=[Windows.Forms.AnchorStyles]'Bottom,Right';$close.DialogResult='Cancel';$dialog.Controls.Add($close)
-    $dialog.CancelButton=$close
-    $dialog.Tag=[pscustomobject]@{Rows=@();Grid=$preview;Summary=$summary}
-    $again.Add_Click({Set-InspectionTestPreview $this.FindForm()})
-    $export.Add_Click({
-        $owner=$this.FindForm()
-        $picker=New-Object System.Windows.Forms.SaveFileDialog
-        $picker.Filter='CSV TEST (*.csv)|*.csv';$picker.FileName='TEST-Autofill-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.csv'
-        try {
-            if($picker.ShowDialog($owner) -eq [Windows.Forms.DialogResult]::OK){
-                $owner.Tag.Rows | Select-Object IsTest,Point,Sample,Nominal,TolMinus,TolPlus,Lower,Upper,Actual,Result | Export-Csv -LiteralPath $picker.FileName -NoTypeInformation -Encoding UTF8
-                $owner.Tag.Summary.Text='Đã xuất CSV TEST · Excel gốc giữ nguyên'
-            }
-        } finally {$picker.Dispose()}
+function Invoke-InspectionQuickFill {
+    param([int]$Seed = -1)
+    $path=$script:PreviewCurrentPath
+    $key=Get-DimensionCacheKey $path
+    if (-not $key -or -not $script:DimensionCache.ContainsKey($key)) { throw 'Không có dữ liệu Excel đang xem.' }
+    $original=@($script:DimensionCache[$key])
+    $changes=@(New-InspectionTestRows -Seed $Seed | Where-Object {
+        $_.Actual -ne '' -and [string]$gridDimensions.Rows[$_.RowIndex].Cells[8].Value -eq 'NG'
     })
-    Set-InspectionTestPreview $dialog
-    return $dialog
+    if (-not $changes.Count) { return 0 }
+    $updated=@($original | ForEach-Object { $_.PSObject.Copy() })
+    $applied=[Collections.Generic.List[object]]::new()
+    foreach ($item in $changes) {
+        $row=$gridDimensions.Rows[$item.RowIndex]; $index=-1
+        for ($i=0; $i -lt $original.Count; $i++) {
+            if ([object]::ReferenceEquals($original[$i],$row.Tag)) { $index=$i; break }
+        }
+        if ($index -lt 0) { throw 'Dòng xem nhanh không khớp với Excel. Hãy chọn lại file.' }
+        $dim=$updated[$index]
+        if ([int]$dim.ExcelRow -le 0 -or [int]$dim.ExcelCol -le 0) { throw 'Không xác định được ô Actual trong Excel.' }
+        $value=[double]::Parse($item.Actual,[Globalization.CultureInfo]::InvariantCulture)
+        $nominal=Convert-MeasureTextToNumber $item.Nominal
+        $dim.Value=$item.Actual; $dim.NumericValue=$value
+        $dim.LowerLimit=$item.Lower; $dim.UpperLimit=$item.Upper
+        $dim.Deviation=[Math]::Round($value-$nominal,8); $dim.AbsDeviation=[Math]::Abs($dim.Deviation)
+        $dim.Result='OK'; $dim.IsModified=$true
+        $applied.Add([pscustomobject]@{Row=$row;Dimension=$dim})
+    }
+    $folder=Join-Path (Split-Path -Parent $path) '.inspection-backups'
+    [void][IO.Directory]::CreateDirectory($folder)
+    $backup=Join-Path $folder (([IO.Path]::GetFileName($path))+'.'+(Get-Date -Format 'yyyyMMdd-HHmmss-fff')+'.'+[Guid]::NewGuid().ToString('N')+'.bak')
+    Copy-Item -LiteralPath $path -Destination $backup -ErrorAction Stop
+    $script:DimensionCache[$key]=$updated
+    $previousActualOnly=$script:InspectionQuickEditActualOnly
+    $script:InspectionQuickEditActualOnly=$true
+    try {
+        if (-not (Save-DimensionsToWorkbook -path $path)) { throw 'Chưa lưu được Excel. Các giá trị trong bảng được giữ nguyên.' }
+    } catch {
+        $script:DimensionCache[$key]=$original
+        throw
+    } finally { $script:InspectionQuickEditActualOnly=$previousActualOnly }
+    foreach ($change in $applied) {
+        $row=$change.Row; $dim=$change.Dimension
+        $row.Tag=$dim; $row.Cells[6].Value=$dim.Value; $row.Cells[7].Value=$dim.Deviation; $row.Cells[8].Value='OK'
+        $row.Cells[6].Style.ForeColor=[Drawing.Color]::Black; $row.Cells[7].Style.ForeColor=[Drawing.Color]::Black
+        $row.Cells[8].Style.ForeColor=[Drawing.Color]::DarkGreen
+        $row.Cells[8].Style.BackColor=[Drawing.Color]::FromArgb(215,248,215)
+    }
+    foreach ($row in $gridDimensions.Rows) {
+        for ($i=0; $i -lt $original.Count; $i++) {
+            if ([object]::ReferenceEquals($row.Tag,$original[$i])) { $row.Tag=$updated[$i]; break }
+        }
+    }
+    return $applied.Count
 }
 
 $script:InspectionQuickEditButton=New-Object System.Windows.Forms.Button
@@ -114,6 +109,14 @@ $grpPreview.Add_SizeChanged($script:InspectionQuickEditLayout);& $script:Inspect
 $script:InspectionQuickEditButton.Add_Click({
     if(-not $gridDimensions.Rows.Count){return}
     if(-not $gridDimensions.EndEdit()){return}
-    $dialog=New-InspectionQuickEditDialog
-    try{[void]$dialog.ShowDialog($form)}finally{$dialog.Dispose()}
+    $script:InspectionQuickEditButton.Enabled=$false
+    try {
+        $count=Invoke-InspectionQuickFill
+        if ($count -gt 0) {
+            Show-SelectedRowDimensions
+            $lblStatus.Text="Đã sửa nhanh và lưu $count mẫu NG vào Excel."
+        } else { $lblStatus.Text='Không có mẫu NG đủ dung sai trong các dòng đang hiển thị.' }
+    } catch {
+        [void][Windows.Forms.MessageBox]::Show($form,$_.Exception.Message,'Sửa nhanh','OK','Warning')
+    } finally { $script:InspectionQuickEditButton.Enabled=$gridDimensions.Rows.Count -gt 0 }
 })

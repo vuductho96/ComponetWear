@@ -42,19 +42,6 @@ try {
     $gridDimensions.Rows[1].Visible=$false
     Assert (@(New-InspectionTestRows -Seed 42).Count -eq 4) 'Hidden rows are excluded from auto fill'
     $gridDimensions.Rows[1].Visible=$true
-    $dialog=New-InspectionQuickEditDialog
-    Assert ($dialog.Tag.Grid.ReadOnly -and $dialog.Text -match 'TEST' -and $dialog.Tag.Rows.Count -eq 5) 'Dialog clearly labels simulation data and shows all rows'
-    $button=$dialog.Controls.Find('testRegenerate',$true)[0]
-    $click=$button.GetType().GetMethod('OnClick',[Reflection.BindingFlags]'Instance,NonPublic')
-    [void]$click.Invoke($button,@([EventArgs]::Empty))
-    Assert ($dialog.Tag.Rows.Count -eq 5 -and $before -eq (@($gridDimensions.Rows | ForEach-Object {$_.Cells[6].Value}) -join '|')) 'Regenerate keeps original measurements unchanged'
-    $dialog.StartPosition=[Windows.Forms.FormStartPosition]::Manual
-    $dialog.Location=New-Object Drawing.Point(-20000,-20000)
-    $dialog.Show()
-    [Windows.Forms.Application]::DoEvents()
-    $bitmap=New-Object Drawing.Bitmap($dialog.Width,$dialog.Height)
-    try {$dialog.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$dialog.Width,$dialog.Height)));$bitmap.Save((Join-Path $env:TEMP 'inspection-autofill-test.png'))} finally {$bitmap.Dispose()}
-    $dialog.Dispose()
 } finally {$form.Dispose()}
 
 Import-Module ImportExcel
