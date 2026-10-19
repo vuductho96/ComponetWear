@@ -11,13 +11,13 @@ if (Test-Path -LiteralPath $webPublishModule) { . $webPublishModule }
 
 The button starts `Publish-Inspection-Web.ps1` in the background and reads local status only while a manual run is active. The existing app stays open. `Publish-Web.bat` offers the same action from a separate window.
 
-## Quick edit in measurement preview
+## Auto fill test results in measurement preview
 
-Copy `InspectionTool.QuickEdit.ps1` and `InspectionTool.DimensionSave.ps1` beside the desktop app. After its preview grid and CellEndEdit handler are initialized, load:
+Copy `InspectionTool.QuickEdit.ps1` and `InspectionTool.DimensionSave.ps1` beside the desktop app, then load the QuickEdit module after the preview controls and edit handlers are initialized:
 
 ```powershell
 $quickEditModule = Join-Path $PSScriptRoot 'InspectionTool.QuickEdit.ps1'
 if (Test-Path -LiteralPath $quickEditModule) { . $quickEditModule }
 ```
 
-Select a Point/Sample row, choose **Sửa nhanh**, enter the actual measurement, and save. It uses the existing grid edit handler to recalculate limits, deviation and OK/NG, then saves the original workbook. Cancel does not write. The save helper refreshes the file signature cache after every successful save so consecutive edits continue to work, and retains pending edit flags if saving fails.
+**Sửa nhanh** opens **Auto fill kết quả — DỮ LIỆU TEST** for every row currently shown in the quick preview. It creates simulated measurements within the nominal/tolerance interval, retains separate samples, and reports missing tolerances. **Tạo lại** regenerates samples; **Xuất CSV TEST** writes a separate file with an explicit IsTest column. Original measurement cells and Excel workbooks are not changed by simulation. Existing direct measurement editing still uses the save helper, which fixes cache keys after successful saves and retains pending edits on failure.

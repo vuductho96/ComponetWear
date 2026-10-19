@@ -17,30 +17,44 @@ $btnPreviewOpen=New-Object System.Windows.Forms.Button
 $lblPreviewTitle=New-Object System.Windows.Forms.Label
 $lblPreviewStats=New-Object System.Windows.Forms.Label
 try {
+    . (Join-Path $project 'ComponentLife/inspection_core.ps1')
     . (Join-Path $project 'InspectionToolIntegration/InspectionTool.QuickEdit.ps1')
+    [void]$gridDimensions.Rows.Add('16','25.92','-0.01','-0.005','25.91 ~ 25.915','1','25.922','0.002','NG')
+    [void]$gridDimensions.Rows.Add('17','32','+0.015','+0.012','32.012 ~ 32.015','1','32.004','0.004','NG')
+    [void]$gridDimensions.Rows.Add('20','30','-0.002','0','29.998 ~ 30','1','30.001','0.001','NG')
     [void]$gridDimensions.Rows.Add('20','30','-0.002','0','29.998 ~ 30','2','29.999','-0.001','OK')
+    [void]$gridDimensions.Rows.Add('99','5','','','','1','5.2','','')
     $gridDimensions.CurrentCell=$gridDimensions.Rows[0].Cells[6]
-    Assert ($script:InspectionQuickEditButton.Text -eq 'Sửa nhanh') 'Quick edit button appears beside preview controls'
+    Assert ($script:InspectionQuickEditButton.Text -eq 'Sửa nhanh') 'Quick auto-fill button appears beside preview controls'
     Assert ($script:InspectionQuickEditButton.Right -le $btnPreviewAll.Left) 'Preview buttons do not overlap'
-    $script:writes=@()
-    function Save-InspectionQuickValue([int]$RowIndex,[string]$Value){$script:writes+=@{row=$RowIndex;value=$Value};return $true}
-    $dialog=New-InspectionQuickEditDialog 0
-    Assert ($dialog.Controls[0].Text -match 'Point 20.*Mẫu 2') 'Dialog identifies the exact Point and Sample'
-    $input=$dialog.Controls.Find('quickActual',$true)[0]
-    $save=$dialog.Controls.Find('quickSave',$true)[0]
-    $click=$save.GetType().GetMethod('OnClick',[Reflection.BindingFlags]'Instance,NonPublic')
-    $input.Text='abc'
-    [void]$click.Invoke($save,@([EventArgs]::Empty))
-    Assert ($script:writes.Count -eq 0) 'Invalid input cannot write to Excel'
-    Assert ($dialog.Controls.Find('quickError',$true)[0].Text -ne '') 'Invalid input shows a useful error'
-    $input.Text='29,998'
-    [void]$click.Invoke($save,@([EventArgs]::Empty))
-    Assert ($script:writes.Count -eq 1 -and $script:writes[0].value -eq '29,998' -and $script:writes[0].row -eq 0) 'Save targets only the selected sample and accepts decimal comma'
+    $before=@($gridDimensions.Rows | ForEach-Object {$_.Cells[6].Value}) -join '|'
+    $rows=@(New-InspectionTestRows -Seed 42)
+    Assert ($rows.Count -eq 5) 'Auto fill includes every currently displayed sample'
+    Assert (@($rows | Where-Object {$_.Point -eq '20'}).Count -eq 2) 'Repeated Point numbers retain separate samples'
+    foreach($row in $rows | Where-Object {$_.Actual -ne ''}) {
+        $value=[double]::Parse($row.Actual,[Globalization.CultureInfo]::InvariantCulture)
+        Assert ($value -ge $row.Lower -and $value -le $row.Upper -and $row.IsTest) ('Generated value stays within tolerance for Point '+$row.Point+' Sample '+$row.Sample)
+    }
+    Assert ($rows[1].Lower -eq 32.012 -and $rows[1].Upper -eq 32.015) 'Positive asymmetric tolerances are interpreted correctly'
+    Assert ($rows[4].Actual -eq '' -and $rows[4].Result -match 'Thiếu') 'Missing tolerance is reported rather than filled'
+    $after=@($gridDimensions.Rows | ForEach-Object {$_.Cells[6].Value}) -join '|'
+    Assert ($before -eq $after) 'Generating test values never changes real measurement grid cells'
+    $gridDimensions.Rows[1].Visible=$false
+    Assert (@(New-InspectionTestRows -Seed 42).Count -eq 4) 'Hidden rows are excluded from auto fill'
+    $gridDimensions.Rows[1].Visible=$true
+    $dialog=New-InspectionQuickEditDialog
+    Assert ($dialog.Tag.Grid.ReadOnly -and $dialog.Text -match 'TEST' -and $dialog.Tag.Rows.Count -eq 5) 'Dialog clearly labels simulation data and shows all rows'
+    $button=$dialog.Controls.Find('testRegenerate',$true)[0]
+    $click=$button.GetType().GetMethod('OnClick',[Reflection.BindingFlags]'Instance,NonPublic')
+    [void]$click.Invoke($button,@([EventArgs]::Empty))
+    Assert ($dialog.Tag.Rows.Count -eq 5 -and $before -eq (@($gridDimensions.Rows | ForEach-Object {$_.Cells[6].Value}) -join '|')) 'Regenerate keeps original measurements unchanged'
+    $dialog.StartPosition=[Windows.Forms.FormStartPosition]::Manual
+    $dialog.Location=New-Object Drawing.Point(-20000,-20000)
+    $dialog.Show()
+    [Windows.Forms.Application]::DoEvents()
+    $bitmap=New-Object Drawing.Bitmap($dialog.Width,$dialog.Height)
+    try {$dialog.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$dialog.Width,$dialog.Height)));$bitmap.Save((Join-Path $env:TEMP 'inspection-autofill-test.png'))} finally {$bitmap.Dispose()}
     $dialog.Dispose()
-    $cancelDialog=New-InspectionQuickEditDialog 0
-    $cancelDialog.Controls.Find('quickActual',$true)[0].Text='12'
-    $cancelDialog.Dispose()
-    Assert ($script:writes.Count -eq 1) 'Closing or cancelling without Save leaves Excel unchanged'
 } finally {$form.Dispose()}
 
 Import-Module ImportExcel
