@@ -1,0 +1,9 @@
+import {CHATGPT_PROMPT} from './freecad-code-model.js';
+export function mountPromptTemplate(){
+ const button=document.createElement('button');button.id='freecad-prompt-template';button.textContent='Prompt mẫu FreeCAD';document.querySelector('#cad-code-pane .code-actions').append(button);
+ const dialog=document.createElement('dialog');dialog.className='fc-prompt-dialog';dialog.innerHTML='<form method="dialog"><div class="fc-prompt-heading"><strong>Prompt mẫu · FreeCAD → FCStd</strong><button value="close">Đóng</button></div><p>Copy prompt, gửi kèm các crop hình chiếu cho ChatGPT. Dán Python nhận được vào chế độ <b>FreeCAD trên máy → Python</b>. Có thể chỉnh nội dung bên dưới trong phiên này.</p><textarea id="fc-prompt-text" aria-label="Prompt mẫu FreeCAD" spellcheck="false"></textarea><div class="fc-prompt-actions"><button type="button" id="fc-prompt-copy">Copy template</button><button type="button" id="fc-prompt-reset">Khôi phục mẫu</button><span id="fc-prompt-status" role="status">Không tự gửi bản vẽ hoặc gọi AI.</span></div></form>';
+ document.body.append(dialog);const area=dialog.querySelector('textarea'),status=dialog.querySelector('[role=status]');area.value=CHATGPT_PROMPT;button.onclick=()=>dialog.showModal();
+ dialog.querySelector('#fc-prompt-reset').onclick=()=>{area.value=CHATGPT_PROMPT;status.textContent='Đã khôi phục mẫu gốc.';};
+ dialog.querySelector('#fc-prompt-copy').onclick=async()=>{try{await navigator.clipboard.writeText(area.value);status.textContent='Đã copy. Gửi cùng crop cho ChatGPT để nhận Python FreeCAD.';}catch{area.focus();area.select();status.textContent='Clipboard không khả dụng. Nhấn Ctrl+C để copy nội dung đã chọn.';}};
+ const current=document.getElementById('code-prompt'),engine=document.getElementById('code-engine');const label=()=>{current.textContent=engine.value==='web'?'Copy prompt JavaScript':'Copy prompt Python';};engine.addEventListener('change',label);label();
+}

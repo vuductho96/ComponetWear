@@ -1,0 +1,5 @@
+DimensionOCR browser application imported from source commit 613899a16fe2619d5cec028f08eab0386769f269.
+Original package declares ISC license. Existing library/font license notices are retained with their assets.
+All OCR runtime files, model parts and fonts are served from this application. No hosted Sites service or OpenAI subscription is used by the OCR runtime.
+
+Model metadata inspected locally: detector and regions are Ultralytics YOLO11s exports (metadata declares AGPL-3.0, https://ultralytics.com/license). Recognizer is an exported PaddlePaddle graph using CTC decoding; its bundled artifact does not identify the precise PP-OCR release. Core inference uses ONNX Runtime Web / WASM, single worker thread. Crop loads recognizer only (~21 MB); full extraction loads all three models (~97 MB).

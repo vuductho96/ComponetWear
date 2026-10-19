@@ -1,0 +1,4 @@
+Replicad (MIT): https://github.com/sgenoud/replicad
+Three.js (MIT): https://github.com/mrdoob/three.js
+OpenCascade.js / OCCT: https://github.com/donalffons/opencascade.js and https://dev.opencascade.org/resources/licensing
+OCCT is licensed under LGPL 2.1 with additional exception. WASM distributed separately and replaceable; source/build instructions: https://github.com/sgenoud/replicad/tree/main/packages/replicad-opencascadejs

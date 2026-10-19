@@ -371,6 +371,7 @@ function Read-SheetRowsFast($entry, $sharedStrings) {
     return [FastExcelReader]::ReadSheet($entry, $sharedStrings)
 }
 
+$syncErrors = [System.Collections.Generic.List[string]]::new()
 foreach ($excelPath in $candidateFiles) {
     $fs = $null
     $zip = $null
@@ -389,6 +390,7 @@ foreach ($excelPath in $candidateFiles) {
 
     if (-not $zip) {
         Write-Warning "⚠️ Khong the mo file Excel: $excelPath (dang bi khoa hoac loi truy cap)"
+        $syncErrors.Add("Cannot open: $excelPath")
         continue
     }
 
@@ -678,10 +680,13 @@ foreach ($excelPath in $candidateFiles) {
     } catch {
         if ($zip) { try { $zip.Dispose() } catch {} }
         if ($fs) { try { $fs.Close() } catch {} }
+        $syncErrors.Add("$excelPath : $_")
         # Fix P0-5: Explicit error warning
         Write-Warning "⚠️ Loi khi dang xu ly file Excel $excelPath : $_"
     }
 }
+
+if ($syncErrors.Count -gt 0) { throw ("Excel sync aborted before writing JSON: " + ($syncErrors -join "; ")) }
 
 # ===== SMART AUTO-RESOLUTION: CROSS-RESOLVE OLD <-> NEW DIE SET =====
 if (Test-Path "$PSScriptRoot\mold_mapping.ps1") {

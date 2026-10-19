@@ -1,0 +1,311 @@
+﻿# Read-only inspection rules extracted from InspectionTool.ps1. No GUI, KPI, time tracking or workbook writes.
+function Safe-Text {
+    param([object]$v)
+    if ($null -eq $v) { return "" }
+    return [string]$v.ToString().Trim()
+}
+
+function Safe-Qty {
+    param([object]$v)
+    $s = Safe-Text $v
+    if ([string]::IsNullOrWhiteSpace($s)) { return 0 }
+    $clean = $s -replace '[^\d\-]', ''
+    if ([string]::IsNullOrWhiteSpace($clean)) { return 0 }
+
+    $n = 0
+    if ([int]::TryParse($clean, [ref]$n)) {
+        return $n
+    }
+    return 0
+}
+
+function Normalize-MeasureDate {
+    param([object]$v)
+
+    if ($null -eq $v) { return "" }
+
+    if ($v -is [datetime]) {
+        return $v.ToString("dd/MM/yyyy")
+    }
+
+    if ($v -is [double] -or $v -is [int]) {
+        try {
+            return [datetime]::FromOADate([double]$v).ToString("dd/MM/yyyy")
+        }
+        catch {
+            return ""
+        }
+    }
+
+    $s = Safe-Text $v
+    if ([string]::IsNullOrWhiteSpace($s)) { return "" }
+
+    $dt = [datetime]::MinValue
+    if ([datetime]::TryParse($s, [ref]$dt)) {
+        return $dt.ToString("dd/MM/yyyy")
+    }
+
+    return $s
+}
+
+function Get-TimeMapKey {
+    param([string]$path)
+    $p = Safe-Text $path
+    if ([string]::IsNullOrWhiteSpace($p)) { return "" }
+    try {
+        $full = [System.IO.Path]::GetFullPath($p)
+        return $full.Normalize([System.Text.NormalizationForm]::FormC).ToLowerInvariant()
+    }
+    catch {
+        return $p.Normalize([System.Text.NormalizationForm]::FormC).ToLowerInvariant()
+    }
+}
+
+function Get-DateFromPath {
+    param([string]$path)
+
+    $month = ""
+    $dateIn = ""
+    $isLeftoverStock = $false
+
+    foreach ($p in ($path -split "\\")) {
+        if ($p -match '^đo tủ link kiên$') {
+            $isLeftoverStock = $true
+        }
+
+        if ($p -match "THÁNG\s*(\d+)") {
+            $month = "2026-" + ("{0:D2}" -f [int]$matches[1])
+        }
+
+        if (-not $isLeftoverStock -and $p -match "(\d{1,2})-(\d{1,2})-(\d{2})") {
+            $d = [int]$matches[1]
+            $m = [int]$matches[2]
+            $y = 2000 + [int]$matches[3]
+            $dateIn = "{0:D2}/{1:D2}/{2}" -f $d, $m, $y
+        }
+    }
+
+    return @{
+        Month  = $month
+        DateIn = $dateIn
+    }
+}
+
+function Get-StockSourceLabel {
+    param([string]$path)
+
+    $normalizedPath = Get-TimeMapKey $path
+    if ([string]::IsNullOrWhiteSpace($normalizedPath)) { return "" }
+    if ($normalizedPath -match '\\đo tủ link kiên(\\|$)') { return 'ĐO TỦ LK' }
+    if ($normalizedPath -match '\\lk mới về(\\|$)') { return 'LK MỚI VỀ' }
+    return ''
+}
+
+function Normalize-DateInForPath {
+    param(
+        [string]$path,
+        [string]$dateIn
+    )
+
+    if ((Get-StockSourceLabel $path) -eq 'ĐO TỦ LK') { return '' }
+    return Safe-Text $dateIn
+}
+
+function Get-FirstUsedWorksheet {
+    param($pkg)
+    return $pkg.Workbook.Worksheets |
+        Where-Object { $_.Dimension } |
+        Select-Object -First 1
+}
+
+function Test-InspectionWorkbookFile {
+    param([System.IO.FileInfo]$f)
+    if ($null -eq $f) { return $false }
+    $ext = $f.Extension
+    if ($ext -ne ".xlsx" -and $ext -ne ".xlsm") { return $false }
+    # File khóa tạm của Excel (~$...) làm số file / mtime nhảy → rescan liên tục nếu không loại
+    if ($f.Name.StartsWith("~`$", [System.StringComparison]::Ordinal)) { return $false }
+    return $true
+}
+
+function Read-InspectionFile {
+    param([System.IO.FileInfo]$file)
+
+    $part = ""
+    $mold = ""
+    $rawQty = 0
+    $status = "CHƯA ĐO"
+    $dateMeasure = ""
+    $pkg = $null
+
+    try {
+        $pkg = Open-ExcelPackage -Path $file.FullName
+        $ws = Get-FirstUsedWorksheet -pkg $pkg
+
+        if ($ws) {
+            $part = Safe-Text $ws.Cells["C5"].Value
+            $mold = Safe-Text $ws.Cells["G5"].Value
+            $dateMeasure = Normalize-MeasureDate $ws.Cells["N4"].Value
+            $rawQty = Safe-Qty $ws.Cells["N6"].Value
+
+            $ngCount = 0
+            $fullDims = @()
+            for ($r = 14; $r -le 54; $r++) {
+                for ($c = 6; $c -le 15; $c++) {
+                    if (-not [string]::IsNullOrWhiteSpace((Safe-Text $ws.Cells[$r,$c].Value))) {
+                        $status = "ĐÃ ĐO"
+                        break
+                    }
+                }
+                if ($status -eq "ĐÃ ĐO") { break }
+            }
+
+            if ($status -eq "ĐÃ ĐO") {
+                $fullDims = @(Extract-DimensionsFromWorksheet -ws $ws -path $file.FullName -part $part -mold $mold -dateMeasure $dateMeasure)
+                $ngCount = @($fullDims | Where-Object { $_.Result -eq "NG" }).Count
+                $cKey = Get-DimensionCacheKey $file.FullName
+                if (-not [string]::IsNullOrWhiteSpace($cKey)) {
+                    $script:DimensionCache[$cKey] = @($fullDims)
+                }
+            }
+        }
+
+    }
+    catch {
+        return $null
+    }
+    finally {
+        if ($pkg) { $pkg.Dispose() }
+    }
+
+    $quality = if ($status -ne "ĐÃ ĐO") { "" } elseif ($ngCount -gt 0) { "NG ($ngCount)" } else { "OK" }
+    $info = Get-DateFromPath $file.FullName
+    $lotKey = "$part|$mold|$($file.DirectoryName)"
+
+    return [PSCustomObject]@{
+        File        = $file.Name
+        Part        = $part
+        Mold        = $mold
+        Month       = $info.Month
+        DateIn      = $info.DateIn
+        DateMeasure = $dateMeasure
+        TimeStart   = ""
+        TimeEnd     = ""
+        DurationMin = $null
+        MinPerPiece = $null
+        Note        = ''
+        Qty         = 0
+        RawQty      = $rawQty
+        Status      = $status
+        Quality     = $quality
+        NgCount     = $ngCount
+        Path        = $file.FullName
+        Folder      = $file.DirectoryName
+        LotKey      = $lotKey
+    }
+}
+
+function Convert-MeasureTextToNumber {
+    param([string]$text)
+
+    $t = Safe-Text $text
+    if ([string]::IsNullOrWhiteSpace($t)) { return $null }
+    $t = $t.Trim().Replace(',', '.')
+    $m = [regex]::Match($t, '[-+]?\d+(?:\.\d+)?')
+    if (-not $m.Success) { return $null }
+
+    $value = 0.0
+    if ([double]::TryParse($m.Value, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$value)) {
+        return $value
+    }
+    return $null
+}
+
+function Get-DimensionCacheKey {
+    param([string]$path)
+
+    if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path)) { return "" }
+    try {
+        $f = Get-Item -LiteralPath $path -ErrorAction Stop
+        return "$($f.FullName)|$($f.LastWriteTimeUtc.Ticks)|$($f.Length)"
+    }
+    catch {
+        return ""
+    }
+}
+
+function Extract-DimensionsFromWorksheet {
+    param(
+        $ws,
+        [string]$path,
+        [string]$part,
+        [string]$mold,
+        [string]$dateMeasure
+    )
+
+    $result = @()
+    if (-not $ws -or -not $ws.Dimension) { return $result }
+
+    $endRow = [Math]::Min($ws.Dimension.End.Row, 250)
+    $endCol = [Math]::Min($ws.Dimension.End.Column, 30)
+
+    for ($r = 14; $r -le $endRow; $r++) {
+        $point = Safe-Text $ws.Cells[$r,1].Text
+        $nominalText = Safe-Text $ws.Cells[$r,2].Text
+        $tolLowText = Safe-Text $ws.Cells[$r,3].Text
+        $tolHighText = Safe-Text $ws.Cells[$r,4].Text
+
+        if ([string]::IsNullOrWhiteSpace($point) -or [string]::IsNullOrWhiteSpace($nominalText)) { continue }
+        if (-not ($point -match '^\d+')) { continue }
+
+        $nominal = Convert-MeasureTextToNumber $nominalText
+        $tolA = Convert-MeasureTextToNumber $tolLowText
+        $tolB = Convert-MeasureTextToNumber $tolHighText
+        if ($null -eq $nominal -or $null -eq $tolA -or $null -eq $tolB) { continue }
+
+        $limitA = [double]$nominal + [double]$tolA
+        $limitB = [double]$nominal + [double]$tolB
+        $min = [Math]::Min($limitA, $limitB)
+        $max = [Math]::Max($limitA, $limitB)
+
+        for ($c = 6; $c -le [Math]::Min($endCol, 15); $c++) {
+            $sampleText = Safe-Text $ws.Cells[$r,$c].Text
+            if ([string]::IsNullOrWhiteSpace($sampleText)) { continue }
+            $sample = Convert-MeasureTextToNumber $sampleText
+            if ($null -eq $sample) { continue }
+
+            $sampleValue = [double]$sample
+            $epsilon = 0.0000001
+            $isNg = ($sampleValue -lt ($min - $epsilon) -or $sampleValue -gt ($max + $epsilon))
+            $deviation = $sampleValue - [double]$nominal
+            $marginLow = $sampleValue - $min
+            $marginHigh = $max - $sampleValue
+            $nearestMargin = [Math]::Min($marginLow, $marginHigh)
+
+            $result += [PSCustomObject]@{
+                File          = [System.IO.Path]::GetFileName($path)
+                Part          = $part
+                Mold          = $mold
+                DateMeasure   = $dateMeasure
+                Point         = $point
+                Nominal       = $nominalText
+                TolMinus      = $tolLowText
+                TolPlus       = $tolHighText
+                SampleNo      = ($c - 5)
+                Value         = $sampleText
+                NumericValue  = [Math]::Round($sampleValue, 6)
+                LowerLimit    = [Math]::Round($min, 6)
+                UpperLimit    = [Math]::Round($max, 6)
+                Deviation     = [Math]::Round($deviation, 6)
+                AbsDeviation  = [Math]::Round([Math]::Abs($deviation), 6)
+                NearestMargin = [Math]::Round($nearestMargin, 6)
+                Result        = if ($isNg) { "NG" } else { "OK" }
+                Path          = $path
+                ExcelRow      = $r
+                ExcelCol      = $c
+                IsModified    = $false
+            }
+        }
+    }
+    return $result
+}

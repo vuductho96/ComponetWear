@@ -2,9 +2,13 @@
 'use strict';
 
 function initHeartbeat() {
+  const isLocalServer = ['127.0.0.1', 'localhost', '[::1]'].includes(window.location.hostname);
+  // Public site loads data on page load only; no background Cloudflare requests.
+  if (!isLocalServer) return;
+  setInterval(checkDataVersionLoop, 10000);
+  checkDataVersionLoop();
   let failedHeartbeats = 0;
   let heartbeatTimer = null;
-  let versionTimer = null;
 
   const ping = () => {
     fetch("/api/heartbeat", { method: "POST" })
@@ -13,7 +17,6 @@ function initHeartbeat() {
           failedHeartbeats++;
           if (failedHeartbeats >= 3) {
             if (heartbeatTimer) clearInterval(heartbeatTimer);
-            if (versionTimer) clearInterval(versionTimer);
           }
           return null;
         }
@@ -30,13 +33,11 @@ function initHeartbeat() {
         failedHeartbeats++;
         if (failedHeartbeats >= 3) {
           if (heartbeatTimer) clearInterval(heartbeatTimer);
-          if (versionTimer) clearInterval(versionTimer);
         }
       });
   };
   ping();
   heartbeatTimer = setInterval(ping, 2000);
-  versionTimer = setInterval(checkDataVersionLoop, 3000);
 
   const notifyExit = () => {
     try {

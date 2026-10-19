@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ModelEval CAD · Đánh giá mức độ hiểu hình học của AI (2D → 3D)</title>
+  <link rel="stylesheet" href="ai-cad.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/cad/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="eval-header">
+    <div class="eval-brand">
+      <span class="logo-icon">📐</span>
+      <h1>ModelEval CAD</h1>
+      <span class="badge">EVALUATION BENCHMARK</span>
+    </div>
+
+    <div class="eval-header-actions">
+      <div class="status-indicator">
+        <span class="status-dot" id="dot-mcp"></span>
+        <span id="label-mcp">FreeCAD MCP (8766): Kiểm tra…</span>
+      </div>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span>OpenCascade WASM: Sẵn sàng</span>
+      </div>
+      <a href="cad.html" class="nav-link-btn" title="Chuyển sang giao diện FreeCAD Web Clone">🪓 FreeCAD Web</a>
+      <a href="index.html" class="nav-link-btn" title="Trích xuất số đo bản vẽ">📑 OCR Kích thước</a>
+    </div>
+  </header>
+
+  <!-- Stage Workflow Banner -->
+  <div class="stage-bar">
+    <div class="stage-steps">
+      <div class="stage-step" id="step-1"><span class="num">1</span> Tải ảnh mặt cắt & Đặt prompt</div>
+      <span style="color:#30363d;">➔</span>
+      <div class="stage-step active" id="step-2"><span class="num">2</span> AI dựng lại 2D & Đối chiếu tỷ lệ (Overlay)</div>
+      <span style="color:#30363d;">➔</span>
+      <div class="stage-step" id="step-3"><span class="num">3</span> Xác nhận & Dựng 3D (WASM / FreeCAD MCP)</div>
+    </div>
+    <div style="color:#8b949e;font-size:11px;">
+      Mục tiêu: Đánh giá độ chính xác vector 2D trước khi nạp vào CAD 3D
+    </div>
+  </div>
+
+  <!-- Main 3-Column Workspace -->
+  <main class="eval-workspace">
+
+    <!-- Column 1: AI Chat & Image Upload -->
+    <aside class="eval-sidebar-left">
+      <div class="panel-header">
+        <span>💬 Trợ lý AI & Prompt Test</span>
+        <button class="tool-btn" id="btn-clear-chat" title="Xóa lịch sử chat">Xóa</button>
+      </div>
+
+      <div class="chat-container">
+        <div class="chat-history" id="eval-chat-history">
+          <div class="chat-bubble assistant">
+            <strong>Chào bạn!</strong> Hãy tải ảnh mặt cắt (cross-section) hoặc hình chiếu 2D lên đây.<br><br>
+            Mô hình sẽ <b>dựng lại bản vẽ 2D dạng vector trước</b> để bạn kiểm tra từng nét vẽ, góc cạnh và độ khép kín xem AI hiểu đúng đến đâu, sau đó mới tiến hành dựng khối 3D!
+          </div>
+        </div>
+
+        <div class="chat-input-box">
+          <div id="eval-attachment-card" style="display:none;background:#11141a;border:1px dashed #30363d;padding:6px;border-radius:4px;align-items:center;gap:8px;">
+            <img id="eval-attach-thumb" src="" style="width:36px;height:36px;object-fit:cover;border-radius:3px;">
+            <span id="eval-attach-title" style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#adb5bd;">image.png</span>
+            <button id="eval-attach-remove" style="background:transparent;border:none;color:#ff6b6b;cursor:pointer;">×</button>
+          </div>
+
+          <div class="chat-controls-row">
+            <input type="file" id="eval-file-input" accept="image/png,image/jpeg,image/webp" hidden>
+            <button class="chat-upload-btn" id="eval-btn-upload" title="Tải ảnh mặt cắt hoặc bản vẽ">📎 Tải ảnh</button>
+            <input type="text" class="chat-text-input" id="eval-chat-input" placeholder="Prompt test (vd: 'Phân tích và dựng lại 2D vector')...">
+            <button class="chat-send-btn" id="eval-btn-send">➤</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Column 2: 2D Visual Understanding & Comparison Viewport -->
+    <section class="eval-center-view">
+      <div class="canvas-toolbar">
+        <div class="toolbar-group">
+          <strong>So sánh 2D:</strong>
+          <button class="tool-btn active" id="btn-view-overlay" title="Xếp chồng bản vẽ vector lên ảnh gốc">🔲 Overlay đè nét</button>
+          <button class="tool-btn" id="btn-view-vector" title="Chỉ xem bản vẽ vector 2D do AI dựng">📐 Bản vẽ 2D Vector</button>
+          <button class="tool-btn" id="btn-view-image" title="Chỉ xem ảnh gốc">🖼️ Ảnh gốc</button>
+        </div>
+
+        <div class="toolbar-group opacity-slider-wrap">
+          <span>Độ mờ ảnh:</span>
+          <input type="range" id="slider-image-opacity" min="0" max="100" value="50" title="Điều chỉnh độ mờ của ảnh gốc để đối chiếu nét vector">
+          <span id="val-image-opacity">50%</span>
+        </div>
+
+        <div class="toolbar-group">
+          <select id="select-sample" style="background:#21262d;border:1px solid #30363d;color:#f0f6fc;font-size:11px;padding:3px 6px;border-radius:4px;">
+            <option value="">-- Tải mẫu thử nghiệm --</option>
+            <option value="bracket">Mẫu 1: Tấm gá có lỗ (Bracket Plate)</option>
+            <option value="flange">Mẫu 2: Mặt cắt bích nối (Flange Section)</option>
+            <option value="stepped">Mẫu 3: Chi tiết trục bậc (Stepped Shaft)</option>
+          </select>
+          <button class="tool-btn" id="btn-fit-canvas">Fit</button>
+        </div>
+      </div>
+
+      <div class="canvas-container" id="eval-canvas-container">
+        <!-- Underlay Canvas (Raster Image) -->
+        <canvas id="image-underlay-canvas"></canvas>
+        <!-- Overlay Canvas (Vector 2D Reconstructed Sketch) -->
+        <canvas id="sketch-overlay-canvas"></canvas>
+
+        <!-- Live Understanding Diagnostic Badge -->
+        <div class="eval-stats-badge" id="eval-stats-badge">
+          <div>Trạng thái: <strong id="stat-loop-status">Chờ tải ảnh...</strong></div>
+          <div>Số đỉnh nhận diện: <span id="stat-vertex-count">0</span> đỉnh · Kích thước: <span id="stat-dimensions">0 × 0 mm</span></div>
+          <div>Độ khép kín: <span id="stat-closure">Chưa có dữ liệu</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Column 3: 3D Solid & FreeCAD MCP Control -->
+    <aside class="eval-sidebar-right">
+      <div class="panel-header">
+        <span>🧊 Mô hình 3D & FreeCAD MCP</span>
+        <button class="tool-btn" id="btn-reset-3d-cam" title="Đặt lại góc nhìn 3D">Isometric</button>
+      </div>
+
+      <!-- 3D Three.js Viewport -->
+      <div class="viewport-3d-wrap" id="eval-3d-viewport">
+        <canvas id="eval-3d-canvas"></canvas>
+        <span class="viewport-3d-hint">Kéo chuột trái để xoay 3D · Chuột phải để pan · Lăn chuột để zoom</span>
+      </div>
+
+      <!-- 3D Parameters and FreeCAD MCP Tools -->
+      <div class="params-and-mcp-wrap">
+        <div class="card-box">
+          <h3>
+            <span>Thông số tạo khối 3D</span>
+            <span style="color:#20c997;font-weight:700;">WASM KERNEL</span>
+          </h3>
+
+          <div class="param-row">
+            <label for="eval-depth">Chiều sâu đùn (mm):</label>
+            <input type="number" id="eval-depth" value="20" min="0.1" step="any">
+          </div>
+
+          <div class="param-row">
+            <label for="eval-operation">Phương pháp:</label>
+            <select id="eval-operation">
+              <option value="pad">Pad (Đùn thẳng Z)</option>
+              <option value="revolve">Revolution (Xoay tròn 360°)</option>
+            </select>
+          </div>
+
+          <div class="param-row">
+            <label for="eval-fillet">Góc bo tròn Fillet (mm):</label>
+            <input type="number" id="eval-fillet" value="0" min="0" step="any">
+          </div>
+
+          <button class="action-btn-main" id="btn-exec-build-3d">
+            ⚡ TIẾN HÀNH DỰNG 3D NGAY
+          </button>
+        </div>
+
+        <div class="card-box">
+          <h3>
+            <span>Kết nối FreeCAD MCP</span>
+            <span id="badge-mcp-conn" style="font-size:10px;color:#ff6b6b;">DISCONNECTED</span>
+          </h3>
+          <p style="font-size:11px;color:#8b949e;margin-bottom:8px;line-height:1.4;">
+            Gửi các lệnh CAD tạo sketch, pad và hole sang ứng dụng FreeCAD đang mở trên máy bạn qua cổng 8766.
+          </p>
+
+          <button class="action-btn-secondary" id="btn-send-to-freecad-mcp">
+            ▶ Chạy chuỗi lệnh trong FreeCAD Desktop
+          </button>
+
+          <details style="margin-top:8px;" open>
+            <summary style="font-size:11px;color:#58a6ff;cursor:pointer;">Xem mã FreeCAD Python đã sinh</summary>
+            <pre class="mcp-code-preview" id="mcp-python-code"># Mã FreeCAD Python sẽ hiển thị ở đây khi AI hoàn tất phân tích</pre>
+          </details>
+        </div>
+
+        <div class="card-box">
+          <h3>Xuất tệp 3D</h3>
+          <div style="display:flex;gap:6px;">
+            <button class="tool-btn" id="btn-download-step" style="flex:1;">Tải STEP</button>
+            <button class="tool-btn" id="btn-download-stl" style="flex:1;">Tải STL</button>
+            <button class="tool-btn" id="btn-download-fcmacro" style="flex:1;">Tải FCMacro</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script type="module" src="ai-cad.js"></script>
+</body>
+</html>

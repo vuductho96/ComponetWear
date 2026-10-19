@@ -1,6 +1,7 @@
 param(
     [int]$Port = 8787,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$NoPublish
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,17 +44,6 @@ $StockFile = Join-Path $DataDir 'stock-data.json'
 
 foreach ($folder in @($DataDir, $ReportDir)) { if (-not (Test-Path $folder)) { New-Item -ItemType Directory -Path $folder | Out-Null } }
 
-# STEP 3: Auto Excel Sync
-Log-Msg "[3/5] Sync Excel -> JSON -> Dang quet file..."
-try {
-    $autoSyncPs1 = Join-Path $Root 'auto_sync_excel.ps1'
-    if (Test-Path $autoSyncPs1) {
-        . $autoSyncPs1
-    }
-} catch {
-    Log-Msg "[3/5] Sync Excel -> JSON -> LOI: $_" Red
-}
-
 # STEP 3.5: Load Calculation Engine (Plan §5)
 $calcEngine = Join-Path $Root 'calculate_engine.ps1'
 if (Test-Path $calcEngine) {
@@ -91,6 +81,9 @@ $global:excelDataVersion = 1
 $global:lastCheckTime = [DateTime]::Now
 $global:fileTimestamps = @{}
 $global:isSyncing = $false
+$global:excelSyncHealthy = $false
+. (Join-Path $Root 'cloud_publish.ps1')
+Initialize-CloudPublisher
 
 function Trigger-ExcelSync {
     if ($global:isSyncing) { return $false }
@@ -102,34 +95,19 @@ function Trigger-ExcelSync {
         if (Test-Path $autoSyncPs1) {
             . $autoSyncPs1
             $executedEngine = "Native PowerShell (Dot-Sourced 0ms)"
+        } else {
+            throw "Missing auto_sync_excel.ps1"
         }
+        $global:excelSyncHealthy = $true
         $global:excelDataVersion++
     } catch {
+        $global:excelSyncHealthy = $false
         Write-Host "⚠️ Non-fatal sync notice: $_" -ForegroundColor Yellow
     } finally {
         $global:lastHeartbeat = [DateTime]::Now
         $global:isSyncing = $false
     }
     return $executedEngine
-}
-
-function Deploy-ToCloudflareWorkers {
-    try {
-        $parent = Split-Path $Root -Parent
-        $wranglerJson = Join-Path $parent 'wrangler.jsonc'
-        if (Test-Path $wranglerJson) {
-            Log-Msg "☁️ [Cloudflare] Dang tu dong day du lieu moi len https://componetlife.vuductho-th.workers.dev..." Cyan
-            $psi = New-Object System.Diagnostics.ProcessStartInfo
-            $psi.FileName = "cmd.exe"
-            $psi.Arguments = "/c cd /d `"$parent`" && npx --yes wrangler@4.86.0 deploy"
-            $psi.CreateNoWindow = $true
-            $psi.UseShellExecute = $false
-            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-            [System.Diagnostics.Process]::Start($psi) | Out-Null
-        }
-    } catch {
-        Log-Msg "⚠️ Khong the auto-deploy Cloudflare: $_" Yellow
-    }
 }
 
 function Check-ExcelFileChanges {
@@ -162,13 +140,13 @@ function Check-ExcelFileChanges {
                 $global:fileTimestamps.Remove($dk)
             }
         }
-        if ($hasChanged) {
+        if ($hasChanged -or -not $global:excelSyncHealthy) {
             Log-Msg "⚡ Phat hien file Excel duoc chinh sua & luu! Dang tu dong dong bo va preload..." Cyan
             # Debounce to allow Excel to finish writing/closing file handle
             Start-Sleep -Milliseconds 800
             Trigger-ExcelSync | Out-Null
-            Log-Msg "✅ Preload hoan tat! Data Version = v$global:excelDataVersion" Green
-            Deploy-ToCloudflareWorkers
+            if ($global:excelSyncHealthy) { Log-Msg "Preload hoan tat! Data Version = v$global:excelDataVersion" Green }
+            if (-not $global:excelSyncHealthy) { Log-Msg "[SYNC] Loi doc Excel; tam dung publish, se thu lai." Red }
         }
     } catch {
         Log-Msg "⚠️ Thong bao doc file Excel: $_" Yellow
@@ -217,11 +195,12 @@ try {
             break
         }
 
+        if (([DateTime]::Now - $global:lastCheckTime).TotalMilliseconds -gt 5000) {
+            $global:lastCheckTime = [DateTime]::Now
+            Check-ExcelFileChanges
+            if (-not $NoPublish) { Update-CloudPublisher }
+        }
         if (-not $listener.Pending()) {
-            if (([DateTime]::Now - $global:lastCheckTime).TotalMilliseconds -gt 1000) {
-                $global:lastCheckTime = [DateTime]::Now
-                Check-ExcelFileChanges
-            }
             Start-Sleep -Milliseconds 5
             continue
         }
@@ -317,6 +296,13 @@ try {
                 $responseBytes = [System.Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json))
                 $contentType = "application/json; charset=utf-8"
             }
+            elseif ($path -eq '/api/publish-status' -and $method -eq 'GET') {
+                $statusFile = Join-Path $script:publishDir 'status.json'
+                $publishStatus = if (Test-Path -LiteralPath $statusFile) { Get-Content -LiteralPath $statusFile -Raw | ConvertFrom-Json } else { $null }
+                $resObj = [pscustomobject]@{ excelSyncHealthy = $global:excelSyncHealthy; publishing = ($null -ne $script:publishProcess); desiredSnapshot = $script:publishFingerprint; lastResult = $publishStatus; nextAttemptAt = $script:publishNextAttempt.ToString('o') }
+                $responseBytes = [Text.Encoding]::UTF8.GetBytes(($resObj | ConvertTo-Json -Depth 8))
+                $contentType = 'application/json; charset=utf-8'
+            }
             elseif ($path -eq '/api/clear-json') {
                 $query = if ($rawPath.Contains('?')) { $rawPath.Split('?')[1] } else { '' }
                 $qType = "all"
@@ -409,15 +395,26 @@ try {
                     $contentType = "application/json; charset=utf-8"
                 }
             }
-            elseif ($path.StartsWith("/data/") -or $path.StartsWith("/css/") -or $path.StartsWith("/js/") -or $path.EndsWith(".json") -or $path.EndsWith(".js") -or $path.EndsWith(".css") -or $path.EndsWith(".html")) {
+            elseif ($path.StartsWith("/dimension-ocr/") -or $path.StartsWith("/data/") -or $path.StartsWith("/css/") -or $path.StartsWith("/js/") -or $path.EndsWith(".json") -or $path.EndsWith(".js") -or $path.EndsWith(".css") -or $path.EndsWith(".html")) {
+                if ($path.StartsWith('/dimension-ocr/') -and $path.EndsWith('/')) { $path += 'index.html' }
                 $rel = $path.TrimStart('/').Replace('/', [System.IO.Path]::DirectorySeparatorChar)
                 $targetFile = Join-Path $Root $rel
                 if (Test-Path $targetFile -PathType Leaf) {
                     $responseBytes = [System.IO.File]::ReadAllBytes($targetFile)
                     $ext = [System.IO.Path]::GetExtension($targetFile).ToLower()
                     if ($ext -eq '.json') { $contentType = "application/json; charset=utf-8" }
-                    elseif ($ext -eq '.js') { $contentType = "application/javascript; charset=utf-8" }
+                    elseif ($ext -eq '.js' -or $ext -eq '.mjs') { $contentType = "application/javascript; charset=utf-8" }
+                    elseif ($ext -eq '.bcmap') { $contentType = 'application/octet-stream' }
+                    elseif ($ext -eq '.pfb' -or $ext -eq '.ttf') { $contentType = 'application/octet-stream' }
                     elseif ($ext -eq '.css') { $contentType = "text/css; charset=utf-8" }
+                    elseif ($ext -eq '.pdf') { $contentType = 'application/pdf' }
+                    elseif ($ext -eq '.webp') { $contentType = 'image/webp' }
+                    elseif ($ext -eq '.wasm') { $contentType = 'application/wasm' }
+                    elseif ($ext -eq '.bin') { $contentType = 'application/octet-stream' }
+                    elseif ($ext -eq '.woff2') { $contentType = 'font/woff2' }
+                    elseif ($ext -eq '.svg') { $contentType = 'image/svg+xml' }
+                    elseif ($ext -eq '.txt') { $contentType = 'text/plain; charset=utf-8' }
+                    elseif ($ext -eq '.zip' -or $ext -eq '.rbz') { $contentType = 'application/zip' }
                 } else {
                     $statusLine = "HTTP/1.1 404 Not Found`r`n"
                     $responseBytes = [System.Text.Encoding]::UTF8.GetBytes('{"error":"File not found"}')
@@ -763,12 +760,18 @@ try {
         $headerStr = "${statusLine}Content-Type: ${contentType}`r`nContent-Length: $($responseBytes.Length)`r`nAccess-Control-Allow-Origin: *`r`nCache-Control: no-store, no-cache, must-revalidate, max-age=0`r`nPragma: no-cache`r`nExpires: 0`r`nConnection: close`r`n`r`n"
         $headerBytes = [System.Text.Encoding]::UTF8.GetBytes($headerStr)
 
-        $stream.Write($headerBytes, 0, $headerBytes.Length)
-        if ($responseBytes.Length -gt 0) {
-            $stream.Write($responseBytes, 0, $responseBytes.Length)
+        try {
+            $stream.Write($headerBytes, 0, $headerBytes.Length)
+            if ($responseBytes.Length -gt 0) {
+                $stream.Write($responseBytes, 0, $responseBytes.Length)
+            }
+            $stream.Flush()
+        } catch {
+            # Closing a browser tab or changing a drawing may cancel an image request.
+            Log-Msg '[HTTP] Client disconnected before response completed.' DarkGray
+        } finally {
+            $client.Close()
         }
-        $stream.Flush()
-        $client.Close()
     }
 } finally {
     if ($listener) { try { $listener.Stop() } catch {} }

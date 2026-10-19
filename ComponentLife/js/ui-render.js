@@ -415,6 +415,8 @@ function renderActiveTabOnly() {
   else if (activeTab === "stock") renderStockTable();
   else if (activeTab === "report") renderComponentLifeReport();
   else if (activeTab === "chart") renderChartsTab();
+  else if (activeTab === "inspection") renderInspectionTab();
+  else if (activeTab === "dimensionocr") initDimensionOcr();
 }
 
 // ===== RENDER COMPONENT LIFE REPORT TAB =====

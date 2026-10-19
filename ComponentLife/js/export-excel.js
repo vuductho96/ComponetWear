@@ -6,6 +6,8 @@
 'use strict';
 
 function exportExcelFull() {
+  if (currentActiveTab === 'dimensionocr') return;
+  if (currentActiveTab === 'inspection') return exportInspectionResults();
   if (currentActiveTab === "chart" || currentActiveTab === "analytics") {
     return exportProfessionalReportExcel();
   }

@@ -1,0 +1,536 @@
+/* ai-cad.css - Layout and theme for AI 2D/3D Model Understanding & Evaluation */
+
+:root {
+  --bg-darker: #0d1117;
+  --bg-dark: #161b22;
+  --bg-panel: #21262d;
+  --bg-card: #1c2128;
+  --border-color: #30363d;
+  --border-active: #58a6ff;
+  --text-main: #c9d1d9;
+  --text-bright: #f0f6fc;
+  --text-muted: #8b949e;
+  --accent-green: #20c997;
+  --accent-blue: #388bfd;
+  --accent-yellow: #fcc419;
+  --accent-red: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-darker);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.eval-header {
+  height: 48px;
+  background: var(--bg-dark);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.eval-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.eval-brand .logo-icon {
+  font-size: 20px;
+}
+
+.eval-brand h1 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.eval-brand .badge {
+  font-size: 10px;
+  background: #20c99722;
+  color: var(--accent-green);
+  border: 1px solid #20c99755;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.eval-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-indicator {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green);
+}
+
+.status-dot.disconnected {
+  background: var(--accent-red);
+  box-shadow: 0 0 6px var(--accent-red);
+}
+
+.nav-link-btn {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  color: var(--text-bright);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.nav-link-btn:hover {
+  background: #30363d;
+  border-color: var(--border-active);
+}
+
+/* Workflow Stage Banner */
+.stage-bar {
+  background: #121820;
+  border-bottom: 1px solid var(--border-color);
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.stage-steps {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stage-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.stage-step.active {
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.stage-step .num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.stage-step.active .num {
+  background: var(--accent-green);
+  color: #0d1117;
+  border-color: var(--accent-green);
+}
+
+/* Main Split View */
+.eval-workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 360px 1fr 400px;
+  overflow: hidden;
+}
+
+/* Left Column: Chat & AI Testing */
+.eval-sidebar-left {
+  background: var(--bg-dark);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-bright);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Center Column: 2D Verification Canvas */
+.eval-center-view {
+  display: flex;
+  flex-direction: column;
+  background: #11141a;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-toolbar {
+  padding: 8px 14px;
+  background: #161b22;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  z-index: 5;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-btn {
+  background: #21262d;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.tool-btn:hover {
+  background: #30363d;
+  color: #ffffff;
+}
+
+.tool-btn.active {
+  background: #1f3b58;
+  border-color: var(--border-active);
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.opacity-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.opacity-slider-wrap input[type="range"] {
+  width: 90px;
+  cursor: pointer;
+}
+
+.canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0d1017;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#image-underlay-canvas, #sketch-overlay-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#sketch-overlay-canvas {
+  cursor: crosshair;
+}
+
+.eval-stats-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(22, 27, 34, 0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-main);
+  z-index: 10;
+  line-height: 1.5;
+}
+
+.eval-stats-badge strong {
+  color: var(--accent-green);
+}
+
+/* Right Column: 3D Preview & FreeCAD MCP */
+.eval-sidebar-right {
+  background: var(--bg-dark);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.viewport-3d-wrap {
+  height: 48%;
+  position: relative;
+  background: #0b0e14;
+  border-bottom: 1px solid var(--border-color);
+}
+
+#eval-3d-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.viewport-3d-hint {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  background: rgba(22, 27, 34, 0.7);
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.params-and-mcp-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.card-box h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.param-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.param-row label {
+  color: var(--text-muted);
+}
+
+.param-row input, .param-row select {
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  color: var(--text-bright);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  width: 120px;
+}
+
+.action-btn-main {
+  width: 100%;
+  background: #20c997;
+  color: #0d1117;
+  border: none;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+
+.action-btn-main:hover {
+  background: #38d9a9;
+}
+
+.action-btn-secondary {
+  width: 100%;
+  background: #1f3b58;
+  color: #58a6ff;
+  border: 1px solid #388bfd55;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  transition: all 0.15s;
+}
+
+.action-btn-secondary:hover {
+  background: #27496d;
+  color: #ffffff;
+}
+
+.mcp-code-preview {
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: monospace;
+  font-size: 10px;
+  color: #79c0ff;
+  max-height: 120px;
+  overflow-y: auto;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+/* Chat Styles within Left Column */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-bubble {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-width: 90%;
+}
+
+.chat-bubble.user {
+  align-self: flex-end;
+  background: #1f6feb;
+  color: #ffffff;
+}
+
+.chat-bubble.assistant {
+  align-self: flex-start;
+  background: #21262d;
+  border: 1px solid var(--border-color);
+  color: #c9d1d9;
+  width: 100%;
+  max-width: 100%;
+}
+
+.chat-bubble-img {
+  margin-top: 6px;
+  border-radius: 4px;
+  max-width: 100%;
+  max-height: 140px;
+  display: block;
+}
+
+.chat-input-box {
+  padding: 10px;
+  background: #161b22;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-controls-row {
+  display: flex;
+  gap: 6px;
+}
+
+.chat-text-input {
+  flex: 1;
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  color: var(--text-bright);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.chat-text-input:focus {
+  outline: none;
+  border-color: var(--border-active);
+}
+
+.chat-upload-btn, .chat-send-btn {
+  background: #21262d;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.chat-send-btn {
+  background: #238636;
+  border-color: #2ea043;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.chat-send-btn:hover {
+  background: #2ea043;
+}

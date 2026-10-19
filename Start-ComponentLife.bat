@@ -18,6 +18,9 @@ echo.
 REM 1. Dọn dẹp tiến trình cũ nếu có
 taskkill /f /im cloudflared.exe >nul 2>&1
 
+REM Restart local server: each launch starts a new publish session.
+powershell -NoProfile -Command "try { Invoke-RestMethod -Uri 'http://127.0.0.1:8787/api/shutdown' -TimeoutSec 2 | Out-Null } catch {}; Start-Sleep -Milliseconds 800"
+
 REM 2. Khởi động PowerShell Backend Server trên cổng 8787
 echo [1/2] Khởi động PowerShell Backend Server (Port 8787)...
 start /b "" powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ComponentLife\ComponentLife.ps1" -NoBrowser
@@ -47,7 +50,7 @@ powershell -NoProfile -Command "Start-Process 'http://127.0.0.1:8787/'"
 echo.
 echo 💡 HỆ THỐNG ĐANG HOẠT ĐỘNG LIÊN TỤC:
 echo    - Tự động quét và nạp dữ liệu Excel khi có tháng mới / file lưu mới.
-echo    - Tự động đồng bộ và đẩy dữ liệu mới lên https://componetlife.vuductho-th.workers.dev
+echo    - Cập nhật cloud một lần khi mở Start; mở lại Start để cập nhật tiếp.
 echo    - Khóa tính năng Import Excel khi truy cập từ xa qua Cloudflare.
 echo.
 echo    [Nhấn phím bất kỳ trong cửa sổ này để DỪNG Server cục bộ]

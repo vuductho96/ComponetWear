@@ -133,19 +133,62 @@ async function loadAllDataFromSource() {
   console.log(`%c[BOOT] Final state: shoot=${(db.shoot||[]).length}, reps=${(db.replacements||[]).length}, master=${(masterData||[]).length}, stock=${Object.keys(_stockData||{}).length}`, "color:#059669;");
 }
 
+let _versionPollBusy = false;
+let _cloudCodeVersion = null;
 async function checkDataVersionLoop() {
+  if (_versionPollBusy) return;
+  _versionPollBusy = true;
   try {
-    const res = await fetch("/api/version?t=" + Date.now(), { cache: "no-store" }).then(r => r.json());
+    const isLocal = ['127.0.0.1', 'localhost', '[::1]'].includes(window.location.hostname);
+    const endpoint = isLocal ? '/api/version' : '/data/version.json';
+    const response = await fetch(endpoint + '?t=' + Date.now(), { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Version HTTP ' + response.status);
+    const res = await response.json();
+    if (!isLocal && res.snapshotId) {
+      if (_cloudCodeVersion !== null && res.codeVersion !== _cloudCodeVersion) {
+        window.location.reload();
+        return;
+      }
+      if (_currentDataVersion !== res.snapshotId) {
+        // Also reload on the first poll: data may have changed during page startup.
+        await loadCloudSnapshot(res);
+        _currentDataVersion = res.snapshotId;
+        _cloudCodeVersion = res.codeVersion;
+      }
+      return;
+    }
     if (res && res.version !== undefined) {
       if (_currentDataVersion === null) {
         _currentDataVersion = res.version;
-      } else if (res.version > _currentDataVersion) {
-        _currentDataVersion = res.version;
+      } else if (res.version !== _currentDataVersion) {
         msg("⚡ Đã tự động cập nhật dữ liệu mới nhất vừa lưu từ Excel!", false, 3500);
         await loadAllDataFromSource();
+        _currentDataVersion = res.version;
       }
     }
-  } catch (e) {}
+  } catch (e) { console.warn('[VERSION] Will retry:', e.message); }
+  finally { _versionPollBusy = false; }
+}
+
+async function loadCloudSnapshot(manifest) {
+  // Fetch all required files before committing state; retry next poll if any file fails.
+  const paths = ['ComponentMaster.json', 'data/shoot-data.json', 'data/replacement-log.json', 'data/stock-data.json'];
+  const values = await Promise.all(paths.map(async path => {
+    const response = await fetch('/' + path + '?t=' + Date.now(), { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(path + ': HTTP ' + response.status);
+    const bytes = await response.arrayBuffer();
+    const hashBytes = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = Array.from(new Uint8Array(hashBytes), b => b.toString(16).padStart(2, '0')).join('');
+    if (!manifest.files.includes(path + '=' + hash)) throw new Error('Snapshot changed while loading: ' + path);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }));
+  if (!values.slice(0, 3).every(Array.isArray) || !values[3] || typeof values[3] !== 'object' || Array.isArray(values[3])) throw new Error('Invalid cloud snapshot');
+  masterData = [];
+  _masterLookupMap = null;
+  db.rawShoot = values[1]; db.shoot = [...values[1]];
+  db.replacements = values[2]; _stockData = values[3];
+  updateMasterData(values[0]);
+  invalidatePartsCache(); buildMonthOptions(); rebuild(false); renderActiveTabOnly();
 }
 
 // ===== Import functions =====

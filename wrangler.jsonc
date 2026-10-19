@@ -2,7 +2,7 @@
   "name": "componetlife",
   "compatibility_date": "2026-05-03",
   "assets": {
-    "directory": "./ComponentLife",
+    "directory": "./.cloud-publish/assets",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
   }

@@ -689,6 +689,9 @@ function renderStockTable() {
 
 // ===== TAB SWITCHING =====
 function switchTab(name) {
+  document.body.classList.toggle('inspection-active', name === 'inspection');
+  document.body.classList.toggle('dimension-ocr-active', name === 'dimensionocr');
+  const isToolTab = name === 'inspection' || name === 'dimensionocr';
   console.log(`%c[TAB] Switched to tab: "${name}"`, "color:#7c3aed; font-weight:bold; font-size:13px;");
   const isDashboard = (name === "stock" || name === "dashboard" || name === "report");
   const isOverview = (name === "overview");
@@ -705,6 +708,11 @@ function switchTab(name) {
   if ($("stockTab")) $("stockTab").classList.toggle("hidden", !isDashboard);
   if ($("reportTab")) $("reportTab").classList.toggle("hidden", true);
   if ($("chartTab")) $("chartTab").classList.toggle("hidden", name !== "chart");
+  if ($("inspectionTab")) $("inspectionTab").classList.toggle("hidden", name !== "inspection");
+  if ($("dimensionOcrTab")) $("dimensionOcrTab").classList.toggle("hidden", name !== "dimensionocr");
+  ['yearPick', 'monthPick', 'dayPick'].forEach(id => { if ($(id)) $(id).classList.toggle('hidden', isToolTab); });
+  document.querySelector('.topbar-center')?.classList.toggle('hidden', isToolTab);
+  if (isToolTab && $('globalPaginationDock')) $('globalPaginationDock').style.display = 'none';
   if ($("viewMonthIndicator")) $("viewMonthIndicator").classList.toggle("hidden", name !== "month");
   if ($("stockFilterBar")) $("stockFilterBar").classList.toggle("hidden", !isDashboard);
 
@@ -714,6 +722,8 @@ function switchTab(name) {
     if (isOverview) titleText = "Tổng Quan Sản Xuất";
     else if (isDashboard) titleText = "Quản Lý Linh Kiện & Tuổi Thọ";
     else if (name === "chart") titleText = "Phân Tích & Biểu Đồ Tiêu Hao";
+    else if (name === "inspection") titleText = "Đo linh kiện";
+    else if (name === "dimensionocr") titleText = "Dimension OCR · Beta";
     $("topbarTitle").innerHTML = `<span>${titleText}</span>`;
   }
 
@@ -722,6 +732,8 @@ function switchTab(name) {
   else if (name === "month") renderMonth();
   else if (isDashboard) renderStockTable();
   else if (name === "chart") renderChartsTab();
+  else if (name === "inspection") renderInspectionTab();
+  else if (name === "dimensionocr") initDimensionOcr();
 }
 window.switchTab = switchTab;
 
@@ -972,8 +984,9 @@ function initApp() {
   // Start engines
   console.log("%c[BOOT] Initializing ScreenFitEngine, Heartbeat, DataLoader...", "color:#6b7280;");
   initScreenFitEngine();
-  initHeartbeat();
-  loadAllDataFromSource();
+  if (new URLSearchParams(location.search).get('tab') === 'dimensionocr') switchTab('dimensionocr');
+  // Start polling after the initial load, so an older startup request cannot overwrite a new snapshot.
+  loadAllDataFromSource().finally(initHeartbeat);
   console.log("%c[BOOT] ========== initApp DONE ==========", "color:#7c3aed; font-weight:bold; font-size:15px;");
 }
 
