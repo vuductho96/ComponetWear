@@ -22,7 +22,7 @@ $lblPreviewStats=New-Object Windows.Forms.Label
 . (Join-Path $project 'InspectionToolIntegration/InspectionTool.QuickEdit.ps1')
 $fixture=Join-Path $env:TEMP ('inspection-fill-'+[Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($fixture)
-$file=Join-Path $fixture 'inspection.xlsx'
+$file=Join-Path $fixture 'inspection.xlsm'
 try {
     [void]$gridDimensions.Rows.Add('16','25.92','-0.01','-0.005','','1','25.922','0.002','NG')
     [void]$gridDimensions.Rows.Add('17','32','+0.015','+0.012','','1','32.004','0.004','NG')
@@ -31,6 +31,9 @@ try {
     [void]$gridDimensions.Rows.Add('99','5','','','','1','5.2','','NG')
     $gridDimensions.CurrentCell=$gridDimensions.Rows[0].Cells[6]
     $pkg=Open-ExcelPackage $file -Create
+    $pkg.Workbook.CreateVBAProject()
+    $module=$pkg.Workbook.VbaProject.Modules.AddModule('FillSaveTest')
+    $module.Code="Public Sub KeepThisMacro()`r`nEnd Sub"
     $ws=$pkg.Workbook.Worksheets.Add('Inspection')
     $dims=@()
     for($i=0;$i -lt $gridDimensions.Rows.Count;$i++) {
@@ -58,6 +61,7 @@ try {
         Assert ($ws.Cells[15,6].Value -ge 32.012 -and $ws.Cells[15,6].Value -le 32.015) 'Positive asymmetric limits save correctly'
         Assert ($ws.Cells[14,6].Comment.Text -eq 'Existing note' -and $null -eq $ws.Cells[15,6].Comment) 'No notes are added and existing comments survive'
         Assert ($ws.Cells[14,2].Value -eq '25.92') 'Nominal remains unchanged'
+        Assert ($pkg.Workbook.VbaProject.Modules['FillSaveTest'].Code -match 'KeepThisMacro') 'Macros survive saving an xlsm workbook'
     } finally {$pkg.Dispose()}
     $backups=@(Get-ChildItem -LiteralPath (Join-Path $fixture '.inspection-backups'))
     Assert ($backups.Count -eq 1) 'Recovery backup exists'

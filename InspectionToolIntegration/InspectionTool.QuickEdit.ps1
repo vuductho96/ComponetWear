@@ -95,6 +95,8 @@ $script:InspectionQuickEditButton=New-Object System.Windows.Forms.Button
 $script:InspectionQuickEditButton.Name='btnPreviewQuickEdit';$script:InspectionQuickEditButton.Text='Sửa nhanh'
 $script:InspectionQuickEditButton.Size=New-Object Drawing.Size(95,28)
 $script:InspectionQuickEditButton.BackColor=[Drawing.Color]::FromArgb(255,245,220)
+$script:InspectionQuickFillTooltip=New-Object Windows.Forms.ToolTip
+$script:InspectionQuickFillTooltip.AutoPopDelay=30000
 $script:InspectionQuickEditButton.Enabled=$false;$grpPreview.Controls.Add($script:InspectionQuickEditButton)
 $gridDimensions.Add_SelectionChanged({$script:InspectionQuickEditButton.Enabled=$gridDimensions.Rows.Count -gt 0})
 $script:InspectionQuickEditLayout={
@@ -114,7 +116,9 @@ $script:InspectionQuickEditButton.Add_Click({
         $count=Invoke-InspectionQuickFill
         if ($count -gt 0) {
             Show-SelectedRowDimensions
-            $lblStatus.Text="Đã sửa nhanh và lưu $count mẫu NG vào Excel."
+            $lblStatus.Text="Đã đọc lại Excel và xác nhận lưu $count mẫu: $script:PreviewCurrentPath"
+            $script:InspectionQuickFillTooltip.SetToolTip($lblStatus,$script:PreviewCurrentPath)
+            $script:InspectionQuickFillTooltip.SetToolTip($btnPreviewOpen,$script:PreviewCurrentPath)
         } else { $lblStatus.Text='Không có mẫu NG đủ dung sai trong các dòng đang hiển thị.' }
     } catch {
         [void][Windows.Forms.MessageBox]::Show($form,$_.Exception.Message,'Sửa nhanh','OK','Warning')

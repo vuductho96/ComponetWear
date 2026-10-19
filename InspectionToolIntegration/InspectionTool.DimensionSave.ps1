@@ -2,6 +2,9 @@
 
     param([string]$path)
 
+    # ImportExcel writes non-terminating errors by default; never report those as success.
+    $ErrorActionPreference = 'Stop'
+
 
 
     if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path)) { return $false }
@@ -30,6 +33,8 @@
         $ws = Get-FirstUsedWorksheet -pkg $pkg
 
         if (-not $ws) { throw "Không đọc được worksheet trong file Excel." }
+
+        $worksheetName = $ws.Name
 
 
 
@@ -90,6 +95,24 @@
         Close-ExcelPackage $pkg
 
         $pkg = $null
+
+        # Verify persisted cells using a new package, independently of the preview/cache.
+        $verifyPackage = Open-ExcelPackage -Path $path -ErrorAction Stop
+        try {
+            $verifySheet = $verifyPackage.Workbook.Worksheets[$worksheetName]
+            if (-not $verifySheet) { throw 'Không tìm thấy sheet sau khi lưu Excel.' }
+            foreach ($m in $modifiedDims) {
+                $saved = $verifySheet.Cells[[int]$m.ExcelRow, [int]$m.ExcelCol].Value
+                if ($null -ne $m.NumericValue) {
+                    $number = Convert-MeasureTextToNumber $saved
+                    if ($null -eq $number -or [Math]::Abs($number - [double]$m.NumericValue) -gt 0.000000001) {
+                        throw "Excel chưa lưu đúng ô Actual tại dòng $($m.ExcelRow), cột $($m.ExcelCol)."
+                    }
+                } elseif ([string]$saved -cne [string]$m.Value) {
+                    throw "Excel chưa lưu đúng ô Actual tại dòng $($m.ExcelRow), cột $($m.ExcelCol)."
+                }
+            }
+        } finally { if ($verifyPackage) { $verifyPackage.Dispose() } }
 
 
 
