@@ -100,6 +100,7 @@ class Package:
 def read_source(path, record):
     package = Package(path)
     result = []
+    first_fields = None
     fields = dict(part=record.get('part', ''), mold=record.get('mold', ''), date=record.get('measuredDate', ''))
     labels = {'parts name': 'part', 'mold name': 'mold', 'date/': 'date', 'department/': 'department',
               'materia': 'material', 'hrc': 'hrc', 'qty/': 'quantity'}
@@ -107,6 +108,7 @@ def read_source(path, record):
         header = package.header(sheet)
         if header is None:
             continue
+        sheet_fields = dict(fields)
         cells = package.cells(sheet)
         for cell in cells.values():
             row = int(re.search(r'\d+', cell.get('r'))[0])
@@ -124,8 +126,10 @@ def read_source(path, record):
                     continue
                 if any(normalized(value).startswith(label) for label in labels):
                     break
-                fields[field] = value
+                sheet_fields[field] = value
                 break
+        if first_fields is None:
+            first_fields = sheet_fields
         sample_columns = []
         for col in range(6, 101):
             value = package.value(cells.get(column(col) + str(header)))
@@ -149,8 +153,8 @@ def read_source(path, record):
                 batch = sample_columns[offset:offset + 10]
                 samples = [v for _, v in batch] + [None] * (10 - len(batch))
                 values = [prefix + [package.value(cells.get(column(col) + str(r))) for col, _ in batch] + [None] * (10 - len(batch)) for r, prefix in rows]
-                result.append((samples, values))
-    return fields, result or [([Decimal(i) for i in range(1, 11)], [])]
+                result.append((samples, values, sheet_fields))
+    return fields, result or [([Decimal(i) for i in range(1, 11)], [], first_fields or fields)]
 
 
 def clean_formula(reference):
@@ -324,11 +328,13 @@ class ReportTemplate:
         fields, source_sheets = read_source(source, record)
         pages = []
         capacity = self.last - self.first + 1
-        for samples, rows in source_sheets:
+        for group in source_sheets:
+            samples, rows = group[:2]
+            page_fields = group[2] if len(group) > 2 else fields
             for offset in range(0, max(1, len(rows)), capacity):
-                pages.append((samples, rows[offset:offset + capacity]))
+                pages.append((samples, rows[offset:offset + capacity], page_fields))
         names = ['Inspection ' + str(i + 1) for i in range(len(pages))]
-        results = [report_result(row) for _, rows in pages for row in rows]
+        results = [report_result(row) for _, rows, _ in pages for row in rows]
         workbook = deepcopy(self.package.workbook)
         relationships = ET.fromstring(self.parts['xl/_rels/workbook.xml.rels'])
         types = ET.fromstring(self.parts['[Content_Types].xml'])
@@ -344,9 +350,9 @@ class ReportTemplate:
         other_sheets = [(s, p, x) for s, p, x in self.package.sheets if p != self.path]
         rid = 1 + max([0] + [int(x.get('Id')[3:]) for x in relationships if re.fullmatch(r'rId\d+', x.get('Id', ''))])
         originals = self.parts.get(self.path.replace('worksheets/', 'worksheets/_rels/') + '.rels')
-        for i, (samples, rows) in enumerate(pages):
+        for i, (samples, rows, page_fields) in enumerate(pages):
             sheet_path = f'xl/worksheets/sheet{i + 1}.xml'
-            parts[sheet_path] = self.fill(fields, rows, samples, names[i], names, results)
+            parts[sheet_path] = self.fill(page_fields, rows, samples, names[i], names, results)
             if originals:
                 sheet_rels = ET.fromstring(originals)
                 for relationship in sheet_rels:
@@ -408,8 +414,8 @@ class ReportTemplate:
                 entry = ZipInfo(name, date_time=(2000, 1, 1, 0, 0, 0))
                 entry.compress_type = ZIP_DEFLATED
                 archive.writestr(entry, payload)
-        return {'pages': len(pages), 'rows': sum(len(rows) for _, rows in pages),
-                'samples': sum(sum(v is not None and str(v).strip() != '' for v in row[5:15]) for _, rows in pages for row in rows)}
+        return {'pages': len(pages), 'rows': sum(len(rows) for _, rows, _ in pages),
+                'samples': sum(sum(v is not None and str(v).strip() != '' for v in row[5:15]) for _, rows, _ in pages for row in rows)}
 
 
 def configured_template(root):

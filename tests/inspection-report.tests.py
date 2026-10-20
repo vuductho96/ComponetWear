@@ -130,6 +130,21 @@ class ReportTests(unittest.TestCase):
             self.assertEqual(groups[1][0][:2], [21, 22])
             self.assertEqual(groups[1][1][0][5:7], [number('0.41')] * 2)
 
+    def test_each_source_sheet_keeps_its_own_part_header(self):
+        import inspection_report
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            template, source, rows = fixture(root)
+            original = inspection_report.read_source
+            inspection_report.read_source = lambda *_: ({}, [(list(range(1, 11)), rows[:1], {'part': '609A'}), (list(range(1, 11)), rows[:1], {'part': '609B'})])
+            try:
+                output = root / 'two-parts.xlsx'
+                template.build(source, {}, output)
+            finally:
+                inspection_report.read_source = original
+            result = Package(output)
+            self.assertEqual([result.value(result.cells(sheet).get('C11')) for _, _, sheet in result.sheets], ['609A', '609B'])
+
     def test_download_cache_rebuilds_when_template_changes(self):
         import shutil
         import prepare_inspection_downloads as downloads
