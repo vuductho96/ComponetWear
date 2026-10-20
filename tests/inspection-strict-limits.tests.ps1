@@ -44,6 +44,6 @@ try {
     }
     Write-Output 'PASS: app and web agree on signed tolerances, both limits, and measurements outside by less than 0.0005.'
     if($ast.Extent.Text -match '\$epsilon = 0\.0005001|\$effTolLow = -\$tolA|\$effT1 = -\$t1'){throw 'Legacy relaxed validation remains'}
-    if($ast.Extent.Text -notmatch 'raw-cell-limits-v2|measurement-contract-v[34]'){throw 'Old scan cache not invalidated'}
+    if($ast.Extent.Text -notmatch 'raw-cell-limits-v2|measurement-contract-v[345]'){throw 'Old scan cache not invalidated'}
     Write-Output 'PASS: inline editor uses strict limits and old scan cache is invalidated.'
 }finally{$pkg.Dispose()}

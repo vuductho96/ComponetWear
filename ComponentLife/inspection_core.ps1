@@ -213,6 +213,8 @@ function Convert-MeasureTextToNumber {
     if ([string]::IsNullOrWhiteSpace($t)) { return $null }
     $t = $t.Trim().ToUpperInvariant().Replace(',', '.').Replace('º','°').Replace('−','-').Replace([string][char]0x2032,"'").Replace([string][char]0x2019,"'").Replace([string][char]0x2033,'"').Replace([string][char]0x201D,'"').Replace("''",'"')
     $t = $t -replace 'PHI|[RCØΦϕ⌀\s]', ''
+    # Legacy workbooks use a single closing apostrophe for seconds: 28°4'21'.
+    if ($t -match '^([+-]?\d+(?:\.\d+)?)°(\d+(?:\.\d+)?)''(\d+(?:\.\d+)?)''$') { $t=$t.Substring(0,$t.Length-1)+'"' }
     if ($t.Contains('°')) {
         $angle = [regex]::Match($t, '^([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)''(?:(\d+(?:\.\d+)?)")?)?$')
         if (-not $angle.Success) { return $null }

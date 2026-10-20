@@ -83,6 +83,8 @@ function Get-CachedFileManifest([string]$SourceRoot, [string[]]$Files) {
     $info.Arguments = '"' + $helper + '"'
     $info.UseShellExecute = $false; $info.CreateNoWindow = $true
     $info.RedirectStandardInput = $true; $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
+    $info.StandardOutputEncoding=[Text.UTF8Encoding]::new($false)
+    $info.StandardErrorEncoding=[Text.UTF8Encoding]::new($false)
     $proc = [Diagnostics.Process]::Start($info)
     try {
         $output = $proc.StandardOutput.ReadToEndAsync(); $errors = $proc.StandardError.ReadToEndAsync()

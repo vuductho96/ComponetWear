@@ -21,6 +21,7 @@
   function numeric(value){
     if(value===null||value===undefined||String(value).trim()==='')return null;
     let t=String(value).trim().toUpperCase().replaceAll(',','.').replace(/[′’]/g,"'").replace(/[″”]/g,'"').replaceAll("''",'"').replaceAll('º','°').replaceAll('−','-').replace(/PHI|[RCØΦϕ⌀\s]/g,'');
+    if(/^[+-]?\d+(?:\.\d+)?°\d+(?:\.\d+)?'\d+(?:\.\d+)?'$/.test(t))t=t.slice(0,-1)+'"';
     if(t.includes('°')){
       const match=t.match(/^([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)'(?:(\d+(?:\.\d+)?)")?)?$/);
       if(!match)return null;

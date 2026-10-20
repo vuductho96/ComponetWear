@@ -2,10 +2,12 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const {execFileSync}=require('node:child_process');
 test('Rapid generated source and browser report preserve the same samples and judgements',async()=>{
   const root=path.resolve(__dirname,'..'),dir=path.join(root,'.cloud-publish/measurement-pipeline');
   const expected=JSON.parse(fs.readFileSync(path.join(dir,'expected.json'),'utf8'));
-  const spec=JSON.parse(fs.readFileSync(path.join(root,'.cloud-publish/report-native-test/expected.json'),'utf8'));
+  const python=process.env.COMPONENTLIFE_TEST_PYTHON||path.join(root,'.cloud-publish/python-runtime/Scripts/python.exe');
+  const spec=JSON.parse(execFileSync(python,['-X','utf8','-c',"import sys,json;from pathlib import Path;sys.path.insert(0,'ComponentLife');from inspection_report import ReportTemplate,configured_template;p=configured_template(Path('.'));print(json.dumps({'template':str(p.resolve()),'spec':ReportTemplate(p).browser_spec('fixture-template.xlsx')}))"],{cwd:root,encoding:'utf8'}));
   const {chromium}=require('C:/Users/415/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
   const browser=await chromium.launch({channel:'msedge',headless:true});
   try{

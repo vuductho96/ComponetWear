@@ -37,6 +37,8 @@ def number(value):
         return None
     text = str(value).strip().upper().replace(',', '.').replace('\u2032', "'").replace('’', "'").replace('\u2033', '"').replace('”', '"').replace("''", '"').replace('º', '°').replace('−', '-')
     text = re.sub(r'PHI|[RCØΦϕ⌀\s]', '', text)
+    if re.fullmatch(r"[+-]?\d+(?:\.\d+)?°\d+(?:\.\d+)?'\d+(?:\.\d+)?'", text):
+        text = text[:-1] + '"'
     try:
         if '°' in text:
             match = re.fullmatch(r'([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)\'(?:(\d+(?:\.\d+)?)")?)?', text)
@@ -188,7 +190,10 @@ def clean_formula(reference):
         expression = f'SUBSTITUTE({expression},"{old}","{new}")'
     for old in ('″', '”', "''"):
         expression = f'SUBSTITUTE({expression},"{old}",CHAR(34))'
-    return expression
+    # Accept the legacy seconds terminator only; minute/second range checks
+    # still happen in numeric_formula, so a genuine bad angle stays NG.
+    count = f'LEN({expression})-LEN(SUBSTITUTE({expression},"\'",""))'
+    return f'IF(AND(({count})=2,RIGHT({expression},1)="\'",ISERROR(SEARCH(CHAR(34),{expression}))),LEFT({expression},LEN({expression})-1)&CHAR(34),{expression})'
 
 
 def numeric_formula(raw, cleaned):
