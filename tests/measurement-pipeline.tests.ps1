@@ -34,11 +34,15 @@ $cases=@(
 $excel=$null;$book=$null
 if((Format-AutoSampleDms 1) -ne '1°00′00″' -or (Format-AutoSampleDms 0.785) -ne '0°47′06″'){throw 'DMS conversion changed the angle magnitude'}
 if((Format-AutoSampleDms (3599.9/3600)) -ne '1°00′00″'){throw 'DMS second/minute carry failed'}
+$degreeOnly=[pscustomobject]@{Step='DEG';Nominal='1°';TolMinus='0';TolPlus='0'}
+if((Get-ExportMeasurementText $degreeOnly 1) -ne '1.000'){throw 'Degree-only Nominal must generate plain three-decimal Actual'}
+$degreeMinute=[pscustomobject]@{Step='DMS';Nominal='1°30′00″';TolMinus='0';TolPlus='0'}
+if((Get-ExportMeasurementText $degreeMinute 1) -ne '1°30′00″'){throw 'Nominal with minutes must preserve DMS Actual'}
 foreach($generatorCase in @(@('0.4','+0.0011','+0.0012'),@('0.4','-0.0012','-0.0011'),@('0°30''','+0.00001','+0.00002'),@('1°','+0.01','+0.02'),@('Ø0.4','0','0'),@('-0°30''','-0.0002','-0.0001'))) {
     $data=[pscustomobject]@{Step='GEN';Nominal=$generatorCase[0];TolMinus=$generatorCase[1];TolPlus=$generatorCase[2]}
     for($sample=1;$sample -le 100;$sample++){
         $text=Get-ExportMeasurementText $data $sample
-        if($data.Nominal -match '[°º]'){
+        if(($data.Nominal -match '[°º]') -and ($data.Nominal -match '[''"′″]')){
             if($text -notmatch '^-?\d+°\d{2}′\d{2}(?:\.\d+)?″$'){throw "Angular Actual is not DMS: $text"}
         } elseif($text -notmatch '^-?\d+\.\d{3,}$'){throw "Generated Actual contains a unit or prefix: $text"}
         if ((Get-MeasurementResult $data.Nominal $data.TolMinus $data.TolPlus $text) -ne 'OK') {throw "Generated sample failed: $text"}

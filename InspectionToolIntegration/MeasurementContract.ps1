@@ -67,18 +67,18 @@ function Get-ExportMeasurementText($rowData,$absoluteSampleIndex,$variantSeed = 
     $lo=$n+[Math]::Min($a,$b);$hi=$n+[Math]::Max($a,$b)
     $candidate=$n+(Get-ExportMeasurementOffset $rowData $absoluteSampleIndex $variantSeed)
     $candidate=[Math]::Max($lo,[Math]::Min($hi,$candidate))
-    # Every angle, including degree-only Nominal, is exported as DMS text.
-    # Non-angular Actual remains a plain number with three decimal places.
-    $isAngle=[string]$rowData.Nominal -match '[°º]'
-    $formatted=if($isAngle){Format-AutoSampleDms $candidate}else{$candidate.ToString('0.000',[Globalization.CultureInfo]::InvariantCulture)}
+    # Preserve DMS only when Nominal includes minutes/seconds. Degree-only
+    # and linear Nominal generate plain decimals with three decimal places.
+    $useDms=([string]$rowData.Nominal -match '[°º]') -and ([string]$rowData.Nominal -match '[''"′″]')
+    $formatted=if($useDms){Format-AutoSampleDms $candidate}else{$candidate.ToString('0.000',[Globalization.CultureInfo]::InvariantCulture)}
     # Validate the final text after formatting, not just the unrounded candidate.
     if ((Get-MeasurementResult $rowData.Nominal $rowData.TolMinus $rowData.TolPlus $formatted) -eq 'OK') { return $formatted }
     $mid=($lo+$hi)/2
-    $start=if($isAngle){1}else{3}
-    $end=if($isAngle){9}else{12}
+    $start=if($useDms){1}else{3}
+    $end=if($useDms){9}else{12}
     for ($precision=$start;$precision -le $end;$precision++) {
         $format='0.'+('0'*$precision)
-        $formatted=if($isAngle){Format-AutoSampleDms $mid $precision}else{$mid.ToString($format,[Globalization.CultureInfo]::InvariantCulture)}
+        $formatted=if($useDms){Format-AutoSampleDms $mid $precision}else{$mid.ToString($format,[Globalization.CultureInfo]::InvariantCulture)}
         if ((Get-MeasurementResult $rowData.Nominal $rowData.TolMinus $rowData.TolPlus $formatted) -eq 'OK') { return $formatted }
     }
     throw "Cannot represent generated sample within tolerance: step $($rowData.Step), sample $absoluteSampleIndex"
