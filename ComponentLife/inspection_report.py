@@ -53,6 +53,10 @@ def number(value):
         return None
 
 
+class ReportRow(list):
+    """Measurements with the original Nominal/tolerance display formats."""
+
+
 class Package:
     def __init__(self, path):
         with ZipFile(path) as archive:
@@ -92,6 +96,11 @@ class Package:
             return str(numeric) + '°' if re.search('[°º]', fmt) else prefix[1] + str(numeric) if prefix else numeric
         except InvalidOperation:
             return value.text
+
+    def format_of(self, cell):
+        index = int(cell.get('s', '0')) if cell is not None else 0
+        identifier = self.styles[index].get('numFmtId', '0') if index < len(self.styles) else '0'
+        return self.formats.get(identifier, {'0': 'General', '1': '0', '2': '0.00', '3': '#,##0', '4': '#,##0.00'}.get(identifier, 'General'))
 
     def cells(self, sheet):
         return {cell.get('r'): cell for cell in sheet.findall('.//' + TAG('sheetData') + '/' + TAG('row') + '/' + TAG('c'))}
@@ -161,7 +170,11 @@ def read_source(path, record):
             for offset in range(0, len(sample_columns), 10):
                 batch = sample_columns[offset:offset + 10]
                 samples = [v for _, v in batch] + [None] * (10 - len(batch))
-                values = [prefix + [package.value(cells.get(column(col) + str(r))) for col, _ in batch] + [None] * (10 - len(batch)) for r, prefix in rows]
+                values = []
+                for r, prefix in rows:
+                    row = ReportRow(prefix + [package.value(cells.get(column(col) + str(r))) for col, _ in batch] + [None] * (10 - len(batch)))
+                    row.source_formats = [package.format_of(cells.get(column(col) + str(r))) for col in range(1, 5)]
+                    values.append(row)
                 result.append((samples, values, sheet_fields))
     return fields, result or [([Decimal(i) for i in range(1, 11)], [], first_fields or fields)]
 
@@ -197,7 +210,7 @@ def report_result(row):
     if not measurements:
         return ''
     if None in (nominal, first, second) or any(v is None for v in measurements):
-        return 'UNRATED'
+        return 'NG'
     lower, upper = nominal + min(first, second), nominal + max(first, second)
     epsilon = Decimal('0.0000001')
     return 'NG' if any(v < lower - epsilon or v > upper + epsilon for v in measurements) else 'OK'
@@ -303,12 +316,8 @@ class ReportTemplate:
             for col, value in enumerate(values, 1):
                 if isinstance(value, str) and col != 5:
                     value = re.sub('phi', 'Ø', value, flags=re.I)
-                fmt = 'General' if col == 2 or 6 <= col <= 15 else None
-                if col in (3, 4):
-                    parsed = number(value)
-                    decimals = max(0, -parsed.normalize().as_tuple().exponent) if parsed is not None else 0
-                    pattern = '0' + ('.' + '0' * min(15, decimals) if decimals else '')
-                    fmt = '+' + pattern + ';-' + pattern + ';0'
+                source_formats = getattr(values, 'source_formats', ['General'] * 4)
+                fmt = '0.000' if 6 <= col <= 15 else source_formats[col-1] if col in (2, 3, 4) else None
                 put(column(col) + str(r), value, numeric_format=fmt)
             # Inspectable numeric helpers outside the report's print area.
             raw_columns = ['B', 'C', 'D'] + [column(c) for c in range(6, 16)]
@@ -325,15 +334,15 @@ class ReportTemplate:
             put(lo, nominal + min(a, b) if valid else '', f'IF(COUNT(AE{r}:AG{r})=3,AE{r}+MIN(AF{r}:AG{r}),"")', '0.###############')
             put(hi, nominal + max(a, b) if valid else '', f'IF(COUNT(AE{r}:AG{r})=3,AE{r}+MAX(AF{r}:AG{r}),"")', '0.###############')
             count = f'COLUMNS(F{r}:O{r})-COUNTBLANK(F{r}:O{r})'
-            formula = f'IF(({count})=0,"",IF(OR(COUNT(AE{r}:AG{r})<3,COUNT(AH{r}:AQ{r})<>({count})),"UNRATED",IF(OR(MIN(AH{r}:AQ{r})<{lo}-0.0000001,MAX(AH{r}:AQ{r})>{hi}+0.0000001),"NG","OK")))'
+            formula = f'IF(({count})=0,"",IF(OR(COUNT(AE{r}:AG{r})<3,COUNT(AH{r}:AQ{r})<>({count})),"NG",IF(OR(MIN(AH{r}:AQ{r})<{lo}-0.0000001,MAX(AH{r}:AQ{r})>{hi}+0.0000001),"NG","OK")))'
             put('P' + str(r), report_result(values), formula)
         for i, name in enumerate(['Nominal', 'Tolerance 1', 'Tolerance 2'] + ['Sample ' + str(v) for v in samples]):
             put(column(31 + i) + str(self.header), name)
         refs = ["'" + name.replace("'", "''") + f"'!P{self.first}:P{self.last}" for name in names]
         counts = lambda status: '+'.join(f'COUNTIF({ref},"{status}")' for ref in refs)
-        judgement = 'REJECTED' if 'NG' in page_results else 'UNRATED' if 'UNRATED' in page_results else 'PASSED' if 'OK' in page_results else ''
+        judgement = 'REJECTED' if 'NG' in page_results else 'PASSED' if 'OK' in page_results else ''
         judgement_cell = next(address for address, cell in cells.items() if cell.find(TAG('f')) is not None and 'COUNTIF(P' in (cell.find(TAG('f')).text or ''))
-        formula = f'IF(({counts("NG")})>0,"REJECTED",IF(({counts("UNRATED")})>0,"UNRATED",IF(({counts("OK")})>0,"PASSED","")))'
+        formula = f'IF(({counts("NG")})>0,"REJECTED",IF(({counts("OK")})>0,"PASSED",""))'
         put(judgement_cell, judgement, formula)
         cols = sheet.find(TAG('cols'))
         if cols is None:

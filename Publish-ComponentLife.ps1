@@ -49,19 +49,32 @@ try {
         # to delete; clean them in the background only after cloud verification.
     }
     $null = New-Item -ItemType Directory -Path $assets -Force
-    foreach ($relative in (Get-PublicAssetFiles $source)) {
-        $target = Join-Path $assets $relative
-        $null = New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force
-        $sourceFile = Join-Path $source $relative
-        if ($relative -match '^data/inspection/drawings/[a-f0-9]{64}-v[0-9]+-p[0-9]{4}\.webp$|^data/inspection/downloads/[a-f0-9]{64}\.(pdf|xlsx|xlsm)$') {
-            # Generated previews and download copies have immutable content-hash names.
-            try { $null = New-Item -ItemType HardLink -Path $target -Target $sourceFile -ErrorAction Stop }
-            catch { Copy-Item -LiteralPath $sourceFile -Destination $target }
-        } else { Copy-Item -LiteralPath $sourceFile -Destination $target }
-    }
+    $stageWatch=[Diagnostics.Stopwatch]::StartNew()
+    $stageInfo=New-Object Diagnostics.ProcessStartInfo
+    $stageInfo.FileName='node';$stageInfo.Arguments='"'+(Join-Path $PSScriptRoot 'stage-assets.cjs')+'"'
+    $stageInfo.UseShellExecute=$false;$stageInfo.CreateNoWindow=$true
+    $stageInfo.RedirectStandardInput=$true;$stageInfo.RedirectStandardOutput=$true;$stageInfo.RedirectStandardError=$true
+    $stageProcess=[Diagnostics.Process]::Start($stageInfo)
+    try {
+        $stageOutput=$stageProcess.StandardOutput.ReadToEndAsync();$stageError=$stageProcess.StandardError.ReadToEndAsync()
+        $stageFiles=@($before.files | ForEach-Object { $_.Substring(0,$_.LastIndexOf('=')) })
+        $stagePayload=[Text.Encoding]::UTF8.GetBytes((@{sourceRoot=$source;targetRoot=$assets;files=$stageFiles}|ConvertTo-Json -Compress -Depth 3))
+        $stageProcess.StandardInput.BaseStream.Write($stagePayload,0,$stagePayload.Length);$stageProcess.StandardInput.Close()
+        $stageProcess.WaitForExit()
+        if($stageProcess.ExitCode -ne 0){throw "Snapshot preparation failed: $($stageError.Result)"}
+        Add-Content -LiteralPath $log -Value ("Stage copy: {0:N2}s; {1}" -f $stageWatch.Elapsed.TotalSeconds,$stageOutput.Result)
+    } finally {$stageProcess.Dispose()}
     $manifest = Get-PublicAssetManifest $assets
     $after = Get-PublicAssetManifest $source
-    if ($before.snapshotId -ne $manifest.snapshotId -or $after.snapshotId -ne $manifest.snapshotId) { throw 'Source changed during snapshot copy; retry required.' }
+    if ($before.snapshotId -ne $manifest.snapshotId -or $after.snapshotId -ne $manifest.snapshotId) {
+        $expectedFiles=@{};$copiedFiles=@{};$currentFiles=@{}
+        foreach($entry in $before.files){$separator=$entry.LastIndexOf('=');$expectedFiles[$entry.Substring(0,$separator)]=$entry.Substring($separator+1)}
+        foreach($entry in $manifest.files){$separator=$entry.LastIndexOf('=');$copiedFiles[$entry.Substring(0,$separator)]=$entry.Substring($separator+1)}
+        foreach($entry in $after.files){$separator=$entry.LastIndexOf('=');$currentFiles[$entry.Substring(0,$separator)]=$entry.Substring($separator+1)}
+        $changed=@(@($expectedFiles.Keys)+@($copiedFiles.Keys)+@($currentFiles.Keys) | Sort-Object -Unique | Where-Object { $expectedFiles[$_] -ne $copiedFiles[$_] -or $expectedFiles[$_] -ne $currentFiles[$_] })
+        Add-Content -LiteralPath $log -Value ('Files changed during staging: '+(($changed | Select-Object -First 20) -join ', '))
+        throw 'Source changed during snapshot copy; retry required.'
+    }
     Write-PublishJson (Join-Path $assets 'data/version.json') $manifest
     Write-PublishJson (Join-Path $source 'data/version.json') $manifest
     [IO.File]::WriteAllText((Join-Path $assets '_headers'), "/*`n  Cache-Control: no-cache, max-age=0, must-revalidate`n", (New-Object Text.UTF8Encoding($false)))

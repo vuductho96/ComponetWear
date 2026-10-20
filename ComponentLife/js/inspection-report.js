@@ -34,7 +34,7 @@
     const actual=row.slice(5).filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(numeric);
     if(!actual.length)return '';
     const [n,a,b]=row.slice(1,4).map(numeric);
-    if([n,a,b,...actual].includes(null))return 'UNRATED';
+    if([n,a,b,...actual].includes(null))return 'NG';
     const lo=n+Math.min(a,b),hi=n+Math.max(a,b);
     return actual.some(v=>v<lo-0.0000001||v>hi+0.0000001)?'NG':'OK';
   }
@@ -46,6 +46,8 @@
     const styles=zip.file('xl/styles.xml')?xml(await text(zip,'xl/styles.xml')):null;
     const formats=new Map(styles?all(styles,'numFmt').map(n=>[n.getAttribute('numFmtId'),n.getAttribute('formatCode')]):[]);
     const sourceXfs=styles?Array.from(one(styles,'cellXfs')?.children||[]):[];
+    const builtins={'0':'General','1':'0','2':'0.00','3':'#,##0','4':'#,##0.00'};
+    const formatOf=cell=>{const id=sourceXfs[Number(cell?.getAttribute('s')||0)]?.getAttribute('numFmtId')||'0';return formats.get(id)||builtins[id]||'General';};
     function value(cell){
       if(!cell)return null;
       if(cell.getAttribute('t')==='inlineStr')return all(cell,'t').map(t=>t.textContent).join('');
@@ -60,7 +62,7 @@
       return Number.isFinite(n)?(/[°º]/.test(format)?n+'°':prefix?prefix[1]+n:n):v.textContent;
     }
     const sheets=all(workbook,'sheet').map(node=>({node,path:path('xl/workbook.xml',targets.get(node.getAttributeNS(R,'id')))}));
-    return {workbook,rels,strings,sheets,value};
+    return {workbook,rels,strings,sheets,value,formatOf};
   }
   async function sourceGroups(zip,record){
     const pkg=await packageInfo(zip),groups=[];
@@ -103,7 +105,7 @@
       for(let offset=0;offset<columns.length;offset+=10){
         const batch=columns.slice(offset,offset+10),samples=batch.map(([,n])=>n);
         while(samples.length<10)samples.push(null);
-        groups.push({fields,samples,rows:rows.map(([r,prefix])=>{const values=[...prefix,...batch.map(([c])=>pkg.value(cells.get(col(c)+r)))];while(values.length<15)values.push(null);return values;})});
+        groups.push({fields,samples,rows:rows.map(([r,prefix])=>{const values=[...prefix,...batch.map(([c])=>pkg.value(cells.get(col(c)+r)))];while(values.length<15)values.push(null);values.sourceFormats=Array.from({length:4},(_,i)=>pkg.formatOf(cells.get(col(i+1)+r)));return values;})});
       }
     }
     if(!recognized)throw Error('Không nhận diện được bảng điểm đo của file nguồn. Chưa tạo file để tránh điền sai dữ liệu.');
@@ -118,7 +120,7 @@
     const template=pkg.sheets[0],templateText=await text(zip,template.path),capacity=spec.last-spec.first+1,pages=[];
     for(const group of groups)for(let offset=0;offset<Math.max(1,group.rows.length);offset+=capacity)pages.push({...group,rows:group.rows.slice(offset,offset+capacity)});
     const names=pages.map((_,i)=>'Inspection '+(i+1)),results=pages.flatMap(page=>page.rows.map(result));
-    const judgement=results.includes('NG')?'REJECTED':results.includes('UNRATED')?'UNRATED':results.includes('OK')?'PASSED':'';
+    const judgement=results.includes('NG')?'REJECTED':results.includes('OK')?'PASSED':'';
     const styles=xml(await text(zip,'xl/styles.xml')),xfs=one(styles,'cellXfs');let formats=one(styles,'numFmts');
     if(!formats){formats=el(styles,'numFmts',{count:0});styles.documentElement.insertBefore(formats,styles.documentElement.firstChild);}
     const formatCache=new Map();let nextFormat=Math.max(163,...all(formats,'numFmt').map(n=>Number(n.getAttribute('numFmtId'))))+1;
@@ -166,12 +168,7 @@
       for(let r=spec.first;r<=spec.last;r++){
         const values=page.rows[r-spec.first]||Array(15).fill(null);
         values.forEach((value,i)=>{
-          let code=i===1||i>=5?'General':null;
-          if(i===2||i===3){
-            const [mantissa,exponent='0']=String(value??0).toLowerCase().split('e');
-            const decimals=Math.min(15,Math.max(0,(mantissa.split('.')[1]?.length||0)-Number(exponent)));
-            const pattern='0'+(decimals?'.'+'0'.repeat(decimals):'');code='+'+pattern+';-'+pattern+';0';
-          }
+          const code=i>=5?'0.000':i>=1&&i<=3?(values.sourceFormats?.[i]||'General'):null;
           put(col(i+1)+r,typeof value==='string'&&i!==4?value.replace(/phi/gi,'Ø'):value,null,code);
         });
         const raw=[values[1],values[2],values[3],...values.slice(5)];
@@ -184,7 +181,7 @@
         put(lo,valid?n+Math.min(a,b):'',`IF(COUNT(AE${r}:AG${r})=3,AE${r}+MIN(AF${r}:AG${r}),"")`,'0.###############');
         put(hi,valid?n+Math.max(a,b):'',`IF(COUNT(AE${r}:AG${r})=3,AE${r}+MAX(AF${r}:AG${r}),"")`,'0.###############');
         const count=`COLUMNS(F${r}:O${r})-COUNTBLANK(F${r}:O${r})`;
-        put('P'+r,result(values),`IF((${count})=0,"",IF(OR(COUNT(AE${r}:AG${r})<3,COUNT(AH${r}:AQ${r})<>(${count})),"UNRATED",IF(OR(MIN(AH${r}:AQ${r})<${lo}-0.0000001,MAX(AH${r}:AQ${r})>${hi}+0.0000001),"NG","OK")))`);
+        put('P'+r,result(values),`IF((${count})=0,"",IF(OR(COUNT(AE${r}:AG${r})<3,COUNT(AH${r}:AQ${r})<>(${count})),"NG",IF(OR(MIN(AH${r}:AQ${r})<${lo}-0.0000001,MAX(AH${r}:AQ${r})>${hi}+0.0000001),"NG","OK")))`);
         const repeated=values.slice(5).some((value,i)=>Number(String(page.samples[i]).replace(/^#/,''))>=2&&value!==null&&value!==undefined&&String(value).trim()!=='');
         for(let c=1;c<=16;c++){
           const cell=cells.get(col(c)+r);if(cell)cell.setAttribute('s',emphasis(cell.getAttribute('s')||'0',repeated));
@@ -192,7 +189,7 @@
       }
       ['Nominal','Tolerance 1','Tolerance 2',...page.samples.map(n=>'Sample '+(n??''))].forEach((label,i)=>put(col(31+i)+spec.header,label));
       const counts=status=>names.map(name=>`COUNTIF('${name}'!P${spec.first}:P${spec.last},"${status}")`).join('+');
-      put(spec.judgement,judgement,`IF((${counts('NG')})>0,"REJECTED",IF((${counts('UNRATED')})>0,"UNRATED",IF((${counts('OK')})>0,"PASSED","")))`);
+      put(spec.judgement,judgement,`IF((${counts('NG')})>0,"REJECTED",IF((${counts('OK')})>0,"PASSED",""))`);
       let cols=one(doc,'cols');if(!cols){cols=el(doc,'cols');data.parentNode.insertBefore(cols,data);}
       for(const node of Array.from(cols.children)){if(Number(node.getAttribute('min'))>=18)node.remove();else if(Number(node.getAttribute('max'))>=18)node.setAttribute('max','17');}
       cols.append(el(doc,'col',{min:18,max:45,width:18,customWidth:1,hidden:1,outlineLevel:1}));

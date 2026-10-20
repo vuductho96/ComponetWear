@@ -179,7 +179,7 @@ function Read-InspectionFile {
         if ($pkg) { $pkg.Dispose() }
     }
 
-    $quality = if ($status -ne "ĐÃ ĐO") { "" } elseif ($ngCount -gt 0) { "NG ($ngCount)" } elseif (@($fullDims | Where-Object Result -eq 'UNRATED').Count -gt 0) { 'UNRATED' } else { "OK" }
+    $quality = if ($status -ne "ĐÃ ĐO") { "" } elseif ($ngCount -gt 0) { "NG ($ngCount)" } else { "OK" }
     $info = Get-DateFromPath $file.FullName
     $lotKey = "$part|$mold|$($file.DirectoryName)"
 
@@ -316,11 +316,10 @@ function Extract-DimensionsFromWorksheet {
 
             $sampleValue = [double]$sample
             $epsilon = 0.0000001
-            $isNg = $valid -and ($sampleValue -lt ($min - $epsilon) -or $sampleValue -gt ($max + $epsilon))
+            $isNg = (-not $valid) -or ($sampleValue -lt ($min - $epsilon) -or $sampleValue -gt ($max + $epsilon))
             if ($SummaryOnly) {
                 $sampleCount++
                 if ($isNg) { $ngTotal++ }
-                if (-not $valid) { $unratedTotal++ }
                 continue
             }
             $deviation = $sampleValue - [double]$nominal
@@ -345,7 +344,7 @@ function Extract-DimensionsFromWorksheet {
                 Deviation     = if ($valid) { $deviation } else { $null }
                 AbsDeviation  = [Math]::Round([Math]::Abs($deviation), 6)
                 NearestMargin = [Math]::Round($nearestMargin, 6)
-                Result        = if (-not $valid) { 'UNRATED' } elseif ($isNg) { "NG" } else { "OK" }
+                Result        = if ($isNg) { "NG" } else { "OK" }
                 Path          = $path
                 ExcelRow      = $r
                 ExcelCol      = $c

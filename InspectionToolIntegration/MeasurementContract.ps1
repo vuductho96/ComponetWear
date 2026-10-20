@@ -20,7 +20,7 @@ function Get-MeasurementResult($nominalText,$tolMinusText,$tolPlusText,$actualTe
     $a=Convert-MeasurementNumber $tolMinusText
     $b=Convert-MeasurementNumber $tolPlusText
     $v=Convert-MeasurementNumber $actualText
-    if ($null -eq $n -or $null -eq $a -or $null -eq $b -or $null -eq $v) { return 'UNRATED' }
+    if ($null -eq $n -or $null -eq $a -or $null -eq $b -or $null -eq $v) { return 'NG' }
     if ($v -lt ($n+[Math]::Min($a,$b)-0.0000001) -or $v -gt ($n+[Math]::Max($a,$b)+0.0000001)) { return 'NG' }
     return 'OK'
 }
@@ -36,7 +36,7 @@ function Set-ExcelInspectionJudgeFormula($sheet,$row,$nominalText) {
     $sheet.Cells.Item([int]$row,44).Formula="=IF(COUNT(AE${row}:AG${row})=3,AE${row}+MIN(AF${row}:AG${row}),`"`" )"
     $sheet.Cells.Item([int]$row,45).Formula="=IF(COUNT(AE${row}:AG${row})=3,AE${row}+MAX(AF${row}:AG${row}),`"`" )"
     $count="COLUMNS(F${row}:O${row})-COUNTBLANK(F${row}:O${row})"
-    $sheet.Cells.Item([int]$row,16).Formula="=IF(($count)=0,`"`",IF(OR(COUNT(AE${row}:AG${row})<3,COUNT(AH${row}:AQ${row})<>($count)),`"UNRATED`",IF(OR(MIN(AH${row}:AQ${row})<AR${row}-0.0000001,MAX(AH${row}:AQ${row})>AS${row}+0.0000001),`"NG`",`"OK`")))"
+    $sheet.Cells.Item([int]$row,16).Formula="=IF(($count)=0,`"`",IF(OR(COUNT(AE${row}:AG${row})<3,COUNT(AH${row}:AQ${row})<>($count)),`"NG`",IF(OR(MIN(AH${row}:AQ${row})<AR${row}-0.0000001,MAX(AH${row}:AQ${row})>AS${row}+0.0000001),`"NG`",`"OK`")))"
     $sheet.Range('R:AS').EntireColumn.Hidden=$true
 }
 function Set-ExcelCellToleranceValue($sheet,$row,$column,$tolValue) {
@@ -44,7 +44,7 @@ function Set-ExcelCellToleranceValue($sheet,$row,$column,$tolValue) {
     if ($null -eq $tolValue -or [string]::IsNullOrWhiteSpace([string]$tolValue)) { Set-ComCellValue $cell ''; return }
     $parsed=Convert-MeasurementNumber $tolValue
     if ($null -eq $parsed) { Set-ComCellValue $cell ([string]$tolValue); return }
-    $digits=([double]$parsed).ToString('0.###############',[Globalization.CultureInfo]::InvariantCulture).Split('.')
+    $digits=([string]$tolValue).Trim().Replace(',','.').Split('.')
     $pattern=if($digits.Length -gt 1){'0.'+('0'*$digits[1].Length)}else{'0'}
     $cell.NumberFormat="+$pattern;-$pattern;0"
     Set-ComCellValue $cell ([double]$parsed)
@@ -86,7 +86,7 @@ function Set-ExcelCellSampleMeasurement($sheet,$row,$column,$value) {
     $text=([string]$value).Trim()
     $numeric=0.0
     if ($text -match '^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$' -and [double]::TryParse($text,[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$numeric)) {
-        $cell.NumberFormat='General'
+        $cell.NumberFormat='0.000'
         Set-ComCellValue $cell $numeric
     } else {
         # DMS/degree text is kept exactly as generated, never truncated to degrees.

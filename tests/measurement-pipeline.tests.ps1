@@ -23,12 +23,13 @@ $cases=@(
     @('0.400','+0.02','+0.01','0.420','OK'),
     @('0.400','-0.02','-0.01','0.390','OK'),
     @('1','0','0','1.001','NG'),
-    @('1','','','1','UNRATED'),
-    @('0°92''24"','-0.1','0.1','1°','UNRATED'),
-    @('28°4''21''','-0.01','0.01','28°4''21"','UNRATED'),
-    @('1°','-0.1','0.1','broken','UNRATED'),
+    @('1','','','1','NG'),
+    @('0°92''24"','-0.1','0.1','1°','NG'),
+    @('28°4''21''','-0.01','0.01','28°4''21"','NG'),
+    @('1°','-0.1','0.1','broken','NG'),
     @('1,25','-0.01','+0.01','1.250','OK'),
-    @('0.2','-0.05','+0.05','0.220','OK')
+    @('0.2','-0.05','+0.05','0.220','OK'),
+    @('1.20','-0.050','+0.050','1.200','OK')
 )
 $excel=$null;$book=$null
 foreach($generatorCase in @(@('0.4','+0.0011','+0.0012'),@('0.4','-0.0012','-0.0011'),@('0°30''','+0.00001','+0.00002'),@('1°','+0.01','+0.02'),@('Ø0.4','0','0'),@('-0°30''','-0.0002','-0.0001'))) {
@@ -50,7 +51,8 @@ try {
             if($actual -ne $cases[$i][4]){throw "Browser/native Excel case $i expected $($cases[$i][4]), got $actual"}
         }
         Write-Output 'PASS browser report formulas recalculated in native Excel for all cases.'
-        if($book.Worksheets.Item(1).Range('C35').Text -ne '-0.05' -or $book.Worksheets.Item(1).Range('D35').Text -ne '+0.05' -or $book.Worksheets.Item(1).Range('F35').Text -ne '0.22'){throw 'Browser report added trailing zeroes'}
+        if($book.Worksheets.Item(1).Range('C35').Text -ne '-0.05' -or $book.Worksheets.Item(1).Range('D35').Text -ne '+0.05' -or $book.Worksheets.Item(1).Range('F35').Text -ne '0.220'){throw 'Browser report changed precision'}
+        if($book.Worksheets.Item(1).Range('B36').Text -ne '1.20' -or $book.Worksheets.Item(1).Range('C36').Text -ne '-0.050' -or $book.Worksheets.Item(1).Range('F36').Text -ne '1.200'){throw 'Original Nominal/tolerance formats were lost'}
     } else {
         $book=$excel.Workbooks.Add();$sheet=$book.Worksheets.Item(1)
         $sheet.Cells.Item(13,1).Value2='Point';$sheet.Cells.Item(13,2).Value2='Nominal'
@@ -68,7 +70,7 @@ try {
             if($result -ne $case[4]){throw "Rapid UI case $i expected $($case[4]), got $result"}
         }
         $excel.CalculateFullRebuild()
-        if($sheet.Range('C29').Text -ne '-0.05' -or $sheet.Range('D29').Text -ne '+0.05' -or $sheet.Range('F29').Text -ne '0.22'){throw 'Rapid export added trailing zeroes'}
+        if($sheet.Range('C29').Text -ne '-0.05' -or $sheet.Range('D29').Text -ne '+0.05' -or $sheet.Range('F29').Text -ne '0.220'){throw 'Rapid export changed precision'}
         for($i=0;$i -lt $cases.Count;$i++){
             $actual=[string]$sheet.Cells.Item(14+$i,16).Value2
             if($actual -ne $cases[$i][4]){throw "Rapid Excel case $i expected $($cases[$i][4]), got $actual"}

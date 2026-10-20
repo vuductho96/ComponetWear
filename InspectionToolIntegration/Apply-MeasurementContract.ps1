@@ -19,7 +19,7 @@ function Install-Functions([string]$path,$functions) {
         else{$text=$function.Extent.Text+"`r`n"+$text}
     }
     # Force old desktop scan entries to be checked again after rule changes.
-    $text=$text.Replace('raw-cell-limits-v2|','measurement-contract-v3|')
+    $text=$text.Replace('raw-cell-limits-v2|','measurement-contract-v4|').Replace('measurement-contract-v3|','measurement-contract-v4|')
     if ($path -eq $RapidPath) {
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
     } else {
@@ -28,7 +28,7 @@ function Install-Functions([string]$path,$functions) {
             $text=$text.Replace($deviationColumn,$deviationColumn+"`r`n"+'$gridDimensions.Columns[7].DefaultCellStyle.Format = ''0.############'''+"`r`n"+'$gridDimensions.Columns[7].DefaultCellStyle.FormatProvider = [Globalization.CultureInfo]::InvariantCulture')
         }
         $text=[regex]::Replace($text,'\$ngCount = \$stats\.NgCount(?:; \$unratedCount = \$stats\.UnratedCount)*','$ngCount = $stats.NgCount; $unratedCount = $stats.UnratedCount')
-        $text=$text.Replace('elseif ($ngCount -gt 0) { "NG ($ngCount)" } else { "OK" }','elseif ($ngCount -gt 0) { "NG ($ngCount)" } elseif ($unratedCount -gt 0) { "UNRATED" } else { "OK" }')
+        $text=$text.Replace(' elseif ($unratedCount -gt 0) { "UNRATED" }','')
     }
     $errors=$null
     $null=[Management.Automation.Language.Parser]::ParseInput($text,[ref]$null,[ref]$errors)

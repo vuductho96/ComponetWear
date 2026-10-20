@@ -73,6 +73,10 @@ function Get-PublishFileHash([string]$Path) {
 
 function Get-PublicAssetManifest([string]$SourceRoot) {
     $files = @(Get-PublicAssetFiles $SourceRoot)
+    return Get-CachedFileManifest $SourceRoot $files
+}
+
+function Get-CachedFileManifest([string]$SourceRoot, [string[]]$Files) {
     $info = New-Object Diagnostics.ProcessStartInfo
     $info.FileName = 'node'
     $helper = Join-Path $PSScriptRoot 'publish-manifest.cjs'
@@ -83,7 +87,7 @@ function Get-PublicAssetManifest([string]$SourceRoot) {
     try {
         $output = $proc.StandardOutput.ReadToEndAsync(); $errors = $proc.StandardError.ReadToEndAsync()
         $cacheDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) '.cloud-publish/file-hashes'
-        $payload = [Text.Encoding]::UTF8.GetBytes((@{ root = $SourceRoot; files = $files; cacheDirectory = $cacheDirectory } | ConvertTo-Json -Compress -Depth 3))
+        $payload = [Text.Encoding]::UTF8.GetBytes((@{ root = $SourceRoot; files = @($Files); cacheDirectory = $cacheDirectory } | ConvertTo-Json -Compress -Depth 3))
         $proc.StandardInput.BaseStream.Write($payload, 0, $payload.Length)
         $proc.StandardInput.Close()
         $proc.WaitForExit()

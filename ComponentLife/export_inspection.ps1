@@ -51,12 +51,24 @@ $script:DimensionCache = @{}
 $parserHash = Get-PublishFileHash (Join-Path $PSScriptRoot 'inspection_core.ps1')
 $files = @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File | Where-Object { Test-InspectionWorkbookFile $_ } | Sort-Object FullName)
 $pdfByFolder = @{}
-foreach ($pdf in (Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.pdf')) {
+$allPdfs=@(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.pdf')
+foreach ($pdf in $allPdfs) {
     $key = $pdf.DirectoryName.ToLowerInvariant()
     if (-not $pdfByFolder.ContainsKey($key)) { $pdfByFolder[$key] = [Collections.Generic.List[object]]::new() }
     $pdfByFolder[$key].Add($pdf)
 }
 $drawingHashes = @{}; $copiedDrawings = @{}; $seenLot = @{}
+$pdfWatch=[Diagnostics.Stopwatch]::StartNew()
+if ($allPdfs.Count) {
+    $pdfFiles=@($allPdfs | ForEach-Object { $_.FullName.Substring($sourceRoot.Length+1).Replace('\','/') } | Sort-Object)
+    $pdfManifest=Get-CachedFileManifest $sourceRoot $pdfFiles
+    foreach($entry in $pdfManifest.files){
+        $separator=$entry.LastIndexOf('=')
+        $drawingHashes[[IO.Path]::GetFullPath((Join-Path $sourceRoot $entry.Substring(0,$separator)))]=$entry.Substring($separator+1)
+    }
+}
+Write-Host ("PDF hash cache ready: {0} files in {1:N2}s" -f $allPdfs.Count,$pdfWatch.Elapsed.TotalSeconds)
+$readWatch=[Diagnostics.Stopwatch]::StartNew()
 $records = [Collections.Generic.List[object]]::new()
 $buckets = @{}; $skipped = 0; $hits = 0; $i = 0
 foreach ($file in $files) {
@@ -96,7 +108,7 @@ foreach ($file in $files) {
                 if ($point -notmatch '^\d+' -or $null -eq $nominal) { continue }
                 for ($col = 6; $col -le 15; $col++) {
                     $value = Convert-MeasureTextToNumber $ws.Cells[$row, $col].Text
-                    if ($null -ne $value) { $fallback.Add(@($point, $ws.Cells[$row, 2].Text, $ws.Cells[$row, 3].Text, $ws.Cells[$row, 4].Text, ($col - 5), $value, $null, $null, [Math]::Round(($value - $nominal), 6), 'UNRATED')) }
+                    if ($null -ne $value) { $fallback.Add(@($point, $ws.Cells[$row, 2].Text, $ws.Cells[$row, 3].Text, $ws.Cells[$row, 4].Text, ($col - 5), $value, $null, $null, [Math]::Round(($value - $nominal), 6), 'NG')) }
                 }
             }
             $dims = @($fallback.ToArray())
@@ -112,7 +124,7 @@ foreach ($file in $files) {
         $matchType = if ($folder -eq $file.DirectoryName) { 'same-folder' } else { 'parent-folder' }
         if ($matchesForPart.Count -eq 0 -and $folder -eq $file.DirectoryName -and $candidates.Count -eq 1) { $matchesForPart = $candidates; $matchType = 'folder-candidate' }
         foreach ($pdf in @($matchesForPart | Sort-Object Length, Name | Select-Object -First 1)) {
-            if (-not $drawingHashes.ContainsKey($pdf.FullName)) { $drawingHashes[$pdf.FullName] = Get-PublishFileHash $pdf.FullName }
+            if (-not $drawingHashes.ContainsKey($pdf.FullName)) { throw 'PDF changed during scan; retry required.' }
             $hash = $drawingHashes[$pdf.FullName]
             if (-not $copiedDrawings.ContainsKey($hash)) {
                 $drawingTarget = Join-Path $pdfStore "$hash.pdf"
@@ -129,7 +141,6 @@ foreach ($file in $files) {
     $lot = [string]$raw.LotKey
     $qty = if ($seenLot.ContainsKey($lot)) { 0 } else { $seenLot[$lot] = $true; [int]$raw.RawQty }
     $ng = @($dims | Where-Object { $_[9] -eq 'NG' }).Count
-    $unrated = @($dims | Where-Object { $_[9] -eq 'UNRATED' }).Count
     $sourceLabel = Get-StockSourceLabel $file.FullName
     $sourceMapping = $config.sourceLabels.PSObject.Properties[$sourceLabel]
     if ($sourceMapping) { $sourceLabel = [string]$sourceMapping.Value }
@@ -138,12 +149,13 @@ foreach ($file in $files) {
         lot = $file.DirectoryName.Substring($sourceRoot.Length + 1).Replace('\', ' / ')
         source = $sourceLabel
         month = [string]$raw.Month; receivedDate = [string]$raw.DateIn; measuredDate = [string]$raw.DateMeasure
-        quantity = $qty; quality = $(if ($dims.Count -eq 0) { 'PENDING' } elseif ($ng -gt 0) { 'NG' } elseif ($unrated -gt 0) { 'UNRATED' } else { 'OK' })
+        quantity = $qty; quality = $(if ($dims.Count -eq 0) { 'PENDING' } elseif ($ng -gt 0) { 'NG' } else { 'OK' })
         samples = $dims.Count; ngSamples = $ng; points = @($dims | ForEach-Object { $_[0] } | Sort-Object -Unique).Count
         detailFile = "detail-$bucket.json"; drawings = @($drawings); drawingNotice = $drawingNotice
     })
     if ($i % 50 -eq 0) { Write-Host "Inspection: $i/$($files.Count), cached=$hits, drawings=$($copiedDrawings.Count)" }
 }
+Write-Host ("Inspection records prepared in {0:N2}s" -f $readWatch.Elapsed.TotalSeconds)
 if ((Get-InspectionSourceFingerprint) -ne $sourceFingerprint) {
     Write-Error 'Inspection files changed during scan. Waiting for edits to finish before retrying.' -ErrorAction Continue
     exit 75
