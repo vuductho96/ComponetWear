@@ -165,7 +165,15 @@
       page.samples.forEach((sample,i)=>put(col(i+6)+spec.header,sample));
       for(let r=spec.first;r<=spec.last;r++){
         const values=page.rows[r-spec.first]||Array(15).fill(null);
-        values.forEach((value,i)=>put(col(i+1)+r,typeof value==='string'&&i!==4?value.replace(/phi/gi,'Ø'):value,null,i===2||i===3?'+0.000############;-0.000############;0':i===1||i>=5?'0.000############':null));
+        values.forEach((value,i)=>{
+          let code=i===1||i>=5?'General':null;
+          if(i===2||i===3){
+            const [mantissa,exponent='0']=String(value??0).toLowerCase().split('e');
+            const decimals=Math.min(15,Math.max(0,(mantissa.split('.')[1]?.length||0)-Number(exponent)));
+            const pattern='0'+(decimals?'.'+'0'.repeat(decimals):'');code='+'+pattern+';-'+pattern+';0';
+          }
+          put(col(i+1)+r,typeof value==='string'&&i!==4?value.replace(/phi/gi,'Ø'):value,null,code);
+        });
         const raw=[values[1],values[2],values[3],...values.slice(5)];
         raw.forEach((value,i)=>{
           const clean=String(value??'').trim().toUpperCase().replace(/PHI|[RCØΦϕ⌀\s]/g,'').replaceAll(',','.').replace(/[′’]/g,"'").replace(/[″”]/g,'"').replaceAll("''",'"').replaceAll('º','°').replaceAll('−','-');

@@ -44,7 +44,9 @@ function Set-ExcelCellToleranceValue($sheet,$row,$column,$tolValue) {
     if ($null -eq $tolValue -or [string]::IsNullOrWhiteSpace([string]$tolValue)) { Set-ComCellValue $cell ''; return }
     $parsed=Convert-MeasurementNumber $tolValue
     if ($null -eq $parsed) { Set-ComCellValue $cell ([string]$tolValue); return }
-    $cell.NumberFormat='+0.000############;-0.000############;0'
+    $digits=([double]$parsed).ToString('0.###############',[Globalization.CultureInfo]::InvariantCulture).Split('.')
+    $pattern=if($digits.Length -gt 1){'0.'+('0'*$digits[1].Length)}else{'0'}
+    $cell.NumberFormat="+$pattern;-$pattern;0"
     Set-ComCellValue $cell ([double]$parsed)
 }
 function Get-ExportMeasurementText($rowData,$absoluteSampleIndex,$variantSeed = '') {
@@ -84,7 +86,7 @@ function Set-ExcelCellSampleMeasurement($sheet,$row,$column,$value) {
     $text=([string]$value).Trim()
     $numeric=0.0
     if ($text -match '^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$' -and [double]::TryParse($text,[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$numeric)) {
-        $cell.NumberFormat='0.000############'
+        $cell.NumberFormat='General'
         Set-ComCellValue $cell $numeric
     } else {
         # DMS/degree text is kept exactly as generated, never truncated to degrees.

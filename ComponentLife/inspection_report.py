@@ -303,7 +303,12 @@ class ReportTemplate:
             for col, value in enumerate(values, 1):
                 if isinstance(value, str) and col != 5:
                     value = re.sub('phi', 'Ø', value, flags=re.I)
-                fmt = '+0.000############;-0.000############;0' if col in (3, 4) else '0.000############' if col == 2 or 6 <= col <= 15 else None
+                fmt = 'General' if col == 2 or 6 <= col <= 15 else None
+                if col in (3, 4):
+                    parsed = number(value)
+                    decimals = max(0, -parsed.normalize().as_tuple().exponent) if parsed is not None else 0
+                    pattern = '0' + ('.' + '0' * min(15, decimals) if decimals else '')
+                    fmt = '+' + pattern + ';-' + pattern + ';0'
                 put(column(col) + str(r), value, numeric_format=fmt)
             # Inspectable numeric helpers outside the report's print area.
             raw_columns = ['B', 'C', 'D'] + [column(c) for c in range(6, 16)]
