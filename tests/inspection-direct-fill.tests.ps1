@@ -1,9 +1,11 @@
 ﻿$ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+$script:InspectionQuickEditTestMode=$true
 Import-Module ImportExcel
 $project=Split-Path $PSScriptRoot -Parent
 . (Join-Path $project 'ComponentLife/inspection_core.ps1')
+. (Join-Path $project 'InspectionToolIntegration/MeasurementContract.ps1')
 function Assert($ok,$message){if(-not $ok){throw $message};Write-Output "PASS: $message"}
 function Save-DimensionCache {}
 $form=New-Object Windows.Forms.Form
@@ -29,6 +31,8 @@ try {
     [void]$gridDimensions.Rows.Add('20','30','-0.002','0','','1','30.001','0.001','NG')
     [void]$gridDimensions.Rows.Add('20','30','-0.002','0','','2','29.999','-0.001','OK')
     [void]$gridDimensions.Rows.Add('99','5','','','','1','5.2','','NG')
+    [void]$gridDimensions.Rows.Add('30','30°','-0.5','+0.5','','1','29.000','','NG')
+    [void]$gridDimensions.Rows.Add('31','4°25′12″','-0.01','+0.01','','1','4°00′00″','','NG')
     $gridDimensions.CurrentCell=$gridDimensions.Rows[0].Cells[6]
     $pkg=Open-ExcelPackage $file -Create
     $pkg.Workbook.CreateVBAProject()
@@ -41,7 +45,10 @@ try {
         $dim=[pscustomobject]@{ExcelRow=(14+$i);ExcelCol=6;NumericValue=(Convert-MeasureTextToNumber $row.Cells[6].Value);Value=$row.Cells[6].Value;Nominal=$row.Cells[1].Value;TolMinus=$row.Cells[2].Value;TolPlus=$row.Cells[3].Value;LowerLimit=0;UpperLimit=0;Deviation=0;AbsDeviation=0;Result=$row.Cells[8].Value;IsModified=$false}
         $dims+=$dim; $row.Tag=$dim
         $ws.Cells[(14+$i),6].Value=$dim.NumericValue
+        $ws.Cells[(14+$i),1].Value=[string]$row.Cells[0].Value
         $ws.Cells[(14+$i),2].Value=$dim.Nominal
+        $ws.Cells[(14+$i),3].Value=$dim.TolMinus
+        $ws.Cells[(14+$i),4].Value=$dim.TolPlus
     }
     $ws.Cells[14,6].AddComment('Existing note','Operator') | Out-Null
     Close-ExcelPackage $pkg
@@ -49,7 +56,7 @@ try {
     $key=Get-DimensionCacheKey $file
     $script:DimensionCache=@{}; $script:DimensionCache[$key]=$dims
     $gridDimensions.Rows[2].Visible=$false
-    Assert ((Invoke-InspectionQuickFill -Seed 42) -eq 2) 'Only visible NG rows with valid tolerances are saved'
+    Assert ((Invoke-InspectionQuickFill -Seed 42) -eq 4) 'Only visible NG rows with valid tolerances are saved, including angles'
     Assert ($gridDimensions.Rows[0].Cells[8].Value -eq 'OK' -and $gridDimensions.Rows[1].Cells[8].Value -eq 'OK') 'Actual and Result update in the original grid'
     Assert ($gridDimensions.Rows[2].Cells[6].Value -eq '30.001' -and $gridDimensions.Rows[2].Cells[8].Value -eq 'NG') 'Hidden NG samples remain unchanged'
     Assert ($gridDimensions.Rows[3].Cells[6].Value -eq '29.999') 'Existing OK measurements remain unchanged'
@@ -62,7 +69,20 @@ try {
         Assert ($ws.Cells[14,6].Comment.Text -eq 'Existing note' -and $null -eq $ws.Cells[15,6].Comment) 'No notes are added and existing comments survive'
         Assert ($ws.Cells[14,2].Value -eq '25.92') 'Nominal remains unchanged'
         Assert ($pkg.Workbook.VbaProject.Modules['FillSaveTest'].Code -match 'KeepThisMacro') 'Macros survive saving an xlsm workbook'
+        Assert ($ws.Cells[19,6].Value -eq 30 -and $ws.Cells[19,6].Text -eq '30.000') 'Degree-only quick fill saves Nominal as a three-decimal number'
+        Assert ([string]$ws.Cells[20,6].Value -match '^4°25′(?:11|12|13)″$') 'DMS quick fill keeps the degree component and changes only nearby seconds'
+        Assert ($ws.Cells[20,16].Formula -match 'COUNT\(AH20:AQ20\)' -and $ws.Cells[20,16].Formula -notmatch 'COUNTIF.*\*NG\*') 'Saved Excel uses real angle comparison formulas'
     } finally {$pkg.Dispose()}
+    $excel=$null;$native=$null
+    try {
+        $excel=New-Object -ComObject Excel.Application;$excel.Visible=$false;$excel.DisplayAlerts=$false;$excel.AutomationSecurity=3
+        $native=$excel.Workbooks.Open($file,0,$true);$excel.CalculateFullRebuild();$sheet=$native.Worksheets.Item(1)
+        Assert ($sheet.Range('P19').Value2 -eq 'OK' -and $sheet.Range('P20').Value2 -eq 'OK') 'Native Excel recalculates corrected degree and DMS samples as OK'
+        $sheet.Range('F19').Value2=29;$sheet.Range('F20').Value2='4°00′00″';$excel.CalculateFullRebuild()
+        Assert ($sheet.Range('P19').Value2 -eq 'NG' -and $sheet.Range('P20').Value2 -eq 'NG') 'Native Excel flags out-of-tolerance degree and DMS samples as NG'
+        $sheet.Range('F20').Value2='invalid';$excel.CalculateFullRebuild()
+        Assert ($sheet.Range('P20').Value2 -eq 'NG') 'Invalid angle input is NG rather than forced OK'
+    } finally {if($native){$native.Close($false)};if($excel){$excel.Quit();[void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($excel)}}
     $backups=@(Get-ChildItem -LiteralPath (Join-Path $fixture '.inspection-backups'))
     Assert ($backups.Count -eq 1) 'Recovery backup exists'
     $pkg=Open-ExcelPackage $backups[0].FullName

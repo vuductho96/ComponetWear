@@ -1,6 +1,7 @@
 ﻿function Save-DimensionsToWorkbook {
 
     param([string]$path)
+    . (Join-Path $PSScriptRoot 'InspectionTool.Judge.ps1')
 
     # ImportExcel writes non-terminating errors by default; never report those as success.
     $ErrorActionPreference = 'Stop'
@@ -46,9 +47,13 @@
 
             if ($r -gt 0 -and $c -gt 0) {
 
-                if ($null -ne $m.NumericValue) {
+                if ([string]$m.Value -match '[°º]') {
+                    $ws.Cells[$r, $c].Value = [string]$m.Value
+                    $ws.Cells[$r, $c].Style.Numberformat.Format = 'General'
+                } elseif ($null -ne $m.NumericValue) {
 
                     $ws.Cells[$r, $c].Value = [double]$m.NumericValue
+                    $ws.Cells[$r, $c].Style.Numberformat.Format = '0.000'
 
                 } else {
 
@@ -87,11 +92,14 @@
             }
 
             # Keep pending edits until the workbook save succeeds.
+            Set-InspectionWorksheetJudge $ws $r
 
         }
 
 
 
+        $pkg.Workbook.CalcMode=[OfficeOpenXml.ExcelCalcMode]::Automatic
+        $pkg.Workbook.FullCalcOnLoad=$true
         Close-ExcelPackage $pkg
 
         $pkg = $null
@@ -103,6 +111,7 @@
             if (-not $verifySheet) { throw 'Không tìm thấy sheet sau khi lưu Excel.' }
             foreach ($m in $modifiedDims) {
                 $saved = $verifySheet.Cells[[int]$m.ExcelRow, [int]$m.ExcelCol].Value
+                if ([string]$m.Value -match '[°º]' -and [string]$saved -cne [string]$m.Value) {throw 'Excel chưa giữ nguyên dạng DMS của Actual.'}
                 if ($null -ne $m.NumericValue) {
                     $number = Convert-MeasureTextToNumber $saved
                     if ($null -eq $number -or [Math]::Abs($number - [double]$m.NumericValue) -gt 0.000000001) {
@@ -111,6 +120,9 @@
                 } elseif ([string]$saved -cne [string]$m.Value) {
                     throw "Excel chưa lưu đúng ô Actual tại dòng $($m.ExcelRow), cột $($m.ExcelCol)."
                 }
+                $savedRow=[int]$m.ExcelRow
+                $verifiedResult=Get-MeasurementResult (Get-InspectionCellText $verifySheet.Cells[$savedRow,2]) (Get-InspectionCellText $verifySheet.Cells[$savedRow,3]) (Get-InspectionCellText $verifySheet.Cells[$savedRow,4]) (Get-InspectionCellText $verifySheet.Cells[$savedRow,[int]$m.ExcelCol])
+                if ($m.Result -eq 'OK' -and $verifiedResult -ne 'OK') {throw 'Đọc lại Excel: Actual không nằm trong dung sai.'}
             }
         } finally { if ($verifyPackage) { $verifyPackage.Dispose() } }
 
@@ -134,6 +146,8 @@
         if ($pkg) { try { Close-ExcelPackage $pkg -NoSave } catch { } }
 
         $errMsg = $_.Exception.Message
+        $script:InspectionQuickEditSaveError=$errMsg
+        if($script:InspectionQuickEditTestMode){throw}
 
         if ($errMsg -match "being used by another process|cannot access the file|đang được sử dụng") {
 

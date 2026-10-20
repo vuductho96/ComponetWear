@@ -59,29 +59,50 @@ function Format-AutoSampleDms([double]$value,[int]$precision=0) {
     $secondText=$seconds.ToString($pattern,[Globalization.CultureInfo]::InvariantCulture)
     return ('{0}{1}°{2:00}{3}{4}{5}' -f $sign,$degrees,$minutes,([string][char]0x2032),$secondText,([string][char]0x2033))
 }
-function Get-ExportMeasurementText($rowData,$absoluteSampleIndex,$variantSeed = '') {
-    $n=Convert-MeasurementNumber $rowData.Nominal
-    $a=Convert-MeasurementNumber $rowData.TolMinus
-    $b=Convert-MeasurementNumber $rowData.TolPlus
+function Format-InspectionGeneratedSample($nominalText,$tolMinusText,$tolPlusText,[double]$candidate) {
+    $n=Convert-MeasurementNumber $nominalText
+    $a=Convert-MeasurementNumber $tolMinusText
+    $b=Convert-MeasurementNumber $tolPlusText
     if ($null -eq $n -or $null -eq $a -or $null -eq $b) { return '' }
     $lo=$n+[Math]::Min($a,$b);$hi=$n+[Math]::Max($a,$b)
-    $candidate=$n+(Get-ExportMeasurementOffset $rowData $absoluteSampleIndex $variantSeed)
-    $candidate=[Math]::Max($lo,[Math]::Min($hi,$candidate))
     # Preserve DMS only when Nominal includes minutes/seconds. Degree-only
     # and linear Nominal generate plain decimals with three decimal places.
-    $useDms=([string]$rowData.Nominal -match '[°º]') -and ([string]$rowData.Nominal -match '[''"′″]')
+    $isAngle=[string]$nominalText -match '[°º]'
+    $useDms=$isAngle -and ([string]$nominalText -match '[''"′″]')
+    $whole=[Math]::Floor([Math]::Abs($n))
+    if ($useDms) {
+        # Keep the original signed degree component; vary only minutes/seconds.
+        if ($n -lt 0) {$lo=[Math]::Max($lo,-$whole-1+0.0000000001);$hi=[Math]::Min($hi,-$whole)}
+        else {$lo=[Math]::Max($lo,$whole);$hi=[Math]::Min($hi,$whole+1-0.0000000001)}
+        if ($lo -gt $hi) {throw 'Không có mẫu DMS trong dung sai mà vẫn giữ nguyên phần độ.'}
+        $candidate=$n+[Math]::Sign($candidate-$n)*[Math]::Min([Math]::Abs($candidate-$n),1.0/3600)
+    } elseif ($isAngle) {
+        # Prefer Nominal itself whenever its signed tolerances permit it.
+        $candidate=$n
+    }
+    $candidate=[Math]::Max($lo,[Math]::Min($hi,$candidate))
+    $accept={param($text)
+        $parsed=Convert-MeasurementNumber $text
+        return (Get-MeasurementResult $nominalText $tolMinusText $tolPlusText $text) -eq 'OK' -and (-not $useDms -or ($null -ne $parsed -and [Math]::Floor([Math]::Abs($parsed)) -eq $whole))
+    }
     $formatted=if($useDms){Format-AutoSampleDms $candidate}else{$candidate.ToString('0.000',[Globalization.CultureInfo]::InvariantCulture)}
     # Validate the final text after formatting, not just the unrounded candidate.
-    if ((Get-MeasurementResult $rowData.Nominal $rowData.TolMinus $rowData.TolPlus $formatted) -eq 'OK') { return $formatted }
+    if (& $accept $formatted) { return $formatted }
     $mid=($lo+$hi)/2
     $start=if($useDms){1}else{3}
     $end=if($useDms){9}else{12}
     for ($precision=$start;$precision -le $end;$precision++) {
         $format='0.'+('0'*$precision)
         $formatted=if($useDms){Format-AutoSampleDms $mid $precision}else{$mid.ToString($format,[Globalization.CultureInfo]::InvariantCulture)}
-        if ((Get-MeasurementResult $rowData.Nominal $rowData.TolMinus $rowData.TolPlus $formatted) -eq 'OK') { return $formatted }
+        if (& $accept $formatted) { return $formatted }
     }
-    throw "Cannot represent generated sample within tolerance: step $($rowData.Step), sample $absoluteSampleIndex"
+    throw 'Không biểu diễn được mẫu trong dung sai với định dạng đang yêu cầu.'
+}
+function Get-ExportMeasurementText($rowData,$absoluteSampleIndex,$variantSeed = '') {
+    $n=Convert-MeasurementNumber $rowData.Nominal
+    if($null -eq $n){return ''}
+    $candidate=$n+(Get-ExportMeasurementOffset $rowData $absoluteSampleIndex $variantSeed)
+    return Format-InspectionGeneratedSample $rowData.Nominal $rowData.TolMinus $rowData.TolPlus $candidate
 }
 function Get-AutoFillResultForRow($rowIndex) {
     if($rowIndex -lt 0 -or $rowIndex -ge $table.Rows.Count){ return $null }

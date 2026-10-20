@@ -1,6 +1,7 @@
 ﻿$ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+$script:InspectionQuickEditTestMode=$true
 $project=Split-Path $PSScriptRoot -Parent
 function Assert($ok,$message){if(-not $ok){throw $message};Write-Output "PASS: $message"}
 $form=New-Object System.Windows.Forms.Form
@@ -18,6 +19,7 @@ $lblPreviewTitle=New-Object System.Windows.Forms.Label
 $lblPreviewStats=New-Object System.Windows.Forms.Label
 try {
     . (Join-Path $project 'ComponentLife/inspection_core.ps1')
+    . (Join-Path $project 'InspectionToolIntegration/MeasurementContract.ps1')
     . (Join-Path $project 'InspectionToolIntegration/InspectionTool.QuickEdit.ps1')
     [void]$gridDimensions.Rows.Add('16','25.92','-0.01','-0.005','25.91 ~ 25.915','1','25.922','0.002','NG')
     [void]$gridDimensions.Rows.Add('17','32','+0.015','+0.012','32.012 ~ 32.015','1','32.004','0.004','NG')

@@ -45,5 +45,13 @@ $safe=@(Get-Functions $core | Where-Object Name -eq 'Safe-Text')
 $formulaTarget=Join-Path (Split-Path $RapidPath -Parent) 'MeasurementContract.formulas.json'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'MeasurementContract.formulas.json') -Destination $formulaTarget -Force
 Install-Functions $RapidPath ($safe+$parser+@(Get-Functions $contract))
-Install-Functions $ToolPath ($parser+@(Get-Functions $core | Where-Object Name -in @('Get-InspectionCellText','Extract-DimensionsFromWorksheet')))
+$toolFunctions=@(Get-Functions $contract | Where-Object Name -in @('Convert-MeasurementNumber','Get-MeasurementResult','Format-AutoSampleDms','Format-InspectionGeneratedSample'))
+Install-Functions $ToolPath ($parser+@(Get-Functions $core | Where-Object Name -in @('Get-InspectionCellText','Extract-DimensionsFromWorksheet'))+$toolFunctions)
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'MeasurementContract.formulas.json') -Destination (Join-Path (Split-Path $ToolPath -Parent) 'MeasurementContract.formulas.json') -Force
+foreach($module in @('InspectionTool.QuickEdit.ps1','InspectionTool.DimensionSave.ps1','InspectionTool.Judge.ps1')){
+    $destination=Join-Path (Split-Path $ToolPath -Parent) $module
+    $payload=[IO.File]::ReadAllText((Join-Path $PSScriptRoot $module))
+    if((Test-Path -LiteralPath $destination) -and $payload -ne [IO.File]::ReadAllText($destination)){Copy-Item -LiteralPath $destination -Destination ($destination+'.measurement-backup-'+(Get-Date -Format 'yyyyMMdd-HHmmss'))}
+    [IO.File]::WriteAllText($destination,$payload,[Text.UTF8Encoding]::new($true))
+}
 Write-Output 'Measurement contract installed. Restart the apps to load it; workbooks have not been modified.'

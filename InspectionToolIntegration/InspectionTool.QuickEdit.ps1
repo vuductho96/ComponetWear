@@ -12,23 +12,11 @@ function New-InspectionTestRows([int]$Seed = -1) {
         $plus = Convert-MeasureTextToNumber ([string]$row.Cells[3].Value)
         $value = ''; $result = 'TEST · Thiếu dung sai'; $lower = $null; $upper = $null
         if ($null -ne $nominal -and $null -ne $minus -and $null -ne $plus) {
-            if ($minus -gt 0 -and -not ([string]$row.Cells[2].Value).Trim().StartsWith('+')) { $minus = -$minus }
             $lower = [Math]::Min($nominal+$minus,$nominal+$plus)
             $upper = [Math]::Max($nominal+$minus,$nominal+$plus)
-            $digits = 3
-            foreach ($column in @(1,2,3)) {
-                $text = ([string]$row.Cells[$column].Value).Replace(',','.')
-                if ($text -match '\.(\d+)') { $digits = [Math]::Max($digits,[Math]::Min(8,$matches[1].Length)) }
-            }
-            $scale = [Math]::Pow(10,$digits)
-            $first = [Math]::Ceiling([Math]::Round($lower*$scale,6))
-            $last = [Math]::Floor([Math]::Round($upper*$scale,6))
-            if ($first -le $last -and [Math]::Abs($first) -lt 9e15 -and [Math]::Abs($last) -lt 9e15) {
-                $sample = $first + [Math]::Floor($random.NextDouble()*($last-$first+1))
-                $number = [Math]::Min($last,$sample)/$scale
-                $value = $number.ToString(('F'+$digits),[Globalization.CultureInfo]::InvariantCulture)
-                $result = 'TEST · Trong giới hạn'
-            }
+            $candidate=$lower+$random.NextDouble()*($upper-$lower)
+            $value=Format-InspectionGeneratedSample ([string]$row.Cells[1].Value) ([string]$row.Cells[2].Value) ([string]$row.Cells[3].Value) $candidate
+            $result='TEST · Trong giới hạn'
         }
         $items.Add([pscustomobject]@{ RowIndex=$row.Index; Point=[string]$row.Cells[0].Value; Sample=[string]$row.Cells[5].Value; Nominal=[string]$row.Cells[1].Value; TolMinus=[string]$row.Cells[2].Value; TolPlus=[string]$row.Cells[3].Value; Lower=$lower; Upper=$upper; Actual=$value; Result=$result; IsTest=$true })
     }
@@ -55,7 +43,8 @@ function Invoke-InspectionQuickFill {
         if ($index -lt 0) { throw 'Dòng xem nhanh không khớp với Excel. Hãy chọn lại file.' }
         $dim=$updated[$index]
         if ([int]$dim.ExcelRow -le 0 -or [int]$dim.ExcelCol -le 0) { throw 'Không xác định được ô Actual trong Excel.' }
-        $value=[double]::Parse($item.Actual,[Globalization.CultureInfo]::InvariantCulture)
+        $value=Convert-MeasureTextToNumber $item.Actual
+        if ($null -eq $value -or (Get-MeasurementResult $item.Nominal $item.TolMinus $item.TolPlus $item.Actual) -ne 'OK') {throw 'Mẫu sửa nhanh không nằm trong dung sai.'}
         $nominal=Convert-MeasureTextToNumber $item.Nominal
         $dim.Value=$item.Actual; $dim.NumericValue=$value
         $dim.LowerLimit=$item.Lower; $dim.UpperLimit=$item.Upper
@@ -71,7 +60,7 @@ function Invoke-InspectionQuickFill {
     $previousActualOnly=$script:InspectionQuickEditActualOnly
     $script:InspectionQuickEditActualOnly=$true
     try {
-        if (-not (Save-DimensionsToWorkbook -path $path)) { throw 'Chưa lưu được Excel. Các giá trị trong bảng được giữ nguyên.' }
+        if (-not (Save-DimensionsToWorkbook -path $path)) { throw ('Chưa lưu được Excel. '+$script:InspectionQuickEditSaveError) }
     } catch {
         $script:DimensionCache[$key]=$original
         throw
