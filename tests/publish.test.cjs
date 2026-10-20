@@ -92,7 +92,7 @@ test('publisher snapshots, failure handling, verification and lock', async t => 
     fs.writeFileSync(path.join(f.app, excel), 'original workbook fixture');
     fs.writeFileSync(path.join(directory, 'unlisted.pdf'), 'private source');
     const index = path.join(f.app, 'data/inspection/downloads.json');
-    const value = { schemaVersion:1, pdfPassword:'7139', excel:{record:{url:excel}}, pdf:{drawing:{url:pdf}} };
+    const value = { schemaVersion:1, excel:{record:{url:excel}}, pdf:{drawing:{url:pdf}} };
     try {
       fs.writeFileSync(index, JSON.stringify(value));
       const result = await run(f.root, ['-BuildOnly'], f.env);
@@ -100,6 +100,9 @@ test('publisher snapshots, failure handling, verification and lock', async t => 
       assert.ok(manifest().files.some(entry => entry.startsWith(pdf + '=')));
       assert.ok(manifest().files.some(entry => entry.startsWith(excel + '=')));
       assert.ok(!manifest().files.some(entry => entry.includes('unlisted.pdf')));
+      value.pdfPassword = 'must-not-be-public'; fs.writeFileSync(index, JSON.stringify(value));
+      assert.equal((await run(f.root, ['-BuildOnly'], f.env)).code, 1);
+      delete value.pdfPassword;
       value.pdf.drawing.url = '../private.ps1'; fs.writeFileSync(index, JSON.stringify(value));
       assert.equal((await run(f.root, ['-BuildOnly'], f.env)).code, 1);
     } finally { fs.unlinkSync(index); }

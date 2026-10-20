@@ -1,4 +1,4 @@
-﻿# Shared snapshot helpers. Only explicitly public files enter a deployment.
+# Shared snapshot helpers. Only explicitly public files enter a deployment.
 function Get-PublicAssetFiles([string]$SourceRoot) {
     $files = @('index.html', 'ComponentMaster.json', 'data/shoot-data.json', 'data/replacement-log.json', 'data/stock-data.json')
     $inspectionDir = Join-Path $SourceRoot 'data/inspection'
@@ -25,7 +25,7 @@ function Get-PublicAssetFiles([string]$SourceRoot) {
     $downloadsPath = Join-Path $inspectionDir 'downloads.json'
     if (Test-Path -LiteralPath $downloadsPath) {
         $downloads = Get-Content -LiteralPath $downloadsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($downloads.schemaVersion -ne 1 -or $downloads.pdfPassword -ne '7139') { throw 'Invalid inspection download index.' }
+        if ($downloads.schemaVersion -ne 1 -or $downloads.PSObject.Properties.Name -contains 'pdfPassword') { throw 'Invalid inspection download index.' }
         $files += 'data/inspection/downloads.json'
         foreach ($kind in @('excel','pdf')) {
             foreach ($entry in $downloads.$kind.PSObject.Properties) {

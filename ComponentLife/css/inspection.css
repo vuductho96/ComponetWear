@@ -54,6 +54,12 @@ body.inspection-active .app-content { padding:16px 20px; }
 .inspection-original-download { border:1px solid #aac4ef; border-radius:4px; padding:4px 8px; color:#174c93; background:var(--surface,#fff); font:inherit; font-size:11px; cursor:pointer; white-space:nowrap; }
 .inspection-original-download:hover { background:#e9f2ff; }
 .inspection-original-download:disabled { opacity:.5; cursor:default; }
+.inspection-file-cell { display:flex; align-items:center; gap:8px; min-width:190px; max-width:270px; }
+.inspection-file-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.inspection-record-download { flex:none; display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; border:1px solid var(--border,#cbd5e1); border-radius:4px; color:#2563eb; background:var(--surface,#fff); cursor:pointer; }
+.inspection-record-download:hover { border-color:#2563eb; background:#e9f2ff; }
+.inspection-record-download:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+.inspection-record-download:disabled { opacity:.5; cursor:wait; }
 .inspection-pdf-controls { display:flex; align-items:center; justify-content:center; gap:8px; padding:0 8px 8px; font-size:10px; color:var(--ink-muted,#64748b); }
 .inspection-pdf-controls button { width:29px; height:26px; padding:0; }
 .inspection-pdf-controls button:disabled { opacity:.35; cursor:default; }

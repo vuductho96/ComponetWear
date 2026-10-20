@@ -5,11 +5,12 @@
   const storageKey = 'componetwear_language';
   const entries = [
     ['Ngôn ngữ','Language','言語','语言'],
+    ['Tải file PDF gốc','Download original PDF','元のPDFをダウンロード','下载原始PDF文件'],
+    ['· Tải Excel gốc · Tải PDF gốc','· Download original Excel · Download original PDF','· 元のExcelを保存 · 元のPDFを保存','· 下载原始Excel · 下载原始PDF'],
     ['Excel gốc ↓','Original Excel ↓','元のExcel ↓','原始Excel ↓'],
     ['PDF gốc ↓','Original PDF ↓','元のPDF ↓','原始PDF ↓'],
     ['Tải file Excel gốc','Download original Excel','元のExcelをダウンロード','下载原始Excel文件'],
-    ['Mật khẩu mở PDF: 7139','PDF password: 7139','PDFのパスワード：7139','PDF打开密码：7139'],
-    ['· Tải Excel gốc · PDF gốc: mật khẩu 7139','· Download original Excel · Original PDF password: 7139','· 元のExcelを保存 · 元のPDFのパスワード：7139','· 下载原始Excel · 原始PDF密码：7139'],
+    ['Tải hồ sơ gốc (Excel và PDF)','Download original record (Excel and PDF)','元の記録をダウンロード（Excel・PDF）','下载原始记录（Excel和PDF）'],
     ['Tổng Quan','Overview','概要','总览'],
     ['Theo Dõi Tháng','Monthly Tracking','月次管理','月度跟踪'],
     ['Quản Lý Linh Kiện','Components','部品管理','零件管理'],

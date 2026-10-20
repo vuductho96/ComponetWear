@@ -24,6 +24,8 @@ if (Test-Path -LiteralPath $quickEditModule) { . $quickEditModule }
 
 ## Public original downloads
 
-People with the website link can download the selected inspection's original Excel workbook (including `.xlsm`) and its original PDF drawing. PDF download copies require the opening password **7139**; local originals remain unchanged. Online viewing and OCR behavior stay the same, and no login or account permissions are enabled.
+People with the website link can download the selected inspection's original Excel workbook (including `.xlsm`) and its original PDF drawing. PDF download copies use the privately configured opening password; local originals remain unchanged. Online viewing and OCR behavior stay the same, and no login or account permissions are enabled.
 
 Publishing runs `ComponentLife/prepare_inspection_downloads.ps1`. It copies Excel bytes unchanged, encrypts PDFs without rasterizing their pages, and writes an explicit download index after all files are ready. Only indexed files in `data/inspection/downloads/` are public. Persistent encryption/hash caches stay in `.cloud-publish`; unchanged originals are reused on later publishes.
+
+The PDF password is read from `.cloud-publish/inspection-download-password.txt` (or the `COMPONENTLIFE_PDF_PASSWORD` environment variable). It is never included in public download metadata, HTML, tooltips or browser scripts. The row download icon packages the original Excel and related PDFs into one ZIP.

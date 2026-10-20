@@ -1,4 +1,4 @@
-﻿param([string]$ProjectRoot = $PSScriptRoot)
+param([string]$ProjectRoot = $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 $work = Join-Path $ProjectRoot '.cloud-publish'
 $null = New-Item -ItemType Directory -Path $work -Force
@@ -47,7 +47,7 @@ try {
     }
     $downloadBuilder = Join-Path $ProjectRoot 'ComponentLife/prepare_inspection_downloads.ps1'
     if (Test-Path -LiteralPath $downloadBuilder) {
-        Set-ManualPublishState 'running' 'downloads' 'Đang chuẩn bị Excel gốc và PDF khóa 7139…'
+        Set-ManualPublishState 'running' 'downloads' 'Đang chuẩn bị Excel gốc và PDF được khóa…'
         if ((Invoke-ManualPublishStep $downloadBuilder) -ne 0) { throw 'Chuẩn bị file gốc để tải về thất bại.' }
     }
     Set-ManualPublishState 'running' 'checking' 'Đang kiểm tra nội dung cần cập nhật…'

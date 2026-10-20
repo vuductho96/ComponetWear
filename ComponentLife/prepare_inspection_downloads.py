@@ -2,14 +2,13 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import hashlib
 import json
+import os
 from pathlib import Path
 import secrets
 import shutil
 import sys
 
 import pymupdf
-
-PASSWORD = '7139'
 
 
 def digest(path):
@@ -27,7 +26,7 @@ def write_json(path, value):
 
 
 def encrypt_original(arguments):
-    root, target, identifier, visual_check = arguments
+    root, target, identifier, visual_check, password = arguments
     source = root / '.cloud-publish/inspection-pdf-source' / (identifier + '.pdf')
     if digest(source) != identifier:
         raise ValueError('Original PDF fingerprint differs')
@@ -38,10 +37,10 @@ def encrypt_original(arguments):
         pages = len(doc)
         pixels = doc[0].get_pixmap(matrix=pymupdf.Matrix(.5, .5)).samples if visual_check else None
         doc.save(temp, encryption=pymupdf.PDF_ENCRYPT_AES_256, owner_pw=secrets.token_urlsafe(24),
-                 user_pw=PASSWORD, permissions=pymupdf.PDF_PERM_PRINT | pymupdf.PDF_PERM_PRINT_HQ,
+                 user_pw=password, permissions=pymupdf.PDF_PERM_PRINT | pymupdf.PDF_PERM_PRINT_HQ,
                  garbage=3, deflate=True)
     with pymupdf.open(temp) as check:
-        if not check.needs_pass or check.authenticate('4321') or not check.authenticate(PASSWORD):
+        if not check.needs_pass or check.authenticate('invalid-password') or not check.authenticate(password):
             raise ValueError('PDF password verification failed')
         if len(check) != pages:
             raise ValueError('PDF page count changed')
@@ -64,29 +63,34 @@ def prepare(root):
     summary = json.loads((target.parent / 'summary.json').read_text(encoding='utf-8-sig'))
     config = json.loads((root / 'inspection.config.json').read_text(encoding='utf-8-sig'))
     source_root = Path(config['sourcePath']).resolve()
+    password_file = work / 'inspection-download-password.txt'
+    password = os.environ.get('COMPONENTLIFE_PDF_PASSWORD') or password_file.read_text(encoding='utf-8-sig').strip()
+    if not password or len(password.encode('utf-8')) > 127:
+        raise ValueError('Invalid private PDF password configuration')
+    password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
     cache_file = work / 'inspection-download-cache.json'
     try:
         cache = json.loads(cache_file.read_text(encoding='utf-8'))
-        if cache.get('password') != PASSWORD:
+        if cache.get('passwordHash') != password_hash and cache.get('password') != password:
             cache = {}
     except (FileNotFoundError, ValueError):
         cache = {}
     excel_cache, pdf_cache = cache.get('excel', {}), cache.get('pdf', {})
-    result = {'schemaVersion': 1, 'pdfPassword': PASSWORD, 'excel': {}, 'pdf': {}}
+    result = {'schemaVersion': 1, 'excel': {}, 'pdf': {}}
     new_excel, new_pdf = 0, 0
     identifiers = sorted({d['id'] for r in summary['records'] for d in r['drawings']})
     for identifier in identifiers:
         if len(identifier) != 64 or any(c not in '0123456789abcdef' for c in identifier):
             raise ValueError('Invalid drawing identifier')
     pending = [identifier for identifier in identifiers if not pdf_cache.get(identifier) or not (target / pdf_cache[identifier]).exists()]
-    arguments = [(root, target, identifier, index == 0) for index, identifier in enumerate(pending)]
+    arguments = [(root, target, identifier, index == 0, password) for index, identifier in enumerate(pending)]
     def remember(result):
         nonlocal new_pdf
         identifier, name = result
         pdf_cache[identifier] = name
         new_pdf += 1
         if new_pdf % 25 == 0:
-            write_json(cache_file, {'password': PASSWORD, 'excel': excel_cache, 'pdf': pdf_cache})
+            write_json(cache_file, {'passwordHash': password_hash, 'excel': excel_cache, 'pdf': pdf_cache})
             print(f'Prepared {new_pdf}/{len(pending)} additional locked PDFs', flush=True)
     # PyMuPDF runs in separate processes; no shared document/thread state.
     if len(pending) > 8:
@@ -101,6 +105,15 @@ def prepare(root):
         original = source_root.joinpath(*record['lot'].split(' / '), record['file']).resolve()
         if not original.is_relative_to(source_root) or original.suffix.lower() not in ('.xlsx', '.xlsm'):
             raise ValueError('Invalid Excel source path')
+        if not original.exists():
+            cached_name = excel_cache.get(record['id'], {}).get('name', '')
+            cached_copy = target / cached_name
+            if (not cached_name or Path(cached_name).name != cached_name or
+                    not cached_copy.is_file() or digest(cached_copy) != cached_name.split('.')[0]):
+                raise FileNotFoundError('Excel source missing and no verified published copy: ' + record['id'])
+            # Keep the existing snapshot downloadable if a source has moved since export.
+            print('Using verified previous Excel copy for missing source: ' + record['id'], flush=True)
+            original = cached_copy
         stat = original.stat()
         signature = [str(original), stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns]
         cached = excel_cache.get(record['id'], {})
@@ -130,7 +143,7 @@ def prepare(root):
             pdf_name = pdf_cache.get(identifier, '')
             result['pdf'][identifier] = {'url': 'data/inspection/downloads/' + pdf_name}
     # Publish the index last so every advertised download exists already.
-    write_json(cache_file, {'password': PASSWORD, 'excel': excel_cache, 'pdf': pdf_cache})
+    write_json(cache_file, {'passwordHash': password_hash, 'excel': excel_cache, 'pdf': pdf_cache})
     write_json(target.parent / 'downloads.json', result)
     print(f"Downloads ready: {len(result['excel'])} Excel, {len(result['pdf'])} PDF; updated {new_excel} Excel / {new_pdf} PDF.", flush=True)
     return result

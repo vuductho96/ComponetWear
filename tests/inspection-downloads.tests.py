@@ -21,6 +21,7 @@ class OriginalDownloads(unittest.TestCase):
             excel.write_bytes(b'Original macro workbook bytes\x00\x01')
             store = root / '.cloud-publish/inspection-pdf-source'
             store.mkdir(parents=True)
+            (root / '.cloud-publish/inspection-download-password.txt').write_text('test-only-pdf-open')
             pdf = root / 'original.pdf'
             with pymupdf.open() as doc:
                 page = doc.new_page(width=300, height=200)
@@ -34,13 +35,15 @@ class OriginalDownloads(unittest.TestCase):
             summary = {'records': [{'id': 'sample', 'lot': '', 'file': excel.name, 'drawings': [{'id': pdf_id, 'name': 'original.pdf'}]}]}
             (summary_dir / 'summary.json').write_text(json.dumps(summary))
             manifest = downloads.prepare(root)
+            self.assertNotIn('pdfPassword', manifest)
+            self.assertNotIn('test-only-pdf-open', json.dumps(manifest))
             target_excel = root / 'ComponentLife' / manifest['excel']['sample']['url']
             target_pdf = root / 'ComponentLife' / manifest['pdf'][pdf_id]['url']
             self.assertEqual(target_excel.read_bytes(), excel.read_bytes())
             with pymupdf.open(target_pdf) as doc:
                 self.assertTrue(doc.needs_pass)
-                self.assertFalse(doc.authenticate('4321'))
-                self.assertTrue(doc.authenticate('7139'))
+                self.assertFalse(doc.authenticate('invalid-password'))
+                self.assertTrue(doc.authenticate('test-only-pdf-open'))
                 self.assertEqual(len(doc), 1)
                 self.assertFalse(doc.permissions & pymupdf.PDF_PERM_MODIFY)
                 protected = doc[0].get_pixmap().samples
@@ -55,6 +58,12 @@ class OriginalDownloads(unittest.TestCase):
             updated = downloads.prepare(root)
             self.assertNotEqual(updated['excel']['sample']['url'], manifest['excel']['sample']['url'])
             self.assertEqual(updated['pdf'], manifest['pdf'])
+            excel.unlink()
+            self.assertEqual(downloads.prepare(root), updated)
+            copied = root / 'ComponentLife' / updated['excel']['sample']['url']
+            copied.write_bytes(b'corrupt cache')
+            with self.assertRaises(FileNotFoundError):
+                downloads.prepare(root)
             summary['records'][0]['lot'] = '..'
             (summary_dir / 'summary.json').write_text(json.dumps(summary))
             with self.assertRaises(ValueError):

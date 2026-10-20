@@ -5,8 +5,8 @@ let inspectionPreview = null, inspectionPreviewPage = 1, inspectionPreviewZoom =
 let inspectionPointFocus = null, inspectionPointRequest = 0;
 const inspectionPointMaps = new Map();
 let inspectionDownloadIndex = null;
-async function downloadInspectionOriginal(kind) {
-  const record = inspectionState.selected;
+async function downloadInspectionOriginal(kind, recordId = null) {
+  const record = recordId ? inspectionState.summary?.records.find(item => item.id === recordId) : inspectionState.selected;
   if (!record) return;
   try {
     // Read the current index on each download so a republished original is picked up.
@@ -20,6 +20,38 @@ async function downloadInspectionOriginal(kind) {
     const link = document.createElement('a');
     link.href = entry.url; link.download = kind === 'excel' ? record.file : drawing.name;
     document.body.append(link); link.click(); link.remove();
+  } catch (error) { msg(inspectionEscape(error.message), true); }
+}
+async function downloadInspectionPackage(recordId) {
+  const record = inspectionState.summary?.records.find(item => item.id === recordId);
+  if (!record) return;
+  if (!record.drawings.length) return downloadInspectionOriginal('excel', recordId);
+  try {
+    if (typeof JSZip === 'undefined') throw Error('Chưa tải được thư viện ZIP. Vui lòng tải lại trang.');
+    const response = await fetch('data/inspection/downloads.json', { cache:'no-store' });
+    if (!response.ok) throw Error('Chưa đồng bộ file gốc. Vui lòng thử lại sau khi Publish.');
+    const index = await response.json();
+    const files = [{ entry:index.excel?.[record.id], name:record.file, extension:'excel' },
+      ...record.drawings.map(drawing => ({ entry:index.pdf?.[drawing.id], name:drawing.name, extension:'pdf' }))];
+    const zip = new JSZip(), used = new Set();
+    const names = files.map(file => {
+      const name = String(file.name).replace(/[\\/]/g,'_');
+      let unique = name, number = 2;
+      while (used.has(unique)) unique = name.replace(/(\.[^.]+)$/, ` (${number++})$1`);
+      used.add(unique); return unique;
+    });
+    await Promise.all(files.map(async (file, position) => {
+      const pattern = file.extension === 'excel' ? /^data\/inspection\/downloads\/[a-f0-9]{64}\.(xlsx|xlsm)$/ : /^data\/inspection\/downloads\/[a-f0-9]{64}\.pdf$/;
+      if (!file.entry || !pattern.test(file.entry.url)) throw Error('Chưa có đủ file gốc cho hồ sơ này.');
+      const result = await fetch(file.entry.url, { cache:'force-cache' });
+      if (!result.ok) throw Error('Không tải được file gốc. Vui lòng thử lại.');
+      zip.file(names[position], await result.arrayBuffer(), { compression:'STORE' });
+    }));
+    const blob = await zip.generateAsync({ type:'blob', compression:'STORE' });
+    const url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = record.file.replace(/\.(xlsx|xlsm)$/i,'') + '.zip';
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url),60000);
   } catch (error) { msg(inspectionEscape(error.message), true); }
 }
 const inspectionColumns = [
@@ -343,11 +375,21 @@ function renderInspectionList() {
   }
   const rows = inspectionFilteredRows();
   document.getElementById('inspectionCount').textContent = `${rows.length.toLocaleString('vi-VN')} hồ sơ · Cập nhật ${new Date(inspectionState.summary.generatedAt).toLocaleString('vi-VN')}`;
-  host.innerHTML = `<table class="inspection-register"><thead><tr><th>File hồ sơ</th><th>Part</th><th>Mold</th><th>Tháng</th><th>Ngày đo</th><th>Nguồn</th><th>Điểm / Mẫu</th><th>Chất lượng</th><th>Bản vẽ</th></tr></thead><tbody>${rows.length ? rows.slice(0, inspectionState.limit).map(r => `<tr class="inspection-record ${inspectionState.selected?.id === r.id ? 'selected' : ''}" data-inspection-id="${r.id}" tabindex="0" aria-selected="${inspectionState.selected?.id === r.id}" aria-label="Xem kết quả ${inspectionEscape(r.part)} ${inspectionEscape(r.mold)}"><td title="${inspectionEscape(r.lot)}">${inspectionEscape(r.file)}</td><td><strong>${inspectionEscape(r.part)}</strong></td><td>${inspectionEscape(r.mold)}</td><td>${inspectionEscape(r.month || '—')}</td><td>${inspectionEscape(r.measuredDate || 'Chưa đo')}</td><td>${inspectionEscape(r.source)}</td><td>${r.points} / ${r.samples}</td><td>${inspectionBadge(r.quality)}${r.ngSamples ? `<small class="inspection-ng-text"> ${r.ngSamples} NG</small>` : ''}</td><td>${r.drawings.length ? 'Có bản vẽ' : 'Chưa ghép'}</td></tr>`).join('') : '<tr><td colspan="9" class="inspection-empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>'}</tbody></table>`;
+  host.innerHTML = `<table class="inspection-register"><thead><tr><th>File hồ sơ</th><th>Part</th><th>Mold</th><th>Tháng</th><th>Ngày đo</th><th>Nguồn</th><th>Điểm / Mẫu</th><th>Chất lượng</th><th>Bản vẽ</th></tr></thead><tbody>${rows.length ? rows.slice(0, inspectionState.limit).map(r => `<tr class="inspection-record ${inspectionState.selected?.id === r.id ? 'selected' : ''}" data-inspection-id="${r.id}" tabindex="0" aria-selected="${inspectionState.selected?.id === r.id}" aria-label="Xem kết quả ${inspectionEscape(r.part)} ${inspectionEscape(r.mold)}"><td title="${inspectionEscape(r.lot)}"><div class="inspection-file-cell"><span class="inspection-file-name" title="${inspectionEscape(r.file)}">${inspectionEscape(r.file)}</span><button type="button" class="inspection-record-download" data-download-id="${r.id}" title="${r.drawings.length ? 'Tải hồ sơ gốc (Excel và PDF)' : 'Tải file Excel gốc'}" aria-label="${r.drawings.length ? 'Tải hồ sơ gốc (Excel và PDF)' : 'Tải file Excel gốc'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg></button></div></td><td><strong>${inspectionEscape(r.part)}</strong></td><td>${inspectionEscape(r.mold)}</td><td>${inspectionEscape(r.month || '—')}</td><td>${inspectionEscape(r.measuredDate || 'Chưa đo')}</td><td>${inspectionEscape(r.source)}</td><td>${r.points} / ${r.samples}</td><td>${inspectionBadge(r.quality)}${r.ngSamples ? `<small class="inspection-ng-text"> ${r.ngSamples} NG</small>` : ''}</td><td>${r.drawings.length ? 'Có bản vẽ' : 'Chưa ghép'}</td></tr>`).join('') : '<tr><td colspan="9" class="inspection-empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>'}</tbody></table>`;
   if (rows.length > inspectionState.limit) host.innerHTML += `<button class="inspection-more" type="button" onclick="inspectionState.limit += 50; renderInspectionList()">Xem thêm 50 hồ sơ (${inspectionState.limit} / ${rows.length})</button>`;
   host.querySelectorAll('[data-inspection-id]').forEach(row => {
     row.addEventListener('click', () => selectInspectionRecord(row.dataset.inspectionId));
     row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectInspectionRecord(row.dataset.inspectionId); } });
+  });
+  host.querySelectorAll('.inspection-record-download').forEach(button => {
+    button.addEventListener('keydown', event => { event.stopPropagation(); });
+    button.addEventListener('click', async event => {
+      event.stopPropagation();
+      button.disabled = true;
+      button.setAttribute('aria-busy','true');
+      try { await downloadInspectionPackage(button.dataset.downloadId); }
+      finally { button.disabled = false; button.removeAttribute('aria-busy'); }
+    });
   });
 }
 
@@ -389,7 +431,7 @@ function renderInspectionDrawingPanel(r) {
   if (!r) { host.innerHTML = '<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><span class="inspection-view-only">Chỉ xem</span></div><div class="inspection-empty">Chọn hồ sơ trong bảng để xem bản vẽ liên quan.</div>'; inspectionPreview = null; inspectionPointFocus = null; ++inspectionPointRequest; ++inspectionPreviewSerial; return; }
   if (host.dataset.record === r.id) return;
   host.dataset.record = r.id;
-  host.innerHTML = `<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><button type="button" class="inspection-original-download" onclick="downloadInspectionOriginal('pdf')" title="Mật khẩu mở PDF: 7139" ${r.drawings.length ? '' : 'disabled'}>PDF gốc ↓</button></div><div id="inspectionPointStatus" class="inspection-point-status" role="status" aria-live="polite">Bấm dòng Point bên trái để tìm bước trên bản vẽ.</div>` + (r.drawings.length ? `<div class="inspection-drawing-toolbar"><select id="inspectionDrawing" aria-label="Bản vẽ liên quan">${r.drawings.map((d,i) => `<option value="${i}">${inspectionEscape(d.name)}</option>`).join('')}</select></div><div class="inspection-pdf-controls"><button id="inspectionPdfPrev" onclick="changeInspectionPdfPage(-1)" aria-label="Trang trước" type="button">←</button><span id="inspectionPdfPage">Đang tải…</span><button id="inspectionPdfNext" onclick="changeInspectionPdfPage(1)" aria-label="Trang sau" type="button">→</button><button type="button" onclick="zoomInspectionPdf(-0.25)" aria-label="Thu nhỏ bản vẽ">−</button><button type="button" onclick="zoomInspectionPdf(0.25)" aria-label="Phóng to bản vẽ">+</button><button type="button" class="inspection-fit" onclick="fitInspectionDrawing()" aria-label="Vừa khung bản vẽ">Vừa khung</button></div><div id="inspectionPdf" class="inspection-pdf" role="region" aria-label="Bản vẽ linh kiện"></div><p class="inspection-drawing-note">Kéo để pan · Cuộn chuột để zoom tại con trỏ · Double-click để phóng to.</p>` : '<div class="inspection-empty">Chưa tìm thấy bản vẽ phù hợp với hồ sơ này.</div>');
+  host.innerHTML = `<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><button type="button" class="inspection-original-download" onclick="downloadInspectionOriginal('pdf')" title="Tải file PDF gốc" ${r.drawings.length ? '' : 'disabled'}>PDF gốc ↓</button></div><div id="inspectionPointStatus" class="inspection-point-status" role="status" aria-live="polite">Bấm dòng Point bên trái để tìm bước trên bản vẽ.</div>` + (r.drawings.length ? `<div class="inspection-drawing-toolbar"><select id="inspectionDrawing" aria-label="Bản vẽ liên quan">${r.drawings.map((d,i) => `<option value="${i}">${inspectionEscape(d.name)}</option>`).join('')}</select></div><div class="inspection-pdf-controls"><button id="inspectionPdfPrev" onclick="changeInspectionPdfPage(-1)" aria-label="Trang trước" type="button">←</button><span id="inspectionPdfPage">Đang tải…</span><button id="inspectionPdfNext" onclick="changeInspectionPdfPage(1)" aria-label="Trang sau" type="button">→</button><button type="button" onclick="zoomInspectionPdf(-0.25)" aria-label="Thu nhỏ bản vẽ">−</button><button type="button" onclick="zoomInspectionPdf(0.25)" aria-label="Phóng to bản vẽ">+</button><button type="button" class="inspection-fit" onclick="fitInspectionDrawing()" aria-label="Vừa khung bản vẽ">Vừa khung</button></div><div id="inspectionPdf" class="inspection-pdf" role="region" aria-label="Bản vẽ linh kiện"></div><p class="inspection-drawing-note">Kéo để pan · Cuộn chuột để zoom tại con trỏ · Double-click để phóng to.</p>` : '<div class="inspection-empty">Chưa tìm thấy bản vẽ phù hợp với hồ sơ này.</div>');
   if (r.drawings.length) {
     const open = () => openInspectionDrawing(r.drawings[Number(document.getElementById('inspectionDrawing').value)]);
     document.getElementById('inspectionDrawing').addEventListener('change', open); open();
