@@ -81,8 +81,28 @@ test('publisher snapshots, failure handling, verification and lock', async t => 
     assert.ok(manifest().files.some(entry => entry.startsWith('dimension-ocr/models/test.bin=')));
     assert.ok(manifest().files.some(entry => entry.startsWith('dimension-ocr/vendor/engine.wasm=')));
     assert.ok(!manifest().files.some(entry => /private\.env|private\.ps1/.test(entry)));
-    assert.ok(!manifest().files.some(entry => /\.pdf=/.test(entry)), 'Original PDF must never be published');
+    assert.ok(!manifest().files.some(entry => /\.pdf=/.test(entry)), 'Unlisted source PDFs must not be published');
     assert.ok(!fs.existsSync(path.join(f.root, '.cloud-publish/success.json')));
+  });
+  await t.test('only explicitly indexed original downloads are published', async () => {
+    const directory = path.join(f.app, 'data/inspection/downloads'); fs.mkdirSync(directory);
+    const pdf = 'data/inspection/downloads/' + 'a'.repeat(64) + '.pdf';
+    const excel = 'data/inspection/downloads/' + 'b'.repeat(64) + '.xlsm';
+    fs.writeFileSync(path.join(f.app, pdf), 'encrypted PDF fixture');
+    fs.writeFileSync(path.join(f.app, excel), 'original workbook fixture');
+    fs.writeFileSync(path.join(directory, 'unlisted.pdf'), 'private source');
+    const index = path.join(f.app, 'data/inspection/downloads.json');
+    const value = { schemaVersion:1, pdfPassword:'7139', excel:{record:{url:excel}}, pdf:{drawing:{url:pdf}} };
+    try {
+      fs.writeFileSync(index, JSON.stringify(value));
+      const result = await run(f.root, ['-BuildOnly'], f.env);
+      assert.equal(result.code, 0, result.output);
+      assert.ok(manifest().files.some(entry => entry.startsWith(pdf + '=')));
+      assert.ok(manifest().files.some(entry => entry.startsWith(excel + '=')));
+      assert.ok(!manifest().files.some(entry => entry.includes('unlisted.pdf')));
+      value.pdf.drawing.url = '../private.ps1'; fs.writeFileSync(index, JSON.stringify(value));
+      assert.equal((await run(f.root, ['-BuildOnly'], f.env)).code, 1);
+    } finally { fs.unlinkSync(index); }
   });
   await t.test('Dimension OCR public list cannot traverse to private source files', async () => {
     const file = path.join(f.app, 'dimension-ocr/assets.json'), original = fs.readFileSync(file);

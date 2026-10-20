@@ -21,3 +21,9 @@ if (Test-Path -LiteralPath $quickEditModule) { . $quickEditModule }
 ```
 
 **Sửa nhanh** fills Actual values within nominal/tolerance limits for visible NG rows and saves to the original Excel cells in one save. Existing OK rows and hidden samples remain unchanged. Each operation creates a timestamped `.bak` in `.inspection-backups` before saving. Nominal values, tolerance cells, macros and workbook comments are preserved; no notes or dialogs are added. Missing tolerance rows are skipped. The preview and quality counts refresh after a successful save. Save failures keep the previous preview/cache values.
+
+## Public original downloads
+
+People with the website link can download the selected inspection's original Excel workbook (including `.xlsm`) and its original PDF drawing. PDF download copies require the opening password **7139**; local originals remain unchanged. Online viewing and OCR behavior stay the same, and no login or account permissions are enabled.
+
+Publishing runs `ComponentLife/prepare_inspection_downloads.ps1`. It copies Excel bytes unchanged, encrypts PDFs without rasterizing their pages, and writes an explicit download index after all files are ready. Only indexed files in `data/inspection/downloads/` are public. Persistent encryption/hash caches stay in `.cloud-publish`; unchanged originals are reused on later publishes.

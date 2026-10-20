@@ -53,3 +53,16 @@ test('creating links to immutable generated previews reuses their verified hashe
   fs.writeFileSync(file, 'changed preview');
   assert.equal(buildManifest(args).stats.hashed, 1, 'Actual changed bytes/mtime still invalidate the preview');
 });
+test('original download copies reuse hashes across staging hardlinks', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'download-hash-cache-'));
+  t.after(() => fs.rmSync(dir, {recursive:true,force:true}));
+  const root = path.join(dir,'public'), cacheDirectory = path.join(dir,'cache');
+  const files = ['pdf','xlsx','xlsm'].map(ext => 'data/inspection/downloads/' + 'a'.repeat(64) + '.' + ext);
+  for (const file of files) { fs.mkdirSync(path.dirname(path.join(root,file)), {recursive:true}); fs.writeFileSync(path.join(root,file),'immutable original download'); }
+  const args = {root,files,cacheDirectory};
+  const before = buildManifest(args);
+  for (const [i,file] of files.entries()) fs.linkSync(path.join(root,file),path.join(dir,'link-'+i));
+  const after = buildManifest(args);
+  assert.equal(after.stats.hashed,0);
+  assert.equal(after.manifest.snapshotId,before.manifest.snapshotId);
+});

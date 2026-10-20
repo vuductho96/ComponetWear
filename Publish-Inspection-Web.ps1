@@ -45,6 +45,11 @@ try {
         Start-Sleep -Seconds 3
         Set-ManualPublishState 'running' 'reading' ("Đang đọc lại dữ liệu mới nhất ({0}/3)…" -f ($readAttempt + 1))
     }
+    $downloadBuilder = Join-Path $ProjectRoot 'ComponentLife/prepare_inspection_downloads.ps1'
+    if (Test-Path -LiteralPath $downloadBuilder) {
+        Set-ManualPublishState 'running' 'downloads' 'Đang chuẩn bị Excel gốc và PDF khóa 7139…'
+        if ((Invoke-ManualPublishStep $downloadBuilder) -ne 0) { throw 'Chuẩn bị file gốc để tải về thất bại.' }
+    }
     Set-ManualPublishState 'running' 'checking' 'Đang kiểm tra nội dung cần cập nhật…'
     $manifest = Get-PublicAssetManifest (Join-Path $ProjectRoot 'ComponentLife')
     $successFile = Join-Path $work 'success.json'

@@ -22,6 +22,20 @@ function Get-PublicAssetFiles([string]$SourceRoot) {
             }
         }
     }
+    $downloadsPath = Join-Path $inspectionDir 'downloads.json'
+    if (Test-Path -LiteralPath $downloadsPath) {
+        $downloads = Get-Content -LiteralPath $downloadsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($downloads.schemaVersion -ne 1 -or $downloads.pdfPassword -ne '7139') { throw 'Invalid inspection download index.' }
+        $files += 'data/inspection/downloads.json'
+        foreach ($kind in @('excel','pdf')) {
+            foreach ($entry in $downloads.$kind.PSObject.Properties) {
+                $url = [string]$entry.Value.url
+                $extension = if ($kind -eq 'excel') { 'xlsx|xlsm' } else { 'pdf' }
+                if ($url -notmatch "^data/inspection/downloads/[a-f0-9]{64}\.($extension)$") { throw 'Invalid original download path.' }
+                $files += $url
+            }
+        }
+    }
     foreach ($dir in @('js', 'css')) {
         $files += @(Get-ChildItem -LiteralPath (Join-Path $SourceRoot $dir) -File -Recurse |
             Where-Object { $_.Extension -in @('.js', '.mjs', '.css', '.woff', '.woff2', '.png', '.svg', '.ico', '.bcmap', '.pfb', '.ttf') -or $_.Name -eq 'LICENSE' } |

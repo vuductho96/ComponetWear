@@ -51,11 +51,14 @@ body.inspection-active .app-content { padding:16px 20px; }
 .inspection-drawing-toolbar { padding:8px 10px; }
 .inspection-drawing-toolbar select { width:100%; min-width:0; padding:6px; border:1px solid var(--border,#cbd5e1); border-radius:3px; background:var(--surface,#fff); color:var(--ink,#334155); font-size:11px; }
 .inspection-view-only { color:#2563eb!important; background:#e4edfc; border-radius:3px; padding:3px 7px; font-size:10px; }
+.inspection-original-download { border:1px solid #aac4ef; border-radius:4px; padding:4px 8px; color:#174c93; background:var(--surface,#fff); font:inherit; font-size:11px; cursor:pointer; white-space:nowrap; }
+.inspection-original-download:hover { background:#e9f2ff; }
+.inspection-original-download:disabled { opacity:.5; cursor:default; }
 .inspection-pdf-controls { display:flex; align-items:center; justify-content:center; gap:8px; padding:0 8px 8px; font-size:10px; color:var(--ink-muted,#64748b); }
 .inspection-pdf-controls button { width:29px; height:26px; padding:0; }
 .inspection-pdf-controls button:disabled { opacity:.35; cursor:default; }
 .inspection-pdf { width:100%; height:370px; overflow:auto; padding:16px; box-sizing:border-box; background:#dce2e9; }
-.inspection-pdf canvas { display:block; margin:0 auto; background:#fff; box-shadow:0 1px 5px #0002; }
+.inspection-pdf canvas { display:block; max-width:none; max-height:none; margin:0 auto; background:#fff; box-shadow:0 1px 5px #0002; }
 .inspection-drawing-note { margin:7px 10px; font-size:10px; color:var(--ink-muted,#64748b); }
 body.dark #inspectionTab, [data-theme="dark"] #inspectionTab { --inspection-head:#1d2b40; }
 @media(min-width:1700px) { .inspection-list { height:310px; } .inspection-workspace { grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); } .inspection-pdf { height:460px; } }

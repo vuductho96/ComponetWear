@@ -4,6 +4,24 @@ const inspectionState = { summary: null, loading: null, error: '', selected: nul
 let inspectionPreview = null, inspectionPreviewPage = 1, inspectionPreviewZoom = 1, inspectionPreviewSerial = 0;
 let inspectionPointFocus = null, inspectionPointRequest = 0;
 const inspectionPointMaps = new Map();
+let inspectionDownloadIndex = null;
+async function downloadInspectionOriginal(kind) {
+  const record = inspectionState.selected;
+  if (!record) return;
+  try {
+    // Read the current index on each download so a republished original is picked up.
+    const response = await fetch('data/inspection/downloads.json', { cache:'no-store' });
+    if (!response.ok) throw Error('Chưa đồng bộ file gốc. Vui lòng thử lại sau khi Publish.');
+    inspectionDownloadIndex = await response.json();
+    const drawing = inspectionPreview || record.drawings[0];
+    const entry = kind === 'excel' ? inspectionDownloadIndex.excel?.[record.id] : inspectionDownloadIndex.pdf?.[drawing?.id];
+    const pattern = kind === 'excel' ? /^data\/inspection\/downloads\/[a-f0-9]{64}\.(xlsx|xlsm)$/ : /^data\/inspection\/downloads\/[a-f0-9]{64}\.pdf$/;
+    if (!entry || !pattern.test(entry.url)) throw Error('Chưa có file gốc cho hồ sơ này.');
+    const link = document.createElement('a');
+    link.href = entry.url; link.download = kind === 'excel' ? record.file : drawing.name;
+    document.body.append(link); link.click(); link.remove();
+  } catch (error) { msg(inspectionEscape(error.message), true); }
+}
 const inspectionColumns = [
   { key: 'point', label: 'Point', value: d => d[0] },
   { key: 'nominal', label: 'Nominal', value: d => d[1] },
@@ -117,8 +135,9 @@ function renderInspectionPdfPage() {
     });
     canvas.addEventListener('pointermove', event => {
       if (!pan || event.pointerId !== pan.id) return;
-      host.scrollLeft = pan.left - (event.clientX - pan.x);
-      host.scrollTop = pan.top - (event.clientY - pan.y);
+      const scale = host.getBoundingClientRect().width / host.offsetWidth || 1;
+      host.scrollLeft = pan.left - (event.clientX - pan.x) / scale;
+      host.scrollTop = pan.top - (event.clientY - pan.y) / scale;
     });
     const stopPan = event => {
       if (!pan || event.pointerId !== pan.id) return;
@@ -129,13 +148,15 @@ function renderInspectionPdfPage() {
     canvas.addEventListener('pointerup', stopPan);
     canvas.addEventListener('pointercancel', stopPan);
     canvas.addEventListener('lostpointercapture', stopPan);
-    host.onwheel = event => {
+    if (host._inspectionWheel) host.removeEventListener('wheel', host._inspectionWheel);
+    host._inspectionWheel = event => {
       if (!host.contains(canvas) || !event.deltaY) return;
       event.preventDefault();
       const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? host.clientHeight : 1);
       const factor = Math.exp(-Math.max(-300, Math.min(300, pixels)) * 0.0015);
       setInspectionZoom(inspectionPreviewZoom * factor, event.clientX, event.clientY);
     };
+    host.addEventListener('wheel', host._inspectionWheel, { passive: false });
     canvas.addEventListener('dblclick', event => {
       event.preventDefault();
       setInspectionZoom(inspectionPreviewZoom * 1.5, event.clientX, event.clientY);
@@ -156,13 +177,15 @@ function setInspectionZoom(zoom, clientX, clientY) {
   const y = clientY ?? viewport.top + host.clientHeight / 2;
   const pointX = Math.max(0, Math.min(1, (x - before.left) / before.width));
   const pointY = Math.max(0, Math.min(1, (y - before.top) / before.height));
-  inspectionPreviewZoom = Math.max(0.5, Math.min(6, zoom));
+  // 100% fits the drawing width; never shrink it to a tiny page in an empty panel.
+  inspectionPreviewZoom = Math.max(1, Math.min(6, zoom));
   const width = Math.round(Math.max(100, host.clientWidth - 32) * inspectionPreviewZoom);
   canvas.style.width = width + 'px';
   canvas.style.height = Math.round(width * canvas.height / canvas.width) + 'px';
   const after = canvas.getBoundingClientRect();
-  host.scrollLeft += after.left + pointX * after.width - x;
-  host.scrollTop += after.top + pointY * after.height - y;
+  const scale = viewport.width / host.offsetWidth || 1;
+  host.scrollLeft += (after.left + pointX * after.width - x) / scale;
+  host.scrollTop += (after.top + pointY * after.height - y) / scale;
   document.getElementById('inspectionPdfPage').textContent = 'Trang ' + inspectionPreviewPage + ' / ' + inspectionPreview.pages.length + ' · ' + Math.round(inspectionPreviewZoom * 100) + '%';
   positionInspectionPoint(false);
 }
@@ -366,7 +389,7 @@ function renderInspectionDrawingPanel(r) {
   if (!r) { host.innerHTML = '<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><span class="inspection-view-only">Chỉ xem</span></div><div class="inspection-empty">Chọn hồ sơ trong bảng để xem bản vẽ liên quan.</div>'; inspectionPreview = null; inspectionPointFocus = null; ++inspectionPointRequest; ++inspectionPreviewSerial; return; }
   if (host.dataset.record === r.id) return;
   host.dataset.record = r.id;
-  host.innerHTML = `<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><span class="inspection-view-only">Chỉ xem</span></div><div id="inspectionPointStatus" class="inspection-point-status" role="status" aria-live="polite">Bấm dòng Point bên trái để tìm bước trên bản vẽ.</div>` + (r.drawings.length ? `<div class="inspection-drawing-toolbar"><select id="inspectionDrawing" aria-label="Bản vẽ liên quan">${r.drawings.map((d,i) => `<option value="${i}">${inspectionEscape(d.name)}</option>`).join('')}</select></div><div class="inspection-pdf-controls"><button id="inspectionPdfPrev" onclick="changeInspectionPdfPage(-1)" aria-label="Trang trước" type="button">←</button><span id="inspectionPdfPage">Đang tải…</span><button id="inspectionPdfNext" onclick="changeInspectionPdfPage(1)" aria-label="Trang sau" type="button">→</button><button type="button" onclick="zoomInspectionPdf(-0.25)" aria-label="Thu nhỏ bản vẽ">−</button><button type="button" onclick="zoomInspectionPdf(0.25)" aria-label="Phóng to bản vẽ">+</button><button type="button" class="inspection-fit" onclick="fitInspectionDrawing()" aria-label="Vừa khung bản vẽ">Vừa khung</button></div><div id="inspectionPdf" class="inspection-pdf" role="region" aria-label="Bản vẽ linh kiện"></div><p class="inspection-drawing-note">Kéo để pan · Cuộn chuột để zoom tại con trỏ · Double-click để phóng to.</p>` : '<div class="inspection-empty">Chưa tìm thấy bản vẽ phù hợp với hồ sơ này.</div>');
+  host.innerHTML = `<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><button type="button" class="inspection-original-download" onclick="downloadInspectionOriginal('pdf')" title="Mật khẩu mở PDF: 7139" ${r.drawings.length ? '' : 'disabled'}>PDF gốc ↓</button></div><div id="inspectionPointStatus" class="inspection-point-status" role="status" aria-live="polite">Bấm dòng Point bên trái để tìm bước trên bản vẽ.</div>` + (r.drawings.length ? `<div class="inspection-drawing-toolbar"><select id="inspectionDrawing" aria-label="Bản vẽ liên quan">${r.drawings.map((d,i) => `<option value="${i}">${inspectionEscape(d.name)}</option>`).join('')}</select></div><div class="inspection-pdf-controls"><button id="inspectionPdfPrev" onclick="changeInspectionPdfPage(-1)" aria-label="Trang trước" type="button">←</button><span id="inspectionPdfPage">Đang tải…</span><button id="inspectionPdfNext" onclick="changeInspectionPdfPage(1)" aria-label="Trang sau" type="button">→</button><button type="button" onclick="zoomInspectionPdf(-0.25)" aria-label="Thu nhỏ bản vẽ">−</button><button type="button" onclick="zoomInspectionPdf(0.25)" aria-label="Phóng to bản vẽ">+</button><button type="button" class="inspection-fit" onclick="fitInspectionDrawing()" aria-label="Vừa khung bản vẽ">Vừa khung</button></div><div id="inspectionPdf" class="inspection-pdf" role="region" aria-label="Bản vẽ linh kiện"></div><p class="inspection-drawing-note">Kéo để pan · Cuộn chuột để zoom tại con trỏ · Double-click để phóng to.</p>` : '<div class="inspection-empty">Chưa tìm thấy bản vẽ phù hợp với hồ sơ này.</div>');
   if (r.drawings.length) {
     const open = () => openInspectionDrawing(r.drawings[Number(document.getElementById('inspectionDrawing').value)]);
     document.getElementById('inspectionDrawing').addEventListener('change', open); open();
@@ -377,7 +400,7 @@ function renderInspectionDetail() {
   if (!host) return;
   renderInspectionDrawingPanel(r);
   if (!r) { host.innerHTML = '<div class="inspection-panel-heading"><h3>Xem nhanh kích thước điểm đo</h3></div><div class="inspection-empty inspection-welcome"><h3>Chọn một linh kiện trên bảng</h3><p>Kích thước, dung sai và kết quả từng mẫu sẽ hiển thị tại đây.</p></div>'; const drawingHost = document.getElementById('inspectionDrawingPanel'); if (drawingHost) delete drawingHost.dataset.record; return; }
-  const header = `<div class="inspection-panel-heading"><h3>Xem nhanh kích thước điểm đo</h3>${inspectionBadge(r.quality)}</div><div class="inspection-preview-meta"><strong>${inspectionEscape(r.part)} / ${inspectionEscape(r.mold)}</strong><span>${inspectionEscape(r.source)} · ${inspectionEscape(r.measuredDate || 'Chưa đo')}</span></div><div class="inspection-result-toolbar"><span>${r.points} điểm · ${r.samples} mẫu · <b class="inspection-ng-text">${r.ngSamples} NG</b></span><div class="inspection-segment"><button type="button" class="${!inspectionState.ngOnly ? 'active' : ''}" onclick="setInspectionNgOnly(false)">Tất cả điểm</button><button type="button" class="${inspectionState.ngOnly ? 'active' : ''}" onclick="setInspectionNgOnly(true)">Chỉ điểm NG</button></div></div>`;
+  const header = `<div class="inspection-panel-heading"><h3>Xem nhanh kích thước điểm đo</h3><div><button type="button" class="inspection-original-download" onclick="downloadInspectionOriginal('excel')" title="Tải file Excel gốc">Excel gốc ↓</button> ${inspectionBadge(r.quality)}</div></div><div class="inspection-preview-meta"><strong>${inspectionEscape(r.part)} / ${inspectionEscape(r.mold)}</strong><span>${inspectionEscape(r.source)} · ${inspectionEscape(r.measuredDate || 'Chưa đo')}</span></div><div class="inspection-result-toolbar"><span>${r.points} điểm · ${r.samples} mẫu · <b class="inspection-ng-text">${r.ngSamples} NG</b></span><div class="inspection-segment"><button type="button" class="${!inspectionState.ngOnly ? 'active' : ''}" onclick="setInspectionNgOnly(false)">Tất cả điểm</button><button type="button" class="${inspectionState.ngOnly ? 'active' : ''}" onclick="setInspectionNgOnly(true)">Chỉ điểm NG</button></div></div>`;
   if (inspectionState.detailLoading) { host.innerHTML = header + '<div class="inspection-empty" role="status">Đang tải điểm đo…</div>'; return; }
   if (inspectionState.detailError) { host.innerHTML = header + `<div class="inspection-empty">Không tải được điểm đo: ${inspectionEscape(inspectionState.detailError)}<br><button onclick="selectInspectionRecord('${r.id}')">Thử lại</button></div>`; return; }
   const dimensions = inspectionVisibleDimensions(r);

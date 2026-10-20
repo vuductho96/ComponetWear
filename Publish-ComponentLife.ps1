@@ -23,6 +23,8 @@ try {
     $lock = [IO.File]::Open((Join-Path $work 'publish.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     $log = Join-Path $work 'publish.log'
     Add-Content -LiteralPath $log -Value "`n[$([DateTime]::UtcNow.ToString('o'))] Building snapshot"
+    $downloadBuilder = Join-Path $source 'prepare_inspection_downloads.ps1'
+    if (Test-Path -LiteralPath $downloadBuilder) { & $downloadBuilder -ProjectRoot $ProjectRoot }
     $baseline = Join-Path $work 'verification-baseline.json'
     if (-not $BuildOnly) {
         & node (Join-Path $PSScriptRoot 'verify-cloud.cjs') --capture-baseline $baseline (Join-Path $work 'success.json') $CloudUrl
@@ -45,8 +47,8 @@ try {
         $target = Join-Path $assets $relative
         $null = New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force
         $sourceFile = Join-Path $source $relative
-        if ($relative -match '^data/inspection/drawings/[a-f0-9]{64}-v[0-9]+-p[0-9]{4}\.webp$') {
-            # Generated previews have content-addressed immutable names; original PDFs are excluded.
+        if ($relative -match '^data/inspection/drawings/[a-f0-9]{64}-v[0-9]+-p[0-9]{4}\.webp$|^data/inspection/downloads/[a-f0-9]{64}\.(pdf|xlsx|xlsm)$') {
+            # Generated previews and download copies have immutable content-hash names.
             try { $null = New-Item -ItemType HardLink -Path $target -Target $sourceFile -ErrorAction Stop }
             catch { Copy-Item -LiteralPath $sourceFile -Destination $target }
         } else { Copy-Item -LiteralPath $sourceFile -Destination $target }

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
 const hash = value => createHash('sha256').update(value).digest('hex');
-const immutablePreview = relative => /^data\/inspection\/drawings\/[a-f0-9]{64}-v[0-9]+-p[0-9]{4}\.webp$/.test(relative);
+const immutablePreview = relative => /^(?:data\/inspection\/drawings\/[a-f0-9]{64}-v[0-9]+-p[0-9]{4}\.webp|data\/inspection\/downloads\/[a-f0-9]{64}\.(?:pdf|xlsx|xlsm))$/.test(relative);
 const normalizeSignature = (value, relative) => { const parts = value.split(':'); if (immutablePreview(relative)) parts[4] = '*'; return parts.join(':'); };
 const signature = (stat, relative) => normalizeSignature(['dev','ino','size','mtimeNs','ctimeNs','birthtimeNs'].map(key => String(stat[key])).join(':'), relative);
 const cacheVersion = hash(fs.readFileSync(__filename));
@@ -15,7 +15,7 @@ function buildManifest({ root, files, cacheDirectory }) {
   if (cacheFile) {
     try {
       const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-      if ([cacheVersion, '396de6be07686ae1d2ed31c405fea3f62d9a2ab060fffefa9d5055d078b039bb'].includes(cached.version) && cached.root === root) old = cached.files;
+      if ([cacheVersion, 'e30ffa5483528680fe08834a7682908efab90b1b7e11c3c2476dba907e137728', '396de6be07686ae1d2ed31c405fea3f62d9a2ab060fffefa9d5055d078b039bb'].includes(cached.version) && cached.root === root) old = cached.files;
     } catch { /* Missing/corrupt cache is rebuilt from actual bytes. */ }
   }
   const entries = [], data = [], code = [], next = {};
