@@ -217,11 +217,20 @@ def report_result(row):
     measurements = [number(v) for v in row[5:15] if v is not None and str(v).strip()]
     if not measurements:
         return ''
+    if re.search('[°º]', str(row[1])) and re.search('[\'"′″]', str(row[1])):
+        return 'NG' if nominal is None or any(v is None or int(v) != int(nominal) for v in measurements) else 'OK'
     if None in (nominal, first, second) or any(v is None for v in measurements):
         return 'NG'
     lower, upper = nominal + min(first, second), nominal + max(first, second)
     epsilon = Decimal('0.0000001')
     return 'NG' if any(v < lower - epsilon or v > upper + epsilon for v in measurements) else 'OK'
+
+
+def row_result_formula(count, cleaned, nominal, tolerance_last, actuals, lower, upper):
+    standard = f'IF(OR(COUNT({nominal}:{tolerance_last})<3,COUNT({actuals})<>({count})),"NG",IF(OR(MIN({actuals})<{lower}-0.0000001,MAX({actuals})>{upper}+0.0000001),"NG","OK"))'
+    dms = f'AND(ISNUMBER(SEARCH("°",{cleaned})),ISNUMBER(SEARCH("\'",{cleaned})))'
+    degrees = f'IF(OR(COUNT({nominal})<1,COUNT({actuals})<>({count})),"NG",IF(AND(TRUNC(MIN({actuals}))=TRUNC({nominal}),TRUNC(MAX({actuals}))=TRUNC({nominal})),"OK","NG"))'
+    return f'IF(({count})=0,"",IF({dms},{degrees},{standard}))'
 
 
 def sheet_names(pages):
@@ -363,6 +372,7 @@ class ReportTemplate:
                 'targets': self.layout['targets'], 'judgement': self.layout['judgement'],
                 'columns': self.layout['columns'], 'remarkColumn': self.layout['remarkColumn'],
                 'formulaBase': {'rawColumn': raw_columns[0], 'cleanColumn': column(helper)},
+                'resultFormula': row_result_formula('@COUNT@', '@CLEAN@', '@N@', '@B@', '@ACTUALS@', '@LO@', '@HI@'),
                 'cleanFormulas': [clean_formula(col + '@ROW@') for col in raw_columns],
                 'numberFormulas': [numeric_formula(col + '@ROW@', column(helper + i) + '@ROW@') for i, col in enumerate(raw_columns)]}
 
@@ -466,7 +476,7 @@ class ReportTemplate:
             put(hi, nominal + max(a, b) if valid else '', f'IF(COUNT({n}:{b_ref})=3,{n}+MAX({a_ref}:{b_ref}),"")', '0.###############')
             sample_range = column(columns[5]) + str(r) + ':' + column(columns[-1]) + str(r)
             count = f'COLUMNS({sample_range})-COUNTBLANK({sample_range})'
-            formula = f'IF(({count})=0,"",IF(OR(COUNT({n}:{b_ref})<3,COUNT({actuals})<>({count})),"NG",IF(OR(MIN({actuals})<{lo}-0.0000001,MAX({actuals})>{hi}+0.0000001),"NG","OK")))'
+            formula = row_result_formula(count, column(helper) + str(r), n, b_ref, actuals, lo, hi)
             put(column(remark) + str(r), report_result(values), formula)
             repeated = any(number(str(sample).lstrip('#')) is not None and number(str(sample).lstrip('#')) >= 2
                            and value is not None and str(value).strip() != ''

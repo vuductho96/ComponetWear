@@ -303,6 +303,7 @@ function Extract-DimensionsFromWorksheet {
         $tolA = Convert-MeasureTextToNumber $tolLowText
         $tolB = Convert-MeasureTextToNumber $tolHighText
         $validLimits = $null -ne $nominal -and $null -ne $tolA -and $null -ne $tolB
+        $degreeComparison = $nominalText -match '[°º]' -and $nominalText -match '[''"′″]'
 
         $limitA = [double]$nominal + [double]$tolA
         $limitB = [double]$nominal + [double]$tolB
@@ -319,6 +320,7 @@ function Extract-DimensionsFromWorksheet {
             $sampleValue = [double]$sample
             $epsilon = 0.0000001
             $isNg = (-not $valid) -or ($sampleValue -lt ($min - $epsilon) -or $sampleValue -gt ($max + $epsilon))
+            if ($degreeComparison) { $isNg = $null -eq $nominal -or $null -eq $sample -or [Math]::Truncate($sampleValue) -ne [Math]::Truncate([double]$nominal) }
             if ($SummaryOnly) {
                 $sampleCount++
                 if ($isNg) { $ngTotal++ }

@@ -19,11 +19,12 @@ function Install-Functions([string]$path,$functions) {
         else{$text=$function.Extent.Text+"`r`n"+$text}
     }
     # Force old desktop scan entries to be checked again after rule changes.
-    $text=$text.Replace('raw-cell-limits-v2|','measurement-contract-v5|').Replace('measurement-contract-v3|','measurement-contract-v5|').Replace('measurement-contract-v4|','measurement-contract-v5|')
+    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[345]\|','measurement-contract-v6|')
     if ($path -eq $RapidPath) {
         $text=$text.Replace('$cell.NumberFormat = "0.###""°"""','$cell.NumberFormat = $numFmt + ''"°"''')
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
     } else {
+        $text=$text.Replace('$isNg = ($val -lt ($minL - $epsilon) -or $val -gt ($maxL + $epsilon))','$isNg = (Get-MeasurementResult $nomText $t1Text $t2Text $valText) -eq ''NG''')
         $deviationColumn='$gridDimensions.Columns[7].Name = "Deviation (Δ)"'
         if ($text -notmatch '\$gridDimensions\.Columns\[7\]\.DefaultCellStyle\.Format = ''0\.############''') {
             $text=$text.Replace($deviationColumn,$deviationColumn+"`r`n"+'$gridDimensions.Columns[7].DefaultCellStyle.Format = ''0.############'''+"`r`n"+'$gridDimensions.Columns[7].DefaultCellStyle.FormatProvider = [Globalization.CultureInfo]::InvariantCulture')

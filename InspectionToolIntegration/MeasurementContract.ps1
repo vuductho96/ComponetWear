@@ -20,6 +20,10 @@ function Get-MeasurementResult($nominalText,$tolMinusText,$tolPlusText,$actualTe
     $a=Convert-MeasurementNumber $tolMinusText
     $b=Convert-MeasurementNumber $tolPlusText
     $v=Convert-MeasurementNumber $actualText
+    if ([string]$nominalText -match '[°º]' -and [string]$nominalText -match '[''"′″]') {
+        if ($null -eq $n -or $null -eq $v) { return 'NG' }
+        return $(if([Math]::Truncate($n) -eq [Math]::Truncate($v)){'OK'}else{'NG'})
+    }
     if ($null -eq $n -or $null -eq $a -or $null -eq $b -or $null -eq $v) { return 'NG' }
     if ($v -lt ($n+[Math]::Min($a,$b)-0.0000001) -or $v -gt ($n+[Math]::Max($a,$b)+0.0000001)) { return 'NG' }
     return 'OK'
@@ -36,7 +40,8 @@ function Set-ExcelInspectionJudgeFormula($sheet,$row,$nominalText) {
     $sheet.Cells.Item([int]$row,44).Formula="=IF(COUNT(AE${row}:AG${row})=3,AE${row}+MIN(AF${row}:AG${row}),`"`" )"
     $sheet.Cells.Item([int]$row,45).Formula="=IF(COUNT(AE${row}:AG${row})=3,AE${row}+MAX(AF${row}:AG${row}),`"`" )"
     $count="COLUMNS(F${row}:O${row})-COUNTBLANK(F${row}:O${row})"
-    $sheet.Cells.Item([int]$row,16).Formula="=IF(($count)=0,`"`",IF(OR(COUNT(AE${row}:AG${row})<3,COUNT(AH${row}:AQ${row})<>($count)),`"NG`",IF(OR(MIN(AH${row}:AQ${row})<AR${row}-0.0000001,MAX(AH${row}:AQ${row})>AS${row}+0.0000001),`"NG`",`"OK`")))"
+    $formula=$script:MeasurementFormulaSpec.result.Replace('@COUNT@',$count).Replace('@CLEAN@',"R$row").Replace('@N@',"AE$row").Replace('@B@',"AG$row").Replace('@ACTUALS@',"AH${row}:AQ${row}").Replace('@LO@',"AR$row").Replace('@HI@',"AS$row")
+    $sheet.Cells.Item([int]$row,16).Formula='='+$formula
     $sheet.Range('R:AS').EntireColumn.Hidden=$true
 }
 function Set-ExcelCellToleranceValue($sheet,$row,$column,$tolValue) {

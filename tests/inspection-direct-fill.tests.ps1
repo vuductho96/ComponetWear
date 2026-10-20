@@ -32,7 +32,7 @@ try {
     [void]$gridDimensions.Rows.Add('20','30','-0.002','0','','2','29.999','-0.001','OK')
     [void]$gridDimensions.Rows.Add('99','5','','','','1','5.2','','NG')
     [void]$gridDimensions.Rows.Add('30','30°','-0.5','+0.5','','1','29.000','','NG')
-    [void]$gridDimensions.Rows.Add('31','4°25′12″','-0.01','+0.01','','1','4°00′00″','','NG')
+    [void]$gridDimensions.Rows.Add('31','4°25′12″','-0.01','+0.01','','1','5°00′00″','','NG')
     $gridDimensions.CurrentCell=$gridDimensions.Rows[0].Cells[6]
     $pkg=Open-ExcelPackage $file -Create
     $pkg.Workbook.CreateVBAProject()
@@ -79,7 +79,9 @@ try {
         $native=$excel.Workbooks.Open($file,0,$true);$excel.CalculateFullRebuild();$sheet=$native.Worksheets.Item(1)
         Assert ($sheet.Range('P19').Value2 -eq 'OK' -and $sheet.Range('P20').Value2 -eq 'OK') 'Native Excel recalculates corrected degree and DMS samples as OK'
         $sheet.Range('F19').Value2=29;$sheet.Range('F20').Value2='4°00′00″';$excel.CalculateFullRebuild()
-        Assert ($sheet.Range('P19').Value2 -eq 'NG' -and $sheet.Range('P20').Value2 -eq 'NG') 'Native Excel flags out-of-tolerance degree and DMS samples as NG'
+        Assert ($sheet.Range('P19').Value2 -eq 'NG' -and $sheet.Range('P20').Value2 -eq 'OK') 'DMS ignores minutes/seconds while degree-only measurements retain their tolerance check'
+        $sheet.Range('F20').Value2='5°00′00″';$excel.CalculateFullRebuild()
+        Assert ($sheet.Range('P20').Value2 -eq 'NG') 'DMS becomes NG when the degree component changes'
         $sheet.Range('F20').Value2='invalid';$excel.CalculateFullRebuild()
         Assert ($sheet.Range('P20').Value2 -eq 'NG') 'Invalid angle input is NG rather than forced OK'
     } finally {if($native){$native.Close($false)};if($excel){$excel.Quit();[void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($excel)}}

@@ -9,6 +9,6 @@ function Set-InspectionWorksheetJudge($ws,[int]$row) {
     $ws.Cells[$row,44].Formula="IF(COUNT(AE${row}:AG${row})=3,AE${row}+MIN(AF${row}:AG${row}),`"`")"
     $ws.Cells[$row,45].Formula="IF(COUNT(AE${row}:AG${row})=3,AE${row}+MAX(AF${row}:AG${row}),`"`")"
     $count="COLUMNS(F${row}:O${row})-COUNTBLANK(F${row}:O${row})"
-    $ws.Cells[$row,16].Formula="IF(($count)=0,`"`",IF(OR(COUNT(AE${row}:AG${row})<3,COUNT(AH${row}:AQ${row})<>($count)),`"NG`",IF(OR(MIN(AH${row}:AQ${row})<AR${row}-0.0000001,MAX(AH${row}:AQ${row})>AS${row}+0.0000001),`"NG`",`"OK`")))"
+    $ws.Cells[$row,16].Formula=$script:InspectionSaveFormulaSpec.result.Replace('@COUNT@',$count).Replace('@CLEAN@',"R$row").Replace('@N@',"AE$row").Replace('@B@',"AG$row").Replace('@ACTUALS@',"AH${row}:AQ${row}").Replace('@LO@',"AR$row").Replace('@HI@',"AS$row")
     for($col=18;$col -le 45;$col++){$ws.Column($col).Hidden=$true}
 }
