@@ -38,6 +38,19 @@
     const lo=n+Math.min(a,b),hi=n+Math.max(a,b);
     return actual.some(v=>v<lo-0.0000001||v>hi+0.0000001)?'NG':'OK';
   }
+  function sheetNames(pages){
+    const span=values=>{const labels=values.filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(v=>String(v).trim());return labels.length?labels[0]===labels.at(-1)?labels[0]:labels[0]+'-'+labels.at(-1):'';};
+    const bases=pages.map((page,i)=>{const points=span(page.rows.map(row=>row[0]));return points?'Inspection '+points:'Inspection '+(i+1);});
+    const counts=new Map(),used=new Set();
+    bases.forEach(name=>counts.set(name.toLowerCase(),(counts.get(name.toLowerCase())||0)+1));
+    return bases.map((base,i)=>{
+      const samples=span(pages[i].samples);
+      const label=(base+(counts.get(base.toLowerCase())>1&&samples?' S'+samples:'')).replace(/[\[\]\\/:*?'\u0000-\u001f]/g,'-');
+      let name=label.slice(0,31),n=2;
+      while(used.has(name.toLowerCase())){const suffix=' ('+(n++)+')';name=label.slice(0,31-suffix.length)+suffix;}
+      used.add(name.toLowerCase());return name;
+    });
+  }
   async function packageInfo(zip){
     const workbook=xml(await text(zip,'xl/workbook.xml'));
     const rels=xml(await text(zip,'xl/_rels/workbook.xml.rels'));
@@ -48,7 +61,7 @@
     const sourceXfs=styles?Array.from(one(styles,'cellXfs')?.children||[]):[];
     const builtins={'0':'General','1':'0','2':'0.00','3':'#,##0','4':'#,##0.00'};
     const formatOf=cell=>{const id=sourceXfs[Number(cell?.getAttribute('s')||0)]?.getAttribute('numFmtId')||'0';return formats.get(id)||builtins[id]||'General';};
-    function value(cell){
+    function value(cell,preserveNumber=false){
       if(!cell)return null;
       if(cell.getAttribute('t')==='inlineStr')return all(cell,'t').map(t=>t.textContent).join('');
       const v=one(cell,'v');if(!v)return null;
@@ -58,6 +71,7 @@
       if(t==='b')return v.textContent==='1'?'TRUE':'FALSE';
       if(v.textContent.trim()==='')return null;
       const n=Number(v.textContent),format=formats.get(sourceXfs[Number(cell.getAttribute('s')||0)]?.getAttribute('numFmtId'))||'';
+      if(preserveNumber&&Number.isFinite(n))return n;
       const prefix=format.match(/^"([RCØΦ⌀])"/);
       return Number.isFinite(n)?(/[°º]/.test(format)?n+'°':prefix?prefix[1]+n:n):v.textContent;
     }
@@ -99,7 +113,7 @@
         const r=Number(row.getAttribute('r'));if(r<=header)continue;
         const point=pkg.value(cells.get('A'+r)),nominal=pkg.value(cells.get('B'+r));
         if(point===null||!/^\d+/.test(String(point))||nominal===null)continue;
-        rows.push([r,Array.from({length:5},(_,i)=>pkg.value(cells.get(col(i+1)+r)))]);
+        rows.push([r,Array.from({length:5},(_,i)=>pkg.value(cells.get(col(i+1)+r),i>=1&&i<=3))]);
       }
       if(!rows.length)continue;
       for(let offset=0;offset<columns.length;offset+=10){
@@ -112,14 +126,77 @@
     return groups.length?groups:[{fields:firstFields||base,samples:Array.from({length:10},(_,i)=>i+1),rows:[]}];
   }
 
+  function templateLayout(pkg,doc){
+    const cells=cellMap(doc),pos=a=>[colIndex(a.match(/^[A-Z]+/)[0]),Number(a.match(/\d+/)[0])];
+    const label=v=>norm(v??'').replaceAll('đ','d').replace(/\s+/g,' ').trim();
+    const entries=Array.from(cells,([address,cell])=>({address,c:pos(address)[0],r:pos(address)[1],text:label(pkg.value(cell))}));
+    const merges=all(doc,'mergeCell').map(n=>{const [a,b]=n.getAttribute('ref').split(':').map(pos);return [...a,...b];});
+    const extent=e=>merges.find(m=>m[0]===e.c&&m[1]===e.r)||[e.c,e.r,e.c,e.r];
+    const matches=(text,words)=>words.some(word=>text===word||['/',' ',':'].some(separator=>text.startsWith(word+separator)));
+    const points=entries.filter(e=>matches(e.text,['point','diem'])&&entries.some(n=>n.r===e.r&&matches(n.text,['nominal','nomial','danh nghia'])));
+    if(!points.length)throw Error('Template thiếu tiêu đề Point và Nominal trên cùng hàng.');
+    if(points.length!==1)throw Error('Template có nhiều bảng Point/Nominal trên cùng sheet.');
+    const point=points[0];
+    const nearby=entries.filter(e=>e.r>=point.r&&e.r<=point.r+2),find=words=>nearby.find(e=>matches(e.text,words));
+    const nominal=find(['nominal','nomial','danh nghia']),tool=find(['tool','dung cu']),remark=find(['remark','ghi chu']),tolerance=find(['tol','tolerance','dung sai']);
+    if(!nominal||!tool||!remark||!tolerance)throw Error('Template cần có Nominal, Tol/Dung sai, Tool và Remark/Ghi chú.');
+    const tol=extent(tolerance),signs=new Map(nearby.filter(e=>e.c>=tol[0]&&e.c<=tol[2]&&['-','−','+'].includes(e.text)).map(e=>[e.text.replace('−','-'),e.c]));
+    if(!signs.has('-')||!signs.has('+'))throw Error('Không nhận diện được hai cột Tol - và + của template.');
+    const samples=Array.from({length:Math.max(0,remark.c-tool.c-1)},(_,i)=>tool.c+i+1);
+    if(samples.length!==10)throw Error('Template cần 10 cột Sample liên tiếp giữa Tool và Remark.');
+    let headerEnd=Math.max(...[point,nominal,tool,remark,tolerance].map(e=>extent(e)[3]));
+    for(const e of nearby)if(e.c>=samples[0]&&e.c<=samples.at(-1)&&(/details|chi tiet/.test(e.text)))headerEnd=Math.max(headerEnd,extent(e)[3]);
+    const first=headerEnd+1,footer=entries.filter(e=>e.r>=first&&['ngoai quan','appearance','luu y:','prepare by'].some(word=>e.text.includes(word))).sort((a,b)=>a.r-b.r)[0];
+    let last=footer?footer.r-1:first-1;
+    if(!footer)while(cells.has(col(remark.c)+(last+1))&&one(cells.get(col(remark.c)+(last+1)),'f'))last++;
+    if(last<first)throw Error('Không xác định được cuối vùng điểm đo; cần dòng Ngoại quan/Appearance hoặc công thức Remark.');
+    const targets={},aliases={part:['parts name','part name','ten linh kien'],mold:['mold name','ten khuon'],date:['date','ngay kiem tra'],department:['department','bo phan'],material:['materia','material','nguyen lieu'],hrc:['hrc','do cung'],quantity:['qty','quantity','so luong']};
+    for(const e of entries.filter(e=>e.r<point.r))for(const [field,words] of Object.entries(aliases))if(matches(e.text,words)||(field==='hrc'&&e.text.startsWith('hrc'))){
+      const address=col(extent(e)[2]+1)+e.r;
+      if(targets[field]&&targets[field]!==address)throw Error('Template có nhiều vùng '+field+', không tự chọn để tránh điền sai.');
+      targets[field]=address;
+    }
+    const judgementLabel=entries.find(e=>e.r<point.r&&matches(e.text,['judgement','judgment','ket luan']));
+    const judgement=judgementLabel?col(judgementLabel.c)+(extent(judgementLabel)[3]+1):Array.from(cells).find(([,cell])=>one(cell,'f')?.textContent.includes('COUNTIF('))?.[0];
+    if(!judgement)throw Error('Template thiếu ô Judgement/Kết luận.');
+    let sampleHeader=point.r,best=-1;
+    for(let r=point.r;r<=headerEnd;r++){const score=samples.filter(c=>/^#?\d+$/.test(String(pkg.value(cells.get(col(c)+r))))).length;if(score>best){best=score;sampleHeader=r;}}
+    const columns=[point.c,nominal.c,signs.get('-'),signs.get('+'),tool.c,...samples];
+    return {header:sampleHeader,first,last,columns,remarkColumn:remark.c,helperColumn:Math.max(...columns,remark.c)+2,targets,judgement};
+  }
+
   async function build(sourceBytes,templateBytes,spec,record={}){
     if(spec?.schemaVersion!==1||!Number.isInteger(spec.first)||spec.last<spec.first||spec.cleanFormulas?.length!==13||spec.numberFormulas?.length!==13)throw Error('Template chưa sẵn sàng. Hãy Publish lại.');
     const [source,zip]=await Promise.all([JSZip.loadAsync(sourceBytes),JSZip.loadAsync(templateBytes)]);
     const [groups,pkg]=await Promise.all([sourceGroups(source,record),packageInfo(zip)]);
     if(pkg.sheets.length!==1)throw Error('Template có thêm sheet chưa được cấu hình.');
-    const template=pkg.sheets[0],templateText=await text(zip,template.path),capacity=spec.last-spec.first+1,pages=[];
+    const template=pkg.sheets[0],templateDoc=xml(await text(zip,template.path));
+    const formulaSpec=spec;
+    spec={...spec,...templateLayout(pkg,templateDoc)};
+    const insertAt=spec.last+1,insertCount=Math.max(0,40-(spec.last-spec.first+1)),expanded=insertCount>0;
+    if(expanded){
+      const shift=ref=>ref.replace(/(\$?[A-Z]{1,3}\$?)(\d+)/g,(_,c,r)=>c+(Number(r)>=insertAt?Number(r)+insertCount:r));
+      const data=one(templateDoc,'sheetData'),lastRow=all(data,'row').find(row=>Number(row.getAttribute('r'))===spec.last);
+      for(const row of all(data,'row'))if(Number(row.getAttribute('r'))>=insertAt){
+        row.setAttribute('r',Number(row.getAttribute('r'))+insertCount);
+        for(const cell of all(row,'c'))cell.setAttribute('r',shift(cell.getAttribute('r')));
+      }
+      for(const node of all(templateDoc,'mergeCell'))node.setAttribute('ref',shift(node.getAttribute('ref')));
+      for(const node of all(templateDoc,'brk'))if(Number(node.getAttribute('id'))>=insertAt)node.setAttribute('id',Number(node.getAttribute('id'))+insertCount);
+      for(const node of all(pkg.workbook,'definedName'))node.textContent=shift(node.textContent);
+      for(let r=insertAt;r<insertAt+insertCount;r++){
+        const row=lastRow.cloneNode(true);row.setAttribute('r',r);
+        for(const cell of all(row,'c')){cell.setAttribute('r',cell.getAttribute('r').replace(/\d+$/,r));cell.replaceChildren();cell.removeAttribute('t');}
+        data.append(row);
+      }
+      spec.last+=insertCount;
+    }
+    const columns=spec.columns,remark=spec.remarkColumn,helper=spec.helperColumn;
+    const rawColumns=[...columns.slice(1,4),...columns.slice(5)];
+    const formula=(pattern,raw,cleaned,r)=>pattern.replace(/([A-Z]+)@ROW@/g,(_,c)=>col(c===(formulaSpec.formulaBase?.rawColumn||'B')?raw:c===(formulaSpec.formulaBase?.cleanColumn||'R')?cleaned:colIndex(c))+r);
+    const templateText=serialize(templateDoc),capacity=40,pages=[];
     for(const group of groups)for(let offset=0;offset<Math.max(1,group.rows.length);offset+=capacity)pages.push({...group,rows:group.rows.slice(offset,offset+capacity)});
-    const names=pages.map((_,i)=>'Inspection '+(i+1)),results=pages.flatMap(page=>page.rows.map(result));
+    const names=sheetNames(pages),results=pages.flatMap(page=>page.rows.map(result));
     const judgement=results.includes('NG')?'REJECTED':results.includes('OK')?'PASSED':'';
     const styles=xml(await text(zip,'xl/styles.xml')),xfs=one(styles,'cellXfs');let formats=one(styles,'numFmts');
     if(!formats){formats=el(styles,'numFmts',{count:0});styles.documentElement.insertBefore(formats,styles.documentElement.firstChild);}
@@ -164,36 +241,40 @@
         }
       };
       for(const [field,address] of Object.entries(spec.targets))put(address,page.fields[field],null,field==='date'&&typeof page.fields[field]==='number'?'dd/mm/yyyy':null);
-      page.samples.forEach((sample,i)=>put(col(i+6)+spec.header,sample));
+      page.samples.forEach((sample,i)=>put(col(columns[i+5])+spec.header,sample));
       for(let r=spec.first;r<=spec.last;r++){
         const values=page.rows[r-spec.first]||Array(15).fill(null);
         values.forEach((value,i)=>{
           const code=i>=5?'0.000':i>=1&&i<=3?(values.sourceFormats?.[i]||'General'):null;
-          put(col(i+1)+r,typeof value==='string'&&i!==4?value.replace(/phi/gi,'Ø'):value,null,code);
+          // Excel ignores numeric formats on text cells. Convert only plain decimal
+          // samples; keep dimension prefixes and degree/minute/second text intact.
+          if(i>=5&&typeof value==='string'&&/^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?$/i.test(value.trim()))value=numeric(value);
+          put(col(columns[i])+r,typeof value==='string'&&i!==4?value.replace(/phi/gi,'Ø'):value,null,code);
         });
         const raw=[values[1],values[2],values[3],...values.slice(5)];
         raw.forEach((value,i)=>{
           const clean=String(value??'').trim().toUpperCase().replace(/PHI|[RCØΦϕ⌀\s]/g,'').replaceAll(',','.').replace(/[′’]/g,"'").replace(/[″”]/g,'"').replaceAll("''",'"').replaceAll('º','°').replaceAll('−','-');
-          put(col(18+i)+r,clean,spec.cleanFormulas[i].replaceAll('@ROW@',r));
-          put(col(31+i)+r,numeric(value)??'',spec.numberFormulas[i].replaceAll('@ROW@',r),'0.###############');
+          put(col(helper+i)+r,clean,formula(formulaSpec.cleanFormulas[0],rawColumns[i],helper+i,r));
+          put(col(helper+13+i)+r,numeric(value)??'',formula(formulaSpec.numberFormulas[0],rawColumns[i],helper+i,r),'0.###############');
         });
-        const [n,a,b]=raw.slice(0,3).map(numeric),valid=![n,a,b].includes(null),lo='AR'+r,hi='AS'+r;
-        put(lo,valid?n+Math.min(a,b):'',`IF(COUNT(AE${r}:AG${r})=3,AE${r}+MIN(AF${r}:AG${r}),"")`,'0.###############');
-        put(hi,valid?n+Math.max(a,b):'',`IF(COUNT(AE${r}:AG${r})=3,AE${r}+MAX(AF${r}:AG${r}),"")`,'0.###############');
-        const count=`COLUMNS(F${r}:O${r})-COUNTBLANK(F${r}:O${r})`;
-        put('P'+r,result(values),`IF((${count})=0,"",IF(OR(COUNT(AE${r}:AG${r})<3,COUNT(AH${r}:AQ${r})<>(${count})),"NG",IF(OR(MIN(AH${r}:AQ${r})<${lo}-0.0000001,MAX(AH${r}:AQ${r})>${hi}+0.0000001),"NG","OK")))`);
+        const [n,a,b]=raw.slice(0,3).map(numeric),valid=![n,a,b].includes(null),lo=col(helper+26)+r,hi=col(helper+27)+r;
+        const [nr,ar,br]=[13,14,15].map(i=>col(helper+i)+r),actuals=col(helper+16)+r+':'+col(helper+25)+r;
+        put(lo,valid?n+Math.min(a,b):'',`IF(COUNT(${nr}:${br})=3,${nr}+MIN(${ar}:${br}),"")`,'0.###############');
+        put(hi,valid?n+Math.max(a,b):'',`IF(COUNT(${nr}:${br})=3,${nr}+MAX(${ar}:${br}),"")`,'0.###############');
+        const sampleRange=col(columns[5])+r+':'+col(columns.at(-1))+r,count=`COLUMNS(${sampleRange})-COUNTBLANK(${sampleRange})`;
+        put(col(remark)+r,result(values),`IF((${count})=0,"",IF(OR(COUNT(${nr}:${br})<3,COUNT(${actuals})<>(${count})),"NG",IF(OR(MIN(${actuals})<${lo}-0.0000001,MAX(${actuals})>${hi}+0.0000001),"NG","OK")))`);
         const repeated=values.slice(5).some((value,i)=>Number(String(page.samples[i]).replace(/^#/,''))>=2&&value!==null&&value!==undefined&&String(value).trim()!=='');
-        for(let c=1;c<=16;c++){
-          const cell=cells.get(col(c)+r);if(cell)cell.setAttribute('s',emphasis(cell.getAttribute('s')||'0',repeated));
+        for(const c of [...columns,remark]){
+          const cell=cells.get(col(c)+r);if(cell)cell.setAttribute('s',emphasis(cell.getAttribute('s')||'0',repeated&&columns.slice(0,4).includes(c)));
         }
       }
-      ['Nominal','Tolerance 1','Tolerance 2',...page.samples.map(n=>'Sample '+(n??''))].forEach((label,i)=>put(col(31+i)+spec.header,label));
-      const counts=status=>names.map(name=>`COUNTIF('${name}'!P${spec.first}:P${spec.last},"${status}")`).join('+');
+      ['Nominal','Tolerance 1','Tolerance 2',...page.samples.map(n=>'Sample '+(n??''))].forEach((label,i)=>put(col(helper+13+i)+spec.header,label));
+      const counts=status=>names.map(name=>`COUNTIF('${name}'!${col(remark)}${spec.first}:${col(remark)}${spec.last},"${status}")`).join('+');
       put(spec.judgement,judgement,`IF((${counts('NG')})>0,"REJECTED",IF((${counts('OK')})>0,"PASSED",""))`);
       let cols=one(doc,'cols');if(!cols){cols=el(doc,'cols');data.parentNode.insertBefore(cols,data);}
-      for(const node of Array.from(cols.children)){if(Number(node.getAttribute('min'))>=18)node.remove();else if(Number(node.getAttribute('max'))>=18)node.setAttribute('max','17');}
-      cols.append(el(doc,'col',{min:18,max:45,width:18,customWidth:1,hidden:1,outlineLevel:1}));
-      one(doc,'dimension')?.setAttribute('ref','A1:AS'+Math.max(...rowMap.keys()));
+      for(const node of Array.from(cols.children)){if(Number(node.getAttribute('min'))>=helper)node.remove();else if(Number(node.getAttribute('max'))>=helper)node.setAttribute('max',helper-1);}
+      cols.append(el(doc,'col',{min:helper,max:helper+27,width:18,customWidth:1,hidden:1,outlineLevel:1}));
+      one(doc,'dimension')?.setAttribute('ref','A1:'+col(helper+27)+Math.max(...rowMap.keys()));
       for(const row of rowMap.values())row.replaceChildren(...Array.from(row.children).sort((a,b)=>colIndex(a.getAttribute('r').match(/^[A-Z]+/)[0])-colIndex(b.getAttribute('r').match(/^[A-Z]+/)[0])));
       data.replaceChildren(...Array.from(rowMap.entries()).sort((a,b)=>a[0]-b[0]).map(([,row])=>row));
       one(doc,'sheetPr')?.removeAttribute('codeName');
@@ -203,7 +284,11 @@
         const rels=xml(relText);
         for(const rel of all(rels,'Relationship',P))if(rel.getAttribute('Type').endsWith('/drawing')){
           const original=path(template.path,rel.getAttribute('Target')),clone=`xl/drawings/report${pageIndex+1}.xml`;
-          zip.file(clone,await zip.file(original).async('uint8array'));
+          if(expanded){
+            const drawing=xml(await zip.file(original).async('string'));
+            for(const row of all(drawing,'row','http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing'))if(Number(row.textContent)>=insertAt-1)row.textContent=Number(row.textContent)+insertCount;
+            zip.file(clone,serialize(drawing));
+          }else zip.file(clone,await zip.file(original).async('uint8array'));
           const originalDrawingRels=original.replace('drawings/','drawings/_rels/')+'.rels';
           if(zip.file(originalDrawingRels))zip.file(clone.replace('drawings/','drawings/_rels/')+'.rels',await zip.file(originalDrawingRels).async('uint8array'));
           rel.setAttribute('Target',`../drawings/report${pageIndex+1}.xml`);

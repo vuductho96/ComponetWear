@@ -1,5 +1,13 @@
 ﻿# ComponentLife - Hệ Thống Theo Dõi Độ Mòn & Quản Lý Tồn Kho Linh Kiện (SPP Control)
 
+## Thay mẫu Excel báo cáo kiểm tra
+
+Thay file đang khai báo ở `inspection-report.config.json`, lưu rồi Publish lại. Nếu đổi tên file, chỉ cập nhật đường dẫn `template`; không cần khai báo lại tọa độ ô hoặc vùng dữ liệu.
+
+Bộ xuất tự nhận diện Point/Điểm, Nominal, hai cột Tol -/+, Tool, 10 cột Sample, Remark/Ghi chú và Judgement/Kết luận từ tiêu đề và ô gộp. Thông tin linh kiện, khuôn, ngày kiểm tra, bộ phận, vật liệu, HRC, số lượng được tìm theo nhãn; có thể dời hàng/cột hoặc đảo vị trí hai cột dung sai. Không bắt buộc giữ công thức cũ của mẫu. Mẫu cần đúng một biểu mẫu, giữ các tiêu đề nhận diện và 10 cột mẫu liên tiếp giữa Tool và Remark. Không nhận diện được hoặc gặp vùng trùng nghĩa thì báo lỗi, không tự điền phỏng đoán.
+
+Báo cáo tiếp tục chia tối đa 40 point mỗi sheet, đặt tên theo point thực tế. Mẫu thiếu dòng đo được bổ sung đến 40; phần ngoại quan, ghi chú, chữ ký và vùng in dịch chuyển tương ứng. Nominal/Tol giữ định dạng nguồn; kết quả dạng số hiển thị 3 chữ số thập phân. Dòng có mẫu đo lặp chỉ in đậm Point/Nominal/Tol.
+
 ## Dimension OCR · Beta
 
 Tab **Dimension OCR · Beta** phục vụ trực tiếp từ `dimension-ocr/` trên cùng Cloudflare Worker, không nhúng hoặc gọi Sites. Mã JavaScript, model YOLO/PP-OCR, thư viện PDF, WASM và font đều được lưu trong dự án; OCR chạy ở trình duyệt, không cần ChatGPT Premium, tài khoản OpenAI hoặc API key. Mở nhanh bằng `?tab=dimensionocr`. Công cụ chỉ khởi động khi mở tab, giữ bản vẽ khi chuyển tab, có toàn màn hình và mở riêng.
