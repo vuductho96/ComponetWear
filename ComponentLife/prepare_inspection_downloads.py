@@ -9,6 +9,24 @@ import shutil
 import sys
 
 import pymupdf
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from inspection_report import ReportTemplate, configured_template
+_report_worker_template = None
+
+
+def initialize_report_worker(template_path):
+    global _report_worker_template
+    _report_worker_template = ReportTemplate(template_path)
+
+
+def build_report_task(arguments):
+    target, original_name, record, signature = arguments
+    target = Path(target)
+    temp = target / (record['id'] + '.report.tmp')
+    stats = _report_worker_template.build(target / original_name, record, temp)
+    name = digest(temp) + '.xlsx'
+    temp.replace(target / name)
+    return record['id'], {'signature': signature, 'name': name, **stats}
 
 
 def digest(path):
@@ -76,8 +94,16 @@ def prepare(root):
     except (FileNotFoundError, ValueError):
         cache = {}
     excel_cache, pdf_cache = cache.get('excel', {}), cache.get('pdf', {})
+    report_cache = cache.get('reports', {})
+    report_template = None
+    report_signature = None
+    if (root / 'inspection-report.config.json').exists():
+        template_path = configured_template(root)
+        report_template = ReportTemplate(template_path)
+        report_signature = [digest(template_path), digest(Path(__file__)), digest(Path(__file__).with_name('inspection_report.py'))]
     result = {'schemaVersion': 1, 'excel': {}, 'pdf': {}}
-    new_excel, new_pdf = 0, 0
+    new_excel, new_pdf, new_reports = 0, 0, 0
+    report_jobs = []
     identifiers = sorted({d['id'] for r in summary['records'] for d in r['drawings']})
     for identifier in identifiers:
         if len(identifier) != 64 or any(c not in '0123456789abcdef' for c in identifier):
@@ -90,7 +116,7 @@ def prepare(root):
         pdf_cache[identifier] = name
         new_pdf += 1
         if new_pdf % 25 == 0:
-            write_json(cache_file, {'passwordHash': password_hash, 'excel': excel_cache, 'pdf': pdf_cache})
+            write_json(cache_file, {'passwordHash': password_hash, 'excel': excel_cache, 'pdf': pdf_cache, 'reports': report_cache})
             print(f'Prepared {new_pdf}/{len(pending)} additional locked PDFs', flush=True)
     # PyMuPDF runs in separate processes; no shared document/thread state.
     if len(pending) > 8:
@@ -133,7 +159,16 @@ def prepare(root):
             output_name = name
             excel_cache[record['id']] = {'signature': signature, 'name': name}
             new_excel += 1
-        result['excel'][record['id']] = {'url': 'data/inspection/downloads/' + output_name, 'name': record['file']}
+        download_name = record['file']
+        if report_template:
+            report_input = [output_name, *report_signature, record.get('part'), record.get('mold'), record.get('measuredDate')]
+            report = report_cache.get(record['id'], {})
+            if report.get('signature') != report_input or not (target / report.get('name', '')).is_file():
+                report_jobs.append((str(target), output_name, record, report_input))
+            else:
+                output_name = report['name']
+            download_name = Path(record['file']).stem + '.xlsx'
+        result['excel'][record['id']] = {'url': 'data/inspection/downloads/' + output_name, 'name': download_name}
         for drawing in record['drawings']:
             identifier = drawing['id']
             if identifier in result['pdf']:
@@ -142,10 +177,32 @@ def prepare(root):
                 raise ValueError('Invalid drawing identifier')
             pdf_name = pdf_cache.get(identifier, '')
             result['pdf'][identifier] = {'url': 'data/inspection/downloads/' + pdf_name}
+    def remember_report(result_item):
+        nonlocal new_reports
+        identifier, report = result_item
+        report_cache[identifier] = report
+        new_reports += 1
+        if new_reports % 25 == 0:
+            write_json(cache_file, {'passwordHash': password_hash, 'excel': excel_cache, 'pdf': pdf_cache, 'reports': report_cache})
+            print(f'Prepared {new_reports}/{len(report_jobs)} updated template reports', flush=True)
+    if len(report_jobs) > 8:
+        with ProcessPoolExecutor(max_workers=4, initializer=initialize_report_worker, initargs=(str(template_path),)) as pool:
+            futures = [pool.submit(build_report_task, args) for args in report_jobs]
+            for future in as_completed(futures):
+                remember_report(future.result())
+    elif report_jobs:
+        initialize_report_worker(str(template_path))
+        for args in report_jobs:
+            remember_report(build_report_task(args))
+    if report_template:
+        if digest(template_path) != report_signature[0]:
+            raise ValueError('Report template changed during generation; save it and publish again')
+        for identifier in result['excel']:
+            result['excel'][identifier]['url'] = 'data/inspection/downloads/' + report_cache[identifier]['name']
     # Publish the index last so every advertised download exists already.
-    write_json(cache_file, {'passwordHash': password_hash, 'excel': excel_cache, 'pdf': pdf_cache})
+    write_json(cache_file, {'passwordHash': password_hash, 'excel': excel_cache, 'pdf': pdf_cache, 'reports': report_cache})
     write_json(target.parent / 'downloads.json', result)
-    print(f"Downloads ready: {len(result['excel'])} Excel, {len(result['pdf'])} PDF; updated {new_excel} Excel / {new_pdf} PDF.", flush=True)
+    print(f"Downloads ready: {len(result['excel'])} Excel, {len(result['pdf'])} PDF; updated {new_excel} sources / {new_reports} template reports / {new_pdf} PDF.", flush=True)
     return result
 
 
