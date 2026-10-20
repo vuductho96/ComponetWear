@@ -239,7 +239,9 @@ function Get-InspectionCellText {
     $value = $Cell.Value
     if ($null -eq $value) { return '' }
     if ($value -is [double] -or $value -is [decimal] -or $value -is [float] -or $value -is [int] -or $value -is [long]) {
-        return ([double]$value).ToString('0.###############', [Globalization.CultureInfo]::InvariantCulture)
+        $numericText = ([double]$value).ToString('0.###############', [Globalization.CultureInfo]::InvariantCulture)
+        if ($Cell.Style.Numberformat.Format -match '[°º]') { return $numericText + '°' }
+        return $numericText
     }
     return (Safe-Text $Cell.Text)
 }

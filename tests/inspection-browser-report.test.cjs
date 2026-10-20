@@ -63,5 +63,21 @@ test('browser conversion preserves template and recalculates source updates with
     assert.ok(outcome.nominals.every(n=>!/phi/i.test(n)));
     assert.deepEqual(outcome.good,['OK','PASSED']);assert.deepEqual(outcome.bad,['NG','REJECTED']);assert.equal(outcome.oneRow,'NG');
     fs.writeFileSync(path.join(fixture,'browser.xlsx'),Buffer.from(outcome.file));
+    const degreeSource=path.join('C:/Users/415/Desktop/File đo linh kiện/đo tủ link kiên/Tháng 11/215-MF00521/Inspection 215-MF00521.xlsx');
+    if(fs.existsSync(degreeSource)){
+      const degree=await page.evaluate(async({source,template,spec})=>{
+        const bytes=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+        const report=await InspectionReports.build(bytes(source),bytes(template),spec,{file:'215.xlsx'});
+        const zip=await JSZip.loadAsync(await report.blob.arrayBuffer());
+        for(const name of Object.keys(zip.files).filter(n=>/^xl\/worksheets\/sheet\d+.xml$/.test(n))){
+          const doc=new DOMParser().parseFromString(await zip.file(name).async('string'),'application/xml');
+          for(const row of doc.getElementsByTagNameNS('*','row')){
+            const cells=Array.from(row.children),get=col=>cells.find(c=>c.getAttribute('r')===col+row.getAttribute('r'));
+            if(Number(row.getAttribute('r'))>=spec.first&&get('A')?.textContent==='21'&&get('B')?.textContent)return [get('B')?.textContent,get('F')?.textContent];
+          }
+        }
+      },{source:fs.readFileSync(degreeSource).toString('base64'),template:fs.readFileSync(expected.template).toString('base64'),spec:expected.spec});
+      assert.deepEqual(degree,['1°','1°']);
+    }
   }finally{await browser.close();}
 });

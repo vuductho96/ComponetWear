@@ -59,6 +59,9 @@ class Package:
         if 'xl/sharedStrings.xml' in self.parts:
             self.strings = [''.join(node.itertext()) for node in ET.fromstring(self.parts['xl/sharedStrings.xml'])]
         self.workbook = ET.fromstring(self.parts['xl/workbook.xml'])
+        styles = ET.fromstring(self.parts['xl/styles.xml'])
+        self.formats = {n.get('numFmtId'): n.get('formatCode', '') for n in styles.findall('.//' + TAG('numFmt'))}
+        self.styles = list(styles.find(TAG('cellXfs')))
         relationships = ET.fromstring(self.parts['xl/_rels/workbook.xml.rels'])
         targets = {x.get('Id'): x.get('Target') for x in relationships}
         self.sheets = []
@@ -80,7 +83,10 @@ class Package:
         if cell.get('t') in ('str', 'e'):
             return value.text
         try:
-            return Decimal(value.text)
+            numeric = Decimal(value.text)
+            style_index = int(cell.get('s', '0'))
+            fmt = self.formats.get(self.styles[style_index].get('numFmtId'), '') if style_index < len(self.styles) else ''
+            return str(numeric) + '°' if re.search('[°º]', fmt) else numeric
         except InvalidOperation:
             return value.text
 

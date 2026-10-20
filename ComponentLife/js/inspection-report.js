@@ -43,6 +43,9 @@
     const rels=xml(await text(zip,'xl/_rels/workbook.xml.rels'));
     const targets=new Map(all(rels,'Relationship',P).map(node=>[node.getAttribute('Id'),node.getAttribute('Target')]));
     const strings=zip.file('xl/sharedStrings.xml')?all(xml(await text(zip,'xl/sharedStrings.xml')),'si').map(node=>all(node,'t').map(t=>t.textContent).join('')):[];
+    const styles=zip.file('xl/styles.xml')?xml(await text(zip,'xl/styles.xml')):null;
+    const formats=new Map(styles?all(styles,'numFmt').map(n=>[n.getAttribute('numFmtId'),n.getAttribute('formatCode')]):[]);
+    const sourceXfs=styles?Array.from(one(styles,'cellXfs')?.children||[]):[];
     function value(cell){
       if(!cell)return null;
       if(cell.getAttribute('t')==='inlineStr')return all(cell,'t').map(t=>t.textContent).join('');
@@ -51,7 +54,9 @@
       if(t==='s')return strings[Number(v.textContent)]??'';
       if(t==='str'||t==='e')return v.textContent;
       if(t==='b')return v.textContent==='1'?'TRUE':'FALSE';
-      return v.textContent.trim()===''?null:Number.isFinite(Number(v.textContent))?Number(v.textContent):v.textContent;
+      if(v.textContent.trim()==='')return null;
+      const n=Number(v.textContent),format=formats.get(sourceXfs[Number(cell.getAttribute('s')||0)]?.getAttribute('numFmtId'))||'';
+      return Number.isFinite(n)?(/[°º]/.test(format)?n+'°':n):v.textContent;
     }
     const sheets=all(workbook,'sheet').map(node=>({node,path:path('xl/workbook.xml',targets.get(node.getAttributeNS(R,'id')))}));
     return {workbook,rels,strings,sheets,value};
