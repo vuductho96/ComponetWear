@@ -1,0 +1,33 @@
+.sidebar-action-row { gap:5px; }
+#themeToggleBtn { flex:1; min-width:0; gap:5px; padding:0 6px; font-size:11px; }
+#themeToggleText { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.language-control { position:relative; display:flex; align-items:center; justify-content:center; flex:none; width:51px; height:36px; border:1px solid var(--sidebar-border); border-radius:var(--radius); background:var(--sidebar-bg-hover); color:var(--sidebar-text); }
+.language-control svg { width:15px; height:15px; pointer-events:none; flex:none; }
+.language-control select { width:100%; height:100%; position:absolute; inset:0; cursor:pointer; opacity:0; }
+.language-control:focus-within { outline:2px solid #93c5fd; outline-offset:2px; }
+.language-control::after { content:attr(data-language); margin-left:4px; font-size:10px; font-weight:700; pointer-events:none; }
+.language-control:has(option[value="vi"]:checked)::after { content:'VI'; }
+.language-control:has(option[value="en"]:checked)::after { content:'EN'; }
+.language-control:has(option[value="ja"]:checked)::after { content:'JA'; }
+.language-control:has(option[value="zh"]:checked)::after { content:'ZH'; }
+.language-control option { background:#fff; color:#0f172a; font-size:14px; }
+#sidebarCollapseBtn { flex:none; padding:0 7px; }
+.sidebar-collapsed #themeToggleBtn { flex:none; }
+.sidebar-collapsed .language-control { width:100%; }
+.sidebar-collapsed .language-control::after { display:none; }
+@media(max-width:1200px) {
+  #themeToggleBtn { flex:none; }
+  .language-control { width:100%; }
+  .language-control::after { display:none; }
+}
+@media(max-width:768px) {
+  .sidebar-footer { padding:6px 12px; }
+  .sidebar-server-status { display:none; }
+  .sidebar-action-row { flex-direction:row; justify-content:flex-end; }
+  #themeToggleBtn { flex:none; width:36px; }
+  .language-control { width:56px; }
+  .language-control::after { display:block; }
+  #sidebarCollapseBtn { display:none; }
+  body.inspection-active .sidebar-footer, body.dimension-ocr-active .sidebar-footer { display:flex; }
+  .sidebar-collapsed .app-sidebar { width:100%; min-width:100%; }
+}

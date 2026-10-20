@@ -30,6 +30,8 @@
   <link rel="stylesheet" href="css/tables.css?v=20261016_v3">
   <link rel="stylesheet" href="css/modals.css?v=20261016_v3">
 
+  <link rel="stylesheet" href="css/language.css?v=20261020-1">
+
   <!-- Tabler SVG Icons (Offline standalone library) -->
   <script src="js/icons.js?v=20261016_v3"></script>
 </head>
@@ -87,6 +89,10 @@
             <span id="themeToggleIcon"></span>
             <span class="btn-collapse-text" id="themeToggleText">Chế độ tối</span>
           </button>
+          <label class="language-control" title="Ngôn ngữ">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z"/></svg>
+            <select id="languageSelect" aria-label="Ngôn ngữ"><option value="vi">Tiếng Việt</option><option value="en">English</option><option value="ja">日本語</option><option value="zh">中文</option></select>
+          </label>
           <button type="button" class="sidebar-icon-btn" id="sidebarCollapseBtn" onclick="toggleSidebar()" title="Thu nhỏ / Mở rộng thanh bên">
             <span id="sidebarCollapseIcon"></span>
           </button>
@@ -548,6 +554,7 @@
   <script src="js/ui-modals.js?v=20261016_v3"></script>
   <script src="js/export-excel.js?v=20261016_v3"></script>
   <script src="js/heartbeat.js?v=20261016_v3"></script>
+  <script src="js/language.js?v=20261020-1"></script>
   <script src="js/app.js?v=20261016_v3"></script>
 </body>
 </html>
