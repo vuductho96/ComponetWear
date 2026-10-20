@@ -49,6 +49,16 @@ function Set-ExcelCellToleranceValue($sheet,$row,$column,$tolValue) {
     $cell.NumberFormat="+$pattern;-$pattern;0"
     Set-ComCellValue $cell ([double]$parsed)
 }
+function Format-AutoSampleDms([double]$value,[int]$precision=0) {
+    $sign=if($value -lt 0){'-'}else{''}
+    $total=[Math]::Round([Math]::Abs($value)*3600,$precision,[MidpointRounding]::AwayFromZero)
+    $degrees=[Math]::Floor($total/3600)
+    $minutes=[Math]::Floor(($total-$degrees*3600)/60)
+    $seconds=$total-$degrees*3600-$minutes*60
+    $pattern='00'+$(if($precision -gt 0){'.'+('0'*$precision)}else{''})
+    $secondText=$seconds.ToString($pattern,[Globalization.CultureInfo]::InvariantCulture)
+    return ('{0}{1}°{2:00}{3}{4}{5}' -f $sign,$degrees,$minutes,([string][char]0x2032),$secondText,([string][char]0x2033))
+}
 function Get-ExportMeasurementText($rowData,$absoluteSampleIndex,$variantSeed = '') {
     $n=Convert-MeasurementNumber $rowData.Nominal
     $a=Convert-MeasurementNumber $rowData.TolMinus
@@ -57,15 +67,18 @@ function Get-ExportMeasurementText($rowData,$absoluteSampleIndex,$variantSeed = 
     $lo=$n+[Math]::Min($a,$b);$hi=$n+[Math]::Max($a,$b)
     $candidate=$n+(Get-ExportMeasurementOffset $rowData $absoluteSampleIndex $variantSeed)
     $candidate=[Math]::Max($lo,[Math]::Min($hi,$candidate))
-    $decimals=Get-InspectionDisplayDecimalPlaces $rowData.Nominal $rowData.TolMinus $rowData.TolPlus
-    $formatted=Format-InspectionResultValueWithDecimals $candidate $rowData.Nominal $decimals
-    # Validate the final text, including the precision of the original exporter.
+    # Every angle, including degree-only Nominal, is exported as DMS text.
+    # Non-angular Actual remains a plain number with three decimal places.
+    $isAngle=[string]$rowData.Nominal -match '[°º]'
+    $formatted=if($isAngle){Format-AutoSampleDms $candidate}else{$candidate.ToString('0.000',[Globalization.CultureInfo]::InvariantCulture)}
+    # Validate the final text after formatting, not just the unrounded candidate.
     if ((Get-MeasurementResult $rowData.Nominal $rowData.TolMinus $rowData.TolPlus $formatted) -eq 'OK') { return $formatted }
     $mid=($lo+$hi)/2
-    for ($precision=3;$precision -le 12;$precision++) {
+    $start=if($isAngle){1}else{3}
+    $end=if($isAngle){9}else{12}
+    for ($precision=$start;$precision -le $end;$precision++) {
         $format='0.'+('0'*$precision)
-        $formatted=$mid.ToString($format,[Globalization.CultureInfo]::InvariantCulture)
-        if ([string]$rowData.Nominal -match '[°º]') { $formatted+='°' }
+        $formatted=if($isAngle){Format-AutoSampleDms $mid $precision}else{$mid.ToString($format,[Globalization.CultureInfo]::InvariantCulture)}
         if ((Get-MeasurementResult $rowData.Nominal $rowData.TolMinus $rowData.TolPlus $formatted) -eq 'OK') { return $formatted }
     }
     throw "Cannot represent generated sample within tolerance: step $($rowData.Step), sample $absoluteSampleIndex"
