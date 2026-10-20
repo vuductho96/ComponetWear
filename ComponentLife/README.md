@@ -8,9 +8,11 @@ Bộ xuất tự nhận diện Point/Điểm, Nominal, hai cột Tol -/+, Tool, 
 
 Báo cáo tiếp tục chia tối đa 40 point mỗi sheet, đặt tên theo point thực tế. Mẫu thiếu dòng đo được bổ sung đến 40; phần ngoại quan, ghi chú, chữ ký và vùng in dịch chuyển tương ứng. Nominal/Tol giữ định dạng nguồn; kết quả dạng số hiển thị 3 chữ số thập phân. Dòng có mẫu đo lặp chỉ in đậm Point/Nominal/Tol.
 
-## Dimension OCR · Beta
+## IQC · Kiểm tra kích thước
 
-Tab **Dimension OCR · Beta** phục vụ trực tiếp từ `dimension-ocr/` trên cùng Cloudflare Worker, không nhúng hoặc gọi Sites. Mã JavaScript, model YOLO/PP-OCR, thư viện PDF, WASM và font đều được lưu trong dự án; OCR chạy ở trình duyệt, không cần ChatGPT Premium, tài khoản OpenAI hoặc API key. Mở nhanh bằng `?tab=dimensionocr`. Công cụ chỉ khởi động khi mở tab, giữ bản vẽ khi chuyển tab, có toàn màn hình và mở riêng.
+Tab **IQC · Kiểm tra kích thước** phục vụ trực tiếp từ `dimension-ocr/` trên cùng Cloudflare Worker. Bản vẽ và phiếu kiểm tra được đặt cạnh nhau; thêm điểm bằng OCR hoặc bấm trực tiếp. Kéo bong bóng, đầu mũi tên và điểm gấp khúc để chỉnh đường dóng; chọn kích thước bong bóng, nét liền/nét đứt và độ dày. Mỗi điểm liên kết với dòng danh nghĩa/dung sai có thể sửa. Tải PNG có chú thích hoặc CSV các điểm đã chọn. Phiên làm việc chỉ giữ trong bộ nhớ trình duyệt, cần tải xuống trước khi làm mới trang.
+
+Mã JavaScript, model YOLO/PP-OCR, thư viện PDF, WASM và font đều được lưu trong dự án; OCR chạy ở trình duyệt, không cần tài khoản OpenAI hoặc API key. Mở nhanh bằng `?tab=dimensionocr`. Công cụ chỉ khởi động khi mở tab, giữ bản vẽ khi chuyển tab, có toàn màn hình và mở riêng.
 
 Người dùng chọn PDF/ảnh của mình để đọc, crop OCR và xuất CSV. Dữ liệu xử lý không được ghi vào thư mục đo hoặc Excel nguồn. Tab Đo linh kiện vẫn chỉ xem và không cung cấp PDF gốc. OCR Beta cần đối chiếu kết quả; các chức năng CAD/AI tùy chọn trong công cụ vẫn có yêu cầu riêng (ví dụ API key Gemini hoặc cầu nối CAD cục bộ), độc lập với OCR.
 

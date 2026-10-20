@@ -1,13 +1,13 @@
 'use strict';
 
-const dimensionOcrUrl = new URL('dimension-ocr/index.html', document.baseURI).href;
+const dimensionOcrUrl = new URL('dimension-ocr/index.html?v=20261020-iqc', document.baseURI).href;
 
 function initDimensionOcr() {
   const frame = document.getElementById('dimensionOcrFrame');
   if (!frame || frame.dataset.started) return;
   frame.dataset.started = 'true';
   const status = document.getElementById('dimensionOcrStatus');
-  status.hidden = false; status.textContent = 'Đang mở Dimension OCR…';
+  status.hidden = false; status.textContent = 'Đang mở bàn kiểm tra IQC…';
   frame.addEventListener('load', () => { status.hidden = true; });
   for (const [id, target] of [['dimensionOcrModeOcr', 'tab-ocr'], ['dimensionOcrModeCad', 'tab-cad']]) {
     document.getElementById(id).addEventListener('click', () => {
@@ -20,7 +20,7 @@ function initDimensionOcr() {
   }
   frame.addEventListener('error', () => {
     status.hidden = false;
-    status.textContent = 'Chưa mở được Dimension OCR. Kiểm tra kết nối hoặc chọn Mở riêng.';
+    status.textContent = 'Chưa mở được bàn kiểm tra IQC. Kiểm tra kết nối hoặc chọn Mở riêng.';
   });
   // Start only when requested. Keep the same frame across tabs to preserve the open drawing.
   frame.src = dimensionOcrUrl;

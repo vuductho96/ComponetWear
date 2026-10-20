@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="css/tables.css?v=20261016_v3">
   <link rel="stylesheet" href="css/modals.css?v=20261016_v3">
   <link rel="stylesheet" href="css/inspection.css?v=20261020-row-download">
-  <link rel="stylesheet" href="css/dimension-ocr.css?v=20261019-layout2">
+  <link rel="stylesheet" href="css/dimension-ocr.css?v=20261020-iqc">
 
   <link rel="stylesheet" href="css/language.css?v=20261020-1">
 
@@ -81,9 +81,9 @@
           <span class="tab-icon" aria-hidden="true">⌖</span>
           <span class="tab-label">Đo linh kiện</span>
         </div>
-        <button type="button" class="tab dimension-ocr-nav" data-tab="dimensionocr" title="Dimension OCR · Beta — nhận dạng kích thước bản vẽ">
+        <button type="button" class="tab dimension-ocr-nav" data-tab="dimensionocr" title="IQC · Kiểm tra kích thước và chú thích bản vẽ">
           <span class="tab-icon" aria-hidden="true">▧</span>
-          <span class="tab-label">Dimension OCR <span class="dimension-ocr-beta">Beta</span></span>
+          <span class="tab-label">Kiểm tra kích thước <span class="dimension-ocr-beta">IQC</span></span>
         </button>
       </nav>
 
@@ -162,17 +162,17 @@
       <div class="app-content">
         <!-- Status Toast Notification -->
         <div id="status" class="status" style="display:none;"></div>
-        <section id="dimensionOcrTab" class="hidden" aria-label="Dimension OCR Beta">
+        <section id="dimensionOcrTab" class="hidden" aria-label="IQC · Kiểm tra kích thước">
           <div id="dimensionOcrWorkspace" class="dimension-ocr-workspace">
             <div class="dimension-ocr-toolbar">
-              <div class="dimension-ocr-modes" role="group" aria-label="Chế độ OCR"><button id="dimensionOcrModeOcr" type="button" aria-pressed="true">OCR bản vẽ</button><button id="dimensionOcrModeCad" type="button" aria-pressed="false">2D → 3D</button></div><div class="dimension-ocr-caption">File chỉ trong trình duyệt · Refresh để xóa</div>
+              <div class="dimension-ocr-modes" role="group" aria-label="Chế độ OCR"><button id="dimensionOcrModeOcr" type="button" aria-pressed="true">Kiểm tra IQC</button><button id="dimensionOcrModeCad" type="button" aria-pressed="false">2D → 3D</button></div><div class="dimension-ocr-caption">Bản vẽ · Bong bóng · Phiếu kiểm tra</div>
               <div class="dimension-ocr-actions">
                 <button type="button" id="dimensionOcrFullscreen" onclick="toggleDimensionOcrFullscreen()">Toàn màn hình</button>
                 <a href="dimension-ocr/index.html" target="_blank" rel="noopener noreferrer">Mở riêng ↗</a>
               </div>
             </div>
-            <div id="dimensionOcrStatus" class="dimension-ocr-status" role="status">Mở tab để khởi động Dimension OCR.</div>
-            <iframe id="dimensionOcrFrame" title="DimensionOCR — công cụ nhận dạng kích thước Beta" referrerpolicy="no-referrer" allow="clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe>
+            <div id="dimensionOcrStatus" class="dimension-ocr-status" role="status">Mở tab để bắt đầu kiểm tra kích thước IQC.</div>
+            <iframe id="dimensionOcrFrame" title="IQC — kiểm tra kích thước và chú thích bản vẽ" referrerpolicy="no-referrer" allow="clipboard-read; clipboard-write; fullscreen" allowfullscreen></iframe>
           </div>
         </section>
         <section id="inspectionTab" class="hidden" aria-label="Đo linh kiện">
@@ -596,8 +596,8 @@
   <script src="js/heartbeat.js?v=20261016_v3"></script>
   <script src="js/inspection-report.js?v=20261020-auto-template"></script>
   <script src="js/inspection.js?v=20261020-ng-policy"></script>
-  <script src="js/dimension-ocr.js?v=20261019-layout2"></script>
-  <script src="js/language.js?v=20261020-template-report"></script>
-  <script src="js/app.js?v=20261019-ocr-beta"></script>
+  <script src="js/dimension-ocr.js?v=20261020-iqc"></script>
+  <script src="js/language.js?v=20261020-iqc"></script>
+  <script src="js/app.js?v=20261020-iqc"></script>
 </body>
 </html>

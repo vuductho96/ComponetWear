@@ -723,7 +723,7 @@ function switchTab(name) {
     else if (isDashboard) titleText = "Quản Lý Linh Kiện & Tuổi Thọ";
     else if (name === "chart") titleText = "Phân Tích & Biểu Đồ Tiêu Hao";
     else if (name === "inspection") titleText = "Đo linh kiện";
-    else if (name === "dimensionocr") titleText = "Dimension OCR · Beta";
+    else if (name === "dimensionocr") titleText = "IQC · Kiểm tra kích thước";
     $("topbarTitle").innerHTML = `<span>${titleText}</span>`;
   }
 

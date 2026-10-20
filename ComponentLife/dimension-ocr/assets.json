@@ -42,6 +42,8 @@
     "gemini-panel.js",
     "hybrid-cad-solver.js",
     "index.html",
+    "iqc.css",
+    "iqc-annotations.js",
     "inference.js",
     "models/detector-0.bin",
     "models/detector-1.bin",

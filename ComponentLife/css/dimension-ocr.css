@@ -1,4 +1,4 @@
-﻿.dimension-ocr-nav { border:0; font:inherit; width:100%; text-align:left; }
+.dimension-ocr-nav { border:0; font:inherit; width:100%; text-align:left; }
 .dimension-ocr-beta { display:inline-block; padding:2px 6px; border-radius:4px; background:#fff1c2; color:#8a5700; font-size:9px; line-height:1.4; font-weight:750; vertical-align:middle; white-space:nowrap; }
 .dimension-ocr-nav .dimension-ocr-beta { margin-left:3px; }
 body.dimension-ocr-active #btnImportExcel,body.dimension-ocr-active #btnClearJsonData,body.dimension-ocr-active #btnExportReport { display:none!important; }
@@ -33,3 +33,6 @@ body.dimension-ocr-active .app-content { padding:12px 16px; }
 #dimensionOcrFrame{height:calc(100dvh - 158px);min-height:480px}
 @media(max-width:1100px){.dimension-ocr-caption{display:none}.dimension-ocr-actions{margin-left:auto}}
 @media(max-width:600px){.dimension-ocr-toolbar{gap:6px;padding:6px 8px;flex-wrap:wrap}.dimension-ocr-modes button{padding:4px 8px}.dimension-ocr-actions button,.dimension-ocr-actions a{font-size:10px;padding:4px 6px}.dimension-ocr-actions{margin-left:auto}#dimensionOcrFrame{min-height:580px;height:calc(100dvh - 200px)}}
+
+/* IQC tool identity, shared with the drawing workbench. */
+.dimension-ocr-beta{background:#e9f1ff;color:#245ce8;border:1px solid #ccddfb;letter-spacing:.3px}.dimension-ocr-workspace{border-color:#dbe3ee;border-radius:5px}.dimension-ocr-toolbar{background:#f8fafc}.dimension-ocr-caption{color:#64748b}
