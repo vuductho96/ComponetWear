@@ -1,4 +1,4 @@
-param([string]$ProjectRoot = $PSScriptRoot)
+﻿param([string]$ProjectRoot = $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 $work = Join-Path $ProjectRoot '.cloud-publish'
 $null = New-Item -ItemType Directory -Path $work -Force

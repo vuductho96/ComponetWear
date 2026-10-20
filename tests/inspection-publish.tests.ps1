@@ -3,6 +3,12 @@ $project=Split-Path $PSScriptRoot -Parent
 $temp=Join-Path $env:TEMP ('inspection-publish-test-'+[Guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path (Join-Path $temp 'ComponentLife'),(Join-Path $temp '.cloud-publish') -Force
 function Assert($condition,$message) { if(-not $condition){throw $message};Write-Output "PASS: $message" }
+$entryScript=Join-Path $project 'Publish-Inspection-Web.ps1'
+$entryBytes=[IO.File]::ReadAllBytes($entryScript)
+Assert ($entryBytes.Length -ge 3 -and $entryBytes[0] -eq 239 -and $entryBytes[1] -eq 187 -and $entryBytes[2] -eq 191) 'Windows PowerShell entry script preserves its UTF-8 BOM'
+$parseTokens=$null; $parseErrors=$null
+$null=[Management.Automation.Language.Parser]::ParseFile($entryScript,[ref]$parseTokens,[ref]$parseErrors)
+Assert ($parseErrors.Count -eq 0) 'Manual publish entry script parses in Windows PowerShell'
 try {
 @'
 function Write-PublishJson($Path,$Value){[IO.File]::WriteAllText($Path,($Value|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
