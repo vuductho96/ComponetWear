@@ -303,7 +303,7 @@ function Extract-DimensionsFromWorksheet {
         $tolA = Convert-MeasureTextToNumber $tolLowText
         $tolB = Convert-MeasureTextToNumber $tolHighText
         $validLimits = $null -ne $nominal -and $null -ne $tolA -and $null -ne $tolB
-        $degreeComparison = $nominalText -match '[°º]' -and $nominalText -match '[''"′″]'
+        $degreeComparison = $nominalText -match '[°º]' -and ($nominalText -match '[''"′″]' -or ([string]::IsNullOrWhiteSpace($tolLowText) -and [string]::IsNullOrWhiteSpace($tolHighText)))
 
         $limitA = [double]$nominal + [double]$tolA
         $limitB = [double]$nominal + [double]$tolB

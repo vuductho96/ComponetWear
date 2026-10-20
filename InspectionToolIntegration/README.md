@@ -37,3 +37,5 @@ Rapid auto samples and Inspection Quick Fill share the same formatter and valida
 DMS evaluation follows the requested local rule: when Nominal includes degrees plus minutes/seconds, compare only the whole degree component using truncation toward zero. Matching degree components are OK regardless of minute/second differences or the tolerance cells. Different degree components or unparseable angles are NG. Degree-only and linear dimensions retain the normal signed tolerance check. Desktop scan, inline edits, web results and generated Excel formulas share this rule.
 
 PDF passwords are read privately from `.cloud-publish/inspection-download-password.txt` (or `COMPONENTLIFE_PDF_PASSWORD`), never added to public metadata, HTML, tooltips or browser scripts. Download preparation has a shared process lock; concurrent Publish runs wait instead of writing the same temporary file.
+
+Degree-only angles with both tolerance cells empty also compare whole degrees. Partially missing or invalid tolerances remain NG.

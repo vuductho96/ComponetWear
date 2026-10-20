@@ -20,7 +20,7 @@ function Get-MeasurementResult($nominalText,$tolMinusText,$tolPlusText,$actualTe
     $a=Convert-MeasurementNumber $tolMinusText
     $b=Convert-MeasurementNumber $tolPlusText
     $v=Convert-MeasurementNumber $actualText
-    if ([string]$nominalText -match '[°º]' -and [string]$nominalText -match '[''"′″]') {
+    if ([string]$nominalText -match '[°º]' -and ([string]$nominalText -match '[''"′″]' -or ([string]::IsNullOrWhiteSpace($tolMinusText) -and [string]::IsNullOrWhiteSpace($tolPlusText)))) {
         if ($null -eq $n -or $null -eq $v) { return 'NG' }
         return $(if([Math]::Truncate($n) -eq [Math]::Truncate($v)){'OK'}else{'NG'})
     }
@@ -40,7 +40,7 @@ function Set-ExcelInspectionJudgeFormula($sheet,$row,$nominalText) {
     $sheet.Cells.Item([int]$row,44).Formula="=IF(COUNT(AE${row}:AG${row})=3,AE${row}+MIN(AF${row}:AG${row}),`"`" )"
     $sheet.Cells.Item([int]$row,45).Formula="=IF(COUNT(AE${row}:AG${row})=3,AE${row}+MAX(AF${row}:AG${row}),`"`" )"
     $count="COLUMNS(F${row}:O${row})-COUNTBLANK(F${row}:O${row})"
-    $formula=$script:MeasurementFormulaSpec.result.Replace('@COUNT@',$count).Replace('@CLEAN@',"R$row").Replace('@N@',"AE$row").Replace('@B@',"AG$row").Replace('@ACTUALS@',"AH${row}:AQ${row}").Replace('@LO@',"AR$row").Replace('@HI@',"AS$row")
+    $formula=$script:MeasurementFormulaSpec.result.Replace('@IS_ANGLE@',$(if([string]$nominalText -match '[°º]'){'TRUE'}else{'FALSE'})).Replace('@EMPTY_TOL@',"AND(S${row}=`"`",T${row}=`"`")").Replace('@COUNT@',$count).Replace('@CLEAN@',"R$row").Replace('@N@',"AE$row").Replace('@B@',"AG$row").Replace('@ACTUALS@',"AH${row}:AQ${row}").Replace('@LO@',"AR$row").Replace('@HI@',"AS$row")
     $sheet.Cells.Item([int]$row,16).Formula='='+$formula
     $sheet.Range('R:AS').EntireColumn.Hidden=$true
 }

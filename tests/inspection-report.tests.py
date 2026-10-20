@@ -33,6 +33,11 @@ def cases():
         ['0°30\'', '-0.01', '+0.01', '0°29\'', 'OK'],
         ['0°30\'', '-0.01', '+0.01', '1°00\'', 'NG'],
         ['4°25\'12"', None, None, '4°00\'00"', 'OK'],
+        ['30°', None, None, '30.000', 'OK'],
+        ['30°', None, None, '31.000', 'NG'],
+        ['30°', None, None, 'broken', 'NG'],
+        ['30°', None, 0.1, '30.000', 'NG'],
+        ['30°', 'bad', 'bad', '30.000', 'NG'],
     ]
 
 
@@ -261,8 +266,9 @@ class ReportTests(unittest.TestCase):
                 inspection_report.read_source = original
             self.assertEqual(stats['rows'], len(cases()) * 4)
             self.assertEqual(stats['samples'], len(cases()) * 4)
-            self.assertEqual(stats['pages'], 2)
-            self.assertEqual(len(Package(output).sheets), 2)
+            expected_pages = (len(rows) + 39) // 40
+            self.assertEqual(stats['pages'], expected_pages)
+            self.assertEqual(len(Package(output).sheets), expected_pages)
 
     def test_sample_overflow_preserves_sample_labels(self):
         from inspection_report import read_source

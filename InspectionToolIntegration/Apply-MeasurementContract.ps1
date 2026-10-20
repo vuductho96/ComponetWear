@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$RapidPath,[Parameter(Mandatory=$true)][string]$ToolPath)
+﻿param([Parameter(Mandatory=$true)][string]$RapidPath,[Parameter(Mandatory=$true)][string]$ToolPath)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $python=Join-Path $root '.cloud-publish/python-runtime/Scripts/python.exe'
@@ -19,12 +19,18 @@ function Install-Functions([string]$path,$functions) {
         else{$text=$function.Extent.Text+"`r`n"+$text}
     }
     # Force old desktop scan entries to be checked again after rule changes.
-    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[345]\|','measurement-contract-v6|')
+    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[3456]\|','measurement-contract-v7|')
     if ($path -eq $RapidPath) {
         $text=$text.Replace('$cell.NumberFormat = "0.###""°"""','$cell.NumberFormat = $numFmt + ''"°"''')
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
     } else {
         $text=$text.Replace('$isNg = ($val -lt ($minL - $epsilon) -or $val -gt ($maxL + $epsilon))','$isNg = (Get-MeasurementResult $nomText $t1Text $t2Text $valText) -eq ''NG''')
+        $text=$text.Replace('if ($null -ne $nom -and $null -ne $t1 -and $null -ne $t2 -and $null -ne $val) {','if ($null -ne $nom -and $null -ne $val) {')
+        $limitsLine='$maxL = [Math]::Max($nom + $effT1, $nom + $effT2)'
+        if ($text -notmatch 'Blank tolerance has no numeric bounds') {
+            $text=$text.Replace($limitsLine,$limitsLine+"`r`n"+'        # Blank tolerance has no numeric bounds'+"`r`n"+'        if ($null -eq $t1 -or $null -eq $t2) { $minL=$null; $maxL=$null }')
+            $text=$text.Replace('("{0} ~ {1}" -f [Math]::Round($minL, 6), [Math]::Round($maxL, 6))','$(if ($null -ne $minL -and $null -ne $maxL) { "{0} ~ {1}" -f [Math]::Round($minL, 6), [Math]::Round($maxL, 6) } else { "" })')
+        }
         $deviationColumn='$gridDimensions.Columns[7].Name = "Deviation (Δ)"'
         if ($text -notmatch '\$gridDimensions\.Columns\[7\]\.DefaultCellStyle\.Format = ''0\.############''') {
             $text=$text.Replace($deviationColumn,$deviationColumn+"`r`n"+'$gridDimensions.Columns[7].DefaultCellStyle.Format = ''0.############'''+"`r`n"+'$gridDimensions.Columns[7].DefaultCellStyle.FormatProvider = [Globalization.CultureInfo]::InvariantCulture')

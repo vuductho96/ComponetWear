@@ -35,7 +35,7 @@
     const actual=row.slice(5).filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(numeric);
     if(!actual.length)return '';
     const [n,a,b]=row.slice(1,4).map(numeric);
-    if(/[°º]/.test(String(row[1]))&&/['"′″]/.test(String(row[1])))return n===null||actual.some(v=>v===null||Math.trunc(v)!==Math.trunc(n))?'NG':'OK';
+    if(/[°º]/.test(String(row[1])+(row.sourceFormats?.[1]||''))&&(/['"′″]/.test(String(row[1]))||row.slice(2,4).every(v=>v==null||String(v).trim()==='')))return n===null||actual.some(v=>v===null||Math.trunc(v)!==Math.trunc(n))?'NG':'OK';
     if([n,a,b,...actual].includes(null))return 'NG';
     const lo=n+Math.min(a,b),hi=n+Math.max(a,b);
     return actual.some(v=>v<lo-0.0000001||v>hi+0.0000001)?'NG':'OK';
@@ -266,7 +266,7 @@
         const sampleRange=col(columns[5])+r+':'+col(columns.at(-1))+r,count=`COLUMNS(${sampleRange})-COUNTBLANK(${sampleRange})`;
         const cleaned=col(helper)+r;
         const standard=`IF(OR(COUNT(${nr}:${br})<3,COUNT(${actuals})<>(${count})),"NG",IF(OR(MIN(${actuals})<${lo}-0.0000001,MAX(${actuals})>${hi}+0.0000001),"NG","OK"))`;
-        const dms=`AND(ISNUMBER(SEARCH("°",${cleaned})),ISNUMBER(SEARCH("'",${cleaned})))`;
+        const dms=`AND(OR(ISNUMBER(SEARCH("°",${cleaned})),${/[°º]/.test(String(values[1])+(values.sourceFormats?.[1]||''))?'TRUE':'FALSE'}),OR(ISNUMBER(SEARCH("'",${cleaned})),AND(${col(helper+1)+r}="",${col(helper+2)+r}="")))`;
         const degrees=`IF(OR(COUNT(${nr})<1,COUNT(${actuals})<>(${count})),"NG",IF(AND(TRUNC(MIN(${actuals}))=TRUNC(${nr}),TRUNC(MAX(${actuals}))=TRUNC(${nr})),"OK","NG"))`;
         put(col(remark)+r,result(values),`IF((${count})=0,"",IF(${dms},${degrees},${standard}))`);
         const repeated=values.slice(5).some((value,i)=>Number(String(page.samples[i]).replace(/^#/,''))>=2&&value!==null&&value!==undefined&&String(value).trim()!=='');
