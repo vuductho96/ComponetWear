@@ -39,3 +39,5 @@ DMS evaluation follows the requested local rule: when Nominal includes degrees p
 PDF passwords are read privately from `.cloud-publish/inspection-download-password.txt` (or `COMPONENTLIFE_PDF_PASSWORD`), never added to public metadata, HTML, tooltips or browser scripts. Download preparation has a shared process lock; concurrent Publish runs wait instead of writing the same temporary file.
 
 Degree-only angles with both tolerance cells empty also compare whole degrees. Partially missing or invalid tolerances remain NG.
+
+Inspection Tool additionally marks measured rows NG when the source Remark/Result cell contains a cached Excel error such as #VALUE! or #REF!, even when Actual passes. This source-formula policy is desktop-only and preserves the original workbook. Scan cache version: v8.

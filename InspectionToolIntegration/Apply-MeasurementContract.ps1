@@ -19,11 +19,13 @@ function Install-Functions([string]$path,$functions) {
         else{$text=$function.Extent.Text+"`r`n"+$text}
     }
     # Force old desktop scan entries to be checked again after rule changes.
-    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[3456]\|','measurement-contract-v7|')
+    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[34567]\|','measurement-contract-v8|')
     if ($path -eq $RapidPath) {
         $text=$text.Replace('$cell.NumberFormat = "0.###""°"""','$cell.NumberFormat = $numFmt + ''"°"''')
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
     } else {
+        # Only the desktop reader checks cached source formula errors; web uses its own regenerated formula.
+        $text=$text.Replace('[switch]$CheckFormulaErrors'+"`r`n",'[switch]$CheckFormulaErrors = $true'+"`r`n").Replace('[switch]$CheckFormulaErrors'+"`n",'[switch]$CheckFormulaErrors = $true'+"`n")
         $text=$text.Replace('$isNg = ($val -lt ($minL - $epsilon) -or $val -gt ($maxL + $epsilon))','$isNg = (Get-MeasurementResult $nomText $t1Text $t2Text $valText) -eq ''NG''')
         $text=$text.Replace('if ($null -ne $nom -and $null -ne $t1 -and $null -ne $t2 -and $null -ne $val) {','if ($null -ne $nom -and $null -ne $val) {')
         $limitsLine='$maxL = [Math]::Max($nom + $effT1, $nom + $effT2)'

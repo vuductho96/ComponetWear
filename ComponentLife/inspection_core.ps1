@@ -268,7 +268,8 @@ function Extract-DimensionsFromWorksheet {
         [string]$part,
         [string]$mold,
         [string]$dateMeasure,
-        [switch]$SummaryOnly
+        [switch]$SummaryOnly,
+        [switch]$CheckFormulaErrors
     )
 
     $result = New-Object 'System.Collections.Generic.List[object]'
@@ -290,6 +291,10 @@ function Extract-DimensionsFromWorksheet {
     }
     if (-not $sampleColumns.Count) { $sampleColumns = @(6..15 | ForEach-Object { [pscustomobject]@{Column=$_;Label=$_-5} }) }
 
+    $judgementColumn = 16
+    for ($col = 6; $col -le $endCol; $col++) {
+        if ($ws.Cells[$header,$col].Text -match '(?i)remark|result|judg|ghi ch[uú]|k[eế]t qu[aả]') { $judgementColumn=$col; break }
+    }
     for ($r = ($header + 1); $r -le $endRow; $r++) {
         $point = Safe-Text $ws.Cells[$r,1].Text
         $nominalText = Get-InspectionCellText $ws.Cells[$r,2]
@@ -299,6 +304,11 @@ function Extract-DimensionsFromWorksheet {
         if ([string]::IsNullOrWhiteSpace($point) -or [string]::IsNullOrWhiteSpace($nominalText)) { continue }
         if (-not ($point -match '^\d+')) { continue }
 
+        $formulaError = ''
+        if ($CheckFormulaErrors) {
+            $judgementText = Get-InspectionCellText $ws.Cells[$r,$judgementColumn]
+            if ($judgementText -match '^#(?:VALUE!|REF!|DIV/0!|N/A|NAME\?|NUM!|NULL!|SPILL!|CALC!)$') { $formulaError=$judgementText }
+        }
         $nominal = Convert-MeasureTextToNumber $nominalText
         $tolA = Convert-MeasureTextToNumber $tolLowText
         $tolB = Convert-MeasureTextToNumber $tolHighText
@@ -321,6 +331,7 @@ function Extract-DimensionsFromWorksheet {
             $epsilon = 0.0000001
             $isNg = (-not $valid) -or ($sampleValue -lt ($min - $epsilon) -or $sampleValue -gt ($max + $epsilon))
             if ($degreeComparison) { $isNg = $null -eq $nominal -or $null -eq $sample -or [Math]::Truncate($sampleValue) -ne [Math]::Truncate([double]$nominal) }
+            if ($formulaError) { $isNg = $true }
             if ($SummaryOnly) {
                 $sampleCount++
                 if ($isNg) { $ngTotal++ }
@@ -350,6 +361,7 @@ function Extract-DimensionsFromWorksheet {
                 NearestMargin = [Math]::Round($nearestMargin, 6)
                 Result        = if ($isNg) { "NG" } else { "OK" }
                 Path          = $path
+                FormulaError  = $formulaError
                 ExcelRow      = $r
                 ExcelCol      = $c
                 IsModified    = $false
