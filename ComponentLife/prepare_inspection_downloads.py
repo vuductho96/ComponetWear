@@ -7,10 +7,11 @@ from pathlib import Path
 import secrets
 import shutil
 import sys
+import time
 
 import pymupdf
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from inspection_report import ReportTemplate, configured_template
+from inspection_report import ReportTemplate, Package, configured_template
 _report_worker_template = None
 
 
@@ -22,8 +23,12 @@ def initialize_report_worker(template_path):
 def build_report_task(arguments):
     target, original_name, record, signature = arguments
     target = Path(target)
+    source = target / original_name
+    package = Package(source)
+    if not any(package.header(sheet) is not None for _, _, sheet in package.sheets):
+        raise ValueError('Cannot map this source workbook to the inspection template: ' + record['file'])
     temp = target / (record['id'] + '.report.tmp')
-    stats = _report_worker_template.build(target / original_name, record, temp)
+    stats = _report_worker_template.build(source, record, temp)
     name = digest(temp) + '.xlsx'
     temp.replace(target / name)
     return record['id'], {'signature': signature, 'name': name, **stats}
@@ -75,6 +80,42 @@ def encrypt_original(arguments):
 def prepare(root):
     root = Path(root).resolve()
     work = root / '.cloud-publish'
+    work.mkdir(exist_ok=True)
+    with (work / 'inspection-downloads.lock').open('a+b') as lock:
+        if lock.tell() == 0:
+            lock.write(b'0'); lock.flush()
+        deadline = time.monotonic() + 1200
+        notified = False
+        while True:
+            try:
+                lock.seek(0)
+                if os.name == 'nt':
+                    import msvcrt
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() > deadline:
+                    raise TimeoutError('Another download preparation is still running')
+                if not notified:
+                    print('Another download preparation is running; waiting for it to finish.', flush=True)
+                    notified = True
+                time.sleep(1)
+        try:
+            return _prepare_unlocked(root)
+        finally:
+            lock.seek(0)
+            if os.name == 'nt':
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _prepare_unlocked(root):
+    root = Path(root).resolve()
+    work = root / '.cloud-publish'
     target = root / 'ComponentLife/data/inspection/downloads'
     target.mkdir(parents=True, exist_ok=True)
     work.mkdir(exist_ok=True)
@@ -100,7 +141,7 @@ def prepare(root):
     if (root / 'inspection-report.config.json').exists():
         template_path = configured_template(root)
         report_template = ReportTemplate(template_path)
-        report_signature = [digest(template_path), digest(Path(__file__)), digest(Path(__file__).with_name('inspection_report.py'))]
+        report_signature = [digest(template_path), 'inspection-report-v1', digest(Path(__file__).with_name('inspection_report.py'))]
     result = {'schemaVersion': 1, 'excel': {}, 'pdf': {}}
     new_excel, new_pdf, new_reports = 0, 0, 0
     report_jobs = []
@@ -163,6 +204,13 @@ def prepare(root):
         if report_template:
             report_input = [output_name, *report_signature, record.get('part'), record.get('mold'), record.get('measuredDate')]
             report = report_cache.get(record['id'], {})
+            previous = report.get('signature', [])
+            # Migrate the initial cache format: report bytes depend on the template and report engine,
+            # not on unrelated publisher/locking code changes.
+            if (len(previous) == len(report_input) and previous[:2] == report_input[:2]
+                    and previous[3:] == report_input[3:] and isinstance(previous[2], str)
+                    and len(previous[2]) == 64 and all(c in '0123456789abcdef' for c in previous[2])):
+                report['signature'] = report_input
             if report.get('signature') != report_input or not (target / report.get('name', '')).is_file():
                 report_jobs.append((str(target), output_name, record, report_input))
             else:
