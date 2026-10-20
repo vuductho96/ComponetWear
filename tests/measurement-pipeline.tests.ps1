@@ -51,6 +51,7 @@ try {
             if($actual -ne $cases[$i][4]){throw "Browser/native Excel case $i expected $($cases[$i][4]), got $actual"}
         }
         Write-Output 'PASS browser report formulas recalculated in native Excel for all cases.'
+        if($book.Worksheets.Item(1).Range('B20').Text -ne '1°'){throw 'Browser report added a decimal point before degree sign'}
         if($book.Worksheets.Item(1).Range('C35').Text -ne '-0.05' -or $book.Worksheets.Item(1).Range('D35').Text -ne '+0.05' -or $book.Worksheets.Item(1).Range('F35').Text -ne '0.220'){throw 'Browser report changed precision'}
         if($book.Worksheets.Item(1).Range('B36').Text -ne '1.20' -or $book.Worksheets.Item(1).Range('C36').Text -ne '-0.050' -or $book.Worksheets.Item(1).Range('F36').Text -ne '1.200'){throw 'Original Nominal/tolerance formats were lost'}
     } else {
@@ -70,6 +71,7 @@ try {
             if($result -ne $case[4]){throw "Rapid UI case $i expected $($case[4]), got $result"}
         }
         $excel.CalculateFullRebuild()
+        if($sheet.Range('B14').Text -ne '1°'){throw 'Rapid export added a decimal point before degree sign'}
         if($sheet.Range('C29').Text -ne '-0.05' -or $sheet.Range('D29').Text -ne '+0.05' -or $sheet.Range('F29').Text -ne '0.220'){throw 'Rapid export changed precision'}
         for($i=0;$i -lt $cases.Count;$i++){
             $actual=[string]$sheet.Cells.Item(14+$i,16).Value2

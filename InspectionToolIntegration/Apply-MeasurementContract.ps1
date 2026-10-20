@@ -21,6 +21,7 @@ function Install-Functions([string]$path,$functions) {
     # Force old desktop scan entries to be checked again after rule changes.
     $text=$text.Replace('raw-cell-limits-v2|','measurement-contract-v4|').Replace('measurement-contract-v3|','measurement-contract-v4|')
     if ($path -eq $RapidPath) {
+        $text=$text.Replace('$cell.NumberFormat = "0.###""°"""','$cell.NumberFormat = $numFmt + ''"°"''')
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
     } else {
         $deviationColumn='$gridDimensions.Columns[7].Name = "Deviation (Δ)"'
