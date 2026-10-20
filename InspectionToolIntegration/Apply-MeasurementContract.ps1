@@ -23,7 +23,11 @@ function Install-Functions([string]$path,$functions) {
     if ($path -eq $RapidPath) {
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
     } else {
-        $text=$text.Replace('$ngCount = $stats.NgCount','$ngCount = $stats.NgCount; $unratedCount = $stats.UnratedCount')
+        $deviationColumn='$gridDimensions.Columns[7].Name = "Deviation (Δ)"'
+        if ($text -notmatch '\$gridDimensions\.Columns\[7\]\.DefaultCellStyle\.Format = ''0\.############''') {
+            $text=$text.Replace($deviationColumn,$deviationColumn+"`r`n"+'$gridDimensions.Columns[7].DefaultCellStyle.Format = ''0.############'''+"`r`n"+'$gridDimensions.Columns[7].DefaultCellStyle.FormatProvider = [Globalization.CultureInfo]::InvariantCulture')
+        }
+        $text=[regex]::Replace($text,'\$ngCount = \$stats\.NgCount(?:; \$unratedCount = \$stats\.UnratedCount)*','$ngCount = $stats.NgCount; $unratedCount = $stats.UnratedCount')
         $text=$text.Replace('elseif ($ngCount -gt 0) { "NG ($ngCount)" } else { "OK" }','elseif ($ngCount -gt 0) { "NG ($ngCount)" } elseif ($unratedCount -gt 0) { "UNRATED" } else { "OK" }')
     }
     $errors=$null
