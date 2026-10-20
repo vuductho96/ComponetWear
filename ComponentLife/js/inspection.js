@@ -330,7 +330,7 @@ function nextInspectionPointLocation() {
 }
 
 function inspectionEscape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function inspectionNumber(value) { return value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 6 }); }
+function inspectionNumber(value) { return value === null || value === undefined || value === '' ? '—' : Number.isFinite(Number(value)) ? Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 6 }) : inspectionEscape(value); }
 function inspectionBadge(quality) { return `<span class="inspection-badge ${quality.toLowerCase()}">${quality === 'PENDING' ? 'Chưa đo' : quality === 'UNRATED' ? 'Thiếu dung sai' : quality}</span>`; }
 
 async function renderInspectionTab() {

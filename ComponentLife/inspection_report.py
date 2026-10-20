@@ -38,7 +38,7 @@ def number(value):
     text = re.sub(r'PHI|[RCØΦϕ⌀\s]', '', text)
     try:
         if '°' in text:
-            match = re.fullmatch(r'([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)\')?(?:(\d+(?:\.\d+)?)")?', text)
+            match = re.fullmatch(r'([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)\'(?:(\d+(?:\.\d+)?)")?)?', text)
             if not match:
                 return None
             degrees, minutes, seconds = (Decimal(x or '0') for x in match.groups())
@@ -46,6 +46,8 @@ def number(value):
                 return None
             sign = -1 if text.startswith('-') else 1
             return sign * (abs(degrees) + minutes / 60 + seconds / 3600)
+        if not re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:E[+-]?\d+)?', text):
+            return None
         return Decimal(text)
     except InvalidOperation:
         return None
@@ -86,7 +88,8 @@ class Package:
             numeric = Decimal(value.text)
             style_index = int(cell.get('s', '0'))
             fmt = self.formats.get(self.styles[style_index].get('numFmtId'), '') if style_index < len(self.styles) else ''
-            return str(numeric) + '°' if re.search('[°º]', fmt) else numeric
+            prefix = re.match(r'^"([RCØΦ⌀])"', fmt)
+            return str(numeric) + '°' if re.search('[°º]', fmt) else prefix[1] + str(numeric) if prefix else numeric
         except InvalidOperation:
             return value.text
 
@@ -180,7 +183,11 @@ def numeric_formula(raw, cleaned):
     second = value(f'MID({cleaned},FIND("\'",{cleaned})+1,FIND(CHAR(34),{cleaned})-FIND("\'",{cleaned})-1)')
     minute = f'IF(ISNUMBER(SEARCH("\'",{cleaned})),{minute},0)'
     second = f'IF(ISNUMBER(SEARCH(CHAR(34),{cleaned})),{second},0)'
-    dms = f'IF(OR({minute}<0,{minute}>=60,{second}<0,{second}>=60),"",IF(LEFT({cleaned},1)="-",-1,1)*(ABS({deg})+{minute}/60+{second}/3600))'
+    degree_count = f'LEN({cleaned})-LEN(SUBSTITUTE({cleaned},"°",""))'
+    minute_count = f'LEN({cleaned})-LEN(SUBSTITUTE({cleaned},"\'",""))'
+    second_count = f'LEN({cleaned})-LEN(SUBSTITUTE({cleaned},CHAR(34),""))'
+    structure = f'AND(({degree_count})=1,IF(ISNUMBER(SEARCH(CHAR(34),{cleaned})),AND(({second_count})=1,({minute_count})=1,RIGHT({cleaned},1)=CHAR(34)),IF(ISNUMBER(SEARCH("\'",{cleaned})),AND(({minute_count})=1,RIGHT({cleaned},1)="\'"),RIGHT({cleaned},1)="°")))'
+    dms = f'IF(OR(NOT({structure}),{minute}<0,{minute}>=60,{second}<0,{second}>=60),"",IF(LEFT({cleaned},1)="-",-1,1)*(ABS({deg})+{minute}/60+{second}/3600))'
     return f'IF(ISNUMBER({raw}),{raw},IF({cleaned}="","",IFERROR(IF(ISNUMBER(SEARCH("°",{cleaned})),{dms},{value(cleaned)}),"")))'
 
 

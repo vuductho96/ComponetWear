@@ -22,7 +22,7 @@
     if(value===null||value===undefined||String(value).trim()==='')return null;
     let t=String(value).trim().toUpperCase().replaceAll(',','.').replace(/[′’]/g,"'").replace(/[″”]/g,'"').replaceAll("''",'"').replaceAll('º','°').replaceAll('−','-').replace(/PHI|[RCØΦϕ⌀\s]/g,'');
     if(t.includes('°')){
-      const match=t.match(/^([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)')?(?:(\d+(?:\.\d+)?)")?$/);
+      const match=t.match(/^([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)'(?:(\d+(?:\.\d+)?)")?)?$/);
       if(!match)return null;
       const [,d,m='0',s='0']=match;if(Number(m)>=60||Number(s)>=60)return null;
       return (t.startsWith('-')?-1:1)*(Math.abs(Number(d))+Number(m)/60+Number(s)/3600);
@@ -56,7 +56,8 @@
       if(t==='b')return v.textContent==='1'?'TRUE':'FALSE';
       if(v.textContent.trim()==='')return null;
       const n=Number(v.textContent),format=formats.get(sourceXfs[Number(cell.getAttribute('s')||0)]?.getAttribute('numFmtId'))||'';
-      return Number.isFinite(n)?(/[°º]/.test(format)?n+'°':n):v.textContent;
+      const prefix=format.match(/^"([RCØΦ⌀])"/);
+      return Number.isFinite(n)?(/[°º]/.test(format)?n+'°':prefix?prefix[1]+n:n):v.textContent;
     }
     const sheets=all(workbook,'sheet').map(node=>({node,path:path('xl/workbook.xml',targets.get(node.getAttributeNS(R,'id')))}));
     return {workbook,rels,strings,sheets,value};

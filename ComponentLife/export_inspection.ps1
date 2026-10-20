@@ -77,7 +77,7 @@ foreach ($file in $files) {
         if ($script:DimensionCache.ContainsKey($key)) {
             $dims = @($script:DimensionCache[$key] | ForEach-Object {
                 # Compact rows: no Windows paths or repeated part/mold metadata.
-                ,@($_.Point, $_.Nominal, $_.TolMinus, $_.TolPlus, $_.SampleNo, $_.NumericValue, $_.LowerLimit, $_.UpperLimit, $_.Deviation, $_.Result)
+                ,@($_.Point, $_.Nominal, $_.TolMinus, $_.TolPlus, $_.SampleNo, $(if ($_.Value -match '[°ºRCØΦ⌀]' -or $null -eq $_.NumericValue) { $_.Value } else { $_.NumericValue }), $_.LowerLimit, $_.UpperLimit, $_.Deviation, $_.Result)
             })
         }
         $script:DimensionCache.Clear()

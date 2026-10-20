@@ -160,8 +160,9 @@ function Read-InspectionFile {
                 if ($status -eq "ĐÃ ĐO") { break }
             }
 
-            if ($status -eq "ĐÃ ĐO") {
-                $fullDims = @(Extract-DimensionsFromWorksheet -ws $ws -path $file.FullName -part $part -mold $mold -dateMeasure $dateMeasure)
+            $fullDims = @($pkg.Workbook.Worksheets | Where-Object { $_.Dimension } | ForEach-Object { Extract-DimensionsFromWorksheet -ws $_ -path $file.FullName -part $part -mold $mold -dateMeasure $dateMeasure })
+            if ($fullDims.Count -gt 0) {
+                $status = 'ĐÃ ĐO'
                 $ngCount = @($fullDims | Where-Object { $_.Result -eq "NG" }).Count
                 $cKey = Get-DimensionCacheKey $file.FullName
                 if (-not [string]::IsNullOrWhiteSpace($cKey)) {
@@ -178,7 +179,7 @@ function Read-InspectionFile {
         if ($pkg) { $pkg.Dispose() }
     }
 
-    $quality = if ($status -ne "ĐÃ ĐO") { "" } elseif ($ngCount -gt 0) { "NG ($ngCount)" } else { "OK" }
+    $quality = if ($status -ne "ĐÃ ĐO") { "" } elseif ($ngCount -gt 0) { "NG ($ngCount)" } elseif (@($fullDims | Where-Object Result -eq 'UNRATED').Count -gt 0) { 'UNRATED' } else { "OK" }
     $info = Get-DateFromPath $file.FullName
     $lotKey = "$part|$mold|$($file.DirectoryName)"
 
@@ -210,12 +211,23 @@ function Convert-MeasureTextToNumber {
 
     $t = Safe-Text $text
     if ([string]::IsNullOrWhiteSpace($t)) { return $null }
-    $t = $t.Trim().Replace(',', '.')
-    $m = [regex]::Match($t, '[-+]?\d+(?:\.\d+)?')
-    if (-not $m.Success) { return $null }
-
+    $t = $t.Trim().ToUpperInvariant().Replace(',', '.').Replace('º','°').Replace('−','-').Replace([string][char]0x2032,"'").Replace([string][char]0x2019,"'").Replace([string][char]0x2033,'"').Replace([string][char]0x201D,'"').Replace("''",'"')
+    $t = $t -replace 'PHI|[RCØΦϕ⌀\s]', ''
+    if ($t.Contains('°')) {
+        $angle = [regex]::Match($t, '^([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)''(?:(\d+(?:\.\d+)?)")?)?$')
+        if (-not $angle.Success) { return $null }
+        $culture = [Globalization.CultureInfo]::InvariantCulture
+        $degree = [double]::Parse($angle.Groups[1].Value,$culture)
+        $minute = 0.0; $second = 0.0
+        if ($angle.Groups[2].Success) { $minute = [double]::Parse($angle.Groups[2].Value,$culture) }
+        if ($angle.Groups[3].Success) { $second = [double]::Parse($angle.Groups[3].Value,$culture) }
+        if ($minute -ge 60 -or $second -ge 60) { return $null }
+        $sign = if ($t.StartsWith('-')) { -1 } else { 1 }
+        return $sign * ([Math]::Abs($degree) + $minute / 60 + $second / 3600)
+    }
+    if ($t -notmatch '^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:E[+-]?\d+)?$') { return $null }
     $value = 0.0
-    if ([double]::TryParse($m.Value, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$value)) {
+    if ([double]::TryParse($t, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$value) -and -not [double]::IsInfinity($value) -and -not [double]::IsNaN($value)) {
         return $value
     }
     return $null
@@ -241,6 +253,7 @@ function Get-InspectionCellText {
     if ($value -is [double] -or $value -is [decimal] -or $value -is [float] -or $value -is [int] -or $value -is [long]) {
         $numericText = ([double]$value).ToString('0.###############', [Globalization.CultureInfo]::InvariantCulture)
         if ($Cell.Style.Numberformat.Format -match '[°º]') { return $numericText + '°' }
+        if ($Cell.Style.Numberformat.Format -match '^"([RCØΦ⌀])"') { return $Matches[1] + $numericText }
         return $numericText
     }
     return (Safe-Text $Cell.Text)
@@ -257,13 +270,25 @@ function Extract-DimensionsFromWorksheet {
     )
 
     $result = New-Object 'System.Collections.Generic.List[object]'
-    $sampleCount = 0; $ngTotal = 0
+    $sampleCount = 0; $ngTotal = 0; $unratedTotal = 0
     if (-not $ws -or -not $ws.Dimension) { return $result }
 
     $endRow = [Math]::Min($ws.Dimension.End.Row, 250)
-    $endCol = [Math]::Min($ws.Dimension.End.Column, 30)
+    $endCol = [Math]::Min($ws.Dimension.End.Column, 100)
+    $header = 0
+    for ($h = 1; $h -le [Math]::Min(60,$endRow); $h++) {
+        if ($ws.Cells[$h,1].Text -match '(?i)point' -and $ws.Cells[$h,2].Text -match '(?i)nominal') { $header = $h; break }
+    }
+    if (-not $header) { $header = 13 }
+    $sampleColumns = @()
+    for ($col = 6; $col -le $endCol; $col++) {
+        $label = (Get-InspectionCellText $ws.Cells[$header,$col]) -replace '^#',''
+        if ($label -match '^\d+$') { $sampleColumns += [pscustomobject]@{ Column=$col; Label=[int]$label } }
+        elseif (-not [string]::IsNullOrWhiteSpace($label)) { break }
+    }
+    if (-not $sampleColumns.Count) { $sampleColumns = @(6..15 | ForEach-Object { [pscustomobject]@{Column=$_;Label=$_-5} }) }
 
-    for ($r = 14; $r -le $endRow; $r++) {
+    for ($r = ($header + 1); $r -le $endRow; $r++) {
         $point = Safe-Text $ws.Cells[$r,1].Text
         $nominalText = Get-InspectionCellText $ws.Cells[$r,2]
         $tolLowText = Get-InspectionCellText $ws.Cells[$r,3]
@@ -275,25 +300,27 @@ function Extract-DimensionsFromWorksheet {
         $nominal = Convert-MeasureTextToNumber $nominalText
         $tolA = Convert-MeasureTextToNumber $tolLowText
         $tolB = Convert-MeasureTextToNumber $tolHighText
-        if ($null -eq $nominal -or $null -eq $tolA -or $null -eq $tolB) { continue }
+        $validLimits = $null -ne $nominal -and $null -ne $tolA -and $null -ne $tolB
 
         $limitA = [double]$nominal + [double]$tolA
         $limitB = [double]$nominal + [double]$tolB
         $min = [Math]::Min($limitA, $limitB)
         $max = [Math]::Max($limitA, $limitB)
 
-        for ($c = 6; $c -le [Math]::Min($endCol, 15); $c++) {
+        foreach ($sampleColumn in $sampleColumns) {
+            $c = $sampleColumn.Column
             $sampleText = Get-InspectionCellText $ws.Cells[$r,$c]
             if ([string]::IsNullOrWhiteSpace($sampleText)) { continue }
             $sample = Convert-MeasureTextToNumber $sampleText
-            if ($null -eq $sample) { continue }
+            $valid = $validLimits -and $null -ne $sample
 
             $sampleValue = [double]$sample
             $epsilon = 0.0000001
-            $isNg = ($sampleValue -lt ($min - $epsilon) -or $sampleValue -gt ($max + $epsilon))
+            $isNg = $valid -and ($sampleValue -lt ($min - $epsilon) -or $sampleValue -gt ($max + $epsilon))
             if ($SummaryOnly) {
                 $sampleCount++
                 if ($isNg) { $ngTotal++ }
+                if (-not $valid) { $unratedTotal++ }
                 continue
             }
             $deviation = $sampleValue - [double]$nominal
@@ -310,15 +337,15 @@ function Extract-DimensionsFromWorksheet {
                 Nominal       = $nominalText
                 TolMinus      = $tolLowText
                 TolPlus       = $tolHighText
-                SampleNo      = ($c - 5)
+                SampleNo      = $sampleColumn.Label
                 Value         = $sampleText
-                NumericValue  = [Math]::Round($sampleValue, 6)
-                LowerLimit    = [Math]::Round($min, 6)
-                UpperLimit    = [Math]::Round($max, 6)
-                Deviation     = [Math]::Round($deviation, 6)
+                NumericValue  = if ($null -ne $sample) { [double]$sample } else { $null }
+                LowerLimit    = if ($validLimits) { $min } else { $null }
+                UpperLimit    = if ($validLimits) { $max } else { $null }
+                Deviation     = if ($valid) { $deviation } else { $null }
                 AbsDeviation  = [Math]::Round([Math]::Abs($deviation), 6)
                 NearestMargin = [Math]::Round($nearestMargin, 6)
-                Result        = if ($isNg) { "NG" } else { "OK" }
+                Result        = if (-not $valid) { 'UNRATED' } elseif ($isNg) { "NG" } else { "OK" }
                 Path          = $path
                 ExcelRow      = $r
                 ExcelCol      = $c
@@ -326,6 +353,6 @@ function Extract-DimensionsFromWorksheet {
             })
         }
     }
-    if ($SummaryOnly) { return [PSCustomObject]@{ SampleCount = $sampleCount; NgCount = $ngTotal } }
+    if ($SummaryOnly) { return [PSCustomObject]@{ SampleCount = $sampleCount; NgCount = $ngTotal; UnratedCount = $unratedTotal } }
     return $result
 }
