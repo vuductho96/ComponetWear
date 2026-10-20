@@ -141,7 +141,7 @@ def read_source(path, record):
             sample_columns = [(c, c - 5) for c in range(6, 16)]
         rows = []
         for source_row in sorted({int(re.search(r'\d+', address)[0]) for address in cells}):
-            if source_row < header + 2:
+            if source_row <= header:
                 continue
             point = package.value(cells.get('A' + str(source_row)))
             nominal = package.value(cells.get('B' + str(source_row)))
@@ -209,6 +209,24 @@ class ReportTemplate:
         self.parts = dict(self.package.parts)
         self.styles = ET.fromstring(self.parts['xl/styles.xml'])
         self.style_cache = {}
+
+    def browser_spec(self, url):
+        cells = self.package.cells(self.xml)
+        labels = {'parts name': ('part', 3), 'mold name': ('mold', 7), 'date/': ('date', 13),
+                  'department/': ('department', 13), 'materia': ('material', 3), 'hrc': ('hrc', 7), 'qty/': ('quantity', 13)}
+        targets = {}
+        for address, cell in cells.items():
+            text = normalized(self.package.value(cell))
+            match = next((v for key, v in labels.items() if text.startswith(key)), None)
+            if match:
+                field, col = match
+                targets[field] = column(col) + re.search(r'\d+', address)[0]
+        raw_columns = ['B', 'C', 'D'] + [column(c) for c in range(6, 16)]
+        judgement = next(address for address, cell in cells.items() if cell.find(TAG('f')) is not None and 'COUNTIF(P' in (cell.find(TAG('f')).text or ''))
+        return {'schemaVersion': 1, 'url': url, 'header': self.header, 'first': self.first, 'last': self.last,
+                'targets': targets, 'judgement': judgement,
+                'cleanFormulas': [clean_formula(col + '@ROW@') for col in raw_columns],
+                'numberFormulas': [numeric_formula(col + '@ROW@', column(18 + i) + '@ROW@') for i, col in enumerate(raw_columns)]}
 
     def numeric_style(self, base, code):
         key = (base, code)

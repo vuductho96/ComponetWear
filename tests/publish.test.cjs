@@ -88,21 +88,27 @@ test('publisher snapshots, failure handling, verification and lock', async t => 
     const directory = path.join(f.app, 'data/inspection/downloads'); fs.mkdirSync(directory);
     const pdf = 'data/inspection/downloads/' + 'a'.repeat(64) + '.pdf';
     const excel = 'data/inspection/downloads/' + 'b'.repeat(64) + '.xlsm';
+    const template = 'data/inspection/downloads/' + 'c'.repeat(64) + '.xlsx';
     fs.writeFileSync(path.join(f.app, pdf), 'encrypted PDF fixture');
     fs.writeFileSync(path.join(f.app, excel), 'original workbook fixture');
+    fs.writeFileSync(path.join(f.app, template), 'report template fixture');
     fs.writeFileSync(path.join(directory, 'unlisted.pdf'), 'private source');
     const index = path.join(f.app, 'data/inspection/downloads.json');
-    const value = { schemaVersion:1, excel:{record:{url:excel}}, pdf:{drawing:{url:pdf}} };
+    const value = { schemaVersion:1, excel:{record:{url:excel}}, pdf:{drawing:{url:pdf}}, reportTemplate:{schemaVersion:1,url:template} };
     try {
       fs.writeFileSync(index, JSON.stringify(value));
       const result = await run(f.root, ['-BuildOnly'], f.env);
       assert.equal(result.code, 0, result.output);
       assert.ok(manifest().files.some(entry => entry.startsWith(pdf + '=')));
       assert.ok(manifest().files.some(entry => entry.startsWith(excel + '=')));
+      assert.ok(manifest().files.some(entry => entry.startsWith(template + '=')));
       assert.ok(!manifest().files.some(entry => entry.includes('unlisted.pdf')));
       value.pdfPassword = 'must-not-be-public'; fs.writeFileSync(index, JSON.stringify(value));
       assert.equal((await run(f.root, ['-BuildOnly'], f.env)).code, 1);
       delete value.pdfPassword;
+      value.reportTemplate.url = '../private.xlsx'; fs.writeFileSync(index, JSON.stringify(value));
+      assert.equal((await run(f.root, ['-BuildOnly'], f.env)).code, 1);
+      value.reportTemplate.url = template;
       value.pdf.drawing.url = '../private.ps1'; fs.writeFileSync(index, JSON.stringify(value));
       assert.equal((await run(f.root, ['-BuildOnly'], f.env)).code, 1);
     } finally { fs.unlinkSync(index); }

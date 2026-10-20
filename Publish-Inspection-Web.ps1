@@ -47,7 +47,7 @@ try {
     }
     $downloadBuilder = Join-Path $ProjectRoot 'ComponentLife/prepare_inspection_downloads.ps1'
     if (Test-Path -LiteralPath $downloadBuilder) {
-        Set-ManualPublishState 'running' 'downloads' 'Đang tạo Excel theo mẫu và chuẩn bị PDF…'
+        Set-ManualPublishState 'running' 'downloads' 'Đang đồng bộ Excel gốc, template và PDF…'
         if ((Invoke-ManualPublishStep $downloadBuilder) -ne 0) { throw 'Chuẩn bị file gốc để tải về thất bại.' }
     }
     Set-ManualPublishState 'running' 'checking' 'Đang kiểm tra nội dung cần cập nhật…'

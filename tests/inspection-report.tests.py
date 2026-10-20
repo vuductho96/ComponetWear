@@ -166,7 +166,9 @@ class ReportTests(unittest.TestCase):
             with ZipFile(root / 'template.xlsx', 'w') as archive:
                 for name, payload in old.parts.items(): archive.writestr(name, payload)
             second = downloads.prepare(root)
-            self.assertNotEqual(first['excel'][record['id']]['url'], second['excel'][record['id']]['url'])
+            self.assertEqual(first['excel'][record['id']]['url'], second['excel'][record['id']]['url'])
+            self.assertNotEqual(first['reportTemplate']['url'], second['reportTemplate']['url'])
+            self.assertEqual((root / 'ComponentLife' / first['excel'][record['id']]['url']).read_bytes(), source.read_bytes())
 
 
 if __name__ == '__main__':
@@ -175,7 +177,7 @@ if __name__ == '__main__':
         target.mkdir(exist_ok=True)
         template, source, rows = fixture(target)
         template.build(source, {}, target / 'report.xlsx')
-        (target / 'expected.json').write_text(json.dumps({'first': template.first, 'cases': cases()}, ensure_ascii=False), encoding='utf-8')
+        (target / 'expected.json').write_text(json.dumps({'first': template.first, 'cases': cases(), 'spec': template.browser_spec('fixture-template.xlsx'), 'template': str(configured_template(ROOT))}, ensure_ascii=False), encoding='utf-8')
         print('Native formula fixture ready')
     else:
         unittest.main()

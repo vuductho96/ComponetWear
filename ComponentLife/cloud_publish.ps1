@@ -27,6 +27,10 @@ function Get-PublicAssetFiles([string]$SourceRoot) {
         $downloads = Get-Content -LiteralPath $downloadsPath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($downloads.schemaVersion -ne 1 -or $downloads.PSObject.Properties.Name -contains 'pdfPassword') { throw 'Invalid inspection download index.' }
         $files += 'data/inspection/downloads.json'
+        if ($downloads.reportTemplate) {
+            if ($downloads.reportTemplate.schemaVersion -ne 1 -or $downloads.reportTemplate.url -notmatch '^data/inspection/downloads/[a-f0-9]{64}\.xlsx$') { throw 'Invalid inspection report template.' }
+            $files += [string]$downloads.reportTemplate.url
+        }
         foreach ($kind in @('excel','pdf')) {
             foreach ($entry in $downloads.$kind.PSObject.Properties) {
                 $url = [string]$entry.Value.url

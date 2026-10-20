@@ -5,22 +5,38 @@ let inspectionPreview = null, inspectionPreviewPage = 1, inspectionPreviewZoom =
 let inspectionPointFocus = null, inspectionPointRequest = 0;
 const inspectionPointMaps = new Map();
 let inspectionDownloadIndex = null;
+const inspectionTemplateCache = new Map();
+async function inspectionExcelReport(index, record) {
+  const entry = index.excel?.[record.id], spec = index.reportTemplate;
+  if (!entry || !/^data\/inspection\/downloads\/[a-f0-9]{64}\.(xlsx|xlsm)$/.test(entry.url)) throw Error('Chưa có dữ liệu Excel gốc.');
+  if (!spec || !/^data\/inspection\/downloads\/[a-f0-9]{64}\.xlsx$/.test(spec.url) || !window.InspectionReports) throw Error('Chưa đồng bộ template. Vui lòng Publish lại.');
+  async function fetchBytes(url) { const response = await fetch(url, { cache:'force-cache' }); if (!response.ok) throw Error('Không tải được dữ liệu tạo báo cáo.'); return response.arrayBuffer(); }
+  if (!inspectionTemplateCache.has(spec.url)) inspectionTemplateCache.set(spec.url, fetchBytes(spec.url).catch(error => { inspectionTemplateCache.delete(spec.url); throw error; }));
+  const [source, template] = await Promise.all([fetchBytes(entry.url), inspectionTemplateCache.get(spec.url)]);
+  return InspectionReports.build(source, template, spec, record);
+}
+function inspectionSaveBlob(blob, name) {
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = name; document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 async function downloadInspectionOriginal(kind, recordId = null) {
   const record = recordId ? inspectionState.summary?.records.find(item => item.id === recordId) : inspectionState.selected;
   if (!record) return;
+  const button = recordId ? null : document.querySelector(`.inspection-original-download[onclick*="'${kind}'"]`);
+  if (button?.disabled) return;
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
   try {
-    // Read the current index on each download so a republished original is picked up.
     const response = await fetch('data/inspection/downloads.json', { cache:'no-store' });
-    if (!response.ok) throw Error('Chưa đồng bộ file gốc. Vui lòng thử lại sau khi Publish.');
-    inspectionDownloadIndex = await response.json();
-    const drawing = inspectionPreview || record.drawings[0];
-    const entry = kind === 'excel' ? inspectionDownloadIndex.excel?.[record.id] : inspectionDownloadIndex.pdf?.[drawing?.id];
-    const pattern = kind === 'excel' ? /^data\/inspection\/downloads\/[a-f0-9]{64}\.(xlsx|xlsm)$/ : /^data\/inspection\/downloads\/[a-f0-9]{64}\.pdf$/;
-    if (!entry || !pattern.test(entry.url)) throw Error('Chưa có file gốc cho hồ sơ này.');
-    const link = document.createElement('a');
-    link.href = entry.url; link.download = kind === 'excel' ? entry.name : drawing.name;
+    if (!response.ok) throw Error('Chưa đồng bộ file tải xuống. Vui lòng thử lại sau khi Publish.');
+    const index = await response.json();
+    if (kind === 'excel') { const report = await inspectionExcelReport(index, record); inspectionSaveBlob(report.blob, report.name); return; }
+    const drawing = inspectionPreview || record.drawings[0], entry = index.pdf?.[drawing?.id];
+    if (!entry || !/^data\/inspection\/downloads\/[a-f0-9]{64}\.pdf$/.test(entry.url)) throw Error('Chưa có bản vẽ gốc.');
+    const link = document.createElement('a'); link.href = entry.url; link.download = drawing.name;
     document.body.append(link); link.click(); link.remove();
   } catch (error) { msg(inspectionEscape(error.message), true); }
+  finally { if (button) { button.disabled = false; button.removeAttribute('aria-busy'); } }
 }
 async function downloadInspectionPackage(recordId) {
   const record = inspectionState.summary?.records.find(item => item.id === recordId);
@@ -29,29 +45,22 @@ async function downloadInspectionPackage(recordId) {
   try {
     if (typeof JSZip === 'undefined') throw Error('Chưa tải được thư viện ZIP. Vui lòng tải lại trang.');
     const response = await fetch('data/inspection/downloads.json', { cache:'no-store' });
-    if (!response.ok) throw Error('Chưa đồng bộ file gốc. Vui lòng thử lại sau khi Publish.');
-    const index = await response.json();
-    const files = [{ entry:index.excel?.[record.id], name:index.excel?.[record.id]?.name, extension:'excel' },
-      ...record.drawings.map(drawing => ({ entry:index.pdf?.[drawing.id], name:drawing.name, extension:'pdf' }))];
-    const zip = new JSZip(), used = new Set();
-    const names = files.map(file => {
-      const name = String(file.name).replace(/[\\/]/g,'_');
-      let unique = name, number = 2;
+    if (!response.ok) throw Error('Chưa đồng bộ file tải xuống.');
+    const index = await response.json(), report = await inspectionExcelReport(index, record);
+    const zip = new JSZip(), used = new Set([report.name]);
+    zip.file(report.name, await report.blob.arrayBuffer(), { compression:'STORE' });
+    const files = record.drawings.map(drawing => {
+      let name = String(drawing.name).replace(/[\\/]/g, '_'), unique = name, number = 2;
       while (used.has(unique)) unique = name.replace(/(\.[^.]+)$/, ` (${number++})$1`);
-      used.add(unique); return unique;
+      used.add(unique); return { name:unique, entry:index.pdf?.[drawing.id] };
     });
-    await Promise.all(files.map(async (file, position) => {
-      const pattern = file.extension === 'excel' ? /^data\/inspection\/downloads\/[a-f0-9]{64}\.(xlsx|xlsm)$/ : /^data\/inspection\/downloads\/[a-f0-9]{64}\.pdf$/;
-      if (!file.entry || !pattern.test(file.entry.url)) throw Error('Chưa có đủ file gốc cho hồ sơ này.');
+    await Promise.all(files.map(async file => {
+      if (!file.entry || !/^data\/inspection\/downloads\/[a-f0-9]{64}\.pdf$/.test(file.entry.url)) throw Error('Chưa có đủ PDF gốc cho hồ sơ này.');
       const result = await fetch(file.entry.url, { cache:'force-cache' });
-      if (!result.ok) throw Error('Không tải được file gốc. Vui lòng thử lại.');
-      zip.file(names[position], await result.arrayBuffer(), { compression:'STORE' });
+      if (!result.ok) throw Error('Không tải được bản vẽ gốc.');
+      zip.file(file.name, await result.arrayBuffer(), { compression:'STORE' });
     }));
-    const blob = await zip.generateAsync({ type:'blob', compression:'STORE' });
-    const url = URL.createObjectURL(blob), link = document.createElement('a');
-    link.href = url; link.download = record.file.replace(/\.(xlsx|xlsm)$/i,'') + '.zip';
-    document.body.append(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(url),60000);
+    inspectionSaveBlob(await zip.generateAsync({ type:'blob', compression:'STORE' }), report.name.replace(/\.xlsx$/i, '') + '.zip');
   } catch (error) { msg(inspectionEscape(error.message), true); }
 }
 const inspectionColumns = [

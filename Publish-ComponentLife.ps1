@@ -40,7 +40,8 @@ try {
         $resolvedArchive = [IO.Path]::GetFullPath($archive)
         $resolvedWork = [IO.Path]::GetFullPath($work).TrimEnd('\') + '\'
         if (-not $resolvedArchive.StartsWith($resolvedWork, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe staging cleanup path.' }
-        Remove-Item -LiteralPath $resolvedArchive -Recurse -Force
+        # Retire the previous stage immediately. Large NTFS trees can take minutes
+        # to delete; clean them in the background only after cloud verification.
     }
     $null = New-Item -ItemType Directory -Path $assets -Force
     foreach ($relative in (Get-PublicAssetFiles $source)) {
@@ -103,6 +104,19 @@ try {
     Write-PublishJson (Join-Path $work 'status.json') ([pscustomobject]@{ status = 'success'; snapshotId = $manifest.snapshotId; updatedAt = [DateTime]::UtcNow.ToString('o') })
     Add-Content -LiteralPath $log -Value "VERIFIED: $($manifest.snapshotId)"
     Write-Output "Cloud verified: $($manifest.snapshotId)"
+    $cleanup = Join-Path $ProjectRoot 'Cleanup-ComponentLifeStage.ps1'
+    if (Test-Path -LiteralPath $cleanup) {
+        try {
+            $cleanupInfo = New-Object Diagnostics.ProcessStartInfo
+            $cleanupInfo.FileName = 'powershell.exe'
+            $cleanupInfo.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $cleanup + '" -ProjectRoot "' + $ProjectRoot + '"'
+            $cleanupInfo.WorkingDirectory = $ProjectRoot
+            $cleanupInfo.UseShellExecute = $false
+            $cleanupInfo.CreateNoWindow = $true
+            $cleanupProcess = [Diagnostics.Process]::Start($cleanupInfo)
+            $cleanupProcess.Dispose()
+        } catch { Add-Content -LiteralPath $log -Value 'Stage cleanup deferred until the next successful publish.' }
+    }
 } catch {
     if ($lock) {
         Add-Content -LiteralPath (Join-Path $work 'publish.log') -Value "FAILED: $_"
