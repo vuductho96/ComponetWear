@@ -122,6 +122,19 @@
       const xf=xfs.children[Number(base)].cloneNode(true);xf.setAttribute('numFmtId',id);xf.setAttribute('applyNumberFormat','1');
       const index=xfs.children.length;xfs.append(xf);xfs.setAttribute('count',xfs.children.length);formatCache.set(key,index);return index;
     }
+    const fonts=one(styles,'fonts'),emphasisCache=new Map(),fontCache=new Map();
+    function emphasis(base,bold){
+      const key=base+'|'+bold;if(emphasisCache.has(key))return emphasisCache.get(key);
+      const xf=xfs.children[Number(base)].cloneNode(true),fontId=Number(xf.getAttribute('fontId')||0),fontKey=fontId+'|'+bold;
+      if(!fontCache.has(fontKey)){
+        const font=fonts.children[fontId].cloneNode(true);
+        for(const b of all(font,'b'))b.remove();
+        if(bold)font.append(el(styles,'b'));
+        fontCache.set(fontKey,fonts.children.length);fonts.append(font);fonts.setAttribute('count',fonts.children.length);
+      }
+      xf.setAttribute('fontId',fontCache.get(fontKey));xf.setAttribute('applyFont','1');
+      const index=xfs.children.length;xfs.append(xf);xfs.setAttribute('count',xfs.children.length);emphasisCache.set(key,index);return index;
+    }
     const types=xml(await text(zip,'[Content_Types].xml')),sheets=one(pkg.workbook,'sheets');sheets.replaceChildren();
     for(const rel of all(pkg.rels,'Relationship',P))if(['/worksheet','/calcChain'].some(s=>rel.getAttribute('Type').endsWith(s)))rel.remove();
     for(const item of all(types,'Override',C))if(item.getAttribute('PartName').startsWith('/xl/worksheets/')||item.getAttribute('PartName')==='/xl/calcChain.xml')item.remove();
@@ -158,6 +171,10 @@
         put(hi,valid?n+Math.max(a,b):'',`IF(COUNT(AE${r}:AG${r})=3,AE${r}+MAX(AF${r}:AG${r}),"")`,'0.###############');
         const count=`COLUMNS(F${r}:O${r})-COUNTBLANK(F${r}:O${r})`;
         put('P'+r,result(values),`IF((${count})=0,"",IF(OR(COUNT(AE${r}:AG${r})<3,COUNT(AH${r}:AQ${r})<>(${count})),"UNRATED",IF(OR(MIN(AH${r}:AQ${r})<${lo}-0.0000001,MAX(AH${r}:AQ${r})>${hi}+0.0000001),"NG","OK")))`);
+        const repeated=values.slice(5).some((value,i)=>Number(String(page.samples[i]).replace(/^#/,''))>=2&&value!==null&&value!==undefined&&String(value).trim()!=='');
+        for(let c=1;c<=16;c++){
+          const cell=cells.get(col(c)+r);if(cell)cell.setAttribute('s',emphasis(cell.getAttribute('s')||'0',repeated));
+        }
       }
       ['Nominal','Tolerance 1','Tolerance 2',...page.samples.map(n=>'Sample '+(n??''))].forEach((label,i)=>put(col(31+i)+spec.header,label));
       const counts=status=>names.map(name=>`COUNTIF('${name}'!P${spec.first}:P${spec.last},"${status}")`).join('+');

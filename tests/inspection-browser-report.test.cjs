@@ -25,7 +25,10 @@ test('browser conversion preserves template and recalculates source updates with
         const doc=new DOMParser().parseFromString(xml,'application/xml');
         const cell=address=>Array.from(doc.getElementsByTagNameNS('*','c')).find(c=>c.getAttribute('r')===address);
         const value=address=>{const node=cell(address);return node?.getElementsByTagNameNS('*','v')[0]?.textContent??node?.getElementsByTagNameNS('*','t')[0]?.textContent??'';};
-        return {zip,values:expected.cases.map((_,i)=>value('P'+(expected.first+i))),judgement:value(expected.spec.judgement),sample:value('F'+expected.spec.header),nominals:expected.cases.map((_,i)=>value('B'+(expected.first+i)))};
+        const styles=new DOMParser().parseFromString(await zip.file('xl/styles.xml').async('string'),'application/xml');
+        const xfs=styles.getElementsByTagNameNS('*','cellXfs')[0],fonts=styles.getElementsByTagNameNS('*','fonts')[0];
+        const bold=address=>{const xf=xfs.children[Number(cell(address).getAttribute('s')||0)],font=fonts.children[Number(xf.getAttribute('fontId')||0)];return font.getElementsByTagNameNS('*','b').length>0;};
+        return {zip,bold:Array.from({length:16},(_,i)=>bold(String.fromCharCode(65+i)+expected.first)),values:expected.cases.map((_,i)=>value('P'+(expected.first+i))),judgement:value(expected.spec.judgement),sample:value('F'+expected.spec.header),nominals:expected.cases.map((_,i)=>value('B'+(expected.first+i)))};
       };
       const report=await make(sourceBytes),initial=await read(report);
       const templateZip=await JSZip.loadAsync(templateBytes);let preserved=0;
@@ -48,9 +51,13 @@ test('browser conversion preserves template and recalculates source updates with
       }
       sourceZip.file('xl/worksheets/sheet1.xml',new XMLSerializer().serializeToString(sourceDoc));
       const oneRow=await read(await make(await sourceZip.generateAsync({type:'uint8array'})));
-      return {name:report.name,values:initial.values,sample:initial.sample,nominals:initial.nominals,preserved,good:[good.values[0],good.judgement],bad:[bad.values[0],bad.judgement],oneRow:oneRow.values[0],file:Array.from(new Uint8Array(await report.blob.arrayBuffer()))};
+      const sampleCell=cells.find(c=>c.getAttribute('r')==='F'+expected.spec.header);sampleCell.replaceChildren();sampleCell.removeAttribute('t');const sampleValue=sourceDoc.createElementNS(M,'v');sampleValue.textContent='1';sampleCell.append(sampleValue);
+      sourceZip.file('xl/worksheets/sheet1.xml',new XMLSerializer().serializeToString(sourceDoc));
+      const single=await read(await make(await sourceZip.generateAsync({type:'uint8array'})));
+      return {repeatedBold:initial.bold,singleBold:single.bold,name:report.name,values:initial.values,sample:initial.sample,nominals:initial.nominals,preserved,good:[good.values[0],good.judgement],bad:[bad.values[0],bad.judgement],oneRow:oneRow.values[0],file:Array.from(new Uint8Array(await report.blob.arrayBuffer()))};
     },{source:fs.readFileSync(path.join(fixture,'source.xlsx')).toString('base64'),template:fs.readFileSync(expected.template).toString('base64'),expected});
     assert.equal(outcome.name,'source.xlsx');
+    assert.ok(outcome.repeatedBold.every(Boolean));assert.ok(outcome.singleBold.every(b=>!b));
     assert.deepEqual(outcome.values,expected.cases.map(c=>c[4]));
     assert.equal(outcome.sample,'11');assert.ok(outcome.preserved>=11);
     assert.ok(outcome.nominals.every(n=>!/phi/i.test(n)));

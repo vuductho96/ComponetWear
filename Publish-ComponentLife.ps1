@@ -36,7 +36,12 @@ try {
     # Fixed allowlist, with a fresh staging folder each run. No source-folder upload.
     if (Test-Path -LiteralPath $assets) {
         $archive = Join-Path $work ('previous-' + [Guid]::NewGuid().ToString('N'))
-        Move-Item -LiteralPath $assets -Destination $archive
+        try { [IO.Directory]::Move($assets, $archive) }
+        catch {
+            # A viewer or scanner can hold the directory without delete-sharing.
+            # Build a separate snapshot rather than touching the locked tree.
+            $assets = Join-Path $work ('stage-' + [Guid]::NewGuid().ToString('N'))
+        }
         $resolvedArchive = [IO.Path]::GetFullPath($archive)
         $resolvedWork = [IO.Path]::GetFullPath($work).TrimEnd('\') + '\'
         if (-not $resolvedArchive.StartsWith($resolvedWork, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe staging cleanup path.' }
@@ -68,6 +73,9 @@ try {
     $info.FileName = 'cmd.exe'
     $info.WorkingDirectory = $ProjectRoot
     $info.Arguments = '/d /s /c "npx --yes wrangler@4.86.0 deploy --config wrangler.jsonc"'
+    if ($assets -ne (Join-Path $work 'assets')) {
+        $info.Arguments = '/d /s /c "npx --yes wrangler@4.86.0 deploy --config wrangler.jsonc --assets ""' + $assets + '"""'
+    }
     $info.UseShellExecute = $false
     $info.CreateNoWindow = $true
     $info.RedirectStandardOutput = $true
