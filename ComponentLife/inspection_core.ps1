@@ -234,16 +234,28 @@ function Get-DimensionCacheKey {
     }
 }
 
+function Get-InspectionCellText {
+    param($Cell)
+    $value = $Cell.Value
+    if ($null -eq $value) { return '' }
+    if ($value -is [double] -or $value -is [decimal] -or $value -is [float] -or $value -is [int] -or $value -is [long]) {
+        return ([double]$value).ToString('0.###############', [Globalization.CultureInfo]::InvariantCulture)
+    }
+    return (Safe-Text $Cell.Text)
+}
+
 function Extract-DimensionsFromWorksheet {
     param(
         $ws,
         [string]$path,
         [string]$part,
         [string]$mold,
-        [string]$dateMeasure
+        [string]$dateMeasure,
+        [switch]$SummaryOnly
     )
 
-    $result = @()
+    $result = New-Object 'System.Collections.Generic.List[object]'
+    $sampleCount = 0; $ngTotal = 0
     if (-not $ws -or -not $ws.Dimension) { return $result }
 
     $endRow = [Math]::Min($ws.Dimension.End.Row, 250)
@@ -251,9 +263,9 @@ function Extract-DimensionsFromWorksheet {
 
     for ($r = 14; $r -le $endRow; $r++) {
         $point = Safe-Text $ws.Cells[$r,1].Text
-        $nominalText = Safe-Text $ws.Cells[$r,2].Text
-        $tolLowText = Safe-Text $ws.Cells[$r,3].Text
-        $tolHighText = Safe-Text $ws.Cells[$r,4].Text
+        $nominalText = Get-InspectionCellText $ws.Cells[$r,2]
+        $tolLowText = Get-InspectionCellText $ws.Cells[$r,3]
+        $tolHighText = Get-InspectionCellText $ws.Cells[$r,4]
 
         if ([string]::IsNullOrWhiteSpace($point) -or [string]::IsNullOrWhiteSpace($nominalText)) { continue }
         if (-not ($point -match '^\d+')) { continue }
@@ -269,7 +281,7 @@ function Extract-DimensionsFromWorksheet {
         $max = [Math]::Max($limitA, $limitB)
 
         for ($c = 6; $c -le [Math]::Min($endCol, 15); $c++) {
-            $sampleText = Safe-Text $ws.Cells[$r,$c].Text
+            $sampleText = Get-InspectionCellText $ws.Cells[$r,$c]
             if ([string]::IsNullOrWhiteSpace($sampleText)) { continue }
             $sample = Convert-MeasureTextToNumber $sampleText
             if ($null -eq $sample) { continue }
@@ -277,12 +289,17 @@ function Extract-DimensionsFromWorksheet {
             $sampleValue = [double]$sample
             $epsilon = 0.0000001
             $isNg = ($sampleValue -lt ($min - $epsilon) -or $sampleValue -gt ($max + $epsilon))
+            if ($SummaryOnly) {
+                $sampleCount++
+                if ($isNg) { $ngTotal++ }
+                continue
+            }
             $deviation = $sampleValue - [double]$nominal
             $marginLow = $sampleValue - $min
             $marginHigh = $max - $sampleValue
             $nearestMargin = [Math]::Min($marginLow, $marginHigh)
 
-            $result += [PSCustomObject]@{
+            $result.Add([PSCustomObject]@{
                 File          = [System.IO.Path]::GetFileName($path)
                 Part          = $part
                 Mold          = $mold
@@ -304,8 +321,9 @@ function Extract-DimensionsFromWorksheet {
                 ExcelRow      = $r
                 ExcelCol      = $c
                 IsModified    = $false
-            }
+            })
         }
     }
+    if ($SummaryOnly) { return [PSCustomObject]@{ SampleCount = $sampleCount; NgCount = $ngTotal } }
     return $result
 }
