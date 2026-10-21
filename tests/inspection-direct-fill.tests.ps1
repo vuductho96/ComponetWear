@@ -39,6 +39,8 @@ try {
     $module=$pkg.Workbook.VbaProject.Modules.AddModule('FillSaveTest')
     $module.Code="Public Sub KeepThisMacro()`r`nEnd Sub"
     $ws=$pkg.Workbook.Worksheets.Add('Inspection')
+    $ws.Cells['S3:AB100'].Merge=$true
+    $ws.Cells['S3'].Value='Drawing area - preserve'
     $dims=@()
     for($i=0;$i -lt $gridDimensions.Rows.Count;$i++) {
         $row=$gridDimensions.Rows[$i]
@@ -67,11 +69,12 @@ try {
         Assert ($ws.Cells[14,6].Value -ge 25.91 -and $ws.Cells[14,6].Value -le 25.915) 'Original Excel Actual is overwritten within limits'
         Assert ($ws.Cells[15,6].Value -ge 32.012 -and $ws.Cells[15,6].Value -le 32.015) 'Positive asymmetric limits save correctly'
         Assert ($ws.Cells[14,6].Comment.Text -eq 'Existing note' -and $null -eq $ws.Cells[15,6].Comment) 'No notes are added and existing comments survive'
+        Assert ($ws.MergedCells[3,19] -eq 'S3:AB100' -and $ws.Cells[3,19].Value -eq 'Drawing area - preserve') 'Formula helpers preserve the merged drawing area'
         Assert ($ws.Cells[14,2].Value -eq '25.92') 'Nominal remains unchanged'
         Assert ($pkg.Workbook.VbaProject.Modules['FillSaveTest'].Code -match 'KeepThisMacro') 'Macros survive saving an xlsm workbook'
         Assert ($ws.Cells[19,6].Value -eq 30 -and $ws.Cells[19,6].Text -eq '30.000') 'Degree-only quick fill saves Nominal as a three-decimal number'
         Assert ([string]$ws.Cells[20,6].Value -match '^4°25′(?:11|12|13)″$') 'DMS quick fill keeps the degree component and changes only nearby seconds'
-        Assert ($ws.Cells[20,16].Formula -match 'COUNT\(AH20:AQ20\)' -and $ws.Cells[20,16].Formula -notmatch 'COUNTIF.*\*NG\*') 'Saved Excel uses real angle comparison formulas'
+        Assert ($ws.Cells[20,16].Formula -match 'COUNT\(BJ20:BS20\)' -and $ws.Cells[20,16].Formula -notmatch 'COUNTIF.*\*NG\*') 'Saved Excel uses real angle comparison formulas'
     } finally {$pkg.Dispose()}
     $excel=$null;$native=$null
     try {

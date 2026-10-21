@@ -1,4 +1,4 @@
-# Numeric parsing is installed from ComponentLife/inspection_core.ps1 by the installer.
+﻿# Numeric parsing is installed from ComponentLife/inspection_core.ps1 by the installer.
 function Convert-MeasurementNumber($value) {
     return Convert-MeasureTextToNumber ([string]$value)
 }
@@ -32,17 +32,33 @@ function Set-ExcelInspectionJudgeFormula($sheet,$row,$nominalText) {
     if (-not $script:MeasurementFormulaSpec) {
         $script:MeasurementFormulaSpec=Get-Content -LiteralPath (Join-Path $script:AppRoot 'MeasurementContract.formulas.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     }
-    # Same helpers and same judgement as the browser's current report template.
-    for ($i=0;$i -lt 13;$i++) {
-        $sheet.Cells.Item([int]$row,18+$i).Formula='='+$script:MeasurementFormulaSpec.clean[$i].Replace('@ROW@',[string]$row)
-        $sheet.Cells.Item([int]$row,31+$i).Formula='='+$script:MeasurementFormulaSpec.number[$i].Replace('@ROW@',[string]$row)
+    # Original forms can merge S:AB for a drawing. Keep helpers outside that area.
+    $columnName={param([int]$index) $name='';while($index -gt 0){$name=([string][char](65+(($index-1)%26)))+$name;$index=[Math]::Floor(($index-1)/26)};return $name}
+    $helper=46
+    while($true){
+        $occupied=$false
+        for($i=0;$i -lt 28;$i++){
+            $cell=$sheet.Cells.Item([int]$row,($helper+$i))
+            if($cell.MergeCells -or (-not $cell.HasFormula -and -not [string]::IsNullOrWhiteSpace([string]$cell.Value2))){$occupied=$true;break}
+        }
+        if(-not $occupied){break};$helper+=28
+        if($helper -gt 16356){throw 'No free helper columns'}
     }
-    $sheet.Cells.Item([int]$row,44).Formula="=IF(COUNT(AE${row}:AG${row})=3,AE${row}+MIN(AF${row}:AG${row}),`"`" )"
-    $sheet.Cells.Item([int]$row,45).Formula="=IF(COUNT(AE${row}:AG${row})=3,AE${row}+MAX(AF${row}:AG${row}),`"`" )"
+    $refs=@(0..27 | ForEach-Object {(& $columnName ($helper+$_))+[string]$row})
+    for ($i=0;$i -lt 13;$i++) {
+        $sheet.Cells.Item([int]$row,($helper+$i)).Formula='='+$script:MeasurementFormulaSpec.clean[$i].Replace('@ROW@',[string]$row)
+        $old=(& $columnName (18+$i))+[string]$row
+        $sheet.Cells.Item([int]$row,($helper+13+$i)).Formula='='+$script:MeasurementFormulaSpec.number[$i].Replace('@ROW@',[string]$row).Replace($old,$refs[$i])
+    }
+    $n=$refs[13];$a=$refs[14];$b=$refs[15];$lo=$refs[26];$hi=$refs[27];$actuals=$refs[16]+':'+$refs[25]
+    $sheet.Cells.Item([int]$row,($helper+26)).Formula="=IF(COUNT(${n}:${b})=3,${n}+MIN(${a}:${b}),`"`" )"
+    $sheet.Cells.Item([int]$row,($helper+27)).Formula="=IF(COUNT(${n}:${b})=3,${n}+MAX(${a}:${b}),`"`" )"
     $count="COLUMNS(F${row}:O${row})-COUNTBLANK(F${row}:O${row})"
-    $formula=$script:MeasurementFormulaSpec.result.Replace('@IS_ANGLE@',$(if([string]$nominalText -match '[°º]'){'TRUE'}else{'FALSE'})).Replace('@EMPTY_TOL@',"AND(S${row}=`"`",T${row}=`"`")").Replace('@COUNT@',$count).Replace('@CLEAN@',"R$row").Replace('@N@',"AE$row").Replace('@B@',"AG$row").Replace('@ACTUALS@',"AH${row}:AQ${row}").Replace('@LO@',"AR$row").Replace('@HI@',"AS$row")
+    $empty='AND('+$refs[1]+'="",'+$refs[2]+'="")'
+    $formula=$script:MeasurementFormulaSpec.result.Replace('@IS_ANGLE@',$(if([string]$nominalText -match '[°º]'){'TRUE'}else{'FALSE'})).Replace('@EMPTY_TOL@',$empty).Replace('@COUNT@',$count).Replace('@CLEAN@',$refs[0]).Replace('@N@',$n).Replace('@B@',$b).Replace('@ACTUALS@',$actuals).Replace('@LO@',$lo).Replace('@HI@',$hi)
     $sheet.Cells.Item([int]$row,16).Formula='='+$formula
-    $sheet.Range('R:AS').EntireColumn.Hidden=$true
+    $first=& $columnName $helper;$last=& $columnName ($helper+27)
+    $sheet.Range("${first}:${last}").EntireColumn.Hidden=$true
 }
 function Set-ExcelCellToleranceValue($sheet,$row,$column,$tolValue) {
     $cell=$sheet.Cells.Item([int]$row,[int]$column)

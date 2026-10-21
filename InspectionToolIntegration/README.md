@@ -41,3 +41,7 @@ PDF passwords are read privately from `.cloud-publish/inspection-download-passwo
 Degree-only angles with both tolerance cells empty also compare whole degrees. Partially missing or invalid tolerances remain NG.
 
 Inspection Tool additionally marks measured rows NG when the source Remark/Result cell contains a cached Excel error such as #VALUE! or #REF!, even when Actual passes. This source-formula policy is desktop-only and preserves the original workbook. Scan cache version: v8.
+
+Angle formula helpers now start at AT and skip merged/occupied value cells, preserving source drawing blocks such as S3:AB56. Native Rapid export and Inspection Quick Fill share this layout. Regression tests exercise merged drawing blocks in both native Excel and EPPlus saves.
+
+Convert-InspectionDecimalAngles.ps1 accepts an audited JSON plan (file, part, cell, nominal, actual). Preview is the default; -Apply preserves numeric angle magnitude while changing decimal-degree Actual to DMS, recalculates real Excel formulas on a temporary copy, verifies protected image/VBA parts, and backs up originals. Packed digits and ambiguous angle values are rejected; they are never regenerated.

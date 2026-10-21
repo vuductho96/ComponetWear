@@ -1,4 +1,4 @@
-param([switch]$VerifyBrowser)
+﻿param([switch]$VerifyBrowser)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $root 'ComponentLife/inspection_core.ps1')
@@ -75,6 +75,8 @@ try {
         if($book.Worksheets.Item(1).Range('B36').Text -ne '1.20' -or $book.Worksheets.Item(1).Range('C36').Text -ne '-0.050' -or $book.Worksheets.Item(1).Range('F36').Text -ne '1.200'){throw 'Original Nominal/tolerance formats were lost'}
     } else {
         $book=$excel.Workbooks.Add();$sheet=$book.Worksheets.Item(1)
+        $sheet.Range('S3:AB200').Merge()
+        $sheet.Range('S3').Value2='Drawing area - preserve'
         $sheet.Cells.Item(13,1).Value2='Point';$sheet.Cells.Item(13,2).Value2='Nominal'
         $sheet.Range('C5').Value2='PIPELINE';$sheet.Range('G5').Value2='TEST';$sheet.Range('N6').Value2=20
         for($c=6;$c -le 15;$c++){$sheet.Cells.Item(13,$c).Value2=[double]($c+5)}
