@@ -1,4 +1,14 @@
-﻿function Save-DimensionsToWorkbook {
+﻿function Resolve-InspectionDimensionSheet($Package,$Dimension) {
+    if($Dimension.SheetName){
+        $sheet=$Package.Workbook.Worksheets[[string]$Dimension.SheetName]
+        if(-not $sheet){throw ('Không tìm thấy sheet: '+$Dimension.SheetName)}
+        return $sheet
+    }
+    if($Package.Workbook.Worksheets.Count -ne 1){throw 'Dữ liệu xem nhanh thiếu tên sheet. Hãy chọn lại file trước khi lưu.'}
+    return Get-FirstUsedWorksheet -pkg $Package
+}
+
+function Save-DimensionsToWorkbook {
 
     param([string]$path)
     . (Join-Path $PSScriptRoot 'InspectionTool.Judge.ps1')
@@ -35,11 +45,8 @@
 
         if (-not $ws) { throw "Không đọc được worksheet trong file Excel." }
 
-        $worksheetName = $ws.Name
-
-
-
         foreach ($m in $modifiedDims) {
+            $ws=Resolve-InspectionDimensionSheet $pkg $m
 
             $r = [int]$m.ExcelRow
 
@@ -107,9 +114,8 @@
         # Verify persisted cells using a new package, independently of the preview/cache.
         $verifyPackage = Open-ExcelPackage -Path $path -ErrorAction Stop
         try {
-            $verifySheet = $verifyPackage.Workbook.Worksheets[$worksheetName]
-            if (-not $verifySheet) { throw 'Không tìm thấy sheet sau khi lưu Excel.' }
             foreach ($m in $modifiedDims) {
+                $verifySheet=Resolve-InspectionDimensionSheet $verifyPackage $m
                 $saved = $verifySheet.Cells[[int]$m.ExcelRow, [int]$m.ExcelCol].Value
                 if ([string]$m.Value -match '[°º]' -and [string]$saved -cne [string]$m.Value) {throw 'Excel chưa giữ nguyên dạng DMS của Actual.'}
                 if ($null -ne $m.NumericValue) {

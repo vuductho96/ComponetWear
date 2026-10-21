@@ -40,7 +40,9 @@ PDF passwords are read privately from `.cloud-publish/inspection-download-passwo
 
 Degree-only angles with both tolerance cells empty also compare whole degrees. Partially missing or invalid tolerances remain NG.
 
-Inspection Tool additionally marks measured rows NG when the source Remark/Result cell contains a cached Excel error such as #VALUE! or #REF!, even when Actual passes. This source-formula policy is desktop-only and preserves the original workbook. Scan cache version: v8.
+Inspection Tool additionally marks measured rows NG when the source Remark/Result cell contains a cached Excel error such as #VALUE! or #REF!, even when Actual passes. This source-formula policy is desktop-only and preserves the original workbook. Scan cache version: v9.
+
+Desktop summary and Quick Preview read every used worksheet, including points 41 onward on continuation sheets. Preview rows retain their worksheet name so Quick Fill and save verification target the correct sheet even when cell addresses repeat. Older cached rows without worksheet identity cannot be saved to a multi-sheet workbook; reselect the file to reload them. The installer injects `InspectionTool.MultiSheet.ps1` functions into the desktop app.
 
 Angle formula helpers now start at AT and skip merged/occupied value cells, preserving source drawing blocks such as S3:AB56. Native Rapid export and Inspection Quick Fill share this layout. Regression tests exercise merged drawing blocks in both native Excel and EPPlus saves.
 

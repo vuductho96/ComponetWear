@@ -19,11 +19,19 @@ function Install-Functions([string]$path,$functions) {
         else{$text=$function.Extent.Text+"`r`n"+$text}
     }
     # Force old desktop scan entries to be checked again after rule changes.
-    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[34567]\|','measurement-contract-v8|')
+    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[345678]\|','measurement-contract-v9|')
     if ($path -eq $RapidPath) {
         $text=$text.Replace('$cell.NumberFormat = "0.###""°"""','$cell.NumberFormat = $numFmt + ''"°"''')
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
     } else {
+        # Replace the old first-sheet-only scan with a workbook-wide, allocation-light summary.
+        $readFunction=@(Get-Functions $text | Where-Object Name -eq 'Read-InspectionFile')[0]
+        $readText=$readFunction.Extent.Text
+        $oldSummary='(?s)\$ngCount = 0.*?\$ngCount = \$stats\.NgCount; \$unratedCount = \$stats\.UnratedCount\s*\}'
+        $newSummary='$stats=Get-InspectionWorkbookStats $pkg $file.FullName $part $mold $dateMeasure'+"`r`n"+'            $ngCount=$stats.NgCount; $unratedCount=$stats.UnratedCount'+"`r`n"+'            $status=if($stats.SampleCount -gt 0){"ĐÃ ĐO"}else{"CHƯA ĐO"}'
+        $patched=[regex]::Replace($readText,$oldSummary,[Text.RegularExpressions.MatchEvaluator]{param($m) $newSummary})
+        if($patched -notmatch 'Get-InspectionWorkbookStats'){throw 'Could not install all-sheet summary scan'}
+        $text=$text.Remove($readFunction.Extent.StartOffset,$readFunction.Extent.Text.Length).Insert($readFunction.Extent.StartOffset,$patched)
         # Only the desktop reader checks cached source formula errors; web uses its own regenerated formula.
         $text=$text.Replace('[switch]$CheckFormulaErrors'+"`r`n",'[switch]$CheckFormulaErrors = $true'+"`r`n").Replace('[switch]$CheckFormulaErrors'+"`n",'[switch]$CheckFormulaErrors = $true'+"`n")
         $text=$text.Replace('$isNg = ($val -lt ($minL - $epsilon) -or $val -gt ($maxL + $epsilon))','$isNg = (Get-MeasurementResult $nomText $t1Text $t2Text $valText) -eq ''NG''')
@@ -55,7 +63,7 @@ $formulaTarget=Join-Path (Split-Path $RapidPath -Parent) 'MeasurementContract.fo
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'MeasurementContract.formulas.json') -Destination $formulaTarget -Force
 Install-Functions $RapidPath ($safe+$parser+@(Get-Functions $contract))
 $toolFunctions=@(Get-Functions $contract | Where-Object Name -in @('Convert-MeasurementNumber','Get-MeasurementResult','Format-AutoSampleDms','Format-InspectionGeneratedSample'))
-Install-Functions $ToolPath ($parser+@(Get-Functions $core | Where-Object Name -in @('Get-InspectionCellText','Extract-DimensionsFromWorksheet'))+$toolFunctions)
+Install-Functions $ToolPath ($parser+@(Get-Functions $core | Where-Object Name -in @('Get-InspectionCellText','Extract-DimensionsFromWorksheet'))+$toolFunctions+@(Get-Functions ([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'InspectionTool.MultiSheet.ps1')))))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'MeasurementContract.formulas.json') -Destination (Join-Path (Split-Path $ToolPath -Parent) 'MeasurementContract.formulas.json') -Force
 foreach($module in @('InspectionTool.QuickEdit.ps1','InspectionTool.DimensionSave.ps1','InspectionTool.Judge.ps1','InspectionTool.WebPublish.ps1','InspectionTool.PublishDetails.ps1')){
     $destination=Join-Path (Split-Path $ToolPath -Parent) $module
