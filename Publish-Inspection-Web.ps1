@@ -8,16 +8,33 @@ $startedAt = [DateTime]::UtcNow.ToString('o')
 $statusFile = Join-Path $work 'manual-inspection-status.json'
 $logFile = Join-Path $work 'manual-inspection.log'
 function Set-ManualPublishState([string]$Status, [string]$Stage, [string]$Message) {
+    $failedStage=''
+    if($Status -eq 'failed'){
+        try{$previous=Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8 | ConvertFrom-Json;if([string]$previous.startedAt -eq $startedAt){$failedStage=[string]$previous.stage}}catch{}
+    }
     Add-Content -LiteralPath $logFile -Value ("[{0}] {1}: {2}" -f [DateTime]::UtcNow.ToString('o'), $Stage, $Message) -Encoding UTF8
     Write-PublishJson $statusFile ([pscustomobject]@{
-        status = $Status; stage = $Stage; message = $Message
+        status = $Status; stage = $Stage; message = $Message; failedStage = $failedStage
         startedAt = $startedAt; updatedAt = [DateTime]::UtcNow.ToString('o')
     })
 }
 function Invoke-ManualPublishStep([string]$Script, [string[]]$Arguments = @()) {
     # Record native stderr, then let the caller report a short, useful failure message.
     $ErrorActionPreference = 'Continue'
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Script @Arguments 2>&1 | ForEach-Object { Add-Content -LiteralPath $logFile -Value $_ -Encoding UTF8 }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Script @Arguments 2>&1 | ForEach-Object {
+        $line=[string]$_
+        Add-Content -LiteralPath $logFile -Value $line -Encoding UTF8
+        # Publish progress from the real child output (file counts, PDF cache, retries).
+        # Preserve phase changes made by Publish-ComponentLife in the shared status file.
+        if(-not [string]::IsNullOrWhiteSpace($line)){
+            try{
+                $state=Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                $state | Add-Member -NotePropertyName detail -NotePropertyValue $line -Force
+                $state.updatedAt=[DateTime]::UtcNow.ToString('o')
+                Write-PublishJson $statusFile $state
+            }catch{}
+        }
+    }
     return [int]$LASTEXITCODE
 }
 try {
@@ -60,7 +77,7 @@ try {
     if ($success.snapshotId -eq $manifest.snapshotId) {
         Set-ManualPublishState 'success' 'unchanged' 'Web đã là bản mới nhất — không cần deploy lại.'
     } else {
-        Set-ManualPublishState 'running' 'publishing' 'Đang tải lên Cloudflare và kiểm tra bản đã deploy…'
+        Set-ManualPublishState 'running' 'staging' 'Đang chuẩn bị bộ tệp và đối chiếu phiên bản trên web…'
         if ((Invoke-ManualPublishStep (Join-Path $ProjectRoot 'Publish-ComponentLife.ps1') @('-ProjectRoot', $ProjectRoot, '-ManualStatusFile', $statusFile)) -ne 0) { throw 'Publish hoặc kiểm tra cloud thất bại. Xem publish.log.' }
         Set-ManualPublishState 'success' 'complete' 'Đã cập nhật web thành công. Nhấn F5 trên web để xem.'
     }

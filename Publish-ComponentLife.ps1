@@ -10,10 +10,11 @@ $source = Join-Path $ProjectRoot 'ComponentLife'
 $work = Join-Path $ProjectRoot '.cloud-publish'
 $null = New-Item -ItemType Directory -Path $work -Force
 $lock = $null
-function Set-PublishPhase([string]$Message) {
+function Set-PublishPhase([string]$Message,[string]$Stage='publishing') {
     if ($ManualStatusFile -and (Test-Path -LiteralPath $ManualStatusFile)) {
         $state = Get-Content -LiteralPath $ManualStatusFile -Raw -Encoding UTF8 | ConvertFrom-Json
         $state.message = $Message
+        $state.stage = $Stage
         $state.updatedAt = [DateTime]::UtcNow.ToString('o')
         Write-PublishJson $ManualStatusFile $state
     }
@@ -31,7 +32,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Could not prepare cloud verification.' }
     }
     $before = Get-PublicAssetManifest $source
-    Set-PublishPhase 'Đang chuẩn bị các tệp cần publish…'
+    Set-PublishPhase 'Đang chuẩn bị các tệp cần publish…' 'staging'
     $assets = Join-Path $work 'assets'
     # Fixed allowlist, with a fresh staging folder each run. No source-folder upload.
     if (Test-Path -LiteralPath $assets) {
@@ -101,9 +102,9 @@ try {
     $code = $proc.ExitCode; $proc.Dispose()
     if ($code -ne 0) { throw "Wrangler exited with code $code. See publish.log." }
     if (Test-Path -LiteralPath $baseline) {
-        Set-PublishPhase 'Web đã deploy. Đang xác minh các tệp thay đổi…'
+        Set-PublishPhase 'Web đã deploy. Đang xác minh các tệp thay đổi…' 'verifying'
     } else {
-        Set-PublishPhase 'Web đã deploy. Đang xác minh đầy đủ vì chưa có bản đối chiếu…'
+        Set-PublishPhase 'Web đã deploy. Đang xác minh đầy đủ vì chưa có bản đối chiếu…' 'verifying'
     }
 
     # Verify the entire manifest and all changed bytes. Unchanged bytes are reused
