@@ -144,6 +144,32 @@ test('publisher snapshots, failure handling, verification and lock', async t => 
     assert.equal(result.code, 0, result.output);
     assert.equal(state().snapshotId, manifest().snapshotId);
   });
+  await t.test('Wrangler stdout and stderr reach the log before deploy exits', async () => {
+    const mock=path.join(f.root,'bin/npx.cmd');
+    const original=fs.readFileSync(mock);
+    const script=path.join(f.root,'live-wrangler.cjs');
+    fs.writeFileSync(script,"process.stdout.write('LIVE stdout: Đang tải\\n');process.stderr.write('LIVE stderr warning\\n');setTimeout(()=>console.log('LIVE deploy ended'),4000);");
+    fs.writeFileSync(mock,`@echo off\r\n"${process.execPath}" "${script}"\r\nexit /b %errorlevel%\r\n`);
+    try {
+      let finished=false;
+      const running=run(f.root,args,f.env).then(result=>{finished=true;return result;});
+      const log=path.join(f.root,'.cloud-publish/publish.log');
+      const deadline=Date.now()+30000;
+      let contents='';
+      while(Date.now()<deadline && !finished){
+        contents=fs.existsSync(log)?fs.readFileSync(log,'utf8'):'';
+        if(contents.includes('LIVE stdout: Đang tải') && contents.includes('LIVE stderr warning'))break;
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      assert.match(contents,/LIVE stdout: Đang tải/);
+      assert.match(contents,/LIVE stderr warning/);
+      assert.ok(!finished,'Output must be visible while deployment is still running');
+      assert.ok(!contents.includes('LIVE deploy ended'),'Log must update before the final output');
+      const result=await running;
+      assert.equal(result.code,0,result.output);
+      assert.match(fs.readFileSync(log,'utf8'),/LIVE deploy ended/);
+    } finally {fs.writeFileSync(mock,original);}
+  });
   await t.test('remote corruption preserves last successful version', async () => {
     const previous = state().snapshotId;
     fs.writeFileSync(path.join(f.app, 'js/app.js'), '// changed'); corrupt = true;

@@ -105,12 +105,36 @@ try {
     $info.CreateNoWindow = $true
     $info.RedirectStandardOutput = $true
     $info.RedirectStandardError = $true
+    $info.StandardOutputEncoding = [Text.Encoding]::UTF8
+    $info.StandardErrorEncoding = [Text.Encoding]::UTF8
     $proc = [Diagnostics.Process]::Start($info)
-    $stdout = $proc.StandardOutput.ReadToEndAsync()
-    $stderr = $proc.StandardError.ReadToEndAsync()
-    if (-not $proc.WaitForExit(1200000)) { & taskkill.exe /PID $proc.Id /T /F | Out-Null; throw 'Deploy timed out after 20 minutes.' }
-    Add-Content -LiteralPath $log -Value ($stdout.Result + $stderr.Result)
-    $code = $proc.ExitCode; $proc.Dispose()
+    try {
+        # Drain both pipes concurrently and expose actual output while Wrangler runs.
+        # ReadToEndAsync hid every progress message until the entire deploy finished.
+        $streams=@($proc.StandardOutput,$proc.StandardError)
+        $pending=@($streams[0].ReadLineAsync(),$streams[1].ReadLineAsync())
+        $deployWatch=[Diagnostics.Stopwatch]::StartNew()
+        while($pending[0] -or $pending[1] -or -not $proc.HasExited){
+            for($i=0;$i -lt 2;$i++){
+                if($pending[$i] -and $pending[$i].IsCompleted){
+                    $line=$pending[$i].GetAwaiter().GetResult()
+                    if($null -eq $line){$pending[$i]=$null}
+                    else{
+                        Add-Content -LiteralPath $log -Value $line -Encoding UTF8
+                        $pending[$i]=$streams[$i].ReadLineAsync()
+                    }
+                }
+            }
+            if($deployWatch.Elapsed.TotalMilliseconds -ge 1200000){
+                & taskkill.exe /PID $proc.Id /T /F | Out-Null
+                throw 'Deploy timed out after 20 minutes.'
+            }
+            # Completed reads can be drained immediately, including after process exit.
+            if(-not (($pending[0] -and $pending[0].IsCompleted) -or ($pending[1] -and $pending[1].IsCompleted))){Start-Sleep -Milliseconds 100}
+        }
+        $proc.WaitForExit()
+        $code=$proc.ExitCode
+    } finally {$proc.Dispose()}
     if ($code -ne 0) { throw "Wrangler exited with code $code. See publish.log." }
     if (Test-Path -LiteralPath $baseline) {
         Set-PublishPhase 'Web đã deploy. Đang xác minh các tệp thay đổi…' 'verifying'
