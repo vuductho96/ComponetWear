@@ -2,7 +2,8 @@
     [switch]$BuildOnly,
     [string]$ProjectRoot = $PSScriptRoot,
     [string]$CloudUrl = 'https://componetlife.vuductho-th.workers.dev',
-    [string]$ManualStatusFile = ''
+    [string]$ManualStatusFile = '',
+    [string]$PreparedSnapshotId = ''
 )
 $ErrorActionPreference = 'Stop'
 $source = Join-Path $ProjectRoot 'ComponentLife'
@@ -13,6 +14,14 @@ $lock = $null
 function Set-PublishPhase([string]$Message,[string]$Stage='publishing') {
     if ($ManualStatusFile -and (Test-Path -LiteralPath $ManualStatusFile)) {
         $state = Get-Content -LiteralPath $ManualStatusFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        $now=[DateTime]::UtcNow
+        if($state.phaseStartedAt -and $state.stage -ne $Stage){
+            $seconds=($now-[DateTime]::Parse($state.phaseStartedAt).ToUniversalTime()).TotalSeconds
+            $timings=@($state.timings | Where-Object {$_})+@([pscustomobject]@{stage=$state.stage;seconds=[Math]::Round($seconds,2)})
+            $state | Add-Member -NotePropertyName timings -NotePropertyValue $timings -Force
+            Add-Content -LiteralPath (Join-Path $work 'publish.log') -Value ('Duration {0}: {1:N2}s' -f $state.stage,$seconds)
+        }
+        if(-not $state.phaseStartedAt -or $state.stage -ne $Stage){$state | Add-Member -NotePropertyName phaseStartedAt -NotePropertyValue $now.ToString('o') -Force}
         $state.message = $Message
         $state.stage = $Stage
         $state.updatedAt = [DateTime]::UtcNow.ToString('o')
@@ -25,13 +34,15 @@ try {
     $log = Join-Path $work 'publish.log'
     Add-Content -LiteralPath $log -Value "`n[$([DateTime]::UtcNow.ToString('o'))] Building snapshot"
     $downloadBuilder = Join-Path $source 'prepare_inspection_downloads.ps1'
-    if (Test-Path -LiteralPath $downloadBuilder) { & $downloadBuilder -ProjectRoot $ProjectRoot }
+    if (-not $PreparedSnapshotId -and (Test-Path -LiteralPath $downloadBuilder)) { & $downloadBuilder -ProjectRoot $ProjectRoot }
+    $before = Get-PublicAssetManifest $source
+    if ($PreparedSnapshotId -and $before.snapshotId -ne $PreparedSnapshotId) { throw 'Prepared publish inputs changed. Refresh the data before publishing again.' }
+    if ($PreparedSnapshotId) { Add-Content -LiteralPath $log -Value 'Reusing the prepared downloads and verified local snapshot; duplicate preparation skipped.' }
     $baseline = Join-Path $work 'verification-baseline.json'
     if (-not $BuildOnly) {
         & node (Join-Path $PSScriptRoot 'verify-cloud.cjs') --capture-baseline $baseline (Join-Path $work 'success.json') $CloudUrl
         if ($LASTEXITCODE -ne 0) { throw 'Could not prepare cloud verification.' }
     }
-    $before = Get-PublicAssetManifest $source
     Set-PublishPhase 'Đang chuẩn bị các tệp cần publish…' 'staging'
     $assets = Join-Path $work 'assets'
     # Fixed allowlist, with a fresh staging folder each run. No source-folder upload.

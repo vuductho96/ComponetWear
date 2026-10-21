@@ -40,6 +40,23 @@ function Set-InspectionWebPublishLabel([string]$Text, [System.Drawing.Color]$Col
     $script:InspectionWebPublishLabel.ForeColor = $Color
     $script:InspectionWebPublishTip.SetToolTip($script:InspectionWebPublishLabel,$Text)
 }
+function Suspend-InspectionPublishAutoScan {
+    $script:InspectionPublishScanTimer=$null
+    $script:InspectionPublishScanWasEnabled=$false
+    if($timer -is [Windows.Forms.Timer]){
+        $script:InspectionPublishScanTimer=$timer
+        $script:InspectionPublishScanWasEnabled=$timer.Enabled
+        $timer.Stop()
+    }
+    $script:InspectionPublishFolderWasEnabled=$false
+    if($btnFolder){$script:InspectionPublishFolderWasEnabled=$btnFolder.Enabled;$btnFolder.Enabled=$false}
+}
+function Resume-InspectionPublishAutoScan {
+    if($script:InspectionPublishScanTimer -and $script:InspectionPublishScanWasEnabled){$script:InspectionPublishScanTimer.Start()}
+    if($btnFolder -and $script:InspectionPublishFolderWasEnabled){$btnFolder.Enabled=$true}
+    $script:InspectionPublishScanWasEnabled=$false
+    $script:InspectionPublishFolderWasEnabled=$false
+}
 $script:InspectionWebPublishTimer = New-Object System.Windows.Forms.Timer
 # Reads a local status file only while a manually requested publish is running; no cloud polling.
 $script:InspectionWebPublishTimer.Interval = 750
@@ -59,6 +76,7 @@ $script:InspectionWebPublishTick = {
     $script:InspectionWebPublishTimer.Stop()
     $script:InspectionWebPublishButton.Enabled = $true
     $script:InspectionWebPublishButton.Text = 'Publish lên web'
+    Resume-InspectionPublishAutoScan
     if ($code -eq 0 -and $state.status -eq 'success') {
         Set-InspectionWebPublishLabel ([string]$state.message) ([System.Drawing.Color]::DarkGreen)
     } else {
@@ -86,6 +104,7 @@ $script:InspectionWebPublishClick = {
         $script:InspectionPublishLastActivity=$script:InspectionWebPublishStartedAt
         $script:InspectionPublishLogText=''
         $arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -ProjectRoot "{1}"' -f $publisher,$script:InspectionWebPublishProjectRoot
+        Suspend-InspectionPublishAutoScan
         $script:InspectionWebPublishProcess = Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments -WindowStyle Hidden -WorkingDirectory $script:InspectionWebPublishProjectRoot -RedirectStandardOutput (Join-Path $work 'manual-inspection-output.log') -RedirectStandardError (Join-Path $work 'manual-inspection-error.log') -PassThru
         $null = $script:InspectionWebPublishProcess.Handle
         $script:InspectionWebPublishButton.Enabled = $false
@@ -94,6 +113,7 @@ $script:InspectionWebPublishClick = {
         Show-InspectionPublishDetails
         $script:InspectionWebPublishTimer.Start()
     } catch {
+        if(-not $script:InspectionWebPublishProcess){Resume-InspectionPublishAutoScan}
         Set-InspectionWebPublishLabel ([string]$_) ([System.Drawing.Color]::DarkRed)
         $script:InspectionPublishLastState=[pscustomobject]@{status='failed';stage='failed';message=[string]$_;updatedAt=[DateTime]::UtcNow.ToString('o')}
         $script:InspectionPublishLastExitCode=1

@@ -8,15 +8,28 @@ $startedAt = [DateTime]::UtcNow.ToString('o')
 $statusFile = Join-Path $work 'manual-inspection-status.json'
 $logFile = Join-Path $work 'manual-inspection.log'
 function Set-ManualPublishState([string]$Status, [string]$Stage, [string]$Message) {
+    $now=[DateTime]::UtcNow
+    $previous=$null
+    try{$previous=Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8 | ConvertFrom-Json;if([string]$previous.startedAt -ne $startedAt){$previous=$null}}catch{}
+    $timings=@($previous.timings | Where-Object {$_})
+    if($previous.phaseStartedAt -and $previous.stage -ne $Stage){
+        $seconds=($now-[DateTime]::Parse($previous.phaseStartedAt).ToUniversalTime()).TotalSeconds
+        $timings+=[pscustomobject]@{stage=$previous.stage;seconds=[Math]::Round($seconds,2)}
+        Add-Content -LiteralPath $logFile -Value ('Duration {0}: {1:N2}s' -f $previous.stage,$seconds) -Encoding UTF8
+    }
+    $phaseStartedAt=if($previous.phaseStartedAt -and $previous.stage -eq $Stage){$previous.phaseStartedAt}else{$now.ToString('o')}
     $failedStage=''
     if($Status -eq 'failed'){
-        try{$previous=Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8 | ConvertFrom-Json;if([string]$previous.startedAt -eq $startedAt){$failedStage=[string]$previous.stage}}catch{}
+        if($previous){$failedStage=[string]$previous.stage}
     }
     Add-Content -LiteralPath $logFile -Value ("[{0}] {1}: {2}" -f [DateTime]::UtcNow.ToString('o'), $Stage, $Message) -Encoding UTF8
     Write-PublishJson $statusFile ([pscustomobject]@{
         status = $Status; stage = $Stage; message = $Message; failedStage = $failedStage
+        phaseStartedAt=$phaseStartedAt;timings=$timings
+        timingSummary=($timings | ForEach-Object {'{0}: {1:N1}s' -f $_.stage,$_.seconds}) -join ' | '
         startedAt = $startedAt; updatedAt = [DateTime]::UtcNow.ToString('o')
     })
+    if($Status -in @('success','failed')){Write-PublishJson (Join-Path $work 'manual-inspection-timings.json') ([pscustomobject]@{startedAt=$startedAt;finishedAt=$now.ToString('o');status=$Status;timings=$timings})}
 }
 function Invoke-ManualPublishStep([string]$Script, [string[]]$Arguments = @()) {
     # Record native stderr, then let the caller report a short, useful failure message.
@@ -78,7 +91,7 @@ try {
         Set-ManualPublishState 'success' 'unchanged' 'Web đã là bản mới nhất — không cần deploy lại.'
     } else {
         Set-ManualPublishState 'running' 'staging' 'Đang chuẩn bị bộ tệp và đối chiếu phiên bản trên web…'
-        if ((Invoke-ManualPublishStep (Join-Path $ProjectRoot 'Publish-ComponentLife.ps1') @('-ProjectRoot', $ProjectRoot, '-ManualStatusFile', $statusFile)) -ne 0) { throw 'Publish hoặc kiểm tra cloud thất bại. Xem publish.log.' }
+        if ((Invoke-ManualPublishStep (Join-Path $ProjectRoot 'Publish-ComponentLife.ps1') @('-ProjectRoot', $ProjectRoot, '-ManualStatusFile', $statusFile, '-PreparedSnapshotId', $manifest.snapshotId)) -ne 0) { throw 'Publish hoặc kiểm tra cloud thất bại. Xem publish.log.' }
         Set-ManualPublishState 'success' 'complete' 'Đã cập nhật web thành công. Nhấn F5 trên web để xem.'
     }
 } catch {

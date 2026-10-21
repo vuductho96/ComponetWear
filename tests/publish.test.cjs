@@ -84,6 +84,20 @@ test('publisher snapshots, failure handling, verification and lock', async t => 
     assert.ok(!manifest().files.some(entry => /\.pdf=/.test(entry)), 'Unlisted source PDFs must not be published');
     assert.ok(!fs.existsSync(path.join(f.root, '.cloud-publish/success.json')));
   });
+  await t.test('a prepared manual snapshot avoids duplicate download work and rejects stale inputs', async () => {
+    const builder=path.join(f.app,'prepare_inspection_downloads.ps1'),calls=path.join(f.root,'download-calls.txt');
+    fs.writeFileSync(builder,'param($ProjectRoot)\r\nAdd-Content -LiteralPath (Join-Path $ProjectRoot "download-calls.txt") -Value "prepared"\r\n');
+    const original=fs.readFileSync(path.join(f.app,'js/app.js'));
+    try {
+      assert.equal((await run(f.root,['-BuildOnly'],f.env)).code,0);
+      const prepared=manifest().snapshotId;
+      assert.equal((await run(f.root,['-BuildOnly','-PreparedSnapshotId',prepared],f.env)).code,0);
+      assert.equal(fs.readFileSync(calls,'utf8').trim().split(/\r?\n/).length,1);
+      fs.appendFileSync(path.join(f.app,'js/app.js'),'changed after preparation');
+      assert.notEqual((await run(f.root,['-BuildOnly','-PreparedSnapshotId',prepared],f.env)).code,0);
+      assert.equal(fs.readFileSync(calls,'utf8').trim().split(/\r?\n/).length,1);
+    } finally {fs.writeFileSync(path.join(f.app,'js/app.js'),original);fs.unlinkSync(builder);}
+  });
   await t.test('only explicitly indexed original downloads are published', async () => {
     const directory = path.join(f.app, 'data/inspection/downloads'); fs.mkdirSync(directory);
     const pdf = 'data/inspection/downloads/' + 'a'.repeat(64) + '.pdf';

@@ -61,7 +61,7 @@ function Update-InspectionPublishDetails($State,[bool]$Running,[int]$ExitCode=0)
     $phaseElapsed=$clockNow-$script:InspectionPublishStageAt
     $script:InspectionPublishClock.Text=('Tổng: {0:hh\:mm\:ss}   |   Bước hiện tại: {1:hh\:mm\:ss}   |   Cập nhật gần nhất: {2}s trước' -f $elapsed,$phaseElapsed,$quiet)
     $script:InspectionPublishHeading.Text=if($idle){'Chưa có lượt Publish trong phiên này'}elseif($State){[string]$State.message}else{'Đang khởi động bộ Publish…'}
-    $script:InspectionPublishDetail.Text=if($State -and $State.detail){[string]$State.detail}else{'Tiến trình và log sẽ tự cập nhật tại đây.'}
+    $script:InspectionPublishDetail.Text=if($State.timingSummary -and $State.status -in @('success','failed')){[string]$State.timingSummary}elseif($State -and $State.detail){[string]$State.detail}else{'Tiến trình và log sẽ tự cập nhật tại đây.'}
     $index=[Array]::IndexOf($script:InspectionPublishStageKeys,$stage)
     if($idle){$index=-1}
     $success=(-not $Running -and $ExitCode -eq 0 -and $State.status -eq 'success')
@@ -76,7 +76,10 @@ function Update-InspectionPublishDetails($State,[bool]$Running,[int]$ExitCode=0)
         elseif($index -ge 0 -and $i -lt $index){$text='Hoàn tất';$color=[Drawing.Color]::DarkGreen}
         elseif($i -eq $index){$text=if($failed){'Lỗi'}else{'Đang chạy'};$color=if($failed){[Drawing.Color]::DarkRed}else{[Drawing.Color]::RoyalBlue}}
         $item.SubItems[1].Text=$text;$item.ForeColor=$color
+        $timing=@($State.timings | Where-Object {$_.stage -eq $script:InspectionPublishStageKeys[$i]} | Select-Object -Last 1)
+        $item.SubItems[2].Text=if($timing.Count){'{0:N1}s' -f $timing[0].seconds}elseif($Running -and $i -eq $index){'{0:N0}s' -f $phaseElapsed.TotalSeconds}else{'—'}
     }
+    $script:InspectionPublishRetry.Enabled=$failed -and -not $Running
     if($idle){
         $script:InspectionPublishHealth.Text='Nhấn Publish lên web để bắt đầu. Cửa sổ này chỉ hiển thị tiến trình và nhật ký.'
         $script:InspectionPublishHealth.ForeColor=[Drawing.Color]::DimGray
@@ -125,9 +128,10 @@ function Show-InspectionPublishDetails {
         $script:InspectionPublishBar.Maximum=6;$script:InspectionPublishBar.Style='Continuous'
         $script:InspectionPublishSteps=New-Object Windows.Forms.ListView
         $script:InspectionPublishSteps.View='Details';$script:InspectionPublishSteps.HeaderStyle='Nonclickable';$script:InspectionPublishSteps.FullRowSelect=$true
-        [void]$script:InspectionPublishSteps.Columns.Add('Bước xử lý',620)
-        [void]$script:InspectionPublishSteps.Columns.Add('Trạng thái',160)
-        foreach($name in $script:InspectionPublishStageNames){$item=New-Object Windows.Forms.ListViewItem($name);[void]$item.SubItems.Add('Chờ');[void]$script:InspectionPublishSteps.Items.Add($item)}
+        [void]$script:InspectionPublishSteps.Columns.Add('Bước xử lý',500)
+        [void]$script:InspectionPublishSteps.Columns.Add('Trạng thái',150)
+        [void]$script:InspectionPublishSteps.Columns.Add('Thời gian',100)
+        foreach($name in $script:InspectionPublishStageNames){$item=New-Object Windows.Forms.ListViewItem($name);[void]$item.SubItems.Add('Chờ');[void]$item.SubItems.Add('—');[void]$script:InspectionPublishSteps.Items.Add($item)}
         $script:InspectionPublishDetail=New-Object Windows.Forms.Label
         $script:InspectionPublishDetail.AutoEllipsis=$true
         $script:InspectionPublishLogBox=New-Object Windows.Forms.TextBox
@@ -138,11 +142,12 @@ function Show-InspectionPublishDetails {
         $controls=@($script:InspectionPublishHeading,$script:InspectionPublishClock,$script:InspectionPublishHealth,$script:InspectionPublishBar,$script:InspectionPublishSteps,$script:InspectionPublishDetail,$script:InspectionPublishLogBox)
         for($i=0;$i -lt $controls.Count;$i++){$controls[$i].Dock='Fill';$layout.Controls.Add($controls[$i],0,$i)}
         $buttons=New-Object Windows.Forms.FlowLayoutPanel;$buttons.Dock='Fill';$layout.Controls.Add($buttons,0,7)
-        foreach($text in @('Mở thư mục log','Sao chép log','Ẩn cửa sổ')){
+        foreach($text in @('Mở thư mục log','Sao chép log','Thử lại Publish','Ẩn cửa sổ')){
             $button=New-Object Windows.Forms.Button;$button.Text=$text;$button.AutoSize=$true;$button.Height=30
             switch($text){
                 'Mở thư mục log' {$button.Add_Click({Start-Process -FilePath 'explorer.exe' -ArgumentList ('"'+(Join-Path $script:InspectionWebPublishProjectRoot '.cloud-publish')+'"')})}
                 'Sao chép log' {$button.Add_Click({try{[Windows.Forms.Clipboard]::SetText($script:InspectionPublishHeading.Text+"`r`n"+$script:InspectionPublishLogBox.Text)}catch{}})}
+                'Thử lại Publish' {$script:InspectionPublishRetry=$button;$button.Enabled=$false;$button.Add_Click({& $script:InspectionWebPublishClick})}
                 'Ẩn cửa sổ' {$button.Add_Click({$script:InspectionPublishView.Hide()})}
             }
             $buttons.Controls.Add($button)

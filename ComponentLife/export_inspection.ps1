@@ -1,7 +1,9 @@
-﻿param([string]$ConfigPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'inspection.config.json'))
+﻿param([string]$ConfigPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'inspection.config.json'),[ValidateRange(1,4)][int]$ReaderWorkers=4)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'inspection_core.ps1')
 . (Join-Path $PSScriptRoot 'cloud_publish.ps1')
+. (Join-Path $PSScriptRoot 'inspection_read_pool.ps1')
+$readJobs=@{};$readPool=$null
 Import-Module ImportExcel -ErrorAction Stop
 $config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $sourceRoot = [IO.Path]::GetFullPath($config.sourcePath).TrimEnd('\')
@@ -71,30 +73,45 @@ Write-Host ("PDF hash cache ready: {0} files in {1:N2}s" -f $allPdfs.Count,$pdfW
 $readWatch=[Diagnostics.Stopwatch]::StartNew()
 $records = [Collections.Generic.List[object]]::new()
 $buckets = @{}; $skipped = 0; $hits = 0; $i = 0
+# Prefetch only a bounded window, so warm-cache publishes do not load every workbook.
+$readWindow=@{};$nextReadIndex=0
+$fillReadWindow={
+    while($nextReadIndex -lt $files.Count -and $readWindow.Count -lt $ReaderWorkers){
+        $prefetchFile=$files[$nextReadIndex]
+        $prefetchRelative=$prefetchFile.FullName.Substring($sourceRoot.Length+1).Replace('\','/')
+        $prefetchId=(Get-TextHash $prefetchRelative.ToLowerInvariant()).Substring(0,24)
+        $prefetchSignature="$parserHash|$($prefetchFile.LastWriteTimeUtc.Ticks)|$($prefetchFile.Length)"
+        $prefetchPath=Join-Path $cacheDir "$prefetchId.json"
+        $prefetchCached=$null
+        if(Test-Path -LiteralPath $prefetchPath){try{$prefetchCached=Get-Content -LiteralPath $prefetchPath -Raw -Encoding UTF8 | ConvertFrom-Json}catch{}}
+        $slot=[pscustomobject]@{Cached=$null;Job=$null}
+        if($prefetchCached -and $prefetchCached.signature -eq $prefetchSignature){$slot.Cached=$prefetchCached}
+        else{
+            if(-not $readPool){$readPool=New-InspectionReadPool (Join-Path $PSScriptRoot 'inspection_core.ps1') $ReaderWorkers}
+            $slot.Job=Start-InspectionRead $readPool $prefetchFile;$readJobs[$nextReadIndex]=$slot.Job
+        }
+        $readWindow[$nextReadIndex]=$slot;$nextReadIndex++
+    }
+}
+Write-Host "Inspection readers: $ReaderWorkers workers; unchanged workbooks use cached results."
 foreach ($file in $files) {
+    . $fillReadWindow
+    $slot=$readWindow[$i]
     $i++
     $relative = $file.FullName.Substring($sourceRoot.Length + 1).Replace('\', '/')
     $id = (Get-TextHash $relative.ToLowerInvariant()).Substring(0, 24)
     $signature = "$parserHash|$($file.LastWriteTimeUtc.Ticks)|$($file.Length)"
     $cacheFile = Join-Path $cacheDir "$id.json"
-    $cached = $null
-    if (Test-Path -LiteralPath $cacheFile) { try { $cached = Get-Content -LiteralPath $cacheFile -Raw -Encoding UTF8 | ConvertFrom-Json } catch {} }
-    if ($cached -and $cached.signature -eq $signature) {
-        $raw = $cached.record; $dims = @($cached.dimensions); $hits++
+    $cached=$slot.Cached
+    if ($cached) {
+        $raw=$cached.record;$dims=@($cached.dimensions);$hits++
     } else {
-        $raw = Read-InspectionFile $file
-        if ($null -eq $raw) { throw "Cannot read inspection workbook: $relative. Previous dataset preserved." }
-        $dims = @()
-        $key = Get-DimensionCacheKey $file.FullName
-        if ($script:DimensionCache.ContainsKey($key)) {
-            $dims = @($script:DimensionCache[$key] | ForEach-Object {
-                # Compact rows: no Windows paths or repeated part/mold metadata.
-                ,@($_.Point, $_.Nominal, $_.TolMinus, $_.TolPlus, $_.SampleNo, $(if ($_.Value -match '[°ºRCØΦ⌀]' -or $null -eq $_.NumericValue) { $_.Value } else { $_.NumericValue }), $_.LowerLimit, $_.UpperLimit, $_.Deviation, $_.Result)
-            })
-        }
-        $script:DimensionCache.Clear()
+        $readResult=Receive-InspectionRead $slot.Job
+        $readJobs.Remove($i-1)
+        $raw=$readResult.Record;$dims=@($readResult.Dimensions)
         Write-PublishJson $cacheFile ([pscustomobject]@{ signature = $signature; record = $raw; dimensions = @($dims) })
     }
+    $readWindow.Remove($i-1)
     if (-not $raw.Part -or -not $raw.Mold) { $skipped++; continue }
     # Some measured templates leave tolerances blank. Show values without inventing OK/NG.
     if ($dims.Count -eq 0 -and $raw.Quality -eq 'OK') {
@@ -146,7 +163,7 @@ foreach ($file in $files) {
     if ($sourceMapping) { $sourceLabel = [string]$sourceMapping.Value }
     $records.Add([pscustomobject]@{
         id = $id; part = [string]$raw.Part; mold = [string]$raw.Mold; file = $file.Name
-        lot = $file.DirectoryName.Substring($sourceRoot.Length + 1).Replace('\', ' / ')
+        lot = $(if($file.DirectoryName.Length -gt $sourceRoot.Length){$file.DirectoryName.Substring($sourceRoot.Length + 1).Replace('\', ' / ')}else{''})
         source = $sourceLabel
         month = [string]$raw.Month; receivedDate = [string]$raw.DateIn; measuredDate = [string]$raw.DateMeasure
         quantity = $qty; quality = $(if ($dims.Count -eq 0) { 'PENDING' } elseif ($ng -gt 0) { 'NG' } else { 'OK' })
@@ -155,7 +172,9 @@ foreach ($file in $files) {
     })
     if ($i % 50 -eq 0) { Write-Host "Inspection: $i/$($files.Count), cached=$hits, drawings=$($copiedDrawings.Count)" }
 }
-Write-Host ("Inspection records prepared in {0:N2}s" -f $readWatch.Elapsed.TotalSeconds)
+Stop-InspectionReadJobs $readJobs $readPool
+$readPool=$null
+Write-Host ("Inspection records prepared in {0:N2}s; cache hits={1}, parsed={2}, workers={3}" -f $readWatch.Elapsed.TotalSeconds,$hits,($files.Count-$hits),$ReaderWorkers)
 if ((Get-InspectionSourceFingerprint) -ne $sourceFingerprint) {
     Write-Error 'Inspection files changed during scan. Waiting for edits to finish before retrying.' -ErrorAction Continue
     exit 75
@@ -210,4 +229,4 @@ foreach ($relative in @($outputFiles | Where-Object { $_ -ne 'summary.json' }) +
 Write-Host "Inspection ready: $($records.Count) records, $($copiedDrawings.Count) unique PDFs, $skipped skipped."
 $previousFiles = if ($sourceState) { @($sourceState.outputFiles) } else { @() }
 Write-PublishJson $sourceStateFile ([pscustomobject]@{ fingerprint = $sourceFingerprint; outputFiles = $outputFiles; previousOutputFiles = $previousFiles })
-} finally { $inspectionLock.Dispose() }
+} finally { Stop-InspectionReadJobs $readJobs $readPool; $inspectionLock.Dispose() }
