@@ -25,7 +25,8 @@ test('Rapid generated source and browser report preserve the same samples and ju
     assert.equal(result.sample,'11');
     result.rows.forEach((row,i)=>{
       assert.equal(row[4],expected[i][4],`point ${i+1} judgement`);
-      if(Number.isFinite(Number(row[3]))&&Number.isFinite(Number(expected[i][3])))assert.equal(Number(row[3]),Number(expected[i][3]),`point ${i+1} actual numeric value`);
+      const sample=String(row[3]).replace(/°$/,'');
+      if(Number.isFinite(Number(sample))&&Number.isFinite(Number(expected[i][3])))assert.equal(Number(sample),Number(expected[i][3]),`point ${i+1} actual numeric value`);
       else assert.equal(row[3],expected[i][3],`point ${i+1} actual text is preserved`);
     });
     fs.writeFileSync(path.join(dir,'browser.xlsx'),Buffer.from(result.file));

@@ -325,6 +325,9 @@ function Extract-DimensionsFromWorksheet {
             $sampleText = Get-InspectionCellText $ws.Cells[$r,$c]
             if ([string]::IsNullOrWhiteSpace($sampleText)) { continue }
             $sample = Convert-MeasureTextToNumber $sampleText
+            if($null -ne $sample -and $nominalText -match '[°º]' -and $nominalText -notmatch '[''"′″ʹʺ]' -and $sampleText -notmatch '[°º]') {
+                $sampleText=([double]$sample).ToString('0.###############',[Globalization.CultureInfo]::InvariantCulture)+'°'
+            }
             $valid = $validLimits -and $null -ne $sample
 
             $sampleValue = [double]$sample

@@ -31,7 +31,9 @@ test('browser conversion preserves template and recalculates source updates with
         const addresses=['B','C','D','F','G','H','I'].map(c=>c+expected.first);
         const precision={values:addresses.map(value),formats:addresses.map(a=>numFmts.get(xfs.children[Number(cell(a).getAttribute('s')||0)].getAttribute('numFmtId'))||'General'),types:addresses.map(a=>cell(a).getAttribute('t'))};
         const bold=address=>{const xf=xfs.children[Number(cell(address).getAttribute('s')||0)],font=fonts.children[Number(xf.getAttribute('fontId')||0)];return font.getElementsByTagNameNS('*','b').length>0;};
-        return {zip,precision,appearance:Array.from({length:10},(_,i)=>value(String.fromCharCode(70+i)+expected.spec.appearanceRow)),bold:Array.from({length:16},(_,i)=>bold(String.fromCharCode(65+i)+expected.first)),values:expected.cases.map((_,i)=>value('P'+(expected.first+i))),judgement:value(expected.spec.judgement),sample:value('F'+expected.spec.header),nominals:expected.cases.map((_,i)=>value('B'+(expected.first+i)))};
+        const degreeIndex=expected.cases.findIndex(c=>c[0]==='90°'),degreeAddress='F'+(expected.first+degreeIndex);
+        const degreeFormat=numFmts.get(xfs.children[Number(cell(degreeAddress).getAttribute('s')||0)].getAttribute('numFmtId'));
+        return {zip,precision,degreeFormat,appearance:Array.from({length:10},(_,i)=>value(String.fromCharCode(70+i)+expected.spec.appearanceRow)),bold:Array.from({length:16},(_,i)=>bold(String.fromCharCode(65+i)+expected.first)),values:expected.cases.map((_,i)=>value('P'+(expected.first+i))),judgement:value(expected.spec.judgement),sample:value('F'+expected.spec.header),nominals:expected.cases.map((_,i)=>value('B'+(expected.first+i)))};
       };
       const report=await make(sourceBytes),initial=await read(report);
       const sparseZip=await JSZip.loadAsync(sourceBytes);
@@ -134,7 +136,7 @@ test('browser conversion preserves template and recalculates source updates with
       const sampleCell=cells.find(c=>c.getAttribute('r')==='F'+expected.spec.header);sampleCell.replaceChildren();sampleCell.removeAttribute('t');const sampleValue=sourceDoc.createElementNS(M,'v');sampleValue.textContent='1';sampleCell.append(sampleValue);
       sourceZip.file('xl/worksheets/sheet1.xml',new XMLSerializer().serializeToString(sourceDoc));
       const single=await read(await make(await sourceZip.generateAsync({type:'uint8array'})));
-      return {appearance:initial.appearance,sparseAppearance:sparse.appearance,invalidError,adapted,namedPoints,namedSamples,precision,repeatedBold:initial.bold,singleBold:single.bold,name:report.name,values:initial.values,sample:initial.sample,nominals:initial.nominals,preserved,good:[good.values[0],good.judgement],bad:[bad.values[0],bad.judgement],oneRow:oneRow.values[0],file:Array.from(new Uint8Array(await report.blob.arrayBuffer()))};
+      return {degreeFormat:initial.degreeFormat,appearance:initial.appearance,sparseAppearance:sparse.appearance,invalidError,adapted,namedPoints,namedSamples,precision,repeatedBold:initial.bold,singleBold:single.bold,name:report.name,values:initial.values,sample:initial.sample,nominals:initial.nominals,preserved,good:[good.values[0],good.judgement],bad:[bad.values[0],bad.judgement],oneRow:oneRow.values[0],file:Array.from(new Uint8Array(await report.blob.arrayBuffer()))};
     },{source:fs.readFileSync(path.join(fixture,'source.xlsx')).toString('base64'),template:fs.readFileSync(expected.template).toString('base64'),movedTemplate:fs.readFileSync(expected.movedTemplate).toString('base64'),expected});
     assert.equal(outcome.name,'source.xlsx');
     assert.deepEqual(outcome.repeatedBold,Array.from({length:16},(_,i)=>i<4));assert.ok(outcome.singleBold.every(b=>!b));
@@ -153,6 +155,7 @@ test('browser conversion preserves template and recalculates source updates with
     assert.deepEqual(outcome.values,expected.cases.map(c=>c[4]));
     assert.equal(outcome.sample,'11');assert.ok(outcome.preserved>=11);
     assert.deepEqual(outcome.appearance,['OK',...Array(9).fill('')]);
+    assert.equal(outcome.degreeFormat,'0"°"');
     assert.deepEqual(outcome.sparseAppearance,['','OK','','OK',...Array(6).fill('')]);
     assert.ok(outcome.nominals.every(n=>!/phi/i.test(n)));
     assert.deepEqual(outcome.good,['OK','PASSED']);assert.deepEqual(outcome.bad,['NG','REJECTED']);assert.equal(outcome.oneRow,'NG');

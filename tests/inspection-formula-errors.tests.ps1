@@ -23,7 +23,7 @@ try {
  if($rows.Count -ne 6){throw 'Samples lost'}
  if(@($rows|Where-Object Result -eq NG).Count -ne 4){throw 'Cached source formula errors must override valid Actual'}
  if($rows[0].FormulaError -ne '#VALUE!' -or $rows[2].FormulaError -ne '#REF!'){throw 'Error details lost'}
- if($rows[0].Value -ne '30' -or $rows[0].NumericValue -ne 30){throw 'Actual modified'}
+ if($rows[0].Value -ne '30°' -or $rows[0].NumericValue -ne 30 -or $ws.Cells[14,6].Value -ne 30){throw 'Actual magnitude changed or angle unit missing'}
  $summary=Extract-DimensionsFromWorksheet $ws 'fixture.xlsx' -SummaryOnly
  if($summary.NgCount -ne 4 -or $summary.SampleCount -ne 6){throw 'Fast scan disagrees with detail'}
  $web=@(& $webExtractor $ws 'fixture.xlsx')

@@ -43,6 +43,9 @@ def cases():
         ['4°17ʹ21ʺ', '-0.05', '0.05', '5°12ʹ20ʺ', 'NG'],
         ['4°17ʹ21ʺ', '-0.05', '0.05', "4°25'60''", 'NG'],
         ["2°51'45''", '-0.05', '0.05', "2°44'68''", 'NG'],
+        ['90°', '-0.5', '0.5', 90, 'OK'],
+        ['34°59′31″', '-0.01', '0.01', '34°59′26″', 'OK'],
+        ['28°4′21″', '-0.01', '0.01', '28°04′20″', 'OK'],
     ]
 
 
@@ -245,6 +248,20 @@ class ReportTests(unittest.TestCase):
         empty = ET.fromstring(template.fill({}, [], list(range(1, 11)), 'Inspection', ['Inspection'], []))
         empty_cells = template.package.cells(empty)
         self.assertTrue(all(template.package.value(empty_cells.get(column(c) + str(appearance))) is None for c in template.layout['columns'][5:]))
+
+    def test_degree_samples_show_units_without_changing_numeric_values(self):
+        import xml.etree.ElementTree as ET
+        from decimal import Decimal
+        template = ReportTemplate(configured_template(ROOT))
+        row = [1, '90°', '-0.5', '0.5', 'C', 90, '90.125'] + [None] * 8
+        sheet = ET.fromstring(template.fill({}, [row], list(range(1, 11)), 'Inspection', ['Inspection'], ['OK']))
+        cells = template.package.cells(sheet)
+        for c, expected in [('F', Decimal(90)), ('G', Decimal('90.125'))]:
+            cell = cells[c + str(template.first)]
+            self.assertEqual(template.package.value(cell, preserve_number=True), expected)
+            xf = template.styles.find(TAG('cellXfs'))[int(cell.get('s'))]
+            fmt = next(x.get('formatCode') for x in template.styles.find(TAG('numFmts')) if x.get('numFmtId') == xf.get('numFmtId'))
+            self.assertEqual(fmt, '0"°"' if c == 'F' else '0.###############"°"')
 
     def test_template_preservation_formulas_and_source_unchanged(self):
         with tempfile.TemporaryDirectory() as folder:

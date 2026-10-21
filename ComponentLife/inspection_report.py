@@ -462,7 +462,10 @@ class ReportTemplate:
                 if isinstance(value, str) and col != 5:
                     value = re.sub('phi', 'Ø', value, flags=re.I)
                 source_formats = getattr(values, 'source_formats', ['General'] * 4)
-                fmt = '0.000' if 6 <= col <= 15 else source_formats[col-1] if col in (2, 3, 4) else None
+                is_angle = bool(re.search('[°º]', str(values[1]) + source_formats[1]))
+                sample_number = number(value)
+                angle_format = '0"°"' if sample_number is not None and sample_number == int(sample_number) else '0.###############"°"'
+                fmt = (angle_format if is_angle else '0.000') if 6 <= col <= 15 else source_formats[col-1] if col in (2, 3, 4) else None
                 put(column(columns[col - 1]) + str(r), value, numeric_format=fmt)
             # Inspectable numeric helpers outside the report's print area.
             raw_columns = [column(c) for c in columns[1:4] + columns[5:]]

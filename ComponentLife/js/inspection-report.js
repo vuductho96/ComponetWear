@@ -253,7 +253,8 @@
       for(let r=spec.first;r<=spec.last;r++){
         const values=page.rows[r-spec.first]||Array(15).fill(null);
         values.forEach((value,i)=>{
-          const code=i>=5?'0.000':i>=1&&i<=3?(values.sourceFormats?.[i]||'General'):null;
+          const isAngle=/[°º]/.test(String(values[1])+(values.sourceFormats?.[1]||''));
+          const code=i>=5?(isAngle?(Number.isInteger(numeric(value))?'0"°"':'0.###############"°"'):'0.000'):i>=1&&i<=3?(values.sourceFormats?.[i]||'General'):null;
           // Excel ignores numeric formats on text cells. Convert only plain decimal
           // samples; keep dimension prefixes and degree/minute/second text intact.
           if(i>=5&&typeof value==='string'&&/^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?$/i.test(value.trim()))value=numeric(value);

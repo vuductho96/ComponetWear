@@ -86,8 +86,7 @@ function Format-InspectionGeneratedSample($nominalText,$tolMinusText,$tolPlusTex
     $b=Convert-MeasurementNumber $tolPlusText
     if ($null -eq $n -or $null -eq $a -or $null -eq $b) { return '' }
     $lo=$n+[Math]::Min($a,$b);$hi=$n+[Math]::Max($a,$b)
-    # Preserve DMS only when Nominal includes minutes/seconds. Degree-only
-    # and linear Nominal generate plain decimals with three decimal places.
+    # Keep angle units visible; linear measurements retain three decimals.
     $isAngle=[string]$nominalText -match '[°º]'
     $useDms=$isAngle -and ([string]$nominalText -match '[''"′″ʹʺ]')
     $whole=[Math]::Floor([Math]::Abs($n))
@@ -106,7 +105,7 @@ function Format-InspectionGeneratedSample($nominalText,$tolMinusText,$tolPlusTex
         $parsed=Convert-MeasurementNumber $text
         return (Get-MeasurementResult $nominalText $tolMinusText $tolPlusText $text) -eq 'OK' -and (-not $useDms -or ($null -ne $parsed -and [Math]::Floor([Math]::Abs($parsed)) -eq $whole))
     }
-    $formatted=if($useDms){Format-AutoSampleDms $candidate}else{$candidate.ToString('0.000',[Globalization.CultureInfo]::InvariantCulture)}
+    $formatted=if($useDms){Format-AutoSampleDms $candidate}elseif($isAngle){$candidate.ToString('0.###############',[Globalization.CultureInfo]::InvariantCulture)+'°'}else{$candidate.ToString('0.000',[Globalization.CultureInfo]::InvariantCulture)}
     # Validate the final text after formatting, not just the unrounded candidate.
     if (& $accept $formatted) { return $formatted }
     $mid=($lo+$hi)/2
@@ -115,6 +114,7 @@ function Format-InspectionGeneratedSample($nominalText,$tolMinusText,$tolPlusTex
     for ($precision=$start;$precision -le $end;$precision++) {
         $format='0.'+('0'*$precision)
         $formatted=if($useDms){Format-AutoSampleDms $mid $precision}else{$mid.ToString($format,[Globalization.CultureInfo]::InvariantCulture)}
+        if($isAngle -and -not $useDms){$formatted=$formatted.TrimEnd('0').TrimEnd('.')+'°'}
         if (& $accept $formatted) { return $formatted }
     }
     throw 'Không biểu diễn được mẫu trong dung sai với định dạng đang yêu cầu.'
@@ -141,7 +141,8 @@ function Set-ExcelCellSampleMeasurement($sheet,$row,$column,$value) {
     $text=([string]$value).Trim()
     $numeric=0.0
     if ($text -match '^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$' -and [double]::TryParse($text,[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$numeric)) {
-        $cell.NumberFormat='0.000'
+        $nominal=[string]$sheet.Cells.Item([int]$row,2).Text
+        $cell.NumberFormat=if($nominal -match '[°º]'){$(if([Math]::Truncate($numeric) -eq $numeric){'0"°"'}else{'0.###############"°"'})}else{'0.000'}
         Set-ComCellValue $cell $numeric
     } else {
         # DMS/degree text is kept exactly as generated, never truncated to degrees.

@@ -72,7 +72,7 @@ try {
         Assert ($ws.MergedCells[3,19] -eq 'S3:AB100' -and $ws.Cells[3,19].Value -eq 'Drawing area - preserve') 'Formula helpers preserve the merged drawing area'
         Assert ($ws.Cells[14,2].Value -eq '25.92') 'Nominal remains unchanged'
         Assert ($pkg.Workbook.VbaProject.Modules['FillSaveTest'].Code -match 'KeepThisMacro') 'Macros survive saving an xlsm workbook'
-        Assert ($ws.Cells[19,6].Value -eq 30 -and $ws.Cells[19,6].Text -eq '30.000') 'Degree-only quick fill saves Nominal as a three-decimal number'
+        Assert ($ws.Cells[19,6].Value -eq '30°' -and $ws.Cells[19,6].Text -eq '30°') 'Degree-only quick fill saves an explicit degree symbol'
         Assert ([string]$ws.Cells[20,6].Value -match '^4°25′(?:11|12|13)″$') 'DMS quick fill keeps the degree component and changes only nearby seconds'
         Assert ($ws.Cells[20,16].Formula -match 'COUNT\(BJ20:BS20\)' -and $ws.Cells[20,16].Formula -notmatch 'COUNTIF.*\*NG\*') 'Saved Excel uses real angle comparison formulas'
     } finally {$pkg.Dispose()}

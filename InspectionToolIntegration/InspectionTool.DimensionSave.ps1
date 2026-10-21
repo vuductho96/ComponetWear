@@ -60,7 +60,7 @@ function Save-DimensionsToWorkbook {
                 } elseif ($null -ne $m.NumericValue) {
 
                     $ws.Cells[$r, $c].Value = [double]$m.NumericValue
-                    $ws.Cells[$r, $c].Style.Numberformat.Format = '0.000'
+                    $ws.Cells[$r, $c].Style.Numberformat.Format = if([string]$m.Nominal -match '[°º]'){$(if([Math]::Truncate([double]$m.NumericValue) -eq [double]$m.NumericValue){'0"°"'}else{'0.###############"°"'})}else{'0.000'}
 
                 } else {
 
