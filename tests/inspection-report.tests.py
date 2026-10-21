@@ -7,7 +7,7 @@ import unittest
 from zipfile import ZipFile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'ComponentLife'))
-from inspection_report import ReportTemplate, Package, configured_template, number, report_result, TAG
+from inspection_report import ReportTemplate, Package, configured_template, number, report_result, column, TAG
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -231,6 +231,20 @@ class ReportTests(unittest.TestCase):
         for nominal, a, b, actual, expected in cases():
             self.assertEqual(report_result([1, nominal, a, b, 'B', actual] + [None] * 9), expected)
         self.assertIsNone(number('36°60\'0"'))
+
+    def test_appearance_only_for_samples_with_measurements(self):
+        import xml.etree.ElementTree as ET
+        template = ReportTemplate(configured_template(ROOT))
+        rows = [[1, '1', '-0.1', '0.1', 'C', 0, None, ' ', '1.200'] + [None] * 6]
+        sheet = ET.fromstring(template.fill({}, rows, list(range(1, 11)), 'Inspection', ['Inspection'], ['NG']))
+        cells = template.package.cells(sheet)
+        appearance = template.layout['appearanceRow']
+        self.assertIsNotNone(appearance)
+        values = [template.package.value(cells.get(column(c) + str(appearance))) for c in template.layout['columns'][5:]]
+        self.assertEqual(values, ['OK', None, None, 'OK'] + [None] * 6)
+        empty = ET.fromstring(template.fill({}, [], list(range(1, 11)), 'Inspection', ['Inspection'], []))
+        empty_cells = template.package.cells(empty)
+        self.assertTrue(all(template.package.value(empty_cells.get(column(c) + str(appearance))) is None for c in template.layout['columns'][5:]))
 
     def test_template_preservation_formulas_and_source_unchanged(self):
         with tempfile.TemporaryDirectory() as folder:

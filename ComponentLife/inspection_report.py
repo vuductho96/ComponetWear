@@ -314,7 +314,8 @@ def template_layout(package, sheet):
         raise ValueError('Template thiếu ô Judgement/Kết luận.')
     sample_header = max(range(header, header_end + 1), key=lambda r: sum(bool(re.fullmatch(r'#?\d+', str(package.value(cells.get(column(c) + str(r)))))) for c in samples))
     columns = [point[1], nominal[1], signs['-'], signs['+'], tool[1], *samples]
-    return {'header': sample_header, 'first': first, 'last': last, 'columns': columns, 'remarkColumn': remark[1], 'helperColumn': max(*columns, remark[1]) + 2, 'targets': targets, 'judgement': judgement}
+    appearance = min((e[2] for e in entries if e[2] > last and any(word in e[3] for word in ('ngoai quan', 'appearance'))), default=None)
+    return {'header': sample_header, 'first': first, 'last': last, 'columns': columns, 'remarkColumn': remark[1], 'helperColumn': max(*columns, remark[1]) + 2, 'targets': targets, 'judgement': judgement, 'appearanceRow': appearance}
 
 
 class ReportTemplate:
@@ -360,6 +361,8 @@ class ReportTemplate:
                     cell.attrib.pop('t', None)
                 data.append(row)
             self.last += self.insert_count
+            if self.layout['appearanceRow'] is not None:
+                self.layout['appearanceRow'] += self.insert_count
         self.styles = ET.fromstring(self.parts['xl/styles.xml'])
         self.style_cache = {}
         self.emphasis_cache = {}
@@ -369,7 +372,7 @@ class ReportTemplate:
         raw_columns = [column(c) for c in self.layout['columns'][1:4] + self.layout['columns'][5:]]
         helper = self.layout['helperColumn']
         return {'schemaVersion': 1, 'url': url, 'header': self.header, 'first': self.first, 'last': self.last,
-                'targets': self.layout['targets'], 'judgement': self.layout['judgement'],
+                'targets': self.layout['targets'], 'judgement': self.layout['judgement'], 'appearanceRow': self.layout['appearanceRow'],
                 'columns': self.layout['columns'], 'remarkColumn': self.layout['remarkColumn'],
                 'formulaBase': {'rawColumn': raw_columns[0], 'cleanColumn': column(helper)},
                 'resultFormula': row_result_formula('@COUNT@', '@CLEAN@', '@N@', '@B@', '@ACTUALS@', '@LO@', '@HI@'),
@@ -447,6 +450,10 @@ class ReportTemplate:
             put(address, fields.get(field), numeric_format='dd/mm/yyyy' if field == 'date' and isinstance(fields.get(field), Decimal) else None)
         for c, sample in zip(columns[5:], samples):
             put(column(c) + str(self.header), sample)
+        if self.layout['appearanceRow'] is not None:
+            for i, c in enumerate(columns[5:]):
+                measured = any(row[i + 5] is not None and str(row[i + 5]).strip() != '' for row in rows)
+                put(column(c) + str(self.layout['appearanceRow']), 'OK' if measured else '')
         for offset, r in enumerate(range(self.first, self.last + 1)):
             values = rows[offset] if offset < len(rows) else [None] * 15
             for col, value in enumerate(values, 1):

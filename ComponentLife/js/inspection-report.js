@@ -164,7 +164,8 @@
     let sampleHeader=point.r,best=-1;
     for(let r=point.r;r<=headerEnd;r++){const score=samples.filter(c=>/^#?\d+$/.test(String(pkg.value(cells.get(col(c)+r))))).length;if(score>best){best=score;sampleHeader=r;}}
     const columns=[point.c,nominal.c,signs.get('-'),signs.get('+'),tool.c,...samples];
-    return {header:sampleHeader,first,last,columns,remarkColumn:remark.c,helperColumn:Math.max(...columns,remark.c)+2,targets,judgement};
+    const appearanceRow=entries.filter(e=>e.r>last&&['ngoai quan','appearance'].some(word=>e.text.includes(word))).sort((a,b)=>a.r-b.r)[0]?.r??null;
+    return {header:sampleHeader,first,last,columns,remarkColumn:remark.c,helperColumn:Math.max(...columns,remark.c)+2,targets,judgement,appearanceRow};
   }
 
   async function build(sourceBytes,templateBytes,spec,record={}){
@@ -192,6 +193,7 @@
         data.append(row);
       }
       spec.last+=insertCount;
+      if(spec.appearanceRow)spec.appearanceRow+=insertCount;
     }
     const columns=spec.columns,remark=spec.remarkColumn,helper=spec.helperColumn;
     const rawColumns=[...columns.slice(1,4),...columns.slice(5)];
@@ -244,6 +246,10 @@
       };
       for(const [field,address] of Object.entries(spec.targets))put(address,page.fields[field],null,field==='date'&&typeof page.fields[field]==='number'?'dd/mm/yyyy':null);
       page.samples.forEach((sample,i)=>put(col(columns[i+5])+spec.header,sample));
+      if(spec.appearanceRow)columns.slice(5).forEach((column,i)=>{
+        const measured=page.rows.some(row=>row[i+5]!=null&&String(row[i+5]).trim()!=='');
+        put(col(column)+spec.appearanceRow,measured?'OK':'');
+      });
       for(let r=spec.first;r<=spec.last;r++){
         const values=page.rows[r-spec.first]||Array(15).fill(null);
         values.forEach((value,i)=>{
