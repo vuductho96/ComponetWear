@@ -8,6 +8,10 @@
     return [pscustomobject]@{SampleCount=$samples;NgCount=$ng;UnratedCount=$unrated}
 }
 
+function Test-InspectionRecordForList($Record) {
+    return $null -ne $Record -and -not [string]::IsNullOrWhiteSpace([string]$Record.Part) -and -not [string]::IsNullOrWhiteSpace([string]$Record.Mold)
+}
+
 function Get-DimensionsFromWorkbook {
     param([string]$path)
     if([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path)){return @()}

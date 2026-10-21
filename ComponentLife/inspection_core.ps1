@@ -211,7 +211,7 @@ function Convert-MeasureTextToNumber {
 
     $t = Safe-Text $text
     if ([string]::IsNullOrWhiteSpace($t)) { return $null }
-    $t = $t.Trim().ToUpperInvariant().Replace(',', '.').Replace('º','°').Replace('−','-').Replace([string][char]0x2032,"'").Replace([string][char]0x2019,"'").Replace([string][char]0x2033,'"').Replace([string][char]0x201D,'"').Replace("''",'"')
+    $t = $t.Trim().ToUpperInvariant().Replace(',', '.').Replace('º','°').Replace('−','-').Replace([string][char]0x02B9,"'").Replace([string][char]0x02BA,'"').Replace([string][char]0x2032,"'").Replace([string][char]0x2019,"'").Replace([string][char]0x2033,'"').Replace([string][char]0x201D,'"').Replace("''",'"')
     $t = $t -replace 'PHI|[RCØΦϕ⌀\s]', ''
     # Legacy workbooks use a single closing apostrophe for seconds: 28°4'21'.
     if ($t -match '^([+-]?\d+(?:\.\d+)?)°(\d+(?:\.\d+)?)''(\d+(?:\.\d+)?)''$') { $t=$t.Substring(0,$t.Length-1)+'"' }
@@ -313,7 +313,7 @@ function Extract-DimensionsFromWorksheet {
         $tolA = Convert-MeasureTextToNumber $tolLowText
         $tolB = Convert-MeasureTextToNumber $tolHighText
         $validLimits = $null -ne $nominal -and $null -ne $tolA -and $null -ne $tolB
-        $degreeComparison = $nominalText -match '[°º]' -and ($nominalText -match '[''"′″]' -or ([string]::IsNullOrWhiteSpace($tolLowText) -and [string]::IsNullOrWhiteSpace($tolHighText)))
+        $degreeComparison = $nominalText -match '[°º]' -and ($nominalText -match '[''"′″ʹʺ]' -or ([string]::IsNullOrWhiteSpace($tolLowText) -and [string]::IsNullOrWhiteSpace($tolHighText)))
 
         $limitA = [double]$nominal + [double]$tolA
         $limitB = [double]$nominal + [double]$tolB

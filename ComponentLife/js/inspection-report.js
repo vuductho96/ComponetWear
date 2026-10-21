@@ -20,7 +20,7 @@
 
   function numeric(value){
     if(value===null||value===undefined||String(value).trim()==='')return null;
-    let t=String(value).trim().toUpperCase().replaceAll(',','.').replace(/[′’]/g,"'").replace(/[″”]/g,'"').replaceAll("''",'"').replaceAll('º','°').replaceAll('−','-').replace(/PHI|[RCØΦϕ⌀\s]/g,'');
+    let t=String(value).trim().toUpperCase().replaceAll(',','.').replace(/[′’ʹ]/g,"'").replace(/[″”ʺ]/g,'"').replaceAll("''",'"').replaceAll('º','°').replaceAll('−','-').replace(/PHI|[RCØΦϕ⌀\s]/g,'');
     if(/^[+-]?\d+(?:\.\d+)?°\d+(?:\.\d+)?'\d+(?:\.\d+)?'$/.test(t))t=t.slice(0,-1)+'"';
     if(t.includes('°')){
       const match=t.match(/^([+-]?\d+(?:\.\d+)?)°(?:(\d+(?:\.\d+)?)'(?:(\d+(?:\.\d+)?)")?)?$/);
@@ -35,7 +35,7 @@
     const actual=row.slice(5).filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').map(numeric);
     if(!actual.length)return '';
     const [n,a,b]=row.slice(1,4).map(numeric);
-    if(/[°º]/.test(String(row[1])+(row.sourceFormats?.[1]||''))&&(/['"′″]/.test(String(row[1]))||row.slice(2,4).every(v=>v==null||String(v).trim()==='')))return n===null||actual.some(v=>v===null||Math.trunc(v)!==Math.trunc(n))?'NG':'OK';
+    if(/[°º]/.test(String(row[1])+(row.sourceFormats?.[1]||''))&&(/['"′″ʹʺ]/.test(String(row[1]))||row.slice(2,4).every(v=>v==null||String(v).trim()==='')))return n===null||actual.some(v=>v===null||Math.trunc(v)!==Math.trunc(n))?'NG':'OK';
     if([n,a,b,...actual].includes(null))return 'NG';
     const lo=n+Math.min(a,b),hi=n+Math.max(a,b);
     return actual.some(v=>v<lo-0.0000001||v>hi+0.0000001)?'NG':'OK';
@@ -255,7 +255,7 @@
         });
         const raw=[values[1],values[2],values[3],...values.slice(5)];
         raw.forEach((value,i)=>{
-          const clean=String(value??'').trim().toUpperCase().replace(/PHI|[RCØΦϕ⌀\s]/g,'').replaceAll(',','.').replace(/[′’]/g,"'").replace(/[″”]/g,'"').replaceAll("''",'"').replaceAll('º','°').replaceAll('−','-');
+          const clean=String(value??'').trim().toUpperCase().replace(/PHI|[RCØΦϕ⌀\s]/g,'').replaceAll(',','.').replace(/[′’ʹ]/g,"'").replace(/[″”ʺ]/g,'"').replaceAll("''",'"').replaceAll('º','°').replaceAll('−','-');
           put(col(helper+i)+r,clean,formula(formulaSpec.cleanFormulas[0],rawColumns[i],helper+i,r));
           put(col(helper+13+i)+r,numeric(value)??'',formula(formulaSpec.numberFormulas[0],rawColumns[i],helper+i,r),'0.###############');
         });

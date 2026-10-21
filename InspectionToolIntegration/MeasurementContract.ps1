@@ -20,7 +20,7 @@ function Get-MeasurementResult($nominalText,$tolMinusText,$tolPlusText,$actualTe
     $a=Convert-MeasurementNumber $tolMinusText
     $b=Convert-MeasurementNumber $tolPlusText
     $v=Convert-MeasurementNumber $actualText
-    if ([string]$nominalText -match '[°º]' -and ([string]$nominalText -match '[''"′″]' -or ([string]::IsNullOrWhiteSpace($tolMinusText) -and [string]::IsNullOrWhiteSpace($tolPlusText)))) {
+    if ([string]$nominalText -match '[°º]' -and ([string]$nominalText -match '[''"′″ʹʺ]' -or ([string]::IsNullOrWhiteSpace($tolMinusText) -and [string]::IsNullOrWhiteSpace($tolPlusText)))) {
         if ($null -eq $n -or $null -eq $v) { return 'NG' }
         return $(if([Math]::Truncate($n) -eq [Math]::Truncate($v)){'OK'}else{'NG'})
     }
@@ -89,7 +89,7 @@ function Format-InspectionGeneratedSample($nominalText,$tolMinusText,$tolPlusTex
     # Preserve DMS only when Nominal includes minutes/seconds. Degree-only
     # and linear Nominal generate plain decimals with three decimal places.
     $isAngle=[string]$nominalText -match '[°º]'
-    $useDms=$isAngle -and ([string]$nominalText -match '[''"′″]')
+    $useDms=$isAngle -and ([string]$nominalText -match '[''"′″ʹʺ]')
     $whole=[Math]::Floor([Math]::Abs($n))
     if ($useDms) {
         # Keep the original signed degree component; vary only minutes/seconds.

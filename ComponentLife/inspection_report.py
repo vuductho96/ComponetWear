@@ -35,7 +35,7 @@ def number(value):
     """Signed decimal degrees; prefixes do not change a dimension's magnitude."""
     if value is None or str(value).strip() == '':
         return None
-    text = str(value).strip().upper().replace(',', '.').replace('\u2032', "'").replace('’', "'").replace('\u2033', '"').replace('”', '"').replace("''", '"').replace('º', '°').replace('−', '-')
+    text = str(value).strip().upper().replace(',', '.').replace('\u2032', "'").replace('’', "'").replace('ʹ', "'").replace('\u2033', '"').replace('”', '"').replace('ʺ', '"').replace("''", '"').replace('º', '°').replace('−', '-')
     text = re.sub(r'PHI|[RCØΦϕ⌀\s]', '', text)
     if re.fullmatch(r"[+-]?\d+(?:\.\d+)?°\d+(?:\.\d+)?'\d+(?:\.\d+)?'", text):
         text = text[:-1] + '"'
@@ -186,9 +186,9 @@ def read_source(path, record):
 
 def clean_formula(reference):
     expression = f'SUBSTITUTE(UPPER(TRIM({reference}&"")),CHAR(160),"")'
-    for old, new in [('PHI', ''), ('R', ''), ('C', ''), ('Ø', ''), ('Φ', ''), ('ϕ', ''), ('⌀', ''), ('−', '-'), ('º', '°'), (',', '.'), (' ', ''), ('′', "'"), ('’', "'")]:
+    for old, new in [('PHI', ''), ('R', ''), ('C', ''), ('Ø', ''), ('Φ', ''), ('ϕ', ''), ('⌀', ''), ('−', '-'), ('º', '°'), (',', '.'), (' ', ''), ('′', "'"), ('’', "'"), ('ʹ', "'")]:
         expression = f'SUBSTITUTE({expression},"{old}","{new}")'
-    for old in ('″', '”', "''"):
+    for old in ('″', '”', 'ʺ', "''"):
         expression = f'SUBSTITUTE({expression},"{old}",CHAR(34))'
     # Accept the legacy seconds terminator only; minute/second range checks
     # still happen in numeric_formula, so a genuine bad angle stays NG.
@@ -217,7 +217,7 @@ def report_result(row):
     measurements = [number(v) for v in row[5:15] if v is not None and str(v).strip()]
     if not measurements:
         return ''
-    if re.search('[°º]', str(row[1]) + getattr(row, 'source_formats', [''] * 4)[1]) and (re.search('[\'"′″]', str(row[1])) or all(v is None or not str(v).strip() for v in row[2:4])):
+    if re.search('[°º]', str(row[1]) + getattr(row, 'source_formats', [''] * 4)[1]) and (re.search('[\'"′″ʹʺ]', str(row[1])) or all(v is None or not str(v).strip() for v in row[2:4])):
         return 'NG' if nominal is None or any(v is None or int(v) != int(nominal) for v in measurements) else 'OK'
     if None in (nominal, first, second) or any(v is None for v in measurements):
         return 'NG'
@@ -462,7 +462,7 @@ class ReportTemplate:
             for i, raw_col in enumerate(raw_columns):
                 raw, cleaned, numeric = raw_col + str(r), column(helper + i) + str(r), column(helper + 13 + i) + str(r)
                 raw_value = values[i + 1 if i < 3 else i + 2]
-                clean = '' if raw_value is None else re.sub(r'PHI|[RCØΦ\s]', '', str(raw_value).upper()).replace('′', "'").replace('″', '"')
+                clean = '' if raw_value is None else re.sub(r'PHI|[RCØΦ\s]', '', str(raw_value).upper()).replace('′', "'").replace('ʹ', "'").replace('″', '"').replace('ʺ', '"')
                 put(cleaned, clean, clean_formula(raw))
                 numeric_value = number(raw_value)
                 put(numeric, numeric_value if numeric_value is not None else '', numeric_formula(raw, cleaned), '0.###############')

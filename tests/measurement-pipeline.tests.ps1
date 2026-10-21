@@ -39,7 +39,12 @@ $cases=@(
     @('30°','','','31.000','NG'),
     @('30°','','','broken','NG'),
     @('30°','','0.1','30.000','NG'),
-    @('30°','bad','bad','30.000','NG')
+    @('30°','bad','bad','30.000','NG'),
+    @('4°17ʹ21ʺ','-0.05','0.05','4°12''20''''','OK'),
+    @('4°17ʹ21ʺ','-0.05','0.05','4°12ʹ20ʺ','OK'),
+    @('4°17ʹ21ʺ','-0.05','0.05','5°12ʹ20ʺ','NG'),
+    @('4°17ʹ21ʺ','-0.05','0.05','4°25''60''''','NG'),
+    @('2°51''45''''','-0.05','0.05','2°44''68''''','NG')
 )
 $excel=$null;$book=$null
 if((Format-AutoSampleDms 1) -ne '1°00′00″' -or (Format-AutoSampleDms 0.785) -ne '0°47′06″'){throw 'DMS conversion changed the angle magnitude'}
@@ -48,11 +53,11 @@ $degreeOnly=[pscustomobject]@{Step='DEG';Nominal='1°';TolMinus='0';TolPlus='0'}
 if((Get-ExportMeasurementText $degreeOnly 1) -ne '1.000'){throw 'Degree-only Nominal must generate plain three-decimal Actual'}
 $degreeMinute=[pscustomobject]@{Step='DMS';Nominal='1°30′00″';TolMinus='0';TolPlus='0'}
 if((Get-ExportMeasurementText $degreeMinute 1) -ne '1°30′00″'){throw 'Nominal with minutes must preserve DMS Actual'}
-foreach($generatorCase in @(@('0.4','+0.0011','+0.0012'),@('0.4','-0.0012','-0.0011'),@('0°30''','+0.00001','+0.00002'),@('1°','+0.01','+0.02'),@('Ø0.4','0','0'),@('-0°30''','-0.0002','-0.0001'))) {
+foreach($generatorCase in @(@('0.4','+0.0011','+0.0012'),@('0.4','-0.0012','-0.0011'),@('0°30''','+0.00001','+0.00002'),@('1°','+0.01','+0.02'),@('Ø0.4','0','0'),@('-0°30''','-0.0002','-0.0001'),@('4°17ʹ21ʺ','-0.05','0.05'))) {
     $data=[pscustomobject]@{Step='GEN';Nominal=$generatorCase[0];TolMinus=$generatorCase[1];TolPlus=$generatorCase[2]}
     for($sample=1;$sample -le 100;$sample++){
         $text=Get-ExportMeasurementText $data $sample
-        if(($data.Nominal -match '[°º]') -and ($data.Nominal -match '[''"′″]')){
+        if(($data.Nominal -match '[°º]') -and ($data.Nominal -match '[''"′″ʹʺ]')){
             if($text -notmatch '^-?\d+°\d{2}′\d{2}(?:\.\d+)?″$'){throw "Angular Actual is not DMS: $text"}
         } elseif($text -notmatch '^-?\d+\.\d{3,}$'){throw "Generated Actual contains a unit or prefix: $text"}
         if ((Get-MeasurementResult $data.Nominal $data.TolMinus $data.TolPlus $text) -ne 'OK') {throw "Generated sample failed: $text"}
@@ -111,8 +116,8 @@ try {
             }
             if($dims[0].Nominal -ne '1°' -or $dims[4].Nominal -ne 'R0.4'){throw 'Formatted degree/prefix was lost'}
         } finally {$pkg.Dispose()}
-        [IO.File]::WriteAllText((Join-Path $dir 'expected.json'),($cases | ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
-        Write-Output "PASS 600 generated samples, plus $($cases.Count) saved cases: Rapid UI, Rapid native Excel export and Inspection extraction agree; sample 11 preserved."
+        [IO.File]::WriteAllText((Join-Path $dir 'expected.json'),(ConvertTo-Json -InputObject $cases -Depth 5),[Text.UTF8Encoding]::new($false))
+        Write-Output "PASS 700 generated samples, plus $($cases.Count) saved cases: Rapid UI, Rapid native Excel export and Inspection extraction agree; sample 11 preserved."
     }
 } finally {
     if($book){$book.Close($false)}

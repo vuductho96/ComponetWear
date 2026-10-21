@@ -40,7 +40,11 @@ PDF passwords are read privately from `.cloud-publish/inspection-download-passwo
 
 Degree-only angles with both tolerance cells empty also compare whole degrees. Partially missing or invalid tolerances remain NG.
 
-Inspection Tool additionally marks measured rows NG when the source Remark/Result cell contains a cached Excel error such as #VALUE! or #REF!, even when Actual passes. This source-formula policy is desktop-only and preserves the original workbook. Scan cache version: v9.
+Inspection Tool additionally marks measured rows NG when the source Remark/Result cell contains a cached Excel error such as #VALUE! or #REF!, even when Actual passes. This source-formula policy is desktop-only and preserves the original workbook. Scan cache version: v10.
+
+DMS readers and generated Excel formulas accept modifier prime symbols U+02B9/U+02BA as well as ordinary prime symbols U+2032/U+2033 and legacy apostrophes. The source text and precision are preserved. This fixes valid angles such as `4°17ʹ21ʺ` being rejected; minutes/seconds of 60 or more remain invalid. The degree comparison rule is unchanged.
+
+The desktop file list retains all workbooks with Part/Mold, even when their quantity was set to zero to avoid counting a lot twice. Sample 1–10 and Sample 11–14 remain separate files, and distinct folders are never merged. KPI excludes these additional zero-quantity rows from lot counting.
 
 Desktop summary and Quick Preview read every used worksheet, including points 41 onward on continuation sheets. Preview rows retain their worksheet name so Quick Fill and save verification target the correct sheet even when cell addresses repeat. Older cached rows without worksheet identity cannot be saved to a multi-sheet workbook; reselect the file to reload them. The installer injects `InspectionTool.MultiSheet.ps1` functions into the desktop app.
 

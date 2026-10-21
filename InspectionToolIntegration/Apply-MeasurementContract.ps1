@@ -19,7 +19,7 @@ function Install-Functions([string]$path,$functions) {
         else{$text=$function.Extent.Text+"`r`n"+$text}
     }
     # Force old desktop scan entries to be checked again after rule changes.
-    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[345678]\|','measurement-contract-v9|')
+    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v[3456789]\|','measurement-contract-v10|')
     if ($path -eq $RapidPath) {
         $text=$text.Replace('$cell.NumberFormat = "0.###""°"""','$cell.NumberFormat = $numFmt + ''"°"''')
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
@@ -32,6 +32,23 @@ function Install-Functions([string]$path,$functions) {
         $patched=[regex]::Replace($readText,$oldSummary,[Text.RegularExpressions.MatchEvaluator]{param($m) $newSummary})
         if($patched -notmatch 'Get-InspectionWorkbookStats'){throw 'Could not install all-sheet summary scan'}
         $text=$text.Remove($readFunction.Extent.StartOffset,$readFunction.Extent.Text.Length).Insert($readFunction.Extent.StartOffset,$patched)
+        # Lot quantity de-duplication must never hide additional sample workbooks.
+        $scanFunction=@(Get-Functions $text | Where-Object Name -eq 'Scan')[0]
+        $scanText=[regex]::Replace($scanFunction.Extent.Text,'if\s*\(\$d\.Qty -gt 0\)','if (Test-InspectionRecordForList $d)')
+        if($scanText -notmatch 'Test-InspectionRecordForList'){throw 'Could not install complete workbook listing'}
+        $text=$text.Remove($scanFunction.Extent.StartOffset,$scanFunction.Extent.Text.Length).Insert($scanFunction.Extent.StartOffset,$scanText)
+        $kpiFunction=@(Get-Functions $text | Where-Object Name -eq 'Update-KpiChart')[0]
+        $kpiText=$kpiFunction.Extent.Text
+        $visibleGuard='if (-not $r.Visible) { continue }'
+        if($kpiText -notmatch 'Skip quantity-only duplicates in KPI'){
+            if(-not $kpiText.Contains($visibleGuard)){throw 'Could not preserve KPI lot counting'}
+            $kpiText=$kpiText.Replace($visibleGuard,$visibleGuard+"`r`n"+'        # Skip quantity-only duplicates in KPI; keep their workbooks visible.'+"`r`n"+'        if ((Safe-Qty $r.Cells[6].Value) -le 0) { continue }')
+            $text=$text.Remove($kpiFunction.Extent.StartOffset,$kpiFunction.Extent.Text.Length).Insert($kpiFunction.Extent.StartOffset,$kpiText)
+        }
+        $timeFunction=@(Get-Functions $text | Where-Object Name -eq 'Auto-FillMissingTimeOverrides')[0]
+        $timeText=$timeFunction.Extent.Text.Replace('foreach ($item in @($script:AllData)) {','foreach ($item in @($script:AllData | Where-Object { (Safe-Qty $_.Qty) -gt 0 })) {')
+        if($timeText -notmatch 'Where-Object \{ \(Safe-Qty \$_\.Qty\) -gt 0 \}') {throw 'Could not preserve automatic time allocation'}
+        $text=$text.Remove($timeFunction.Extent.StartOffset,$timeFunction.Extent.Text.Length).Insert($timeFunction.Extent.StartOffset,$timeText)
         # Only the desktop reader checks cached source formula errors; web uses its own regenerated formula.
         $text=$text.Replace('[switch]$CheckFormulaErrors'+"`r`n",'[switch]$CheckFormulaErrors = $true'+"`r`n").Replace('[switch]$CheckFormulaErrors'+"`n",'[switch]$CheckFormulaErrors = $true'+"`n")
         $text=$text.Replace('$isNg = ($val -lt ($minL - $epsilon) -or $val -gt ($maxL + $epsilon))','$isNg = (Get-MeasurementResult $nomText $t1Text $t2Text $valText) -eq ''NG''')
