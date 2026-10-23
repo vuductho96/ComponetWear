@@ -4,6 +4,15 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'cloud_publish.ps1')
 . (Join-Path $PSScriptRoot 'inspection_read_pool.ps1')
 $readJobs=@{};$readPool=$null
+function Select-InspectionPublishedDimensions {
+    param([object[]]$Dimensions)
+    foreach ($dimension in $Dimensions) {
+        if ($null -eq $dimension -or $dimension.Count -lt 10) { throw 'Invalid inspection dimension in publish cache.' }
+        # Missing-step diagnostics belong to the desktop audit, never to measured web samples.
+        # Keep zero, invalid nonblank measurements and actual NG values unchanged.
+        if (-not [string]::IsNullOrWhiteSpace([string]$dimension[5])) { ,$dimension }
+    }
+}
 Import-Module ImportExcel -ErrorAction Stop
 $config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $sourceRoot = [IO.Path]::GetFullPath($config.sourcePath).TrimEnd('\')
@@ -132,6 +141,7 @@ foreach ($file in $files) {
             Write-PublishJson $cacheFile ([pscustomobject]@{ signature = $signature; record = $raw; dimensions = @($dims) })
         } finally { $pkg.Dispose() }
     }
+    $dims = @(Select-InspectionPublishedDimensions -Dimensions $dims)
     $drawings = @(); $drawingNotice = ''
     # Prefer part-matching PDFs from this lot. Parent-folder candidates remain explicitly labelled.
     foreach ($folder in @($file.DirectoryName, (Split-Path $file.DirectoryName -Parent))) {
