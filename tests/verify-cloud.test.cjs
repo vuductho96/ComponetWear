@@ -8,7 +8,29 @@ const { createHash } = require('node:crypto');
 const { verifyCloud, captureBaseline } = require('../verify-cloud.cjs');
 const hash = text => createHash('sha256').update(text).digest('hex');
 
-test('private verifier credentials are scoped to the exact HTTPS origin and redirects are rejected', async()=>{
+test('verification follows same-origin HTML redirects and retries transient assets without accepting bad bytes',async t=>{
+  let attempts=0,mode='recover',rootReads=0;
+  const manifest={snapshotId:'test',files:['index.html='+hash('html'),'asset.bin='+hash('bytes')]};
+  const server=http.createServer((req,res)=>{
+    const file=new URL(req.url,'http://localhost').pathname;
+    if(file==='/data/version.json')return res.end(JSON.stringify(manifest));
+    if(file==='/index.html'){res.writeHead(307,{Location:'/'});return res.end();}
+    if(file==='/'){rootReads++;return res.end('html');}
+    attempts++;
+    if(mode==='cross'){res.writeHead(307,{Location:'https://evil.test/stolen'});return res.end();}
+    if(mode==='missing' || (mode==='recover'&&attempts<3)){res.writeHead(404);return res.end('pending');}
+    res.end(mode==='corrupt'?'wrong':'bytes');
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>server.close());
+  const url='http://127.0.0.1:'+server.address().port,notices=[],options={retryDelays:[0,0],onRetry:message=>notices.push(message)};
+  assert.equal(await verifyCloud(manifest,url,1,null,options),2);
+  assert.equal(rootReads,1);assert.equal(attempts,3);assert.equal(notices.length,2);
+  mode='missing';attempts=0;await assert.rejects(verifyCloud(manifest,url,1,null,options),/HTTP 404/);assert.equal(attempts,3);
+  mode='corrupt';attempts=0;await assert.rejects(verifyCloud(manifest,url,1,null,options),/SHA-256 mismatch/);assert.equal(attempts,1);
+  mode='cross';attempts=0;await assert.rejects(verifyCloud(manifest,url,1,null,options),/Cross-origin redirect rejected/);assert.equal(attempts,1);
+});
+
+test('private verifier credentials are scoped to the exact HTTPS origin and redirects are inspected', async()=>{
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-auth-'));
   const file=path.join(directory,'private.json'),previousEnv=process.env.COMPONENTLIFE_VERIFIER_FILE,previousFetch=global.fetch;
   fs.writeFileSync(file,JSON.stringify({url:'https://trusted.test',token:'private-test-token'}));process.env.COMPONENTLIFE_VERIFIER_FILE=file;
@@ -16,7 +38,7 @@ test('private verifier credentials are scoped to the exact HTTPS origin and redi
   global.fetch=async(url,options)=>{requests.push({url:String(url),...options});return String(url).includes('version.json')?Response.json(manifest):new Response('content');};
   try {
     await verifyCloud(manifest,'https://trusted.test');
-    assert.ok(requests.every(r=>r.headers.Authorization==='Bearer private-test-token'&&r.redirect==='error'));
+    assert.ok(requests.every(r=>r.headers.Authorization==='Bearer private-test-token'&&r.redirect==='manual'));
     requests.length=0;await verifyCloud(manifest,'https://other.test');assert.ok(requests.every(r=>!r.headers.Authorization));
     requests.length=0;await verifyCloud(manifest,'http://trusted.test');assert.ok(requests.every(r=>!r.headers.Authorization));
     await assert.rejects(verifyCloud({...manifest,files:['https://evil.test/private='+hash('content')]},'https://trusted.test'),/does not match/);

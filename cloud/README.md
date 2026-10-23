@@ -16,7 +16,7 @@ Admin opens `+` on either Inspection table, or Account → Cột hiển thị ch
 
 Local development with authentication uses `npx wrangler dev --local` and a **local** D1 migration/fixture admin. The old PowerShell static server cannot authenticate D1 accounts; it falls back to restricted guest UI. Never add a localhost admin bypass. Do not commit `.cloud-publish`, `.wrangler`, SQL containing account hashes, or verifier tokens.
 
-Publish verification uses its private bearer only on the exact configured HTTPS origin, with redirects rejected. It cannot call admin APIs. No passwords, salts, session tokens, or verification secret are part of the public asset allowlist.
+Publish verification uses its private bearer only on the exact configured HTTPS origin. Same-origin redirects (including `index.html` → `/`) are followed with a bounded hop count; cross-origin redirects are rejected before credentials can be forwarded. Temporary 404/network failures are retried per file with bounded backoff, while hashes still must match. It cannot call admin APIs. No passwords, salts, session tokens, or verification secret are part of the public asset allowlist.
 
 Missing-result diagnostics remain in the desktop Inspection Tool. Publish only counts nonblank Actual measurements; numeric zero, real NG results, and invalid nonblank values are retained. All-blank reports remain pending, and original Excel files are not modified by this filter.
 
