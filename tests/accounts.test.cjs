@@ -71,6 +71,15 @@ test("D1 accounts, sessions, cloud policy and direct asset authorization in work
       .map((s) => s.trim())
       .filter(Boolean))
       await db.prepare(sql).run();
+    for (const sql of fs
+      .readFileSync(
+        path.join(root, "cloud/migrations/0002_permissions.sql"),
+        "utf8",
+      )
+      .split(";")
+      .map((x) => x.trim())
+      .filter(Boolean))
+      await db.prepare(sql).run();
     const { passwordHash } = await import("../cloud/auth-crypto.mjs");
     await db
       .prepare("INSERT INTO auth_users VALUES(?,?,?,'admin',0,?)")
@@ -229,6 +238,99 @@ test("D1 accounts, sessions, cloud policy and direct asset authorization in work
         await call("/api/admin/users", "GET", null, headers)
       ).json(),
       staffId = users.find((u) => u.username === "staff1").id;
+    const permissionsUrl = "/api/admin/users/" + staffId + "/permissions";
+    const limited = { tabs: ["inspection"], inspection: policy };
+    assert.equal(
+      (
+        await call(
+          permissionsUrl,
+          "PUT",
+          { version: 0, permissions: limited },
+          staffHeaders,
+        )
+      ).status,
+      403,
+      "Staff cannot grant their own tabs",
+    );
+    assert.equal(
+      (
+        await call(
+          permissionsUrl,
+          "PUT",
+          { version: 0, permissions: limited },
+          headers,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(
+          permissionsUrl,
+          "PUT",
+          { version: 0, permissions: limited },
+          headers,
+        )
+      ).status,
+      409,
+    );
+    let staffSession = await (
+      await call("/api/auth/session", "GET", null, staffHeaders)
+    ).json();
+    assert.deepEqual(staffSession.tabs, ["inspection"]);
+    assert.deepEqual(staffSession.policy, policy);
+    assert.equal(
+      (await call("/data/stock-data.json", "GET", null, staffHeaders)).status,
+      403,
+    );
+    assert.equal(
+      (await call("/dimension-ocr/index.html", "GET", null, staffHeaders))
+        .status,
+      403,
+    );
+    assert.equal((await call("/dimension-ocr/index.html")).status, 200);
+    assert.equal(
+      (
+        await (
+          await call(
+            "/data/inspection/detail-01.json",
+            "GET",
+            null,
+            staffHeaders,
+          )
+        ).json()
+      ).a[0][9],
+      null,
+    );
+    const { fullPermissions } = await import("../cloud/policy.mjs");
+    assert.equal(
+      (
+        await call(
+          permissionsUrl,
+          "PUT",
+          { version: 1, permissions: fullPermissions },
+          headers,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await call("/data/stock-data.json", "GET", null, staffHeaders)).status,
+      200,
+    );
+    assert.equal(
+      (
+        await (
+          await call(
+            "/data/inspection/detail-01.json",
+            "GET",
+            null,
+            staffHeaders,
+          )
+        ).json()
+      ).a[0][9],
+      "NG",
+    );
     assert.equal(
       (
         await call(
@@ -305,6 +407,138 @@ test("D1 accounts, sessions, cloud policy and direct asset authorization in work
           headers,
         )
       ).status,
+      403,
+    );
+    const deletionLogin = await call("/api/auth/login", "POST", {
+      username: "staff1",
+      password: "NewPassword-test-123",
+    });
+    const deletionSession = await deletionLogin.json(),
+      deletionHeaders = {
+        Cookie: deletionLogin.headers.get("set-cookie").split(";")[0],
+        "X-CSRF-Token": deletionSession.csrf,
+      };
+    assert.equal(
+      (
+        await call(
+          "/api/admin/users/" + staffId,
+          "DELETE",
+          { confirmUsername: "staff1" },
+          deletionHeaders,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await call(
+          "/api/admin/users/admin",
+          "DELETE",
+          { confirmUsername: "vuductho.th@gmail.com" },
+          headers,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await call(
+          "/api/admin/users/" + staffId,
+          "DELETE",
+          { confirmUsername: "wrong" },
+          headers,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          "/api/admin/users/" + staffId,
+          "DELETE",
+          { confirmUsername: "staff1" },
+          headers,
+        )
+      ).status,
+      200,
+    );
+    for (const [table, column] of [
+      ["auth_users", "id"],
+      ["auth_permissions", "user_id"],
+      ["auth_sessions", "user_id"],
+    ])
+      assert.equal(
+        (
+          await db
+            .prepare(`SELECT count(*) AS n FROM ${table} WHERE ${column}=?`)
+            .bind(staffId)
+            .first()
+        ).n,
+        0,
+      );
+    assert.equal(
+      (
+        await (
+          await call("/api/auth/session", "GET", null, deletionHeaders)
+        ).json()
+      ).user,
+      null,
+    );
+    assert.equal(
+      (
+        await call("/api/auth/login", "POST", {
+          username: "staff1",
+          password: "NewPassword-test-123",
+        })
+      ).status,
+      401,
+    );
+    assert.equal(
+      (
+        await call(
+          "/api/admin/users",
+          "POST",
+          {
+            username: "staff1",
+            password: "RecreatedPassword-123",
+            permissions: { ...fullPermissions, tabs: [] },
+          },
+          headers,
+        )
+      ).status,
+      201,
+    );
+    const recreatedLogin = await call("/api/auth/login", "POST", {
+        username: "staff1",
+        password: "RecreatedPassword-123",
+      }),
+      recreated = await recreatedLogin.json();
+    assert.notEqual(recreated.user.id, staffId);
+    const recreatedHeaders = {
+      Cookie: recreatedLogin.headers.get("set-cookie").split(";")[0],
+    };
+    assert.deepEqual(
+      (
+        await (
+          await call("/api/auth/session", "GET", null, recreatedHeaders)
+        ).json()
+      ).tabs,
+      [],
+    );
+    assert.equal(
+      (
+        await call(
+          "/data/inspection/summary.json",
+          "GET",
+          null,
+          recreatedHeaders,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (await call("/data/stock-data.json", "GET", null, recreatedHeaders))
+        .status,
       403,
     );
     assert.equal(

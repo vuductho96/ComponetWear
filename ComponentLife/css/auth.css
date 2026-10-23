@@ -174,3 +174,5 @@
   z-index: 3;
   background: var(--surface);
 }
+
+.account-dialog .account-danger{color:#b91c1c;border-color:#ef4444;background:var(--surface)}

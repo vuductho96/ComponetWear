@@ -689,10 +689,15 @@ function renderStockTable() {
 
 // ===== TAB SWITCHING =====
 function switchTab(name) {
-  if(window.ComponentAuth && !ComponentAuth.full() && !["inspection","dimensionocr"].includes(name)) name="inspection";
-  document.body.classList.toggle('inspection-active', name === 'inspection');
+  if(window.ComponentAuth && !ComponentAuth.canTab(name)) name=ComponentAuth.tabs[0]||'noaccess';
+  if(name==='noaccess' && !document.getElementById('noAccessTab')) {
+    const panel=document.createElement('section');panel.id='noAccessTab';panel.className='inspection-empty';panel.innerHTML='<h2>Tài khoản chưa được cấp quyền tab</h2><p>Liên hệ admin để được cấp quyền sử dụng.</p>';document.getElementById('inspectionTab').parentElement.append(panel);
+  }
+  const noAccess=document.getElementById('noAccessTab');if(noAccess)noAccess.hidden=name!=='noaccess';
+  const exportButton=document.getElementById('btnExportReport');if(exportButton)exportButton.hidden=name==='inspection'?!ComponentAuth.capability('downloadExcel'):name==='noaccess';
+  document.body.classList.toggle('inspection-active', name === 'inspection' || name === 'noaccess');
   document.body.classList.toggle('dimension-ocr-active', name === 'dimensionocr');
-  const isToolTab = name === 'inspection' || name === 'dimensionocr';
+  const isToolTab = name === 'inspection' || name === 'dimensionocr' || name==='noaccess';
   console.log(`%c[TAB] Switched to tab: "${name}"`, "color:#7c3aed; font-weight:bold; font-size:13px;");
   const isDashboard = (name === "stock" || name === "dashboard" || name === "report");
   const isOverview = (name === "overview");
@@ -725,6 +730,7 @@ function switchTab(name) {
     else if (name === "chart") titleText = "Phân Tích & Biểu Đồ Tiêu Hao";
     else if (name === "inspection") titleText = "Đo linh kiện";
     else if (name === "dimensionocr") titleText = "IQC · Kiểm tra kích thước";
+    else if (name === "noaccess") titleText = "Quyền truy cập";
     $("topbarTitle").innerHTML = `<span>${titleText}</span>`;
   }
 
@@ -988,8 +994,8 @@ async function initApp() {
   initScreenFitEngine();
   if (new URLSearchParams(location.search).get('tab') === 'dimensionocr') switchTab('dimensionocr');
   // Start polling after the initial load, so an older startup request cannot overwrite a new snapshot.
-  if (!window.ComponentAuth || ComponentAuth.full()) loadAllDataFromSource().finally(initHeartbeat);
-  else switchTab(new URLSearchParams(location.search).get("tab")==="dimensionocr"?"dimensionocr":"inspection");
+  switchTab(new URLSearchParams(location.search).get('tab') || ComponentAuth.tabs[0] || 'noaccess');
+  if (ComponentAuth.tabs.some(tab=>['overview','month','stock','chart'].includes(tab))) loadAllDataFromSource().finally(initHeartbeat);
   console.log("%c[BOOT] ========== initApp DONE ==========", "color:#7c3aed; font-weight:bold; font-size:15px;");
 }
 

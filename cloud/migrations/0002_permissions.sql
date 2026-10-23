@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS auth_permissions (
+ user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
+ version INTEGER NOT NULL DEFAULT 0,
+ permissions TEXT NOT NULL
+);

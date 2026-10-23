@@ -11,6 +11,9 @@ import {
   validatePolicy,
   projectSummary,
   projectDetails,
+  fullPermissions,
+  fullPolicy,
+  validatePermissions,
 } from "./policy.mjs";
 
 const cookieName = "__Host-componentlife_session";
@@ -74,6 +77,22 @@ async function settings(env) {
     ? { version: row.version, policy: validatePolicy(JSON.parse(row.policy)) }
     : { version: 0, policy: structuredClone(defaultPolicy) };
 }
+async function access(env, user) {
+  if (!user) return null;
+  if (user.role === "admin")
+    return { version: 0, permissions: structuredClone(fullPermissions) };
+  const row = await env.DB.prepare(
+    "SELECT version,permissions FROM auth_permissions WHERE user_id=?",
+  )
+    .bind(user.id)
+    .first();
+  return row
+    ? {
+        version: row.version,
+        permissions: validatePermissions(JSON.parse(row.permissions)),
+      }
+    : { version: 0, permissions: structuredClone(fullPermissions) };
+}
 function sameOrigin(request) {
   if (request.headers.get("origin") !== new URL(request.url).origin)
     fail("Yêu cầu khác nguồn bị từ chối.", 403);
@@ -86,12 +105,19 @@ async function audit(env, user, action, target) {
     .run();
 }
 async function api(request, env, path, user) {
-  if (path === "/api/auth/session" && request.method === "GET")
+  if (path === "/api/auth/session" && request.method === "GET") {
+    const guest = await settings(env),
+      account = await access(env, user);
     return json({
       user: publicUser(user),
       csrf: user?.csrf || null,
-      ...(await settings(env)),
+      version: guest.version,
+      accessVersion: account?.version || 0,
+      tabs: account?.permissions.tabs || ["inspection", "dimensionocr"],
+      policy: account?.permissions.inspection || guest.policy,
+      ...(user?.role === "admin" ? { guestPolicy: guest.policy } : {}),
     });
+  }
   if (request.method !== "GET") sameOrigin(request);
   if (path === "/api/auth/login" && request.method === "POST") {
     const data = await body(request),
@@ -207,16 +233,23 @@ async function api(request, env, path, user) {
     if (result.meta.changes !== 1)
       fail("Cấu hình đã được thay đổi. Tải lại trang trước khi lưu.", 409);
     await audit(env, user, "guest-policy", "1");
-    return json({ version: data.version + 1, policy });
+    return json({ version: data.version + 1, guestPolicy: policy });
   }
-  if (path === "/api/admin/users" && request.method === "GET")
+  if (path === "/api/admin/users" && request.method === "GET") {
+    const users = (
+      await env.DB.prepare(
+        "SELECT id,username,role,disabled,created_at FROM auth_users ORDER BY created_at",
+      ).all()
+    ).results;
     return json(
-      (
-        await env.DB.prepare(
-          "SELECT id,username,role,disabled,created_at FROM auth_users ORDER BY created_at",
-        ).all()
-      ).results,
+      await Promise.all(
+        users.map(async (account) => ({
+          ...account,
+          ...(await access(env, account)),
+        })),
+      ),
     );
+  }
   if (path === "/api/admin/users" && request.method === "POST") {
     const data = await body(request),
       username = String(data.username || "")
@@ -233,11 +266,73 @@ async function api(request, env, path, user) {
     )
       fail("Username đã tồn tại.", 409);
     const id = crypto.randomUUID();
-    await env.DB.prepare("INSERT INTO auth_users VALUES(?,?,?,'staff',0,?)")
-      .bind(id, username, await passwordHash(data.password), Date.now())
-      .run();
+    const permissions = data.permissions
+      ? validatePermissions(data.permissions)
+      : { tabs: [], inspection: structuredClone(fullPolicy) };
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO auth_users VALUES(?,?,?,'staff',0,?)").bind(
+        id,
+        username,
+        await passwordHash(data.password),
+        Date.now(),
+      ),
+      env.DB.prepare(
+        "INSERT INTO auth_permissions(user_id,version,permissions) VALUES(?,0,?)",
+      ).bind(id, JSON.stringify(permissions)),
+    ]);
     await audit(env, user, "create-staff", id);
     return json({ ok: true }, 201);
+  }
+  if (path.startsWith("/api/admin/users/") && request.method === "DELETE") {
+    const id = path.slice("/api/admin/users/".length),
+      data = await body(request);
+    const target = await env.DB.prepare(
+      "SELECT id,username,role FROM auth_users WHERE id=?",
+    )
+      .bind(id)
+      .first();
+    if (!target) fail("Không tìm thấy tài khoản.", 404);
+    if (target.role === "admin" || id === user.id)
+      fail("Không thể xóa tài khoản admin.", 403);
+    if (data.confirmUsername !== target.username)
+      fail("Nhập đúng username để xác nhận xóa vĩnh viễn.");
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM auth_sessions WHERE user_id=?").bind(id),
+      env.DB.prepare("DELETE FROM auth_permissions WHERE user_id=?").bind(id),
+      env.DB.prepare("DELETE FROM auth_users WHERE id=? AND role='staff'").bind(
+        id,
+      ),
+    ]);
+    await audit(env, user, "delete-staff", id);
+    return json({ ok: true });
+  }
+  if (
+    path.startsWith("/api/admin/users/") &&
+    path.endsWith("/permissions") &&
+    request.method === "PUT"
+  ) {
+    const id = path.slice("/api/admin/users/".length, -"/permissions".length),
+      data = await body(request);
+    const target = await env.DB.prepare(
+      "SELECT id,role FROM auth_users WHERE id=?",
+    )
+      .bind(id)
+      .first();
+    if (!target) fail("Không tìm thấy tài khoản.", 404);
+    if (target.role === "admin") fail("Admin luôn có toàn quyền.", 403);
+    const permissions = validatePermissions(data.permissions);
+    await env.DB.prepare("INSERT OR IGNORE INTO auth_permissions VALUES(?,0,?)")
+      .bind(id, JSON.stringify(fullPermissions))
+      .run();
+    const result = await env.DB.prepare(
+      "UPDATE auth_permissions SET permissions=?,version=version+1 WHERE user_id=? AND version=?",
+    )
+      .bind(JSON.stringify(permissions), id, data.version)
+      .run();
+    if (result.meta.changes !== 1)
+      fail("Quyền đã thay đổi. Mở lại tài khoản trước khi lưu.", 409);
+    await audit(env, user, "account-permissions", id);
+    return json({ ok: true });
   }
   if (path.startsWith("/api/admin/users/") && request.method === "PATCH") {
     const id = path.slice("/api/admin/users/".length),
@@ -289,6 +384,7 @@ export default {
       if (
         !path.startsWith("/api/") &&
         !path.startsWith("/data/") &&
+        !path.startsWith("/dimension-ocr/") &&
         path !== "/ComponentMaster.json" &&
         !/\.(xlsx|xlsm|pdf|csv|sql|toml|ps1)$/i.test(path)
       )
@@ -307,8 +403,31 @@ export default {
         return json({ error: "Chưa cấu hình database tài khoản." }, 503);
       const user = await session(request, env);
       if (path.startsWith("/api/")) return await api(request, env, path, user);
-      if (user) return privateResponse(await env.ASSETS.fetch(request));
-      const { policy } = await settings(env);
+      const account = await access(env, user);
+      const tabs = account?.permissions.tabs || ["inspection", "dimensionocr"];
+      if (path.startsWith("/dimension-ocr/"))
+        return tabs.includes("dimensionocr")
+          ? privateResponse(await env.ASSETS.fetch(request))
+          : json({ error: "Chưa được cấp quyền tab IQC." }, 403);
+      if (user?.role === "admin")
+        return privateResponse(await env.ASSETS.fetch(request));
+      if (path.startsWith("/data/inspection/") && !tabs.includes("inspection"))
+        return json({ error: "Chưa được cấp quyền tab Đo linh kiện." }, 403);
+      if (
+        user &&
+        (path === "/ComponentMaster.json" ||
+          [
+            "/data/shoot-data.json",
+            "/data/replacement-log.json",
+            "/data/stock-data.json",
+          ].includes(path)) &&
+        tabs.some((tab) =>
+          ["overview", "month", "stock", "chart"].includes(tab),
+        )
+      )
+        return privateResponse(await env.ASSETS.fetch(request));
+      const policy =
+        account?.permissions.inspection || (await settings(env)).policy;
       if (path === "/data/version.json") {
         const response = await env.ASSETS.fetch(request);
         if (!response.ok) return privateResponse(response);

@@ -1,9 +1,11 @@
-/* Accounts and guest policy are authoritative on the Worker/D1, never localStorage. */
+/* Permissions are authoritative on Worker/D1. Personal column visibility cannot grant access. */
 "use strict";
 window.ComponentAuth = {
   user: null,
   csrf: null,
   version: 0,
+  tabs: ["inspection", "dimensionocr"],
+  fields: null,
   policy: {
     records: [
       "file",
@@ -26,11 +28,25 @@ window.ComponentAuth = {
   admin() {
     return this.user?.role === "admin";
   },
+  canTab(name) {
+    return (
+      this.admin() ||
+      this.tabs.includes(
+        ["dashboard", "report"].includes(name) ? "stock" : name,
+      )
+    );
+  },
+  permitted(kind, key) {
+    return this.admin() || this.policy[kind]?.includes(key);
+  },
   allowed(kind, key) {
-    return this.full() || this.policy[kind]?.includes(key);
+    return (
+      this.permitted(kind, key) &&
+      (!this.fields?.[kind] || this.fields[kind].includes(key))
+    );
   },
   capability(key) {
-    return this.full() || this.policy[key] === true;
+    return this.admin() || this.policy[key] === true;
   },
   async request(path, method = "GET", data) {
     const response = await fetch(path, {
@@ -50,9 +66,7 @@ window.ComponentAuth = {
   },
   apply() {
     document.querySelectorAll(".tab[data-tab]").forEach((tab) => {
-      tab.hidden =
-        !this.full() &&
-        !["inspection", "dimensionocr"].includes(tab.dataset.tab);
+      tab.hidden = !this.canTab(tab.dataset.tab);
     });
     const button = document.getElementById("accountButton");
     if (button)
@@ -69,7 +83,10 @@ window.ComponentAuth = {
       ["inspectionMonth", "month"],
     ]) {
       const element = document.getElementById(id);
-      if (element) element.hidden = !this.allowed("records", key);
+      if (element) {
+        element.hidden = !this.allowed("records", key);
+        if (element.hidden) element.value = "";
+      }
     }
     document
       .querySelectorAll('[onclick*="exportInspectionResults"]')
@@ -90,6 +107,25 @@ ComponentAuth.ready = (async () => {
       ComponentAuth,
       await ComponentAuth.request("/api/auth/session"),
     );
+    if (ComponentAuth.user) {
+      try {
+        ComponentAuth.fields = JSON.parse(
+          localStorage.getItem(
+            "componentlife-fields-" + ComponentAuth.user.id,
+          ) || "null",
+        );
+        if (
+          ComponentAuth.fields &&
+          (ComponentAuth.fields.accessVersion !== ComponentAuth.accessVersion ||
+            !["records", "details"].every((key) =>
+              Array.isArray(ComponentAuth.fields[key]),
+            ))
+        )
+          ComponentAuth.fields = null;
+      } catch {
+        ComponentAuth.fields = null;
+      }
+    }
   } catch (error) {
     ComponentAuth.error = "Đăng nhập chưa sẵn sàng: " + error.message;
   }
@@ -193,7 +229,7 @@ async function openAccountUsers() {
   if (!ComponentAuth.admin()) return;
   const dialog = accountDialog(
     "Quản lý tài khoản",
-    `<form id="createUserForm"><h3>Tạo tài khoản Staff</h3><label>Username<input name="username" autocomplete="off" required minlength="3" maxlength="100"></label><label>Mật khẩu (ít nhất 10 ký tự)<input name="password" type="password" autocomplete="new-password" required minlength="10"></label><button class="account-primary" type="submit">Tạo tài khoản</button></form><div id="accountUsers">Đang tải tài khoản…</div>`,
+    `<form id="createUserForm"><h3>Tạo tài khoản Staff</h3><label>Username<input name="username" autocomplete="off" required minlength="3" maxlength="100"></label><label>Mật khẩu (ít nhất 10 ký tự)<input name="password" type="password" autocomplete="new-password" required minlength="10"></label>${accountTabsMarkup(["inspection", "dimensionocr"])}<button class="account-primary" type="submit">Tạo tài khoản</button></form><div id="accountUsers">Đang tải tài khoản…</div>`,
   );
   async function render() {
     const users = await ComponentAuth.request("/api/admin/users"),
@@ -241,18 +277,27 @@ async function openAccountUsers() {
             });
           reset.replaceWith(form);
         };
-        row.append(toggle, reset);
+        const permissions = document.createElement("button");
+        permissions.textContent = "Phân quyền";
+        permissions.onclick = () => openAccountPermissions(user);
+        const remove = document.createElement("button");
+        remove.textContent = "Xóa vĩnh viễn";
+        remove.className = "account-danger";
+        remove.onclick = () => openAccountDelete(user);
+        row.append(toggle, reset, permissions, remove);
       }
       host.append(row);
     }
   }
   dialog.querySelector("#createUserForm").onsubmit = (e) =>
     accountSubmit(e, async () => {
-      await ComponentAuth.request(
-        "/api/admin/users",
-        "POST",
-        Object.fromEntries(new FormData(e.target)),
-      );
+      const form = new FormData(e.target),
+        data = Object.fromEntries(form);
+      data.permissions = {
+        tabs: form.getAll("tabs"),
+        inspection: accountFullPolicy(),
+      };
+      await ComponentAuth.request("/api/admin/users", "POST", data);
       e.target.reset();
       await render();
       document.getElementById("accountStatus").textContent =
@@ -293,10 +338,10 @@ const guestFieldLabels = {
 };
 function openGuestFields() {
   if (!ComponentAuth.admin()) return;
-  const policy = ComponentAuth.policy;
+  const policy = ComponentAuth.guestPolicy || ComponentAuth.policy;
   const dialog = accountDialog(
     "Cột hiển thị cho khách",
-    `<p>Áp dụng chung cho người chưa đăng nhập. Admin và Staff xem đầy đủ dữ liệu.</p><form id="guestPolicyForm">${Object.entries(
+    `<p>Áp dụng chung cho người chưa đăng nhập. Tài khoản đã đăng nhập xem theo quyền admin cấp riêng.</p><form id="guestPolicyForm">${Object.entries(
       guestFieldLabels,
     )
       .map(

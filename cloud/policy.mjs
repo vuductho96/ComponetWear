@@ -23,6 +23,35 @@ export const detailKeys = [
   "deviation",
   "result",
 ];
+export const tabKeys = [
+  "overview",
+  "month",
+  "stock",
+  "chart",
+  "inspection",
+  "dimensionocr",
+];
+export const fullPolicy = {
+  records: [...recordKeys],
+  details: [...detailKeys],
+  previewDrawing: true,
+  downloadPDF: true,
+  downloadExcel: true,
+};
+export const fullPermissions = { tabs: [...tabKeys], inspection: fullPolicy };
+export function validatePermissions(input) {
+  if (
+    !input ||
+    !Array.isArray(input.tabs) ||
+    input.tabs.some((tab) => !tabKeys.includes(tab)) ||
+    new Set(input.tabs).size !== input.tabs.length
+  )
+    throw Object.assign(Error("Quyền xem tab không hợp lệ."), { status: 400 });
+  return {
+    tabs: [...input.tabs],
+    inspection: validatePolicy(input.inspection),
+  };
+}
 export const defaultPolicy = {
   records: [
     "file",
@@ -71,7 +100,7 @@ export function validatePolicy(input) {
   )
     throw Object.assign(
       Error(
-        "Excel chứa đầy đủ dữ liệu: cần bật tất cả cột trước khi cho khách tải Excel.",
+        "Excel chứa đầy đủ dữ liệu: cần bật tất cả cột trước khi cho phép tải Excel.",
       ),
       { status: 400 },
     );

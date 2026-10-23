@@ -3,7 +3,7 @@
 const inspectionState = { summary: null, loading: null, error: '', selected: null, dimensionIndex: null, details: new Map(), detailLoading: false, detailError: '', view: 'results', ngOnly: false, limit: 50 };
 const inspectionCan = (section,key) => !window.ComponentAuth || ComponentAuth.allowed(section,key);
 const inspectionCapability = key => !window.ComponentAuth || ComponentAuth.capability(key);
-const inspectionFieldsButton = () => window.ComponentAuth?.admin() ? '<button type="button" class="fields-add" onclick="openGuestFields()" title="Cột hiển thị cho khách" aria-label="Thêm hoặc ẩn trường cho khách">+</button>' : '';
+const inspectionFieldsButton = () => window.ComponentAuth?.full() ? '<button type="button" class="fields-add" onclick="openInspectionFields()" title="Thêm hoặc ẩn trường" aria-label="Thêm hoặc ẩn trường">+</button>' : '';
 let inspectionPreview = null, inspectionPreviewPage = 1, inspectionPreviewZoom = 1, inspectionPreviewSerial = 0;
 let inspectionPointFocus = null, inspectionPointRequest = 0;
 const inspectionPointMaps = new Map();
@@ -395,7 +395,7 @@ function renderInspectionList() {
     ['counts','Điểm / Mẫu',r=>`${r.points} / ${r.samples}`],['quality','Chất lượng',r=>`${inspectionBadge(r.quality)}${r.ngSamples?` <small>${r.ngSamples} NG</small>`:''}`],['drawing','Bản vẽ',r=>r.drawings.length?'Có bản vẽ':'—'],
     ['lot','Thư mục / Lô',r=>inspectionEscape(r.lot)],['receivedDate','Ngày nhận',r=>inspectionEscape(r.receivedDate)],['quantity','Số lượng',r=>inspectionEscape(r.quantity)]
   ].filter(([key])=>inspectionCan('records',key));
-  host.innerHTML = `<table class="inspection-register"><thead><tr>${columns.map(([,label])=>`<th>${label}</th>`).join('')}${window.ComponentAuth?.admin()?`<th>${inspectionFieldsButton()}</th>`:''}</tr></thead><tbody>${rows.length?rows.slice(0,inspectionState.limit).map(r=>`<tr class="inspection-record ${inspectionState.selected?.id===r.id?'selected':''}" data-inspection-id="${r.id}" tabindex="0" aria-selected="${inspectionState.selected?.id===r.id}">${columns.map(([,label,render])=>`<td>${render(r)}</td>`).join('')}${window.ComponentAuth?.admin()?'<td></td>':''}</tr>`).join(''):`<tr><td colspan="${columns.length}" class="inspection-empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`}</tbody></table>`;
+  host.innerHTML = `<table class="inspection-register"><thead><tr>${columns.map(([,label])=>`<th>${label}</th>`).join('')}${window.ComponentAuth?.full()?`<th>${inspectionFieldsButton()}</th>`:''}</tr></thead><tbody>${rows.length?rows.slice(0,inspectionState.limit).map(r=>`<tr class="inspection-record ${inspectionState.selected?.id===r.id?'selected':''}" data-inspection-id="${r.id}" tabindex="0" aria-selected="${inspectionState.selected?.id===r.id}">${columns.map(([,label,render])=>`<td>${render(r)}</td>`).join('')}${window.ComponentAuth?.full()?'<td></td>':''}</tr>`).join(''):`<tr><td colspan="${columns.length}" class="inspection-empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`}</tbody></table>`;
 
   if (rows.length > inspectionState.limit) host.innerHTML += `<button class="inspection-more" type="button" onclick="inspectionState.limit += 50; renderInspectionList()">Xem thêm 50 hồ sơ (${inspectionState.limit} / ${rows.length})</button>`;
   host.querySelectorAll('[data-inspection-id]').forEach(row => {
