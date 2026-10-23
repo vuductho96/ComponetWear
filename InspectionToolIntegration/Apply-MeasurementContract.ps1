@@ -19,19 +19,34 @@ function Install-Functions([string]$path,$functions) {
         else{$text=$function.Extent.Text+"`r`n"+$text}
     }
     # Force old desktop scan entries to be checked again after rule changes.
-    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v(?:[3456789]|10)\|','measurement-contract-v11|')
+    $text=[regex]::Replace($text,'raw-cell-limits-v2\||measurement-contract-v(?:[3456789]|10|11)\|','measurement-contract-v12|')
     if ($path -eq $RapidPath) {
         $text=$text.Replace('$cell.NumberFormat = "0.###""°"""','$cell.NumberFormat = $numFmt + ''"°"''')
         $text=$text.Replace('Set-ExcelCellToleranceValue $ws $row 3 $lowerTol','Set-ExcelCellToleranceValue $ws $row 3 $rowData.TolMinus').Replace('Set-ExcelCellToleranceValue $ws $row 4 $upperTol','Set-ExcelCellToleranceValue $ws $row 4 $rowData.TolPlus')
     } else {
+        # Iterate stored Point cells, so neither long forms nor formatted blank tails
+        # cause silent truncation or a scan across a million empty Excel rows.
+        $text=$text.Replace('for ($r = ($header + 1); $r -le $endRow; $r++) {','if($ws.Dimension.End.Row -le $header){if($SummaryOnly){return [pscustomobject]@{SampleCount=0;NgCount=0;UnratedCount=0}};return $result}'+"`r`n"+'    foreach ($pointCell in $ws.Cells[($header+1),1,$ws.Dimension.End.Row,1]) {'+"`r`n"+'        $r=$pointCell.Start.Row')
         # Replace the old first-sheet-only scan with a workbook-wide, allocation-light summary.
         $readFunction=@(Get-Functions $text | Where-Object Name -eq 'Read-InspectionFile')[0]
         $readText=$readFunction.Extent.Text
         $oldSummary='(?s)\$ngCount = 0.*?\$ngCount = \$stats\.NgCount; \$unratedCount = \$stats\.UnratedCount\s*\}'
         $newSummary='$stats=Get-InspectionWorkbookStats $pkg $file.FullName $part $mold $dateMeasure'+"`r`n"+'            $ngCount=$stats.NgCount; $unratedCount=$stats.UnratedCount'+"`r`n"+'            $status=if($stats.SampleCount -gt 0){"ĐÃ ĐO"}else{"CHƯA ĐO"}'
         $patched=[regex]::Replace($readText,$oldSummary,[Text.RegularExpressions.MatchEvaluator]{param($m) $newSummary})
+        $patched=$patched.Replace('$quality = if ($status -ne "ĐÃ ĐO") { "" } elseif ($ngCount -gt 0) { "NG ($ngCount)" } else { "OK" }','$quality = if ($ngCount -gt 0) { "NG ($ngCount)" } elseif ($status -ne "ĐÃ ĐO") { "" } else { "OK" }')
         if($patched -notmatch 'Get-InspectionWorkbookStats'){throw 'Could not install all-sheet summary scan'}
         $text=$text.Remove($readFunction.Extent.StartOffset,$readFunction.Extent.Text.Length).Insert($readFunction.Extent.StartOffset,$patched)
+        $previewFunction=@(Get-Functions $text | Where-Object Name -eq 'Show-SelectedRowDimensions')[0]
+        $previewText=$previewFunction.Extent.Text
+        $previewText=$previewText.Replace('if ($status -ne "ĐÃ ĐO") {','if ($status -ne "ĐÃ ĐO" -and (Safe-Text $table.CurrentRow.Cells[16].Value) -notmatch "^NG") {')
+        $previewText=$previewText.Replace('$totalSamples = $allDims.Count','$totalSamples = @($allDims | Where-Object { -not $_.IsMissingMeasurement }).Count')
+        $previewText=$previewText.Replace('if ($totalSamples -eq 0) {','if ($allDims.Count -eq 0) {')
+        $previewText=$previewText.Replace('"Tổng: $pointCount điểm ($totalSamples mẫu) | ĐẠT: $okCount | LỖI (NG): $ngCount mẫu"','("Tổng: {0} điểm ({1} mẫu) | ĐẠT: {2} | NG: {3} mẫu | Thiếu kết quả: {4} step" -f $pointCount,$totalSamples,$okCount,(@($ngList | Where-Object {-not $_.IsMissingMeasurement}).Count),(@($ngList | Where-Object IsMissingMeasurement).Count))')
+        $previewText=$previewText.Replace('$dRow.Cells[6].Value = $dim.Value','$dRow.Cells[6].Value = $(if($dim.IsMissingMeasurement){"THIẾU KẾT QUẢ"}else{$dim.Value})')
+        if($previewText -notmatch 'ValidationError'){
+            $previewText=$previewText.Replace('$dRow.Tag = $dim','$dRow.Tag = $dim'+"`r`n"+'            $reason=$(if($dim.ValidationError){$dim.ValidationError}elseif($dim.FormulaError){"Lỗi công thức: "+$dim.FormulaError}else{""})'+"`r`n"+'            $dRow.HeaderCell.ToolTipText=$reason; $dRow.Cells[6].ToolTipText=$reason; $dRow.Cells[8].ToolTipText=$reason')
+        }
+        $text=$text.Remove($previewFunction.Extent.StartOffset,$previewFunction.Extent.Text.Length).Insert($previewFunction.Extent.StartOffset,$previewText)
         # Lot quantity de-duplication must never hide additional sample workbooks.
         $scanFunction=@(Get-Functions $text | Where-Object Name -eq 'Scan')[0]
         $scanText=[regex]::Replace($scanFunction.Extent.Text,'if\s*\(\$d\.Qty -gt 0\)','if (Test-InspectionRecordForList $d)')
