@@ -7,6 +7,21 @@ const http = require('node:http');
 const { createHash } = require('node:crypto');
 const { verifyCloud, captureBaseline } = require('../verify-cloud.cjs');
 const hash = text => createHash('sha256').update(text).digest('hex');
+
+test('private verifier credentials are scoped to the exact HTTPS origin and redirects are rejected', async()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-auth-'));
+  const file=path.join(directory,'private.json'),previousEnv=process.env.COMPONENTLIFE_VERIFIER_FILE,previousFetch=global.fetch;
+  fs.writeFileSync(file,JSON.stringify({url:'https://trusted.test',token:'private-test-token'}));process.env.COMPONENTLIFE_VERIFIER_FILE=file;
+  const manifest={snapshotId:'snapshot',files:['data/private.json='+hash('content')]},requests=[];
+  global.fetch=async(url,options)=>{requests.push({url:String(url),...options});return String(url).includes('version.json')?Response.json(manifest):new Response('content');};
+  try {
+    await verifyCloud(manifest,'https://trusted.test');
+    assert.ok(requests.every(r=>r.headers.Authorization==='Bearer private-test-token'&&r.redirect==='error'));
+    requests.length=0;await verifyCloud(manifest,'https://other.test');assert.ok(requests.every(r=>!r.headers.Authorization));
+    requests.length=0;await verifyCloud(manifest,'http://trusted.test');assert.ok(requests.every(r=>!r.headers.Authorization));
+    await assert.rejects(verifyCloud({...manifest,files:['https://evil.test/private='+hash('content')]},'https://trusted.test'),/does not match/);
+  }finally{global.fetch=previousFetch;if(previousEnv===undefined)delete process.env.COMPONENTLIFE_VERIFIER_FILE;else process.env.COMPONENTLIFE_VERIFIER_FILE=previousEnv;fs.rmSync(directory,{recursive:true,force:true});}
+});
 test('verified baseline skips unchanged bytes and still rejects changed-file corruption', async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'publish-delta-'));
   const content = { 'index.html': 'old', 'large.bin': 'unchanged model' };

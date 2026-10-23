@@ -689,6 +689,7 @@ function renderStockTable() {
 
 // ===== TAB SWITCHING =====
 function switchTab(name) {
+  if(window.ComponentAuth && !ComponentAuth.full() && !["inspection","dimensionocr"].includes(name)) name="inspection";
   document.body.classList.toggle('inspection-active', name === 'inspection');
   document.body.classList.toggle('dimension-ocr-active', name === 'dimensionocr');
   const isToolTab = name === 'inspection' || name === 'dimensionocr';
@@ -902,7 +903,8 @@ function populateStaticIcons() {
 }
 
 // ===== INITIALIZATION =====
-function initApp() {
+async function initApp() {
+  if(window.ComponentAuth) await ComponentAuth.ready;
   console.log("%c[BOOT] ========== initApp START ==========", "color:#7c3aed; font-weight:bold; font-size:15px;");
   
   // Theme, Sidebar & Icons
@@ -986,7 +988,8 @@ function initApp() {
   initScreenFitEngine();
   if (new URLSearchParams(location.search).get('tab') === 'dimensionocr') switchTab('dimensionocr');
   // Start polling after the initial load, so an older startup request cannot overwrite a new snapshot.
-  loadAllDataFromSource().finally(initHeartbeat);
+  if (!window.ComponentAuth || ComponentAuth.full()) loadAllDataFromSource().finally(initHeartbeat);
+  else switchTab(new URLSearchParams(location.search).get("tab")==="dimensionocr"?"dimensionocr":"inspection");
   console.log("%c[BOOT] ========== initApp DONE ==========", "color:#7c3aed; font-weight:bold; font-size:15px;");
 }
 

@@ -1,10 +1,20 @@
 // Bounded parallel verification keeps a large drawing library from blocking the publisher for hours.
 const fs = require('node:fs');
 const { createHash } = require('node:crypto');
+const path = require('node:path');
+function verifierHeaders(baseUrl) {
+  const file=process.env.COMPONENTLIFE_VERIFIER_FILE || path.join(__dirname,'.cloud-publish','auth-verifier.json');
+  if(!fs.existsSync(file)) return {};
+  const saved=JSON.parse(fs.readFileSync(file,'utf8').replace(/^\uFEFF/,''));
+  const target=new URL(baseUrl),trusted=new URL(saved.url);
+  if(target.protocol!=='https:' || target.origin!==trusted.origin) return {};
+  return {Authorization:'Bearer '+saved.token};
+}
 async function verifyCloud(manifest, baseUrl, concurrency = 6, previous = null) {
   const base = new URL(baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
   const stamp = Date.now() + '-' + Math.random().toString(16).slice(2);
-  const remote = await fetch(new URL('data/version.json?verify=' + stamp, base), { signal: AbortSignal.timeout(20000) });
+  const headers=verifierHeaders(baseUrl);
+  const remote = await fetch(new URL('data/version.json?verify=' + stamp, base), { headers, redirect:'error', signal: AbortSignal.timeout(20000) });
   if (!remote.ok) throw Error('Cloud version unavailable.');
   const version = await remote.json();
   if (version.snapshotId !== manifest.snapshotId || JSON.stringify(version.files) !== JSON.stringify(manifest.files)) throw Error('Cloud version does not match snapshot.');
@@ -16,7 +26,8 @@ async function verifyCloud(manifest, baseUrl, concurrency = 6, previous = null) 
       const entry = files[index++], split = entry.indexOf('='), file = entry.slice(0, split), expected = entry.slice(split + 1);
       try {
         const url = new URL(file, base); url.searchParams.set('verify', stamp);
-        const response = await fetch(url, { signal: AbortSignal.timeout(60000) });
+        if(url.origin!==base.origin) throw Error('Cross-origin asset rejected');
+        const response = await fetch(url, { headers, redirect:'error', signal: AbortSignal.timeout(60000) });
         if (!response.ok) throw Error('HTTP ' + response.status);
         const hash = createHash('sha256');
         for await (const chunk of response.body) hash.update(chunk);
@@ -32,7 +43,7 @@ async function captureBaseline(output, successPath, baseUrl) {
   try {
     const success = JSON.parse(fs.readFileSync(successPath, 'utf8').replace(/^\uFEFF/, ''));
     if (new URL(success.url).href.replace(/\/$/, '') !== new URL(baseUrl).href.replace(/\/$/, '')) return;
-    const response = await fetch(new URL('data/version.json?baseline=' + Date.now(), baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'), { signal: AbortSignal.timeout(15000) });
+    const response = await fetch(new URL('data/version.json?baseline=' + Date.now(), baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'), { headers:verifierHeaders(baseUrl), redirect:'error', signal: AbortSignal.timeout(15000) });
     if (!response.ok) return;
     const previous = await response.json();
     if (previous.snapshotId !== success.snapshotId || !Array.isArray(previous.files)) return;

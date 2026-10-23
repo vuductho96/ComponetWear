@@ -1,0 +1,176 @@
+.account-dialog {
+  color: var(--ink, #172b4d);
+  background: var(--surface, #fff);
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 24px;
+  width: min(620px, calc(100vw - 32px));
+  max-height: 85vh;
+  overflow: auto;
+  box-shadow: 0 24px 80px #0004;
+}
+.account-dialog::backdrop {
+  background: #101c3466;
+}
+.account-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.account-heading h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.account-heading button {
+  font-size: 24px;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+.account-dialog p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.account-dialog form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 15px 0;
+}
+.account-dialog input:not([type="checkbox"]) {
+  padding: 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  font: inherit;
+  color: #172b4d;
+  background: #fff;
+  min-width: 0;
+}
+.account-dialog button,
+.fields-add {
+  cursor: pointer;
+  border: 1px solid #bccce5;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font: inherit;
+}
+.account-dialog button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.account-dialog .account-primary {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+  margin-top: 12px;
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.account-dialog fieldset {
+  border: 1px solid #cbd5e1;
+  margin: 18px 0;
+  padding: 12px;
+  border-radius: 8px;
+}
+.account-dialog fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin: 8px 0;
+}
+.account-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.account-user {
+  padding: 14px 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #dce3ed;
+}
+.account-user span {
+  flex: 1;
+  min-width: 180px;
+  font-size: 13px;
+}
+#accountStatus {
+  min-height: 22px;
+  white-space: pre-wrap;
+}
+#accountButton {
+  width: 100%;
+  margin-bottom: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fields-add {
+  padding: 2px 8px;
+  font-size: 18px;
+  background: #fff;
+  color: #1e40af;
+}
+.tab[hidden],
+[hidden] {
+  display: none !important;
+}
+.guest-mode #overviewTab,
+.guest-mode #monthTab,
+.guest-mode #stockTab,
+.guest-mode #chartTab {
+  display: none !important;
+}
+.auth-loading main {
+  visibility: hidden;
+}
+@media (max-width: 520px) {
+  .account-fields {
+    grid-template-columns: 1fr;
+  }
+  .account-dialog {
+    padding: 16px;
+  }
+  .account-dialog h2 {
+    font-size: 18px;
+  }
+}
+
+.account-dialog .account-heading {
+  position: sticky;
+  top: -24px;
+  background: var(--surface, #fff);
+  z-index: 1;
+  padding: 12px 0;
+}
+.account-dialog button {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+.account-dialog input:not([type="checkbox"]) {
+  background: var(--surface);
+  color: var(--ink);
+}
+.account-dialog fieldset {
+  min-width: 0;
+}
+.account-dialog legend {
+  font-size: 14px;
+  font-weight: 600;
+}
+.account-dialog .account-primary {
+  color: #fff;
+  background: #2563eb;
+}
+.inspection-register th:last-child:has(.fields-add) {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background: var(--surface);
+}

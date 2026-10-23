@@ -36,8 +36,9 @@
 
   <!-- Tabler SVG Icons (Offline standalone library) -->
   <script src="js/icons.js?v=20261016_v3"></script>
+<link rel="stylesheet" href="css/auth.css?v=20261023-accounts">
 </head>
-<body>
+<body class="auth-loading">
   <div class="app app-layout" id="app">
     <!-- ===== COLLAPSIBLE DARK SIDEBAR ===== -->
     <aside class="app-sidebar" id="appSidebar">
@@ -89,6 +90,7 @@
 
       <!-- Sidebar Footer (Theme, Collapse, Server Status) -->
       <div class="sidebar-footer">
+<button type="button" id="accountButton" class="sidebar-icon-btn" onclick="openAccount()">◎ Đăng nhập</button>
         <div class="sidebar-server-status" title="PowerShell Backend Server">
           <span class="status-dot-pulse"></span>
           <span>Hệ Thống Trực Tuyến</span>
@@ -598,6 +600,7 @@
   <script src="js/inspection.js?v=20261020-ng-policy"></script>
   <script src="js/dimension-ocr.js?v=20261020-iqc"></script>
   <script src="js/language.js?v=20261020-iqc"></script>
+  <script src="js/auth.js?v=20261023-accounts"></script>
   <script src="js/app.js?v=20261020-iqc"></script>
 </body>
 </html>

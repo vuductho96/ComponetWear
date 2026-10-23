@@ -29,6 +29,12 @@ function Set-PublishPhase([string]$Message,[string]$Stage='publishing') {
     }
 }
 try {
+    if (-not $BuildOnly) {
+        $publishConfig=Get-Content -LiteralPath (Join-Path $ProjectRoot 'wrangler.jsonc') -Raw | ConvertFrom-Json
+        if ($publishConfig.main -eq 'cloud/worker.mjs' -and (-not (Test-Path -LiteralPath (Join-Path $work 'accounts-ready.json')) -or -not (Test-Path -LiteralPath (Join-Path $work 'auth-verifier.json')))) {
+            throw 'Accounts are not configured yet. Run Initialize-ComponentLifeAccounts.ps1 once to set the admin password and Cloudflare D1 before publishing.'
+        }
+    }
     # File lock also prevents overlapping publishers started from another server or terminal.
     $lock = [IO.File]::Open((Join-Path $work 'publish.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     $log = Join-Path $work 'publish.log'

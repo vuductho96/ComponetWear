@@ -1,6 +1,9 @@
 /* Read-only inspection results and drawings. Data loads only when this tab/detail is opened. */
 'use strict';
 const inspectionState = { summary: null, loading: null, error: '', selected: null, dimensionIndex: null, details: new Map(), detailLoading: false, detailError: '', view: 'results', ngOnly: false, limit: 50 };
+const inspectionCan = (section,key) => !window.ComponentAuth || ComponentAuth.allowed(section,key);
+const inspectionCapability = key => !window.ComponentAuth || ComponentAuth.capability(key);
+const inspectionFieldsButton = () => window.ComponentAuth?.admin() ? '<button type="button" class="fields-add" onclick="openGuestFields()" title="Cột hiển thị cho khách" aria-label="Thêm hoặc ẩn trường cho khách">+</button>' : '';
 let inspectionPreview = null, inspectionPreviewPage = 1, inspectionPreviewZoom = 1, inspectionPreviewSerial = 0;
 let inspectionPointFocus = null, inspectionPointRequest = 0;
 const inspectionPointMaps = new Map();
@@ -21,6 +24,7 @@ function inspectionSaveBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 async function downloadInspectionOriginal(kind, recordId = null) {
+  if(!inspectionCapability(kind==='excel'?'downloadExcel':'downloadPDF')) return;
   const record = recordId ? inspectionState.summary?.records.find(item => item.id === recordId) : inspectionState.selected;
   if (!record) return;
   const button = recordId ? null : document.querySelector(`.inspection-original-download[onclick*="'${kind}'"]`);
@@ -39,6 +43,7 @@ async function downloadInspectionOriginal(kind, recordId = null) {
   finally { if (button) { button.disabled = false; button.removeAttribute('aria-busy'); } }
 }
 async function downloadInspectionPackage(recordId) {
+  if(!inspectionCapability('downloadExcel')) return downloadInspectionOriginal('pdf',recordId);
   const record = inspectionState.summary?.records.find(item => item.id === recordId);
   if (!record) return;
   if (!record.drawings.length) return downloadInspectionOriginal('excel', recordId);
@@ -331,7 +336,7 @@ function nextInspectionPointLocation() {
 
 function inspectionEscape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function inspectionNumber(value) { return value === null || value === undefined || value === '' ? '—' : Number.isFinite(Number(value)) ? Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 6 }) : inspectionEscape(value); }
-function inspectionBadge(quality) { return `<span class="inspection-badge ${quality.toLowerCase()}">${quality === 'PENDING' ? 'Chưa đo' : quality === 'UNRATED' ? 'Thiếu dung sai' : quality}</span>`; }
+function inspectionBadge(quality) { return `<span class="inspection-badge ${String(quality||'').toLowerCase()}">${quality === 'PENDING' ? 'Chưa đo' : quality === 'UNRATED' ? 'Thiếu dung sai' : quality}</span>`; }
 
 async function renderInspectionTab() {
   if (!inspectionState.summary && !inspectionState.loading) {
@@ -384,7 +389,14 @@ function renderInspectionList() {
   }
   const rows = inspectionFilteredRows();
   document.getElementById('inspectionCount').textContent = `${rows.length.toLocaleString('vi-VN')} hồ sơ · Cập nhật ${new Date(inspectionState.summary.generatedAt).toLocaleString('vi-VN')}`;
-  host.innerHTML = `<table class="inspection-register"><thead><tr><th>File hồ sơ</th><th>Part</th><th>Mold</th><th>Tháng</th><th>Ngày đo</th><th>Nguồn</th><th>Điểm / Mẫu</th><th>Chất lượng</th><th>Bản vẽ</th></tr></thead><tbody>${rows.length ? rows.slice(0, inspectionState.limit).map(r => `<tr class="inspection-record ${inspectionState.selected?.id === r.id ? 'selected' : ''}" data-inspection-id="${r.id}" tabindex="0" aria-selected="${inspectionState.selected?.id === r.id}" aria-label="Xem kết quả ${inspectionEscape(r.part)} ${inspectionEscape(r.mold)}"><td title="${inspectionEscape(r.lot)}"><div class="inspection-file-cell"><span class="inspection-file-name" title="${inspectionEscape(r.file)}">${inspectionEscape(r.file)}</span><button type="button" class="inspection-record-download" data-download-id="${r.id}" title="${r.drawings.length ? 'Tải hồ sơ (Excel theo mẫu và PDF gốc)' : 'Tải Excel theo mẫu'}" aria-label="${r.drawings.length ? 'Tải hồ sơ (Excel theo mẫu và PDF gốc)' : 'Tải Excel theo mẫu'}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg></button></div></td><td><strong>${inspectionEscape(r.part)}</strong></td><td>${inspectionEscape(r.mold)}</td><td>${inspectionEscape(r.month || '—')}</td><td>${inspectionEscape(r.measuredDate || 'Chưa đo')}</td><td>${inspectionEscape(r.source)}</td><td>${r.points} / ${r.samples}</td><td>${inspectionBadge(r.quality)}${r.ngSamples ? `<small class="inspection-ng-text"> ${r.ngSamples} NG</small>` : ''}</td><td>${r.drawings.length ? 'Có bản vẽ' : 'Chưa ghép'}</td></tr>`).join('') : '<tr><td colspan="9" class="inspection-empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>'}</tbody></table>`;
+  const columns = [
+    ['file','File hồ sơ',r=>`<div class="inspection-file-cell"><span class="inspection-file-name">${inspectionEscape(r.file)}</span>${inspectionCapability('downloadExcel') || (inspectionCapability('downloadPDF') && r.drawings.length) ? `<button type="button" class="inspection-record-download" data-download-id="${r.id}" title="Tải file" aria-label="Tải file">↓</button>`:''}</div>`],
+    ['part','Part',r=>inspectionEscape(r.part)],['mold','Mold',r=>inspectionEscape(r.mold)],['month','Tháng',r=>inspectionEscape(r.month)],['measuredDate','Ngày đo',r=>inspectionEscape(r.measuredDate)],['source','Nguồn',r=>inspectionEscape(r.source)],
+    ['counts','Điểm / Mẫu',r=>`${r.points} / ${r.samples}`],['quality','Chất lượng',r=>`${inspectionBadge(r.quality)}${r.ngSamples?` <small>${r.ngSamples} NG</small>`:''}`],['drawing','Bản vẽ',r=>r.drawings.length?'Có bản vẽ':'—'],
+    ['lot','Thư mục / Lô',r=>inspectionEscape(r.lot)],['receivedDate','Ngày nhận',r=>inspectionEscape(r.receivedDate)],['quantity','Số lượng',r=>inspectionEscape(r.quantity)]
+  ].filter(([key])=>inspectionCan('records',key));
+  host.innerHTML = `<table class="inspection-register"><thead><tr>${columns.map(([,label])=>`<th>${label}</th>`).join('')}${window.ComponentAuth?.admin()?`<th>${inspectionFieldsButton()}</th>`:''}</tr></thead><tbody>${rows.length?rows.slice(0,inspectionState.limit).map(r=>`<tr class="inspection-record ${inspectionState.selected?.id===r.id?'selected':''}" data-inspection-id="${r.id}" tabindex="0" aria-selected="${inspectionState.selected?.id===r.id}">${columns.map(([,label,render])=>`<td>${render(r)}</td>`).join('')}${window.ComponentAuth?.admin()?'<td></td>':''}</tr>`).join(''):`<tr><td colspan="${columns.length}" class="inspection-empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`}</tbody></table>`;
+
   if (rows.length > inspectionState.limit) host.innerHTML += `<button class="inspection-more" type="button" onclick="inspectionState.limit += 50; renderInspectionList()">Xem thêm 50 hồ sơ (${inspectionState.limit} / ${rows.length})</button>`;
   host.querySelectorAll('[data-inspection-id]').forEach(row => {
     row.addEventListener('click', () => selectInspectionRecord(row.dataset.inspectionId));
@@ -437,10 +449,11 @@ function setInspectionNgOnly(ngOnly) { inspectionState.ngOnly = ngOnly; renderIn
 function renderInspectionDrawingPanel(r) {
   const host = document.getElementById('inspectionDrawingPanel');
   if (!host) return;
+  if(!inspectionCapability('previewDrawing') || !inspectionCan('records','drawing')) {host.innerHTML='<div class="inspection-empty">Bản vẽ đang được ẩn theo cấu hình.</div>';return;}
   if (!r) { host.innerHTML = '<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><span class="inspection-view-only">Chỉ xem</span></div><div class="inspection-empty">Chọn hồ sơ trong bảng để xem bản vẽ liên quan.</div>'; inspectionPreview = null; inspectionPointFocus = null; ++inspectionPointRequest; ++inspectionPreviewSerial; return; }
   if (host.dataset.record === r.id) return;
   host.dataset.record = r.id;
-  host.innerHTML = `<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><button type="button" class="inspection-original-download" onclick="downloadInspectionOriginal('pdf')" title="Tải file PDF gốc" ${r.drawings.length ? '' : 'disabled'}>PDF gốc ↓</button></div><div id="inspectionPointStatus" class="inspection-point-status" role="status" aria-live="polite">Bấm dòng Point bên trái để tìm bước trên bản vẽ.</div>` + (r.drawings.length ? `<div class="inspection-drawing-toolbar"><select id="inspectionDrawing" aria-label="Bản vẽ liên quan">${r.drawings.map((d,i) => `<option value="${i}">${inspectionEscape(d.name)}</option>`).join('')}</select></div><div class="inspection-pdf-controls"><button id="inspectionPdfPrev" onclick="changeInspectionPdfPage(-1)" aria-label="Trang trước" type="button">←</button><span id="inspectionPdfPage">Đang tải…</span><button id="inspectionPdfNext" onclick="changeInspectionPdfPage(1)" aria-label="Trang sau" type="button">→</button><button type="button" onclick="zoomInspectionPdf(-0.25)" aria-label="Thu nhỏ bản vẽ">−</button><button type="button" onclick="zoomInspectionPdf(0.25)" aria-label="Phóng to bản vẽ">+</button><button type="button" class="inspection-fit" onclick="fitInspectionDrawing()" aria-label="Vừa khung bản vẽ">Vừa khung</button></div><div id="inspectionPdf" class="inspection-pdf" role="region" aria-label="Bản vẽ linh kiện"></div><p class="inspection-drawing-note">Kéo để pan · Cuộn chuột để zoom tại con trỏ · Double-click để phóng to.</p>` : '<div class="inspection-empty">Chưa tìm thấy bản vẽ phù hợp với hồ sơ này.</div>');
+  host.innerHTML = `<div class="inspection-panel-heading"><h3>Bản vẽ đối chiếu</h3><button type="button" class="inspection-original-download" onclick="downloadInspectionOriginal('pdf')" title="Tải file PDF gốc" ${inspectionCapability('downloadPDF')?'':'hidden'} ${r.drawings.length ? '' : 'disabled'}>PDF gốc ↓</button></div><div id="inspectionPointStatus" class="inspection-point-status" role="status" aria-live="polite">Bấm dòng Point bên trái để tìm bước trên bản vẽ.</div>` + (r.drawings.length ? `<div class="inspection-drawing-toolbar"><select id="inspectionDrawing" aria-label="Bản vẽ liên quan">${r.drawings.map((d,i) => `<option value="${i}">${inspectionEscape(d.name)}</option>`).join('')}</select></div><div class="inspection-pdf-controls"><button id="inspectionPdfPrev" onclick="changeInspectionPdfPage(-1)" aria-label="Trang trước" type="button">←</button><span id="inspectionPdfPage">Đang tải…</span><button id="inspectionPdfNext" onclick="changeInspectionPdfPage(1)" aria-label="Trang sau" type="button">→</button><button type="button" onclick="zoomInspectionPdf(-0.25)" aria-label="Thu nhỏ bản vẽ">−</button><button type="button" onclick="zoomInspectionPdf(0.25)" aria-label="Phóng to bản vẽ">+</button><button type="button" class="inspection-fit" onclick="fitInspectionDrawing()" aria-label="Vừa khung bản vẽ">Vừa khung</button></div><div id="inspectionPdf" class="inspection-pdf" role="region" aria-label="Bản vẽ linh kiện"></div><p class="inspection-drawing-note">Kéo để pan · Cuộn chuột để zoom tại con trỏ · Double-click để phóng to.</p>` : '<div class="inspection-empty">Chưa tìm thấy bản vẽ phù hợp với hồ sơ này.</div>');
   if (r.drawings.length) {
     const open = () => openInspectionDrawing(r.drawings[Number(document.getElementById('inspectionDrawing').value)]);
     document.getElementById('inspectionDrawing').addEventListener('change', open); open();
@@ -451,17 +464,20 @@ function renderInspectionDetail() {
   if (!host) return;
   renderInspectionDrawingPanel(r);
   if (!r) { host.innerHTML = '<div class="inspection-panel-heading"><h3>Xem nhanh kích thước điểm đo</h3></div><div class="inspection-empty inspection-welcome"><h3>Chọn một linh kiện trên bảng</h3><p>Kích thước, dung sai và kết quả từng mẫu sẽ hiển thị tại đây.</p></div>'; const drawingHost = document.getElementById('inspectionDrawingPanel'); if (drawingHost) delete drawingHost.dataset.record; return; }
-  const header = `<div class="inspection-panel-heading"><h3>Xem nhanh kích thước điểm đo</h3><div><button type="button" class="inspection-original-download" onclick="downloadInspectionOriginal('excel')" title="Tải Excel theo mẫu">Excel theo mẫu ↓</button> ${inspectionBadge(r.quality)}</div></div><div class="inspection-preview-meta"><strong>${inspectionEscape(r.part)} / ${inspectionEscape(r.mold)}</strong><span>${inspectionEscape(r.source)} · ${inspectionEscape(r.measuredDate || 'Chưa đo')}</span></div><div class="inspection-result-toolbar"><span>${r.points} điểm · ${r.samples} mẫu · <b class="inspection-ng-text">${r.ngSamples} NG</b></span><div class="inspection-segment"><button type="button" class="${!inspectionState.ngOnly ? 'active' : ''}" onclick="setInspectionNgOnly(false)">Tất cả điểm</button><button type="button" class="${inspectionState.ngOnly ? 'active' : ''}" onclick="setInspectionNgOnly(true)">Chỉ điểm NG</button></div></div>`;
+  const header = `<div class="inspection-panel-heading"><h3>Xem nhanh kích thước điểm đo</h3><div>${inspectionFieldsButton()} ${inspectionCapability('downloadExcel')?'<button type="button" class="inspection-original-download" onclick="downloadInspectionOriginal(\'excel\')">Excel theo mẫu ↓</button>':''} ${inspectionCan('records','quality')?inspectionBadge(r.quality):''}</div></div><div class="inspection-preview-meta"><strong>${inspectionEscape(r.part)} / ${inspectionEscape(r.mold)}</strong><span>${inspectionEscape(r.source)} ${inspectionEscape(r.measuredDate)}</span></div><div class="inspection-result-toolbar"><span>${inspectionCan('records','counts')?`${r.points} điểm · ${r.samples} mẫu`:''} ${inspectionCan('records','quality')?`· <b class="inspection-ng-text">${r.ngSamples} NG</b>`:''}</span>${inspectionCan('details','result')?`<div class="inspection-segment"><button type="button" onclick="setInspectionNgOnly(false)">Tất cả điểm</button><button type="button" onclick="setInspectionNgOnly(true)">Chỉ điểm NG</button></div>`:''}</div>`;
+
   if (inspectionState.detailLoading) { host.innerHTML = header + '<div class="inspection-empty" role="status">Đang tải điểm đo…</div>'; return; }
   if (inspectionState.detailError) { host.innerHTML = header + `<div class="inspection-empty">Không tải được điểm đo: ${inspectionEscape(inspectionState.detailError)}<br><button onclick="selectInspectionRecord('${r.id}')">Thử lại</button></div>`; return; }
   const dimensions = inspectionVisibleDimensions(r);
-  const headings = inspectionColumns.map(column => {
+  const visibleColumns=inspectionColumns.filter(column=>inspectionCan('details',column.key));
+  const headings = visibleColumns.map(column => {
     const filtered = column.key in inspectionColumnFilters, sorted = inspectionColumnSort?.key === column.key;
     return `<th scope="col" aria-sort="${sorted ? inspectionColumnSort.direction === 1 ? 'ascending' : 'descending' : 'none'}">${inspectionEscape(column.label)}<button type="button" class="inspection-column-filter ${filtered || sorted ? 'active' : ''}" data-column="${column.key}" aria-label="Lọc và sắp xếp ${inspectionEscape(column.label)}" aria-expanded="false" title="Lọc và sắp xếp ${inspectionEscape(column.label)}">${sorted ? inspectionColumnSort.direction === 1 ? '▴' : '▾' : '▾'}${filtered ? '<i></i>' : ''}</button></th>`;
   }).join('');
-  const rows = dimensions.map(({ d, index }) => `<tr data-point="${inspectionEscape(d[0])}" data-dimension="${index}" tabindex="0" title="Mẫu ${inspectionEscape(d[4])}: bấm để tìm Point ${inspectionEscape(d[0])} trên bản vẽ" class="${inspectionState.dimensionIndex === index ? 'point-selected ' : ''}${d[9] === 'NG' ? 'inspection-ng-row' : ''}"><td><strong>${inspectionEscape(d[0])}</strong></td><td>${inspectionEscape(d[1])}</td><td>${inspectionEscape(d[2])}</td><td>${inspectionEscape(d[3])}</td><td>${inspectionNumber(d[6])} ~ ${inspectionNumber(d[7])}</td><td>${inspectionEscape(d[4])}</td><td class="inspection-measured">${inspectionNumber(d[5])}</td><td>${inspectionNumber(d[8])}</td><td>${inspectionBadge(d[9])}</td></tr>`).join('');
+  const rows = dimensions.map(({d,index})=>`<tr data-point="${inspectionEscape(d[0])}" data-dimension="${index}" tabindex="0" class="${inspectionState.dimensionIndex===index?'point-selected ':''}${inspectionCan('details','result')&&d[9]==='NG'?'inspection-ng-row':''}">${visibleColumns.map(column=>`<td>${column.key==='result'?inspectionBadge(d[9]):['actual','deviation'].includes(column.key)?inspectionNumber(column.value(d)):inspectionEscape(column.value(d))}</td>`).join('')}</tr>`).join('');
+
   const active = Object.keys(inspectionColumnFilters).length || inspectionColumnSort;
-  const filterInfo = active ? `<div class="inspection-column-summary">Đang hiện ${dimensions.length} / ${r.samples} mẫu <button type="button" onclick="resetInspectionColumns()">Bỏ lọc / sắp xếp</button></div>` : '';
+  const filterInfo = active ? `<div class="inspection-column-summary">Đang hiện ${dimensions.length} mẫu <button type="button" onclick="resetInspectionColumns()">Bỏ lọc / sắp xếp</button></div>` : '';
   host.innerHTML = header + filterInfo + `<div class="inspection-dimension-scroll"><table class="inspection-dimensions"><thead><tr>${headings}</tr></thead><tbody>${rows || `<tr><td colspan="9" class="inspection-empty">${r.quality === 'PENDING' ? 'Hồ sơ chưa có giá trị đo.' : 'Không có mẫu phù hợp bộ lọc.'}</td></tr>`}</tbody></table></div>`;
   host.querySelectorAll('[data-column]').forEach(button => button.addEventListener('click', () => openInspectionColumnMenu(button.dataset.column, button)));
   host.querySelectorAll('[data-point]').forEach(row => {
@@ -472,6 +488,7 @@ function renderInspectionDetail() {
 }
 
 async function exportInspectionResults() {
+  if(!inspectionCapability('downloadExcel')) return;
   const rows = inspectionFilteredRows();
   if (!rows.length || typeof ExcelJS === 'undefined') return msg('Chưa có dữ liệu để xuất.', true);
   const book = new ExcelJS.Workbook(), sheet = book.addWorksheet('Ket qua do');
