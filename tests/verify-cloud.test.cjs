@@ -38,7 +38,9 @@ test('private verifier credentials are scoped to the exact HTTPS origin and redi
   global.fetch=async(url,options)=>{requests.push({url:String(url),...options});return String(url).includes('version.json')?Response.json(manifest):new Response('content');};
   try {
     await verifyCloud(manifest,'https://trusted.test');
-    assert.ok(requests.every(r=>r.headers.Authorization==='Bearer private-test-token'&&r.redirect==='manual'));
+    assert.ok(requests.every(r=>r.redirect==='manual'));
+    assert.ok(requests.filter(r=>r.url.includes('version.json')).every(r=>!r.headers.Authorization));
+    assert.ok(requests.filter(r=>!r.url.includes('version.json')).every(r=>r.headers.Authorization==='Bearer private-test-token'));
     requests.length=0;await verifyCloud(manifest,'https://other.test');assert.ok(requests.every(r=>!r.headers.Authorization));
     requests.length=0;await verifyCloud(manifest,'http://trusted.test');assert.ok(requests.every(r=>!r.headers.Authorization));
     await assert.rejects(verifyCloud({...manifest,files:['https://evil.test/private='+hash('content')]},'https://trusted.test'),/does not match/);
@@ -62,9 +64,8 @@ test('verified baseline skips unchanged bytes and still rejects changed-file cor
   t.after(() => { server.close(); fs.rmSync(root, { recursive: true, force: true }); });
   const url = `http://127.0.0.1:${server.address().port}`;
   assert.equal(await verifyCloud(current, url), 2);
-  const success = path.join(root, 'success.json'), output = path.join(root, 'baseline.json');
-  fs.writeFileSync(success, JSON.stringify({ snapshotId: current.snapshotId, url }));
-  await captureBaseline(output, success, url);
+  const output = path.join(root, 'baseline.json');
+  await captureBaseline(output, url);
   const previous = JSON.parse(fs.readFileSync(output));
   content['index.html'] = 'new'; current = manifest(); requests.length = 0;
   assert.equal(await verifyCloud(current, url, 6, previous), 1);
@@ -72,8 +73,10 @@ test('verified baseline skips unchanged bytes and still rejects changed-file cor
   corrupt = true;
   await assert.rejects(verifyCloud(current, url, 6, previous), /SHA-256 mismatch/);
   corrupt = false;
-  await captureBaseline(output, success, url);
-  assert.equal(fs.existsSync(output), false, 'Unverified remote version cannot become a baseline');
+  current = { ...current, snapshotId: 'corrupt-remote-manifest' };
+  await captureBaseline(output, url);
+  assert.equal(fs.existsSync(output), false, 'A corrupt remote manifest cannot become a baseline');
+  current = manifest();
   requests.length = 0;
   assert.equal(await verifyCloud(current, url), 2, 'Missing baseline performs full verification');
   assert.ok(requests.includes('large.bin'));

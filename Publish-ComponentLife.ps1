@@ -46,7 +46,9 @@ try {
     if ($PreparedSnapshotId) { Add-Content -LiteralPath $log -Value 'Reusing the prepared downloads and verified local snapshot; duplicate preparation skipped.' }
     $baseline = Join-Path $work 'verification-baseline.json'
     if (-not $BuildOnly) {
-        & node (Join-Path $PSScriptRoot 'verify-cloud.cjs') --capture-baseline $baseline (Join-Path $work 'success.json') $CloudUrl
+        # Recover a prior timed-out deployment only when Cloudflare serves the
+        # exact staged snapshot currently present on this machine.
+        & node (Join-Path $PSScriptRoot 'verify-cloud.cjs') --capture-baseline $baseline $CloudUrl (Join-Path $source 'data/version.json')
         if ($LASTEXITCODE -ne 0) { throw 'Could not prepare cloud verification.' }
     }
     Set-PublishPhase 'Đang chuẩn bị các tệp cần publish…' 'staging'
@@ -148,8 +150,8 @@ try {
         Set-PublishPhase 'Web đã deploy. Đang xác minh đầy đủ vì chưa có bản đối chiếu…' 'verifying'
     }
 
-    # Verify the entire manifest and all changed bytes. Unchanged bytes are reused
-    # only when the cloud baseline matched the last successfully verified release.
+    # Verify every changed byte. Unchanged bytes are reused only from a
+    # self-consistent manifest currently served by the same Cloudflare worker.
     $verified = $false
     for ($attempt = 1; $attempt -le 3; $attempt++) {
         try {

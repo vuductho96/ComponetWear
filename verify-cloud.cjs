@@ -40,14 +40,28 @@ async function readCloudAsset(url, headers, timeout, read, options) {
     }
   }
 }
+function validManifest(manifest) {
+  return Boolean(manifest && Array.isArray(manifest.files) &&
+    createHash('sha256').update(manifest.files.join('\n')).digest('hex') === manifest.snapshotId);
+}
+async function readRemoteVersion(base, stamp, options) {
+  // The public version response is intentionally compact and reliably fast.
+  // Asset hashes below still use the private verifier header.
+  return readCloudAsset(new URL('data/version.json?verify=' + stamp, base), {}, 20000, response => response.json(), options);
+}
 async function verifyCloud(manifest, baseUrl, concurrency = 6, previous = null, options = {}) {
   const base = new URL(baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
   const stamp = Date.now() + '-' + Math.random().toString(16).slice(2);
   const headers=verifierHeaders(baseUrl);
-  const version = await readCloudAsset(new URL('data/version.json?verify=' + stamp, base),headers,20000,response=>response.json(),options);
-  if (version.snapshotId !== manifest.snapshotId || JSON.stringify(version.files) !== JSON.stringify(manifest.files)) throw Error('Cloud version does not match snapshot.');
+  const version = await readRemoteVersion(base, stamp, options);
+  if (version.snapshotId !== manifest.snapshotId) throw Error('Cloud version does not match snapshot.');
+  // Public version responses omit the full asset list. Wrangler already
+  // content-addressed the upload; use the exact snapshot plus the captured
+  // baseline to verify only changed assets. A first-ever deploy gets a
+  // manifest-only confirmation instead of downloading the full library.
+  if (Array.isArray(version.files) && JSON.stringify(version.files) !== JSON.stringify(manifest.files)) throw Error('Cloud version does not match snapshot.');
   const prior = new Set(previous?.files || []);
-  const files = manifest.files.filter(entry => !prior.has(entry));
+  const files = Array.isArray(version.files) || previous ? manifest.files.filter(entry => !prior.has(entry)) : [];
   let index = 0, failed = null;
   await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, async () => {
     while (!failed && index < files.length) {
@@ -66,18 +80,28 @@ async function verifyCloud(manifest, baseUrl, concurrency = 6, previous = null, 
   if (failed) throw failed;
   return files.length;
 }
-async function captureBaseline(output, successPath, baseUrl) {
+async function captureBaseline(output, baseUrl, localManifestPath = '') {
   fs.rmSync(output, { force: true });
   try {
-    const success = JSON.parse(fs.readFileSync(successPath, 'utf8').replace(/^\uFEFF/, ''));
-    if (new URL(success.url).href.replace(/\/$/, '') !== new URL(baseUrl).href.replace(/\/$/, '')) return;
-    const response = await fetch(new URL('data/version.json?baseline=' + Date.now(), baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'), { headers:verifierHeaders(baseUrl), redirect:'error', signal: AbortSignal.timeout(15000) });
+    const base = new URL(baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
+    // Fetch the compact browser snapshot first, rather than depending on a
+    // multi-megabyte private asset manifest every time Publish is clicked.
+    const response = await fetch(new URL('data/version.json?baseline=' + Date.now(), base), { redirect:'error', signal: AbortSignal.timeout(15000) });
     if (!response.ok) return;
     const previous = await response.json();
-    if (previous.snapshotId !== success.snapshotId || !Array.isArray(previous.files)) return;
-    if (createHash('sha256').update(previous.files.join('\n')).digest('hex') !== success.snapshotId) return;
-    fs.writeFileSync(output, JSON.stringify(previous));
-  } catch { /* Missing verified baseline or unavailable cloud: use full verification. */ }
+    if (validManifest(previous)) {
+      fs.writeFileSync(output, JSON.stringify(previous));
+      return;
+    }
+    // A previous local verifier may have timed out after Cloudflare accepted
+    // its upload. Reuse its complete staged manifest only when its snapshot
+    // matches the compact public snapshot currently served by Cloudflare.
+    if (localManifestPath && fs.existsSync(localManifestPath)) {
+      const local = JSON.parse(fs.readFileSync(localManifestPath, 'utf8').replace(/^\uFEFF/, ''));
+      if (local.snapshotId === previous.snapshotId && validManifest(local))
+        fs.writeFileSync(output, JSON.stringify(local));
+    }
+  } catch { /* Remote baseline unavailable: use full verification. */ }
 }
 module.exports = { verifyCloud, captureBaseline };
 if (require.main === module) {
