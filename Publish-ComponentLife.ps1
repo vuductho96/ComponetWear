@@ -102,21 +102,28 @@ try {
     Write-PublishJson (Join-Path $work 'status.json') ([pscustomobject]@{ status = 'publishing'; snapshotId = $manifest.snapshotId; updatedAt = [DateTime]::UtcNow.ToString('o') })
 
     Set-PublishPhase 'Đang deploy lên Cloudflare (chỉ upload nội dung thay đổi)…'
-    $info = New-Object Diagnostics.ProcessStartInfo
-    $info.FileName = 'cmd.exe'
-    $info.WorkingDirectory = $ProjectRoot
-    $info.Arguments = '/d /s /c "npx --yes wrangler@4.86.0 deploy --config wrangler.jsonc"'
-    if ($assets -ne (Join-Path $work 'assets')) {
-        $info.Arguments = '/d /s /c "npx --yes wrangler@4.86.0 deploy --config wrangler.jsonc --assets ""' + $assets + '"""'
-    }
-    $info.UseShellExecute = $false
-    $info.CreateNoWindow = $true
-    $info.RedirectStandardOutput = $true
-    $info.RedirectStandardError = $true
-    $info.StandardOutputEncoding = [Text.Encoding]::UTF8
-    $info.StandardErrorEncoding = [Text.Encoding]::UTF8
-    $proc = [Diagnostics.Process]::Start($info)
-    try {
+    $code=1
+    for($deployAttempt=1;$deployAttempt -le 3;$deployAttempt++){
+        if($deployAttempt -gt 1){
+            Set-PublishPhase ("Kết nối Cloudflare bị gián đoạn. Đang tự thử lại ({0}/3)…" -f $deployAttempt)
+            Add-Content -LiteralPath $log -Value ("Retrying Wrangler deploy ({0}/3) after a transient network/TLS failure." -f $deployAttempt)
+        }
+        $info = New-Object Diagnostics.ProcessStartInfo
+        $info.FileName = 'cmd.exe'
+        $info.WorkingDirectory = $ProjectRoot
+        $info.Arguments = '/d /s /c "npx --yes wrangler@4.86.0 deploy --config wrangler.jsonc"'
+        if ($assets -ne (Join-Path $work 'assets')) {
+            $info.Arguments = '/d /s /c "npx --yes wrangler@4.86.0 deploy --config wrangler.jsonc --assets ""' + $assets + '"""'
+        }
+        $info.UseShellExecute = $false
+        $info.CreateNoWindow = $true
+        $info.RedirectStandardOutput = $true
+        $info.RedirectStandardError = $true
+        $info.StandardOutputEncoding = [Text.Encoding]::UTF8
+        $info.StandardErrorEncoding = [Text.Encoding]::UTF8
+        $deployLines=New-Object System.Collections.Generic.List[string]
+        $proc = [Diagnostics.Process]::Start($info)
+        try {
         # Drain both pipes concurrently and expose actual output while Wrangler runs.
         # ReadToEndAsync hid every progress message until the entire deploy finished.
         $streams=@($proc.StandardOutput,$proc.StandardError)
@@ -129,6 +136,7 @@ try {
                     if($null -eq $line){$pending[$i]=$null}
                     else{
                         Add-Content -LiteralPath $log -Value $line -Encoding UTF8
+                        $deployLines.Add($line)
                         $pending[$i]=$streams[$i].ReadLineAsync()
                     }
                 }
@@ -142,7 +150,12 @@ try {
         }
         $proc.WaitForExit()
         $code=$proc.ExitCode
-    } finally {$proc.Dispose()}
+        } finally {$proc.Dispose()}
+        if($code -eq 0){break}
+        $transient=(($deployLines -join "`n") -match '(?i)fetch failed|connectivity issue|self-signed certificate|ETIMEDOUT|ECONNRESET|ENOTFOUND|ECONNREFUSED')
+        if(-not $transient -or $deployAttempt -ge 3){break}
+        Start-Sleep -Seconds (5*$deployAttempt)
+    }
     if ($code -ne 0) { throw "Wrangler exited with code $code. See publish.log." }
     if (Test-Path -LiteralPath $baseline) {
         Set-PublishPhase 'Web đã deploy. Đang xác minh các tệp thay đổi…' 'verifying'
