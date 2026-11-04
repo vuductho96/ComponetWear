@@ -119,7 +119,7 @@ async function api(request, env, path, user) {
       csrf: user?.csrf || null,
       version: guest.version,
       accessVersion: account?.version || 0,
-      tabs: account?.permissions.tabs || ["inspection", "dimensionocr", "moldmaintenance"],
+      tabs: account?.permissions.tabs || ["inspection", "dimensionocr"],
       policy: account?.permissions.inspection || guest.policy,
       ...(user?.role === "admin" ? { guestPolicy: guest.policy } : {}),
     });

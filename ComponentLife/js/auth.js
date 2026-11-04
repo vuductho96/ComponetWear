@@ -31,8 +31,10 @@ window.ComponentAuth = {
   canAddMold() {
     return !!(this.user && (this.user.role === "admin" || this.user.role === "staff"));
   },
+  canConfirmMilestone() {
+    return !!(this.user && (this.user.role === "admin" || this.user.role === "staff"));
+  },
   canTab(name) {
-    if (name === "moldmaintenance") return true;
     return (
       this.admin() ||
       this.tabs.includes(

@@ -1010,13 +1010,18 @@ window.MoldMaintenance = (function() {
       }
     }
 
+    const canConfirm = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
+    const btnTitle = canConfirm
+      ? (isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : `Bấm để chốt mốc ${labelStr} (yêu cầu mật khẩu 1234)`)
+      : (isDone ? 'Mốc đã được chốt (Chỉ Staff/Admin có quyền thao tác)' : 'Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc này');
+
     return `
       <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:8px 6px;">
         <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px;">
           <button type="button" onclick="MoldMaintenance.openMilestoneModal('${moldKey}', ${num}, ${!isDone})" 
             style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13px; font-weight:${isDone ? '800' : '700'}; display:inline-flex; align-items:center; gap:3px;"
-            title="${isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : `Bấm để chốt mốc ${labelStr} (yêu cầu mật khẩu 1234)`}">
-            <span style="font-size:12px;">${isDone ? '☑' : '☐'}</span>
+            title="${btnTitle}">
+            <span style="font-size:12px;">${isDone ? '☑' : (canConfirm ? '☐' : '🔒')}</span>
             <span>${isDone ? 'Đã chốt' : 'Chốt'}</span>
           </button>
           ${pdfData ? `
@@ -1106,6 +1111,10 @@ window.MoldMaintenance = (function() {
   let activeMilestoneAuth = null; // { moldNo, milestoneNum, isClosing }
 
   function openMilestoneModal(moldNo, milestoneNum, isClosing) {
+    if (typeof ComponentAuth !== 'undefined' && !ComponentAuth.canConfirmMilestone()) {
+      alert('Chỉ tài khoản Staff hoặc Admin mới có quyền chốt hoặc mở lại mốc bảo dưỡng khuôn. Vui lòng đăng nhập với tài khoản có thẩm quyền.');
+      return;
+    }
     activeMilestoneAuth = { moldNo: String(moldNo).trim(), milestoneNum: Number(milestoneNum), isClosing: Boolean(isClosing) };
     const modal = document.getElementById('mmMilestoneAuthModal');
     if (!modal) return;
@@ -1198,6 +1207,10 @@ window.MoldMaintenance = (function() {
 
   async function confirmMilestoneAuth() {
     if (!activeMilestoneAuth) return;
+    if (typeof ComponentAuth !== 'undefined' && !ComponentAuth.canConfirmMilestone()) {
+      alert('Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc bảo dưỡng khuôn.');
+      return;
+    }
     const { moldNo, milestoneNum, isClosing } = activeMilestoneAuth;
 
     const passInput = document.getElementById('mmAuthPasswordInput');
@@ -1287,6 +1300,10 @@ window.MoldMaintenance = (function() {
   }
 
   async function toggleMilestoneCheck(moldNo, milestoneNum, isChecked, optionalDetail) {
+    if (typeof ComponentAuth !== 'undefined' && !ComponentAuth.canConfirmMilestone()) {
+      alert('Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc bảo dưỡng khuôn.');
+      return;
+    }
     const moldCode = String(moldNo).trim().toUpperCase();
     const map = getClosedMilestonesMap();
     if (!map[moldCode]) map[moldCode] = [];
@@ -1916,6 +1933,11 @@ window.MoldMaintenance = (function() {
 
           const dateDisplay = detail?.date ? (detail.date.includes('-') ? detail.date.split('-').reverse().join('/') : detail.date) : '';
 
+          const canConfirm = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
+          const btnTitle = canConfirm
+            ? (isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : 'Bấm để chốt hoàn thành mốc (yêu cầu mật khẩu 1234)')
+            : (isDone ? 'Mốc đã được chốt (Chỉ Staff/Admin có quyền thao tác)' : 'Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc này');
+
           return `
             <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:8px 6px;">
               <div style="font-size:16.5px; font-weight:${val > 0 ? '800' : '500'}; color:${textColor};">
@@ -1925,8 +1947,8 @@ window.MoldMaintenance = (function() {
               <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
                 <button type="button" onclick="MoldMaintenance.openMilestoneModal('${m.mold}', ${num}, ${!isDone})" 
                   style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:${isDone ? '800' : '700'}; display:inline-flex; align-items:center; gap:3px;"
-                  title="${isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : 'Bấm để chốt hoàn thành mốc (yêu cầu mật khẩu 1234)'}">
-                  <span style="font-size:13px;">${isDone ? '☑' : '☐'}</span>
+                  title="${btnTitle}">
+                  <span style="font-size:13px;">${isDone ? '☑' : (canConfirm ? '☐' : '🔒')}</span>
                   <span>${isDone ? 'Đã chốt' : 'Chốt'}</span>
                 </button>
                 ${pdfData ? `
@@ -2322,6 +2344,11 @@ window.MoldMaintenance = (function() {
 
           const dateDisplay = detail?.date ? (detail.date.includes('-') ? detail.date.split('-').reverse().join('/') : detail.date) : '';
 
+          const canConfirm = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
+          const btnTitle = canConfirm
+            ? (isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : 'Bấm để chốt hoàn thành mốc (yêu cầu mật khẩu 1234)')
+            : (isDone ? 'Mốc đã được chốt (Chỉ Staff/Admin có quyền thao tác)' : 'Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc này');
+
           return `
             <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:8px 6px;">
               <div style="font-size:16.5px; font-weight:${val > 0 ? '800' : '500'}; color:${textColor};">
@@ -2331,8 +2358,8 @@ window.MoldMaintenance = (function() {
               <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
                 <button type="button" onclick="MoldMaintenance.openMilestoneModal('${r.moldNo}', ${num}, ${!isDone})" 
                   style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:${isDone ? '800' : '700'}; display:inline-flex; align-items:center; gap:3px;"
-                  title="${isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : 'Bấm để chốt hoàn thành mốc (yêu cầu mật khẩu 1234)'}">
-                  <span style="font-size:13px;">${isDone ? '☑' : '☐'}</span>
+                  title="${btnTitle}">
+                  <span style="font-size:13px;">${isDone ? '☑' : (canConfirm ? '☐' : '🔒')}</span>
                   <span>${isDone ? 'Đã chốt' : 'Chốt'}</span>
                 </button>
                 ${pdfData ? `
