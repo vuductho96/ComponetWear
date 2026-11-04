@@ -24,7 +24,7 @@ window.MoldMaintenance = (function() {
   // Cấu hình Lazy Loading (tối đa 30 dòng / 1 lần tải)
   const PAGE_SIZE = 20;
   let moldVisibleLimit = PAGE_SIZE;
-  let machineVisibleLimit = PAGE_SIZE;
+  let machineVisibleLimit = 99999; // Mặc định hiển thị trọn vẹn toàn bộ 44 máy
   let isLazyLoading = false;
 
   function loadMoreMolds() {
@@ -108,7 +108,7 @@ window.MoldMaintenance = (function() {
     if (colPrefs.totalYear === undefined) colPrefs.totalYear = true;
   } catch (e) {}
 
-  const MOLD_STORAGE_KEY = 'mm_mold_col_prefs_v10';
+  const MOLD_STORAGE_KEY = 'mm_mold_col_prefs_v12';
   let moldColPrefs = {
     lastYear: true,    // Số shot còn lại năm trước (Last Year carryover): Mặc định HIỆN
     months: true,      // 12 cột tháng (T1..T12): Mặc định HIỆN (như bảng SHOT COUNT MONITOR PER MONTH)
@@ -117,7 +117,7 @@ window.MoldMaintenance = (function() {
     totalYear: true,   // Tổng năm: Mặc định HIỆN
     series: false,     // Dòng sản phẩm: Mặc định ẨN (bật qua dấu +)
     tier: false,       // Tiêu chuẩn: Mặc định ẨN
-    machine: false,    // Máy đang ép: Mặc định ẨN
+    machine: true,     // Máy đang ép: Mặc định HIỆN (không làm mất tên máy khi đổi qua đổi lại)
     cycle: false,      // Chu kỳ: Mặc định ẨN
     curShots: false,   // Số shot chu kỳ: Mặc định ẨN
     plan: false,       // Mốc plan: Mặc định ẨN
@@ -133,6 +133,7 @@ window.MoldMaintenance = (function() {
     if (savedM) Object.assign(moldColPrefs, JSON.parse(savedM));
     if (moldColPrefs.totalYear === undefined) moldColPrefs.totalYear = true;
     if (moldColPrefs.lastYear === undefined) moldColPrefs.lastYear = true;
+    if (moldColPrefs.machine === undefined) moldColPrefs.machine = true;
   } catch (e) {}
 
   function saveMoldColPrefs() {
@@ -256,7 +257,7 @@ window.MoldMaintenance = (function() {
   function switchTab(tabName) {
     currentSubTab = tabName;
     moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = PAGE_SIZE;
+    machineVisibleLimit = 99999; // Mặc định hiển thị đầy đủ 44 máy khi chuyển tab
     const btnMolds = document.getElementById('btnTabMolds');
     const btnMach = document.getElementById('btnTabMachines');
     if (btnMolds) btnMolds.classList.toggle('active', tabName === 'molds');
@@ -267,7 +268,7 @@ window.MoldMaintenance = (function() {
       filterText = '';
     }
     updateToolbarVisibility();
-    renderKpis();
+    renderKPIs();
     renderTable();
   }
 
@@ -284,7 +285,7 @@ window.MoldMaintenance = (function() {
     const sel = document.getElementById('mmStatusSelect');
     filterStatus = sel ? sel.value : 'all';
     moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = PAGE_SIZE;
+    machineVisibleLimit = 99999;
     renderTable();
   }
 
@@ -507,15 +508,34 @@ window.MoldMaintenance = (function() {
     const totalProdToday = (rawData.records || []).reduce((a, b) => a + (b.todayProdOutputPcs || 0), 0);
     const totalShotsToday = (rawData.records || []).reduce((a, b) => a + (b.todayShots || 0), 0);
 
+    const recs = rawData.records || [];
+    const totalMachines = recs.length || 44;
+    const runningCount = recs.filter(r => (r.machineStatus || '').toLowerCase() === 'running').length;
+    const stopCount = recs.filter(r => (r.machineStatus || '').toLowerCase() === 'stop').length;
+    const idleCount = recs.filter(r => (r.machineStatus || '').toLowerCase() === 'idle').length;
+
     if (kpiFleet) {
-      kpiFleet.innerHTML = `
-        <div class="mm-kpi-icon blue">🏭</div>
-        <div class="mm-kpi-details">
-          <span class="mm-kpi-label">Máy Đang Chạy</span>
-          <div class="mm-kpi-val">${rawData.runningMachines} / ${rawData.totalMachines} máy</div>
-          <span class="mm-kpi-sub">TMS Smart Real-time</span>
-        </div>
-      `;
+      if (currentSubTab === 'molds') {
+        const unified = getAllUnifiedMolds();
+        const moldsOnMachines = unified.filter(m => m.machineNo && m.machineNo !== '-').length;
+        kpiFleet.innerHTML = `
+          <div class="mm-kpi-icon blue">🎯</div>
+          <div class="mm-kpi-details">
+            <span class="mm-kpi-label">Khuôn Gá Trên Máy</span>
+            <div class="mm-kpi-val">${moldsOnMachines} / ${unified.length} khuôn</div>
+            <span class="mm-kpi-sub">Gá trên 44 máy (${runningCount} máy đang chạy ép)</span>
+          </div>
+        `;
+      } else {
+        kpiFleet.innerHTML = `
+          <div class="mm-kpi-icon blue">🏭</div>
+          <div class="mm-kpi-details">
+            <span class="mm-kpi-label">Theo Dõi 44 Máy Ép</span>
+            <div class="mm-kpi-val">${totalMachines} máy (${runningCount} đang chạy)</div>
+            <span class="mm-kpi-sub">TMS Real-time: ${runningCount} Chạy · ${stopCount} Tạm dừng${idleCount ? ' · ' + idleCount + ' Chờ' : ''}</span>
+          </div>
+        `;
+      }
     }
 
     if (kpiShots) {
@@ -599,7 +619,7 @@ window.MoldMaintenance = (function() {
         { key: 'totalLife', label: 'Tổng số Shot (Tổng vòng đời)', defaultOff: false },
         { key: 'curShots', label: 'Số Shot chu kỳ hiện tại', defaultOff: true },
         { key: 'series', label: 'Dòng sản phẩm (Series)', defaultOff: true },
-        { key: 'machine', label: 'Máy đang ép (hoặc Trong kho)', defaultOff: true },
+        { key: 'machine', label: 'Máy đang ép (hoặc Trong kho)', defaultOff: false },
         { key: 'cycle', label: 'Chu kỳ hiện tại (Mốc 1..5)', defaultOff: true },
         { key: 'tier', label: 'Tiêu chuẩn (High-Impact / Tiêu chuẩn)', defaultOff: true },
         { key: 'plan', label: 'Mốc Plan (SOP)', defaultOff: true },
@@ -659,12 +679,15 @@ window.MoldMaintenance = (function() {
   function resetDefaultCols() {
     if (currentSubTab === 'molds') {
       moldColPrefs = {
-        status: true,
+        lastYear: true,
+        months: true,
+        totalYear: true,
+        status: false,
         totalLife: true,
         curShots: false,
         series: false,
         tier: false,
-        machine: false,
+        machine: true,
         cycle: false,
         plan: false,
         progress: false,
@@ -759,7 +782,7 @@ window.MoldMaintenance = (function() {
     const sel = document.getElementById('mmTierSelect');
     filterTier = sel ? sel.value : 'all';
     moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = PAGE_SIZE;
+    machineVisibleLimit = 99999;
     renderTable();
   }
 
@@ -3965,17 +3988,19 @@ window.MoldMaintenance = (function() {
   // Chuyển đổi Sub-Tab
   function setSubTab(tabName) {
     currentSubTab = tabName;
+    moldVisibleLimit = PAGE_SIZE;
+    machineVisibleLimit = 99999;
     document.querySelectorAll('.mm-subtab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.subtab === tabName);
     });
-    renderKpis();
+    renderKPIs();
     renderTable();
   }
 
   // Xử lý bộ lọc (Chặn triệt để autofill email từ trình duyệt)
   function onSearchInput(val) {
     moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = PAGE_SIZE;
+    machineVisibleLimit = 99999;
     if (val && (val.includes('@') || val.includes('.com'))) {
       const s = document.getElementById('mmSearchInput');
       if (s) s.value = '';
@@ -3989,7 +4014,7 @@ window.MoldMaintenance = (function() {
 
   function onDateFilterChange() {
     moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = PAGE_SIZE;
+    machineVisibleLimit = 99999;
     const y = document.getElementById('mmYearSelect')?.value;
     const m = document.getElementById('mmMonthSelect')?.value;
     const d = document.getElementById('mmDaySelect')?.value;
@@ -4204,6 +4229,8 @@ window.MoldMaintenance = (function() {
     showAllMolds,
     loadMoreMachines,
     showAllMachines,
+    renderKPIs,
+    renderKpis: renderKPIs,
     refreshData
   };
 })();
