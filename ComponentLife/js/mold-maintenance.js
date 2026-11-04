@@ -775,23 +775,23 @@ window.MoldMaintenance = (function() {
 
     if (isHigh) {
       // Hàng High-Impact (Khuôn Cấp Độ Cao):
-      // Bắt buộc bảo dưỡng dự phòng ở mốc 350K ~ 400K shot trước khi đến mốc 800K
-      plan = 400000;
-      planDisplay = '350K ~ 400K';
-      percent = Math.min(100, Math.round((curShots / 400000) * 100));
-      remaining = 350000 - curShots;
+      // 400K lần 1 là đo trước (cảnh báo 350K ~ 400K), 400K lần 2 = 800K-1 chốt mốc bảo dưỡng (không cần tách mốc)
+      plan = 800000;
+      planDisplay = '800.000 (Đo trước 400K)';
+      percent = Math.min(100, Math.round((curShots / 800000) * 100));
+      remaining = 800000 - curShots;
 
-      if (curShots >= 400000) {
+      if (curShots >= 800000) {
         status = 'due';
-        statusText = 'BẮT BUỘC BD DỰ PHÒNG (≥400K)';
+        statusText = 'BẮT BUỘC BẢO DƯỠNG (≥800K)';
         statusClass = 'danger';
-      } else if (curShots >= 350000) {
+      } else if (curShots >= 750000) {
         status = 'warning';
-        statusText = 'ĐẾN HẠN ĐO DỰ PHÒNG';
+        statusText = 'SẮP ĐẾN HẠN 800K';
         statusClass = 'warning';
-      } else if (curShots >= 315000) { // 90% của 350K
+      } else if (curShots >= 350000 && curShots <= 400000) {
         status = 'warning';
-        statusText = 'SẮP ĐẾN HẠN DỰ PHÒNG';
+        statusText = 'ĐẾN CỮ ĐO TRƯỚC (350K ~ 400K)';
         statusClass = 'warning';
       }
     } else {
@@ -1148,7 +1148,7 @@ window.MoldMaintenance = (function() {
     const allMolds = getAllUnifiedMolds();
     const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
     const isHigh = currentMold?.isHighImpact || false;
-    const cycleLimit = (num <= 5) ? (isHigh ? 400000 : 800000) : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
+    const cycleLimit = (num <= 5) ? 800000 : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
     const targetLimit = cycleLimit;
     const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
     const isOver = curVal > targetLimit && num <= 5;
@@ -1175,7 +1175,7 @@ window.MoldMaintenance = (function() {
     if (icon) icon.textContent = isClosing ? '🔒' : '🔓';
     if (title) title.textContent = isClosing ? 'Xác Nhận Chốt Bảo Dưỡng Mốc' : 'Xác Nhận Mở Lại Mốc Bảo Dưỡng';
     if (subtitle) {
-      let mLabel = `Mốc ${num} (${formatNum(cycleLimit)} shots${isHigh && num <= 5 ? ' - Cấp độ cao' : ''})`;
+      let mLabel = `Mốc ${num} (${formatNum(cycleLimit)} shots${isHigh && num <= 5 ? ' - High-Impact' : ''})`;
       if (num === 6) mLabel = `Mốc 6 (3.000.000 shots - 3M SOP)`;
       else if (num === 7) mLabel = `Mốc 7 (4.500.000 shots - 4.5M HQ)`;
       else if (num === 8) mLabel = `Mốc 8 (5.000.000 shots - 5M Chạm trần)`;
@@ -1211,7 +1211,7 @@ window.MoldMaintenance = (function() {
         shotsGroup.style.display = 'block';
         if (tierBadge) {
           if (num <= 5) {
-            tierBadge.textContent = isHigh ? 'Cấp độ cao: 400.000 shots' : 'Tiêu chuẩn: 800.000 shots';
+            tierBadge.textContent = isHigh ? 'High-Impact (Đo trước tại 400k)' : 'Tiêu chuẩn: 800.000 shots';
             tierBadge.style.background = isHigh ? '#ffedd5' : '#dcfce7';
             tierBadge.style.color = isHigh ? '#c2410c' : '#15803d';
             tierBadge.style.border = isHigh ? '1px solid #fb923c' : '1px solid #86efac';
@@ -1296,7 +1296,7 @@ window.MoldMaintenance = (function() {
     const allMolds = getAllUnifiedMolds();
     const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
     const isHigh = currentMold?.isHighImpact || false;
-    const cycleLimit = (num <= 5) ? (isHigh ? 400000 : 800000) : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
+    const cycleLimit = (num <= 5) ? 800000 : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
     const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
 
     if (num <= 5) {
@@ -1327,7 +1327,7 @@ window.MoldMaintenance = (function() {
     const allMolds = getAllUnifiedMolds();
     const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
     const isHigh = currentMold?.isHighImpact || false;
-    const cycleLimit = (num <= 5) ? (isHigh ? 400000 : 800000) : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
+    const cycleLimit = (num <= 5) ? 800000 : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
     const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
     const defaultVal = (num <= 5 && curVal >= cycleLimit) ? cycleLimit : (curVal > 0 ? curVal : cycleLimit);
 
@@ -1455,7 +1455,7 @@ window.MoldMaintenance = (function() {
       const allMolds = getAllUnifiedMolds();
       const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
       const isHigh = currentMold?.isHighImpact || false;
-      const targetLimit = (milestoneNum <= 5) ? (isHigh ? 400000 : 800000) : (milestoneNum === 6 ? 3000000 : (milestoneNum === 7 ? 4500000 : 5000000));
+      const targetLimit = (milestoneNum <= 5) ? 800000 : (milestoneNum === 6 ? 3000000 : (milestoneNum === 7 ? 4500000 : 5000000));
       const curVal = currentMold ? (currentMold['m' + milestoneNum] || currentMold.curShots || 0) : 0;
 
       // Lấy số shot chốt do người dùng nhập vào (hoặc mặc định targetLimit / curVal)
@@ -1684,8 +1684,8 @@ window.MoldMaintenance = (function() {
         currentCycleNum++;
       }
 
-      // Giới hạn định mức cho từng chu kỳ mốc trong năm: 400K cho High-Impact, 800K cho Tiêu chuẩn
-      const cycleLimit = isHigh ? 400000 : 800000;
+      // Giới hạn định mức cho từng chu kỳ mốc trong năm là 800K (400k lần 2 = 800k - 1, không cần tách riêng 400k)
+      const cycleLimit = 800000;
       const totalAccumulatedYear = (Number(lastYearRemaining) || 0) + totalYearFromMonths;
 
       const d1 = getMilestoneDetail(code, 1);
@@ -1695,10 +1695,10 @@ window.MoldMaintenance = (function() {
       const d5 = getMilestoneDetail(code, 5);
 
       if (closedMilestones.includes(1)) {
-        m1 = Math.round(d1?.closedShots || (m.m1_800k >= (isHigh ? 350000 : 700000) ? m.m1_800k : (totalAccumulatedYear >= cycleLimit ? cycleLimit : m.m1_800k || totalAccumulatedYear)));
+        m1 = Math.round(d1?.closedShots || (m.m1_800k >= 700000 ? m.m1_800k : (totalAccumulatedYear >= cycleLimit ? cycleLimit : m.m1_800k || totalAccumulatedYear)));
       }
       if (closedMilestones.includes(2)) {
-        m2 = Math.round(d2?.closedShots || (m.m2_800k >= (isHigh ? 350000 : 700000) ? m.m2_800k : (m2 > 0 ? m2 : cycleLimit)));
+        m2 = Math.round(d2?.closedShots || (m.m2_800k >= 700000 ? m.m2_800k : (m2 > 0 ? m2 : cycleLimit)));
       }
       if (closedMilestones.includes(3)) {
         m3 = Math.round(d3?.closedShots || (m.m3_800k > 0 ? m.m3_800k : cycleLimit));
@@ -2137,10 +2137,7 @@ window.MoldMaintenance = (function() {
 
           let targetLimit = 800000;
           let warnLimit = 750000;
-          if (m.isHighImpact && num <= 5) {
-            targetLimit = 400000;
-            warnLimit = 350000;
-          } else if (num === 6) {
+          if (num === 6) {
             targetLimit = 3000000;
             warnLimit = 2900000;
           } else if (num === 7) {
@@ -2195,15 +2192,15 @@ window.MoldMaintenance = (function() {
               btnBg = '#f8fafc';
               btnColor = '#94a3b8';
             }
-          } else if (m.isHighImpact && num <= 5 && val >= 350000 && val < 400000) {
-            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT THEO QUY CHUẨN SOP
+          } else if (m.isHighImpact && num <= 5 && val >= 350000 && val <= 400000) {
+            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT (Đo trước)
             cellBg = '#fff7ed';
             textColor = '#c2410c';
             btnBorder = '1px solid #fb923c';
             btnBg = '#ffedd5';
             btnColor = '#c2410c';
           } else if (val >= targetLimit) {
-            // OVER - 800K hoặc OVER - 400K High-Impact (MÀU ĐỎ THEO QUY CHUẨN)
+            // OVER - 800K (MÀU ĐỎ THEO QUY CHUẨN)
             cellBg = '#fee2e2';
             textColor = '#991b1b';
             btnBorder = '1px solid #ef4444';
@@ -2624,10 +2621,7 @@ window.MoldMaintenance = (function() {
 
           let targetLimit = 800000;
           let warnLimit = 750000;
-          if (r.isHighImpact && num <= 5) {
-            targetLimit = 400000;
-            warnLimit = 350000;
-          } else if (num === 6) {
+          if (num === 6) {
             targetLimit = 3000000;
             warnLimit = 2900000;
           } else if (num === 7) {
@@ -2682,15 +2676,15 @@ window.MoldMaintenance = (function() {
               btnBg = '#f8fafc';
               btnColor = '#94a3b8';
             }
-          } else if (r.isHighImpact && num <= 5 && val >= 350000 && val < 400000) {
-            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT THEO QUY CHUẨN SOP
+          } else if (r.isHighImpact && num <= 5 && val >= 350000 && val <= 400000) {
+            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT (Đo trước)
             cellBg = '#fff7ed';
             textColor = '#c2410c';
             btnBorder = '1px solid #fb923c';
             btnBg = '#ffedd5';
             btnColor = '#c2410c';
           } else if (val >= targetLimit) {
-            // OVER - 800K hoặc OVER - 400K High-Impact (MÀU ĐỎ THEO QUY CHUẨN)
+            // OVER - 800K (MÀU ĐỎ THEO QUY CHUẨN)
             cellBg = '#fee2e2';
             textColor = '#991b1b';
             btnBorder = '1px solid #ef4444';
