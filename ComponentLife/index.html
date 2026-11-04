@@ -268,6 +268,12 @@
                 <span>Thêm Mold</span>
               </button>
 
+              <!-- NÚT LÀM MỚI / ĐỒNG BỘ TMS -->
+              <button type="button" id="btnRefreshTms" class="mm-btn" onclick="MoldMaintenance.refreshData(true)" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; font-size: 12.5px; font-weight: 700; background: #f8fafc; color: #0284c7; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; white-space: nowrap;" title="Tự động đồng bộ mỗi 60s hoặc bấm để làm mới số shot từ TMS ngay lập tức">
+                <span style="font-size: 13px;">🔄</span>
+                <span id="txtRefreshTms">Đồng bộ TMS</span>
+              </button>
+
               <!-- NÚT XUẤT EXCEL MMFD-I-F-022.01 -->
               <button type="button" id="btnExportMoldExcel" class="mm-btn" onclick="MoldMaintenance.exportExcel()" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; font-size: 12.5px; font-weight: 700; background: #16a34a; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); white-space: nowrap;" title="Xuất báo cáo đếm số shot và bảo dưỡng khuôn theo template MMFD-I-F-022.01">
                 <span style="font-size: 15px;">📊</span>
@@ -729,7 +735,7 @@
   <script src="js/language.js?v=20261020-iqc"></script>
   <script src="js/auth.js?v=20261023-account-permissions"></script>
   <script src="js/account-permissions.js?v=20261023-per-account"></script>
-  <script src="js/mold-maintenance.js?v=20261104_v7"></script>
+  <script src="js/mold-maintenance.js?v=20261104_v8"></script>
   <script src="js/app.js?v=20261023-account-permissions"></script>
 
     <!-- MINI WINDOW: XÁC THỰC CHỐT / MỞ MỐC BẢO DƯỠNG (MK: 1234 + UPLOAD PDF OPTION) -->

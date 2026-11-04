@@ -161,6 +161,50 @@ window.MoldMaintenance = (function() {
   }
 
   // Khởi tạo
+  let autoSyncTimer = null;
+  function startAutoSync() {
+    if (autoSyncTimer) clearInterval(autoSyncTimer);
+    autoSyncTimer = setInterval(async () => {
+      try {
+        const res = await fetch('/api/tms/data?v=' + Date.now());
+        if (!res.ok) return;
+        const fresh = await res.json();
+        if (fresh && fresh.lastUpdated && (!rawData || fresh.lastUpdated !== rawData.lastUpdated || fresh.totalShotsToday !== rawData.totalShotsToday)) {
+          console.log('[AUTO-SYNC] Cập nhật số shot mới từ TMS Smart:', fresh.lastUpdated);
+          rawData = fresh;
+          window._moldMaintenanceData = rawData;
+          renderKPIs();
+          renderTable();
+        }
+      } catch (e) {}
+    }, 60000);
+  }
+
+  async function refreshData(showIndicator = true) {
+    const btn = document.getElementById('btnRefreshTms');
+    const txt = document.getElementById('txtRefreshTms');
+    if (btn && showIndicator) {
+      btn.disabled = true;
+      if (txt) txt.textContent = 'Đang đồng bộ...';
+    }
+    try {
+      const res = await fetch('/api/tms/data?v=' + Date.now());
+      if (res.ok) {
+        rawData = await res.json();
+        window._moldMaintenanceData = rawData;
+        renderKPIs();
+        renderTable();
+        if (txt) txt.textContent = 'Đã cập nhật!';
+        setTimeout(() => { if (txt) txt.textContent = 'Đồng bộ TMS'; }, 2000);
+      }
+    } catch (e) {
+      if (txt) txt.textContent = 'Lỗi đồng bộ';
+      setTimeout(() => { if (txt) txt.textContent = 'Đồng bộ TMS'; }, 2000);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   async function init() {
     console.log('[MOLD MAINTENANCE] Initializing module...');
     const container = document.getElementById('moldMaintenanceWorkspace');
@@ -201,6 +245,7 @@ window.MoldMaintenance = (function() {
       setTimeout(clearSearchAutofill, 600);
       setTimeout(clearSearchAutofill, 1200);
       renderAll();
+      startAutoSync();
     } catch (err) {
       console.warn('[MOLD MAINTENANCE] Load JSON error:', err.message);
       renderError(err.message);
@@ -1308,6 +1353,40 @@ window.MoldMaintenance = (function() {
       }
     } catch (e) {}
 
+    // 1. Tổng hợp số shot thời gian thực theo từng khuôn từ rawData.records (dailyHistory + todayShots)
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+    const curMonthKey = 'M' + curMonth;
+    const todayYmd = curYear + '-' + String(curMonth).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+
+    const liveShotsByMold = {};
+    (rawData.records || []).forEach(r => {
+      const dh = r.dailyHistory || {};
+      Object.keys(dh).forEach(dateStr => {
+        const it = dh[dateStr];
+        if (!it || !it.shots) return;
+        const mCode = (it.moldNo || r.moldNo || '').toUpperCase().trim();
+        if (!mCode || mCode === '-') return;
+        const parts = dateStr.split('-');
+        if (parts.length === 3 && parseInt(parts[0], 10) === curYear) {
+          const mo = parseInt(parts[1], 10);
+          const mKey = 'M' + mo;
+          if (!liveShotsByMold[mCode]) liveShotsByMold[mCode] = {};
+          liveShotsByMold[mCode][mKey] = (liveShotsByMold[mCode][mKey] || 0) + it.shots;
+        }
+      });
+
+      const todayShots = Number(r.todayShots) || 0;
+      const moldToday = (r.moldNo || '').toUpperCase().trim();
+      if (todayShots > 0 && moldToday && moldToday !== '-') {
+        if (!dh[todayYmd] || !dh[todayYmd].shots) {
+          if (!liveShotsByMold[moldToday]) liveShotsByMold[moldToday] = {};
+          liveShotsByMold[moldToday][curMonthKey] = (liveShotsByMold[moldToday][curMonthKey] || 0) + todayShots;
+        }
+      }
+    });
+
     const allMoldsMap = {};
     (rawData.excelMasterMolds || []).forEach(m => {
       const code = (m.mold || '').toUpperCase().trim();
@@ -1322,13 +1401,44 @@ window.MoldMaintenance = (function() {
       const notesMap = getMoldNotesMap();
       const closedMap = getClosedMilestonesMap();
 
-      const m1 = Math.round(m.m1_800k || (live ? live.m1_800k : 0));
-      const m2 = Math.round(m.m2_800k || (live ? live.m2_800k : 0));
-      const m3 = Math.round(m.m3_800k || (live ? live.m3_800k : 0));
-      const m4 = Math.round(m.m4_800k || 0);
-      const m5 = Math.round(m.m5_800k || 0);
-      const totalYear = m1 + m2 + m3 + m4 + m5;
-      const totalLife = Math.round(Math.max(Number(m.total_life) || 0, Number(live?.totalLifeShots) || 0));
+      const moldLiveShots = liveShotsByMold[code] || 
+        (oldCode && oldCode !== '-' ? liveShotsByMold[oldCode] : null) || 
+        (newCode && newCode !== '-' ? liveShotsByMold[newCode] : null);
+
+      const monthlyHistory = { ...(m.monthlyHistory || (live ? live.monthlyHistory : null) || {}) };
+      if (moldLiveShots) {
+        Object.keys(moldLiveShots).forEach(mKey => {
+          const mNum = parseInt(mKey.replace('M', ''), 10);
+          if (mNum >= 11 || !monthlyHistory[mKey] || Number(monthlyHistory[mKey]) === 0) {
+            monthlyHistory[mKey] = moldLiveShots[mKey];
+          }
+        });
+      }
+
+      const novLiveShots = Math.round(Number(monthlyHistory.M11 || moldLiveShots?.M11 || 0));
+
+      let m1 = Math.round(m.m1_800k || (live ? live.m1_800k : 0));
+      let m2 = Math.round(m.m2_800k || (live ? live.m2_800k : 0));
+      let m3 = Math.round(m.m3_800k || (live ? live.m3_800k : 0));
+      let m4 = Math.round(m.m4_800k || 0);
+      let m5 = Math.round(m.m5_800k || 0);
+
+      // Last year remaining shots (số shot dở dang của chu kỳ cuối năm ngoái chuyển sang)
+      let lastYearRemaining = Math.round(Number(m.lastYearRemaining || m.lastYearShot || live?.lastYearRemaining || live?.lastYearShot || 0));
+      if (!lastYearRemaining && (code === 'H9637S15' || (m.mold || '').toUpperCase() === 'H9637S15')) {
+        lastYearRemaining = 548806;
+      }
+      if (!lastYearRemaining && m1 > 0 && monthlyHistory) {
+        const earlyYearShots = (monthlyHistory.M1 || 0) + (monthlyHistory.M2 || 0) + (monthlyHistory.M3 || 0);
+        if (earlyYearShots > 0 && m1 > earlyYearShots && (m1 - earlyYearShots) > 50000) {
+          lastYearRemaining = Math.round(m1 - earlyYearShots);
+        }
+      }
+
+      let totalYearFromMonths = 0;
+      for (let i = 1; i <= 12; i++) {
+        totalYearFromMonths += Math.round(Number(monthlyHistory['M' + i]) || 0);
+      }
 
       // Infer past closed milestones if not explicitly set in localStorage
       let closedMilestones = closedMap[code];
@@ -1349,6 +1459,45 @@ window.MoldMaintenance = (function() {
         }
       }
 
+      // Tự động xác định mốc hiện tại không giới hạn
+      let currentCycleNum = 1;
+      while (closedMilestones.includes(currentCycleNum)) {
+        currentCycleNum++;
+      }
+
+      // Cập nhật số shot của mốc chưa chốt đang chạy với số shot live tháng 11
+      if (currentCycleNum === 1) {
+        m1 = Math.max(m1, m1 + novLiveShots, (Number(lastYearRemaining) || 0) + totalYearFromMonths);
+      } else if (currentCycleNum === 2) {
+        if (m2 === 0) {
+          m2 = Math.max(0, totalYearFromMonths - m1);
+        } else {
+          m2 += novLiveShots;
+        }
+      } else if (currentCycleNum === 3) {
+        if (m3 === 0) {
+          m3 = Math.max(0, totalYearFromMonths - m1 - m2);
+        } else {
+          m3 += novLiveShots;
+        }
+      } else if (currentCycleNum === 4) {
+        if (m4 === 0) {
+          m4 = Math.max(0, totalYearFromMonths - m1 - m2 - m3);
+        } else {
+          m4 += novLiveShots;
+        }
+      } else if (currentCycleNum === 5) {
+        if (m5 === 0) {
+          m5 = Math.max(0, totalYearFromMonths - m1 - m2 - m3 - m4);
+        } else {
+          m5 += novLiveShots;
+        }
+      }
+
+      const totalYear = m1 + m2 + m3 + m4 + m5;
+      const baseLife = Math.max(Number(m.total_life) || 0, Number(live?.totalLifeShots) || 0);
+      const totalLife = Math.round(baseLife + (baseLife > 0 ? novLiveShots : 0));
+
       const isDone6 = (closedMilestones || []).includes(6);
       const isDone7 = (closedMilestones || []).includes(7);
       const isDone8 = (closedMilestones || []).includes(8);
@@ -1356,12 +1505,6 @@ window.MoldMaintenance = (function() {
       const m7 = Math.round(m.m7 || (isDone7 ? 4500000 : (totalLife >= 4500000 ? 4500000 : (totalLife >= 4300000 ? totalLife : 0))));
       const m8 = Math.round(m.m8 || (isDone8 ? 5000000 : (totalLife >= 5000000 ? 5000000 : (totalLife >= 4800000 ? totalLife : 0))));
       const moldNote = notesMap[code] || m.note || (live ? live.note : '') || '';
-
-      // Tự động xác định mốc hiện tại không giới hạn
-      let currentCycleNum = 1;
-      while (closedMilestones.includes(currentCycleNum)) {
-        currentCycleNum++;
-      }
 
       let cycleName = 'Mốc ' + currentCycleNum;
       let curShots = 0;
@@ -1373,25 +1516,14 @@ window.MoldMaintenance = (function() {
       else {
         curShots = totalLife > 0 ? (totalLife % 800000) : 0;
       }
-      if (live && Number.isFinite(Number(live.currentCycleShots))) curShots = Math.round(Number(live.currentCycleShots));
+      if (live && Number.isFinite(Number(live.currentCycleShots))) {
+        curShots = Math.max(curShots, Math.round(Number(live.currentCycleShots)));
+      }
       if (curShots === 0 && currentCycleNum > 1 && totalLife > 0) {
         curShots = totalLife % 800000;
       }
 
       const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife);
-      const monthlyHistory = m.monthlyHistory || (live ? live.monthlyHistory : null) || {};
-
-      // Last year remaining shots (số shot dở dang của chu kỳ cuối năm ngoái chuyển sang)
-      let lastYearRemaining = Math.round(Number(m.lastYearRemaining || m.lastYearShot || live?.lastYearRemaining || live?.lastYearShot || 0));
-      if (!lastYearRemaining && (code === 'H9637S15' || (m.mold || '').toUpperCase() === 'H9637S15')) {
-        lastYearRemaining = 548806;
-      }
-      if (!lastYearRemaining && m1 > 0 && monthlyHistory) {
-        const earlyYearShots = (monthlyHistory.M1 || 0) + (monthlyHistory.M2 || 0) + (monthlyHistory.M3 || 0);
-        if (earlyYearShots > 0 && m1 > earlyYearShots && (m1 - earlyYearShots) > 50000) {
-          lastYearRemaining = Math.round(m1 - earlyYearShots);
-        }
-      }
 
       allMoldsMap[code] = {
         totalShotLastYear: Math.round(Number(m.totalShotLastYear || m.total_life || live?.totalLifeShots || 0)),
@@ -3655,6 +3787,7 @@ window.MoldMaintenance = (function() {
     loadMoreMolds,
     showAllMolds,
     loadMoreMachines,
-    showAllMachines
+    showAllMachines,
+    refreshData
   };
 })();
