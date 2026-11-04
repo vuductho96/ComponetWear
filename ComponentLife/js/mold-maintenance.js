@@ -1558,9 +1558,39 @@ window.MoldMaintenance = (function() {
       const isDone6 = (closedMilestones || []).includes(6);
       const isDone7 = (closedMilestones || []).includes(7);
       const isDone8 = (closedMilestones || []).includes(8);
-      const m6 = Math.round(m.m6 || (isDone6 ? 3000000 : (totalLife >= 2900000 ? totalLife : 0)));
-      const m7 = Math.round(m.m7 || (isDone7 ? 4500000 : (totalLife >= 4500000 ? 4500000 : (totalLife >= 4300000 ? totalLife : 0))));
-      const m8 = Math.round(m.m8 || (isDone8 ? 5000000 : (totalLife >= 5000000 ? 5000000 : (totalLife >= 4800000 ? totalLife : 0))));
+
+      // Quy tắc mốc vòng đời: Lần đầu chạm mốc 3M (2.9M-3.05M), 4.5M (4.3M-4.55M), 5M (4.8M-5.05M) thì cảnh báo.
+      // Khi đã vượt 5M rồi thì thôi (không cảnh báo).
+      let m6 = 0;
+      if (isDone6) {
+        m6 = Math.round(m.m6 || 3000000);
+      } else if (totalLife > 5000000) {
+        m6 = 3000000;
+      } else if (totalLife >= 2900000 && totalLife <= 3050000) {
+        m6 = totalLife;
+      } else if (totalLife > 3050000) {
+        m6 = 3000000;
+      }
+
+      let m7 = 0;
+      if (isDone7) {
+        m7 = Math.round(m.m7 || 4500000);
+      } else if (totalLife > 5000000) {
+        m7 = 4500000;
+      } else if (totalLife >= 4300000 && totalLife <= 4550000) {
+        m7 = totalLife;
+      } else if (totalLife > 4550000) {
+        m7 = 4500000;
+      }
+
+      let m8 = 0;
+      if (isDone8) {
+        m8 = Math.round(m.m8 || 5000000);
+      } else if (totalLife > 5000000) {
+        m8 = 5000000;
+      } else if (totalLife >= 4800000 && totalLife <= 5050000) {
+        m8 = totalLife;
+      }
       const moldNote = notesMap[code] || m.note || (live ? live.note : '') || '';
 
       let cycleName = 'Mốc ' + currentCycleNum;
@@ -1930,13 +1960,51 @@ window.MoldMaintenance = (function() {
             btnBorder = '1px solid #86efac';
             btnBg = '#dcfce7';
             btnColor = '#15803d';
-          } else if (num === 6 && val >= 2900000) {
-            // MỐC 6 (2900~3000K): CẢNH BÁO MÀU TÍM / HỒNG PHẤN THEO QUY CHUẨN (Đo bước 3M)
-            cellBg = '#fdf4ff';
-            textColor = '#86198f';
-            btnBorder = '1px solid #e879f9';
-            btnBg = '#fae8ff';
-            btnColor = '#a21caf';
+          } else if (num >= 6) {
+            // MỐC VÒNG ĐỜI: Mốc 6 (3M), Mốc 7 (4.5M), Mốc 8 (5M)
+            const moldLife = Number(m.totalLife) || 0;
+            if (moldLife > 5000000) {
+              // Khi đã vượt 5M rồi thì THÔI (không cảnh báo)
+              cellBg = '#f8fafc';
+              textColor = '#64748b';
+              btnBorder = '1px solid #e2e8f0';
+              btnBg = '#f8fafc';
+              btnColor = '#94a3b8';
+            } else if (num === 6 && moldLife >= 2900000 && moldLife <= 3050000) {
+              // Chạm mốc 3M lần đầu tiên: Cảnh báo MÀU TÍM (Đo bước 3M)
+              cellBg = '#fdf4ff';
+              textColor = '#86198f';
+              btnBorder = '1px solid #e879f9';
+              btnBg = '#fae8ff';
+              btnColor = '#a21caf';
+            } else if (num === 7 && moldLife >= 4300000 && moldLife <= 4550000) {
+              // Chạm mốc 4.5M lần đầu tiên
+              cellBg = '#fffbeb';
+              textColor = '#b45309';
+              btnBorder = '1px solid #fcd34d';
+              btnBg = '#fef3c7';
+              btnColor = '#b45309';
+            } else if (num === 8 && moldLife >= 4800000 && moldLife <= 5050000) {
+              // Chạm mốc 5M lần đầu tiên: Cảnh báo đỏ
+              cellBg = '#fee2e2';
+              textColor = '#991b1b';
+              btnBorder = '1px solid #ef4444';
+              btnBg = '#fecaca';
+              btnColor = '#991b1b';
+            } else {
+              cellBg = '#f8fafc';
+              textColor = '#64748b';
+              btnBorder = '1px solid #e2e8f0';
+              btnBg = '#f8fafc';
+              btnColor = '#94a3b8';
+            }
+          } else if (m.isHighImpact && num <= 5 && val >= 350000 && val < 400000) {
+            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT THEO QUY CHUẨN SOP
+            cellBg = '#fff7ed';
+            textColor = '#c2410c';
+            btnBorder = '1px solid #fb923c';
+            btnBg = '#ffedd5';
+            btnColor = '#c2410c';
           } else if (val >= targetLimit) {
             // OVER - 800K hoặc OVER - 400K High-Impact (MÀU ĐỎ THEO QUY CHUẨN)
             cellBg = '#fee2e2';
@@ -1944,13 +2012,6 @@ window.MoldMaintenance = (function() {
             btnBorder = '1px solid #ef4444';
             btnBg = '#fecaca';
             btnColor = '#991b1b';
-          } else if (m.isHighImpact && num <= 5 && val >= 350000) {
-            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT THEO QUY CHUẨN SOP
-            cellBg = '#fff7ed';
-            textColor = '#c2410c';
-            btnBorder = '1px solid #fb923c';
-            btnBg = '#ffedd5';
-            btnColor = '#c2410c';
           } else if (val >= warnLimit) {
             // 750k ~ 800K (MÀU VÀNG THEO QUY CHUẨN CHO KHUÔN TIÊU CHUẨN)
             cellBg = '#fefce8';
@@ -2261,9 +2322,39 @@ window.MoldMaintenance = (function() {
         const isDone6 = closedMilestones.includes(6);
         const isDone7 = closedMilestones.includes(7);
         const isDone8 = closedMilestones.includes(8);
-        const m6 = Math.round(masterMold?.m6 || (isDone6 ? 3000000 : (totalLife >= 2900000 ? totalLife : 0)));
-        const m7 = Math.round(masterMold?.m7 || (isDone7 ? 4500000 : (totalLife >= 4500000 ? 4500000 : (totalLife >= 4300000 ? totalLife : 0))));
-        const m8 = Math.round(masterMold?.m8 || (isDone8 ? 5000000 : (totalLife >= 5000000 ? 5000000 : (totalLife >= 4800000 ? totalLife : 0))));
+
+        // Quy tắc mốc vòng đời: Lần đầu chạm mốc 3M (2.9M-3.05M), 4.5M (4.3M-4.55M), 5M (4.8M-5.05M) thì cảnh báo.
+        // Khi đã vượt 5M rồi thì thôi (không cảnh báo).
+        let m6 = 0;
+        if (isDone6) {
+          m6 = Math.round(masterMold?.m6 || 3000000);
+        } else if (totalLife > 5000000) {
+          m6 = 3000000;
+        } else if (totalLife >= 2900000 && totalLife <= 3050000) {
+          m6 = totalLife;
+        } else if (totalLife > 3050000) {
+          m6 = 3000000;
+        }
+
+        let m7 = 0;
+        if (isDone7) {
+          m7 = Math.round(masterMold?.m7 || 4500000);
+        } else if (totalLife > 5000000) {
+          m7 = 4500000;
+        } else if (totalLife >= 4300000 && totalLife <= 4550000) {
+          m7 = totalLife;
+        } else if (totalLife > 4550000) {
+          m7 = 4500000;
+        }
+
+        let m8 = 0;
+        if (isDone8) {
+          m8 = Math.round(masterMold?.m8 || 5000000);
+        } else if (totalLife > 5000000) {
+          m8 = 5000000;
+        } else if (totalLife >= 4800000 && totalLife <= 5050000) {
+          m8 = totalLife;
+        }
 
         let currentCycleNum = 1;
         while (closedMilestones.includes(currentCycleNum)) currentCycleNum++;
@@ -2356,13 +2447,51 @@ window.MoldMaintenance = (function() {
             btnBorder = '1px solid #86efac';
             btnBg = '#dcfce7';
             btnColor = '#15803d';
-          } else if (num === 6 && val >= 2900000) {
-            // MỐC 6 (2900~3000K): CẢNH BÁO MÀU TÍM / HỒNG PHẤN THEO QUY CHUẨN (Đo bước 3M)
-            cellBg = '#fdf4ff';
-            textColor = '#86198f';
-            btnBorder = '1px solid #e879f9';
-            btnBg = '#fae8ff';
-            btnColor = '#a21caf';
+          } else if (num >= 6) {
+            // MỐC VÒNG ĐỜI: Mốc 6 (3M), Mốc 7 (4.5M), Mốc 8 (5M)
+            const moldLife = Math.max(Number(r.totalLifeShots) || 0, Number(masterMold?.total_life) || 0);
+            if (moldLife > 5000000) {
+              // Khi đã vượt 5M rồi thì THÔI (không cảnh báo)
+              cellBg = '#f8fafc';
+              textColor = '#64748b';
+              btnBorder = '1px solid #e2e8f0';
+              btnBg = '#f8fafc';
+              btnColor = '#94a3b8';
+            } else if (num === 6 && moldLife >= 2900000 && moldLife <= 3050000) {
+              // Chạm mốc 3M lần đầu tiên: Cảnh báo MÀU TÍM (Đo bước 3M)
+              cellBg = '#fdf4ff';
+              textColor = '#86198f';
+              btnBorder = '1px solid #e879f9';
+              btnBg = '#fae8ff';
+              btnColor = '#a21caf';
+            } else if (num === 7 && moldLife >= 4300000 && moldLife <= 4550000) {
+              // Chạm mốc 4.5M lần đầu tiên
+              cellBg = '#fffbeb';
+              textColor = '#b45309';
+              btnBorder = '1px solid #fcd34d';
+              btnBg = '#fef3c7';
+              btnColor = '#b45309';
+            } else if (num === 8 && moldLife >= 4800000 && moldLife <= 5050000) {
+              // Chạm mốc 5M lần đầu tiên: Cảnh báo đỏ
+              cellBg = '#fee2e2';
+              textColor = '#991b1b';
+              btnBorder = '1px solid #ef4444';
+              btnBg = '#fecaca';
+              btnColor = '#991b1b';
+            } else {
+              cellBg = '#f8fafc';
+              textColor = '#64748b';
+              btnBorder = '1px solid #e2e8f0';
+              btnBg = '#f8fafc';
+              btnColor = '#94a3b8';
+            }
+          } else if (r.isHighImpact && num <= 5 && val >= 350000 && val < 400000) {
+            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT THEO QUY CHUẨN SOP
+            cellBg = '#fff7ed';
+            textColor = '#c2410c';
+            btnBorder = '1px solid #fb923c';
+            btnBg = '#ffedd5';
+            btnColor = '#c2410c';
           } else if (val >= targetLimit) {
             // OVER - 800K hoặc OVER - 400K High-Impact (MÀU ĐỎ THEO QUY CHUẨN)
             cellBg = '#fee2e2';
@@ -2370,13 +2499,6 @@ window.MoldMaintenance = (function() {
             btnBorder = '1px solid #ef4444';
             btnBg = '#fecaca';
             btnColor = '#991b1b';
-          } else if (r.isHighImpact && num <= 5 && val >= 350000) {
-            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT THEO QUY CHUẨN SOP
-            cellBg = '#fff7ed';
-            textColor = '#c2410c';
-            btnBorder = '1px solid #fb923c';
-            btnBg = '#ffedd5';
-            btnColor = '#c2410c';
           } else if (val >= warnLimit) {
             // 750k ~ 800K (MÀU VÀNG THEO QUY CHUẨN CHO KHUÔN TIÊU CHUẨN)
             cellBg = '#fefce8';
