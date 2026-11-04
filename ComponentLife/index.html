@@ -332,12 +332,12 @@
                 </div>
               </div>
 
-              <div class="overview-stat-card">
-                <div class="stat-icon-wrapper amber" id="kpiIconLife"></div>
+              <div class="overview-stat-card" style="cursor: pointer;" onclick="switchTab('moldmaintenance'); if (window.MoldMaintenance) MoldMaintenance.switchTab('molds');" title="Click để chuyển sang Quản lý Bảo dưỡng khuôn">
+                <div class="stat-icon-wrapper rose" id="kpiIconDueMolds" style="background:#fee2e2; color:#dc2626; font-size:20px; display:flex; align-items:center; justify-content:center;">🛠️</div>
                 <div class="stat-info">
-                  <span class="stat-label">Tuổi Thọ TB Chu Kỳ (Shots)</span>
-                  <div class="stat-value" id="avgLifeVal">-</div>
-                  <div class="stat-sub">Từ các chu kỳ hoàn chỉnh</div>
+                  <span class="stat-label">Khuôn Cần Bảo Dưỡng</span>
+                  <div class="stat-value" id="overviewDueMoldsVal" style="color:#dc2626;">-</div>
+                  <div class="stat-sub" id="overviewDueMoldsSub">Chạm mốc &amp; cảnh báo sớm</div>
                 </div>
               </div>
             </div>
@@ -719,7 +719,7 @@
   <script src="js/state.js?v=20261016_v3"></script>
   <script src="js/api.js?v=20261016_v3"></script>
   <script src="js/screen-fit.js?v=20261016_v3"></script>
-  <script src="js/ui-render.js?v=20261019-ocr-beta"></script>
+  <script src="js/ui-render.js?v=20261104_v6"></script>
   <script src="js/ui-modals.js?v=20261016_v3"></script>
   <script src="js/export-excel.js?v=20261019-ocr-beta"></script>
   <script src="js/heartbeat.js?v=20261016_v3"></script>
@@ -729,7 +729,7 @@
   <script src="js/language.js?v=20261020-iqc"></script>
   <script src="js/auth.js?v=20261023-account-permissions"></script>
   <script src="js/account-permissions.js?v=20261023-per-account"></script>
-  <script src="js/mold-maintenance.js?v=20261104_v5"></script>
+  <script src="js/mold-maintenance.js?v=20261104_v6"></script>
   <script src="js/app.js?v=20261023-account-permissions"></script>
 
     <!-- MINI WINDOW: XÁC THỰC CHỐT / MỞ MỐC BẢO DƯỠNG (MK: 1234 + UPLOAD PDF OPTION) -->

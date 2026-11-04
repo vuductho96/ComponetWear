@@ -495,12 +495,21 @@ window.MoldMaintenance = (function() {
     }
 
     if (kpiProgress) {
+      const urgentCount = rawData.urgentCount || 0;
+      const warningCount = rawData.warningCount || 0;
+      const safeCount = rawData.safeCount || 0;
+      const kpiColor = urgentCount > 0 ? '#dc2626' : (warningCount > 0 ? '#d97706' : '#16a34a');
+      const iconClass = urgentCount > 0 ? 'red' : (warningCount > 0 ? 'amber' : 'green');
+      const displayVal = urgentCount > 0 ? `${urgentCount} khẩn cấp` : (warningCount > 0 ? `${warningCount} cảnh báo` : 'Tất cả an toàn');
       kpiProgress.innerHTML = `
-        <div class="mm-kpi-icon amber">🎯</div>
+        <div class="mm-kpi-icon ${iconClass}">🛠️</div>
         <div class="mm-kpi-details">
-          <span class="mm-kpi-label">Mốc Kiểm Soát (SOP)</span>
-          <div class="mm-kpi-val">800K / 350K~400K</div>
-          <span class="mm-kpi-sub">Đo lại 800K • Dự phòng 350K~400K • 3M • 4.5M • 5M</span>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="mm-kpi-label">Khuôn Cần Bảo Dưỡng</span>
+            <span style="cursor:pointer; font-size:11px; color:#64748b; background:#f1f5f9; padding:1px 6px; border-radius:4px;" title="Quy chuẩn SOP: Chuẩn 800K | High-Impact 350K~400K | Đại tu 3M, 4.5M, 5M" onclick="alert('QUY CHUẨN MỐC BẢO DƯỠNG (SOP):\n• Khuôn Tiêu Chuẩn: Bảo dưỡng mỗi 800K shot\n• Khuôn High-Impact: Đo dự phòng 350K~400K shot\n• Mốc Đại Tu: 3.000K shot\n• Giới Hạn Vòng Đời: 4.5M ~ 5M shot')">ℹ️ SOP</span>
+          </div>
+          <div class="mm-kpi-val" style="color:${kpiColor};">${displayVal}</div>
+          <span class="mm-kpi-sub">${urgentCount} chạm mốc • ${warningCount} cảnh báo sớm (${safeCount} an toàn)</span>
         </div>
       `;
     }

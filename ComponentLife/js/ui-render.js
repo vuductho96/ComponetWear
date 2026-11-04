@@ -241,6 +241,15 @@ function renderMetrics() {
 
   if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
   if ($("totalReplacementsVal")) $("totalReplacementsVal").textContent = totalRepsInYear.toLocaleString();
+  if ($("overviewDueMoldsVal")) {
+    const mmData = window._moldMaintenanceData || window._cachedMaintenanceData;
+    if (mmData) {
+      const urgent = mmData.urgentCount || 0;
+      const warning = mmData.warningCount || 0;
+      $("overviewDueMoldsVal").innerHTML = urgent > 0 ? `<span style="color:#dc2626;">${urgent} khẩn</span>` : (warning > 0 ? `<span style="color:#d97706;">${warning} cảnh báo</span>` : `<span style="color:#16a34a;">0</span>`);
+      if ($("overviewDueMoldsSub")) $("overviewDueMoldsSub").textContent = urgent > 0 ? `${urgent} chạm mốc • ${warning} cảnh báo sớm` : (warning > 0 ? `${warning} khuôn sắp chạm mốc (<10%)` : 'Tất cả khuôn an toàn');
+    }
+  }
   if ($("avgLifeVal")) $("avgLifeVal").textContent = avgLifeVal > 0 ? (avgLifeVal >= 1000 ? Math.round(avgLifeVal / 1000) + "k" : avgLifeVal) : "-";
   if ($("overviewRepsSub")) $("overviewRepsSub").textContent = currentYear ? `Trong năm ${currentYear}` : "Tất cả các năm";
 
@@ -1065,133 +1074,140 @@ async function renderMoldMaintenanceAlertsInOverview() {
       return;
     }
 
-    // Phân loại mốc theo SOP chuẩn
-    const dueCount = allMolds.filter(m => m.status === 'due').length;
-    const highImpactCount = allMolds.filter(m => m.isHighImpact).length;
-    const overhaul3MCount = allMolds.filter(m => (m.totalLife || m.totalLifeShots || 0) >= 3000000).length;
-    const eolCount = allMolds.filter(m => (m.totalLife || m.totalLifeShots || 0) >= 4500000).length;
+    // Đếm số lượng theo trạng thái bảo dưỡng
+    const dueCount = allMolds.filter(m => m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0)).length;
+    const warningCount = allMolds.filter(m => (m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90)) && !(m.status === 'due' || m.statusLevel === 'urgent')).length;
+    const safeCount = Math.max(0, allMolds.length - dueCount - warningCount);
 
-    let html = `
-      <!-- 4 Quick Alert Stat Badges theo SOP -->
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px;">
-        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
-          <span style="font-size:24px;">🔴</span>
-          <div>
-            <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:#b91c1c;">Cần Bảo Dưỡng (Chạm Mốc)</div>
-            <div style="font-size:18px; font-weight:800; color:#991b1b;">${dueCount} khuôn</div>
-            <div style="font-size:11px; color:#7f1d1d;">Mốc 800K hoặc ≥400K High-Impact</div>
-          </div>
-        </div>
+    // Cập nhật card KPI trên hàng đầu trang nếu có
+    if ($("overviewDueMoldsVal")) {
+      $("overviewDueMoldsVal").innerHTML = dueCount > 0 
+        ? `<span style="color:#dc2626;">${dueCount} khẩn</span>` 
+        : (warningCount > 0 ? `<span style="color:#d97706;">${warningCount} cảnh báo</span>` : `<span style="color:#16a34a;">0</span>`);
+    }
+    if ($("overviewDueMoldsSub")) {
+      $("overviewDueMoldsSub").textContent = dueCount > 0 
+        ? `${dueCount} chạm mốc • ${warningCount} cảnh báo sớm`
+        : (warningCount > 0 ? `${warningCount} khuôn sắp chạm mốc (<10%)` : `Tất cả ${allMolds.length} khuôn an toàn`);
+    }
 
-        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
-          <span style="font-size:24px;">🟡</span>
-          <div>
-            <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:#b45309;">Khuôn Cấp Độ Cao (High-Impact)</div>
-            <div style="font-size:18px; font-weight:800; color:#92400e;">${highImpactCount} khuôn</div>
-            <div style="font-size:11px; color:#78350f;">Đo dự phòng mốc 350K - 400K</div>
-          </div>
-        </div>
-
-        <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
-          <span style="font-size:24px;">🟣</span>
-          <div>
-            <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:#7e22ce;">Mốc Lớn 3.000K Shot</div>
-            <div style="font-size:18px; font-weight:800; color:#6b21a8;">${overhaul3MCount} khuôn</div>
-            <div style="font-size:11px; color:#581c87;">Đại tu & đánh giá lại toàn bộ bản vẽ</div>
-          </div>
-        </div>
-
-        <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
-          <span style="font-size:24px;">🟠</span>
-          <div>
-            <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:#c2410c;">Cận Vòng Đời 4.5M - 5M</div>
-            <div style="font-size:18px; font-weight:800; color:#9a3412;">${eolCount} khuôn</div>
-            <div style="font-size:11px; color:#7c2d12;">Thông tin JP HQ để thay thế khuôn</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Danh sách khuôn cần ưu tiên bảo dưỡng -->
-      <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
-          <thead>
-            <tr style="border-bottom:2px solid #e2e8f0; text-align:left; color:#475569; font-size:11.5px; text-transform:uppercase;">
-              <th style="padding:8px 6px; text-align:center;">Mức Độ</th>
-              <th style="padding:8px 6px;">Mã Khuôn (Mold No)</th>
-              <th style="padding:8px 6px; text-align:center;">Máy Đang Ép</th>
-              <th style="padding:8px 6px;">Tiêu Chuẩn (SOP)</th>
-              <th style="padding:8px 6px; text-align:right;">Số Shot Chu Kỳ</th>
-              <th style="padding:8px 6px; text-align:right;">Mốc Plan</th>
-              <th style="padding:8px 6px;">Tiến Độ & Trạng Thái</th>
-              <th style="padding:8px 6px;">Tổng Vòng Đời</th>
-              <th style="padding:8px 6px; text-align:center;">Thao Tác</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
-
-    // Sắp xếp ưu tiên: Khuôn 'due' lên đầu, sau đó đến 'warning', sau đó theo % tiến độ giảm dần
-    const priorityList = [...allMolds].sort((a, b) => {
-      if (a.status === 'due' && b.status !== 'due') return -1;
-      if (a.status !== 'due' && b.status === 'due') return 1;
-      if (a.status === 'warning' && b.status !== 'warning') return -1;
-      if (a.status !== 'warning' && b.status === 'warning') return 1;
+    // LỌC CHỈ CÁC KHUÔN CẦN BẢO DƯỠNG (KHẨN CẤP HOẶC CẢNH BÁO)
+    const needMaintenanceMolds = allMolds.filter(m => {
+      const isDue = m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0);
+      const isWarn = m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90);
+      return isDue || isWarn;
+    }).sort((a, b) => {
+      const aDue = a.status === 'due' || a.statusLevel === 'urgent' || (a.shotsRemaining !== undefined && a.shotsRemaining <= 0);
+      const bDue = b.status === 'due' || b.statusLevel === 'urgent' || (b.shotsRemaining !== undefined && b.shotsRemaining <= 0);
+      if (aDue && !bDue) return -1;
+      if (!aDue && bDue) return 1;
+      const aDays = (a.daysRemaining !== undefined && a.daysRemaining !== null) ? Number(a.daysRemaining) : 999;
+      const bDays = (b.daysRemaining !== undefined && b.daysRemaining !== null) ? Number(b.daysRemaining) : 999;
+      if (aDays !== bDays) return aDays - bDays;
       return (b.percent || 0) - (a.percent || 0);
-    }).slice(0, 8);
-
-    priorityList.forEach(m => {
-      const isDue = m.status === 'due';
-      const isWarn = m.status === 'warning';
-      const icon = isDue ? '🔴' : (isWarn ? '🟡' : '🟢');
-      const badgeClass = isDue ? 'background:#fee2e2; color:#991b1b;' : (isWarn ? 'background:#fef3c7; color:#92400e;' : 'background:#dcfce7; color:#15803d;');
-      const isRunning = m.machineNo && m.machineNo !== '-';
-
-      html += `
-        <tr style="border-bottom:1px solid #f1f5f9; ${isDue ? 'background:#fff1f2;' : (isWarn ? 'background:#fffbeb;' : '')}">
-          <td style="padding:8px 6px; text-align:center; font-size:15px;">${icon}</td>
-          <td style="padding:8px 6px; font-weight:700; font-family:monospace; color:#0f172a;">
-            <div>${m.mold}</div>
-            <small style="color:#64748b; font-weight:normal;">${m.series || '-'}</small>
-          </td>
-          <td style="padding:8px 6px; text-align:center; font-weight:700; font-family:monospace;">
-            ${isRunning 
-              ? `<span style="display:inline-block; padding:2px 6px; border-radius:4px; background:#dcfce7; color:#15803d; font-size:11.5px;">⚡ ${m.machineNo}</span>` 
-              : `<span style="color:#94a3b8; font-size:11.5px;">Trong kho</span>`}
-          </td>
-          <td style="padding:8px 6px;">
-            <span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600; ${m.isHighImpact ? 'background:#fef3c7; color:#b45309;' : 'background:#eff6ff; color:#1d4ed8;'}">
-              ${m.isHighImpact ? '🔥 High-Impact (350K-400K)' : 'Tiêu Chuẩn (800K)'}
-            </span>
-          </td>
-          <td style="padding:8px 6px; text-align:right; font-family:monospace; font-weight:700; color:#15803d;">
-            ${Number(m.curShots || 0).toLocaleString('vi-VN')}
-          </td>
-          <td style="padding:8px 6px; text-align:right; font-family:monospace; font-weight:600; color:#475569;">
-            ${m.planDisplay || (m.isHighImpact ? '350K~400K' : '800.000')}
-          </td>
-          <td style="padding:8px 6px;">
-            <div style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:11.5px; font-weight:700; ${badgeClass}">
-              ${m.statusText || 'An toàn'} (${m.percent || 0}%)
-            </div>
-          </td>
-          <td style="padding:8px 6px; font-family:monospace; font-size:12px;">
-            <div>${Number(m.totalLife || 0).toLocaleString('vi-VN')}</div>
-            ${m.lifeBadgeHtml || ''}
-          </td>
-          <td style="padding:8px 6px; text-align:center;">
-            <button type="button" class="btn-expand-detail" style="cursor:pointer; font-size:11.5px; padding:3px 8px;" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance){ MoldMaintenance.switchTab('molds'); MoldMaintenance.onSearchInput('${m.mold}'); }">
-              Xem Khuôn
-            </button>
-          </td>
-        </tr>
-      `;
     });
 
-    html += `
-          </tbody>
-        </table>
+    let html = `
+      <!-- Thanh Tóm Tắt Tình Trạng Hành Động Nhanh (Action Status Bar) -->
+      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">🎯</span>
+          <span style="font-size:13px; font-weight:700; color:#1e293b;">MỐC QUY ĐỊNH (SOP): TIÊU CHUẨN 800K • DỰ PHÒNG 350K~400K</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700;">
+          ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} chạm mốc</span>` : ''}
+          ${warningCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fef3c7; color:#b45309;">🟡 ${warningCount} cảnh báo sớm (&lt;10%)</span>` : ''}
+          <span style="padding:4px 10px; border-radius:12px; background:#dcfce7; color:#15803d;">🟢 ${safeCount} an toàn</span>
+          <button type="button" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance) MoldMaintenance.switchTab('molds');" style="background:#2563eb; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:11.5px; font-weight:600; margin-left:4px;">
+            Xem Bảng Chi Tiết →
+          </button>
+        </div>
       </div>
     `;
+
+    if (needMaintenanceMolds.length === 0) {
+      html += `
+        <div style="text-align:center; padding:24px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; color:#166534;">
+          <div style="font-size:28px; margin-bottom:6px;">✅</div>
+          <div style="font-size:14px; font-weight:700;">Tất cả khuôn đang vận hành trong giới hạn an toàn!</div>
+          <div style="font-size:12px; color:#15803d; margin-top:3px;">Không có khuôn nào chạm mốc hoặc trong ngưỡng cảnh báo sớm hôm nay.</div>
+        </div>
+      `;
+    } else {
+      html += `
+        <!-- Bảng Rút Gọn: Chỉ Hiển Thị Các Khuôn Cần Bảo Dưỡng -->
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+            <thead>
+              <tr style="border-bottom:2px solid #e2e8f0; text-align:left; color:#475569; font-size:11.5px; text-transform:uppercase; background:#f8fafc;">
+                <th style="padding:8px 8px; text-align:center; width:50px;">Mức Độ</th>
+                <th style="padding:8px 10px;">Mã Khuôn &amp; Sản Phẩm</th>
+                <th style="padding:8px 8px; text-align:center; width:100px;">Máy Ép</th>
+                <th style="padding:8px 10px; width:130px;">Tiêu Chuẩn (SOP)</th>
+                <th style="padding:8px 10px; text-align:right;">Số Shot Chu Kỳ / Mốc</th>
+                <th style="padding:8px 10px; width:180px;">Tiến Độ &amp; Dự Báo</th>
+                <th style="padding:8px 8px; text-align:center; width:110px;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      needMaintenanceMolds.forEach(m => {
+        const isDue = m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0);
+        const icon = isDue ? '🔴' : '🟡';
+        const isRunning = m.machineNo && m.machineNo !== '-';
+        const curShotVal = Number(m.curShots || m.currentCycleShots || 0);
+        const nextMilestoneVal = Number(m.nextMilestone || (m.isHighImpact ? 400000 : 800000));
+        const pct = m.percent !== undefined ? m.percent : Math.min(100, Math.round((curShotVal / (nextMilestoneVal || 1)) * 100));
+        const barColor = isDue ? '#dc2626' : '#d97706';
+        const rowBg = isDue ? 'background:#fff1f2;' : 'background:#fffbeb;';
+        const daysText = m.forecastText || (m.daysRemaining !== undefined ? `Còn ~${Number(m.daysRemaining).toFixed(1)} ngày` : `Còn ${Math.max(0, nextMilestoneVal - curShotVal).toLocaleString('vi-VN')} shot`);
+
+        html += `
+          <tr style="border-bottom:1px solid #f1f5f9; ${rowBg}">
+            <td style="padding:8px 8px; text-align:center; font-size:15px;">${icon}</td>
+            <td style="padding:8px 10px;">
+              <div style="font-weight:700; font-family:monospace; color:#0f172a; font-size:13px;">${m.mold}</div>
+              <small style="color:#64748b;">${m.series || '-'}</small>
+            </td>
+            <td style="padding:8px 8px; text-align:center;">
+              ${isRunning 
+                ? `<span style="display:inline-block; padding:2px 8px; border-radius:4px; background:#dcfce7; color:#15803d; font-weight:700; font-family:monospace; font-size:11.5px;">⚡ ${m.machineNo}</span>` 
+                : `<span style="color:#94a3b8; font-size:11.5px;">Trong kho</span>`}
+            </td>
+            <td style="padding:8px 10px;">
+              <span style="display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; ${m.isHighImpact ? 'background:#fef3c7; color:#b45309;' : 'background:#eff6ff; color:#1d4ed8;'}">
+                ${m.isHighImpact ? '🔥 Dự Phòng 400K' : 'Chuẩn 800K'}
+              </span>
+            </td>
+            <td style="padding:8px 10px; text-align:right;">
+              <span style="font-family:monospace; font-weight:700; color:${barColor}; font-size:13px;">${curShotVal.toLocaleString('vi-VN')}</span>
+              <span style="color:#64748b; font-size:11px;"> / ${nextMilestoneVal.toLocaleString('vi-VN')}</span>
+            </td>
+            <td style="padding:8px 10px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px; font-weight:600;">
+                <span style="color:${barColor};">${pct}%</span>
+                <span style="color:#475569;">${daysText}</span>
+              </div>
+              <div style="width:100%; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden;">
+                <div style="width:${Math.min(100, pct)}%; height:100%; background:${barColor}; border-radius:3px;"></div>
+              </div>
+            </td>
+            <td style="padding:8px 8px; text-align:center;">
+              <button type="button" class="btn-expand-detail" style="cursor:pointer; font-size:11.5px; padding:4px 9px; font-weight:600; background:#fff; border:1px solid #cbd5e1; border-radius:5px;" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance){ MoldMaintenance.switchTab('molds'); MoldMaintenance.onSearchInput('${m.mold}'); }">
+                Xem Khuôn
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
 
     moldAlertsEl.innerHTML = html;
   } catch (err) {
