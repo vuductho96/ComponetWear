@@ -973,11 +973,15 @@ window.MoldMaintenance = (function() {
         <span style="font-weight:800; color:#0f172a; display:inline-flex; align-items:center; gap:5px;">
           <span>🎯</span> Quy Chuẩn Màu SOP:
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#854d0e; font-weight:800; background:#fef08a; padding:3px 10px; border-radius:5px; border:1px solid #facc15;" title="Chu kỳ trong năm sắp đến hạn bảo dưỡng định kỳ">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#854d0e; font-weight:800; background:#fef08a; padding:3px 10px; border-radius:5px; border:1px solid #facc15;" title="Khuôn tiêu chuẩn sắp đến hạn bảo dưỡng định kỳ">
           <span style="width:10px; height:10px; border-radius:2px; background:#eab308; display:inline-block;"></span>
           750k ~ 800K
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#991b1b; font-weight:800; background:#fee2e2; padding:3px 10px; border-radius:5px; border:1px solid #f87171;" title="Chu kỳ trong năm đã vượt mốc bảo dưỡng định kỳ">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#c2410c; font-weight:800; background:#ffedd5; padding:3px 10px; border-radius:5px; border:1px solid #fb923c;" title="Khuôn High-Impact sắp đến hạn bảo dưỡng định kỳ (350k ~ 400K)">
+          <span style="width:10px; height:10px; border-radius:2px; background:#f97316; display:inline-block;"></span>
+          350k ~ 400K (High-Impact)
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#991b1b; font-weight:800; background:#fee2e2; padding:3px 10px; border-radius:5px; border:1px solid #f87171;" title="Chu kỳ trong năm đã vượt mốc bảo dưỡng định kỳ (≥ 800K hoặc ≥ 400K High-Impact)">
           <span style="width:10px; height:10px; border-radius:2px; background:#ef4444; display:inline-block;"></span>
           OVER - 800K
         </span>
@@ -1903,7 +1907,6 @@ window.MoldMaintenance = (function() {
           let btnBorder = '1px solid #cbd5e1';
           let btnBg = '#ffffff';
           let btnColor = '#475569';
-          let warningTag = '';
 
           let targetLimit = 800000;
           let warnLimit = 750000;
@@ -1934,23 +1937,27 @@ window.MoldMaintenance = (function() {
             btnBorder = '1px solid #e879f9';
             btnBg = '#fae8ff';
             btnColor = '#a21caf';
-            warningTag = '<div style="font-size:10px; font-weight:800; color:#a21caf; margin-top:2px;">2900~3000K (Đo bước 3M)</div>';
           } else if (val >= targetLimit) {
-            // OVER - 800K (MÀU ĐỎ THEO QUY CHUẨN)
+            // OVER - 800K hoặc OVER - 400K High-Impact (MÀU ĐỎ THEO QUY CHUẨN)
             cellBg = '#fee2e2';
             textColor = '#991b1b';
             btnBorder = '1px solid #ef4444';
             btnBg = '#fecaca';
             btnColor = '#991b1b';
-            warningTag = num <= 5 ? '<div style="font-size:10px; font-weight:800; color:#b91c1c; margin-top:2px;">OVER - 800K</div>' : '';
+          } else if (m.isHighImpact && num <= 5 && val >= 350000) {
+            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT THEO QUY CHUẨN SOP
+            cellBg = '#fff7ed';
+            textColor = '#c2410c';
+            btnBorder = '1px solid #fb923c';
+            btnBg = '#ffedd5';
+            btnColor = '#c2410c';
           } else if (val >= warnLimit) {
-            // 750k ~ 800K (MÀU VÀNG THEO QUY CHUẨN)
+            // 750k ~ 800K (MÀU VÀNG THEO QUY CHUẨN CHO KHUÔN TIÊU CHUẨN)
             cellBg = '#fefce8';
             textColor = '#854d0e';
             btnBorder = '1px solid #facc15';
             btnBg = '#fef08a';
             btnColor = '#854d0e';
-            warningTag = num <= 5 ? '<div style="font-size:10px; font-weight:800; color:#854d0e; margin-top:2px;">750k ~ 800K</div>' : '';
           } else if (val > 0) {
             cellBg = '#f0fdf4';
             textColor = '#15803d';
@@ -1977,7 +1984,6 @@ window.MoldMaintenance = (function() {
               <div style="font-size:16.5px; font-weight:${val > 0 ? '800' : '500'}; color:${textColor};">
                 ${val > 0 ? formatNum(val) : '-'}
               </div>
-              ${warningTag}
               <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
                 <button type="button" onclick="MoldMaintenance.openMilestoneModal('${m.mold}', ${num}, ${!isDone})" 
                   style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:${isDone ? '800' : '700'}; display:inline-flex; align-items:center; gap:3px;"
@@ -2327,7 +2333,6 @@ window.MoldMaintenance = (function() {
           let btnBorder = '1px solid #cbd5e1';
           let btnBg = '#ffffff';
           let btnColor = '#475569';
-          let warningTag = '';
 
           let targetLimit = 800000;
           let warnLimit = 750000;
@@ -2358,23 +2363,27 @@ window.MoldMaintenance = (function() {
             btnBorder = '1px solid #e879f9';
             btnBg = '#fae8ff';
             btnColor = '#a21caf';
-            warningTag = '<div style="font-size:10px; font-weight:800; color:#a21caf; margin-top:2px;">2900~3000K (Đo bước 3M)</div>';
           } else if (val >= targetLimit) {
-            // OVER - 800K (MÀU ĐỎ THEO QUY CHUẨN)
+            // OVER - 800K hoặc OVER - 400K High-Impact (MÀU ĐỎ THEO QUY CHUẨN)
             cellBg = '#fee2e2';
             textColor = '#991b1b';
             btnBorder = '1px solid #ef4444';
             btnBg = '#fecaca';
             btnColor = '#991b1b';
-            warningTag = num <= 5 ? '<div style="font-size:10px; font-weight:800; color:#b91c1c; margin-top:2px;">OVER - 800K</div>' : '';
+          } else if (r.isHighImpact && num <= 5 && val >= 350000) {
+            // MÀU CAM MỐC 350k ~ 400K CỦA MOLD HIGH IMPACT THEO QUY CHUẨN SOP
+            cellBg = '#fff7ed';
+            textColor = '#c2410c';
+            btnBorder = '1px solid #fb923c';
+            btnBg = '#ffedd5';
+            btnColor = '#c2410c';
           } else if (val >= warnLimit) {
-            // 750k ~ 800K (MÀU VÀNG THEO QUY CHUẨN)
+            // 750k ~ 800K (MÀU VÀNG THEO QUY CHUẨN CHO KHUÔN TIÊU CHUẨN)
             cellBg = '#fefce8';
             textColor = '#854d0e';
             btnBorder = '1px solid #facc15';
             btnBg = '#fef08a';
             btnColor = '#854d0e';
-            warningTag = num <= 5 ? '<div style="font-size:10px; font-weight:800; color:#854d0e; margin-top:2px;">750k ~ 800K</div>' : '';
           } else if (val > 0) {
             cellBg = '#f0fdf4';
             textColor = '#15803d';
@@ -2401,7 +2410,6 @@ window.MoldMaintenance = (function() {
               <div style="font-size:16.5px; font-weight:${val > 0 ? '800' : '500'}; color:${textColor};">
                 ${val > 0 ? formatNum(val) : '-'}
               </div>
-              ${warningTag}
               <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
                 <button type="button" onclick="MoldMaintenance.openMilestoneModal('${r.moldNo}', ${num}, ${!isDone})" 
                   style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:${isDone ? '800' : '700'}; display:inline-flex; align-items:center; gap:3px;"
