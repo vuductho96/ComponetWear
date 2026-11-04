@@ -1140,13 +1140,19 @@ window.MoldMaintenance = (function() {
   let activeMilestoneAuth = null; // { moldNo, milestoneNum, isClosing }
 
   function openMilestoneModal(moldNo, milestoneNum, isClosing) {
-    if (typeof ComponentAuth !== 'undefined' && !ComponentAuth.canConfirmMilestone()) {
-      alert('Chỉ tài khoản Staff hoặc Admin mới có quyền chốt hoặc mở lại mốc bảo dưỡng khuôn. Vui lòng đăng nhập với tài khoản có thẩm quyền.');
-      return;
-    }
     activeMilestoneAuth = { moldNo: String(moldNo).trim(), milestoneNum: Number(milestoneNum), isClosing: Boolean(isClosing) };
     const modal = document.getElementById('mmMilestoneAuthModal');
     if (!modal) return;
+
+    const num = Number(milestoneNum);
+    const allMolds = getAllUnifiedMolds();
+    const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
+    const isHigh = currentMold?.isHighImpact || false;
+    const cycleLimit = (num <= 5) ? 800000 : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
+    const targetLimit = cycleLimit;
+    const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
+    const isOver = curVal > targetLimit && num <= 5;
+    const excess = curVal - targetLimit;
 
     const icon = document.getElementById('mmAuthModalIcon');
     const title = document.getElementById('mmAuthModalTitle');
@@ -1161,31 +1167,20 @@ window.MoldMaintenance = (function() {
     const noteInput = document.getElementById('mmAuthNoteInput');
     const confirmBtn = document.getElementById('mmAuthConfirmBtn');
 
-    const isHigh = m.is_high_impact || (live ? live.isHighImpact : false);
-    const cycleLimit = (num <= 5) ? 800000 : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
-    const targetLimit = cycleLimit;
-
     if (icon) icon.textContent = isClosing ? '🔒' : '🔓';
     if (title) title.textContent = isClosing ? 'Xác Nhận Chốt Bảo Dưỡng Mốc' : 'Xác Nhận Mở Lại Mốc Bảo Dưỡng';
     if (subtitle) {
-      let mLabel = `Mốc ${milestoneNum} (${formatNum(cycleLimit)} shots)`;
-      if (milestoneNum === 6) mLabel = `Mốc 6 (3.000.000 shots - 3M SOP)`;
-      else if (milestoneNum === 7) mLabel = `Mốc 7 (4.500.000 shots - 4.5M HQ)`;
-      else if (milestoneNum === 8) mLabel = `Mốc 8 (5.000.000 shots - 5M Chạm trần)`;
+      let mLabel = `Mốc ${num} (${formatNum(cycleLimit)} shots)`;
+      if (num === 6) mLabel = `Mốc 6 (3.000.000 shots - 3M SOP)`;
+      else if (num === 7) mLabel = `Mốc 7 (4.500.000 shots - 4.5M HQ)`;
+      else if (num === 8) mLabel = `Mốc 8 (5.000.000 shots - 5M Chạm trần)`;
       subtitle.innerHTML = `Khuôn: <b style="color:#0284c7;">${moldNo}</b> | <span style="color:#1d4ed8; font-weight:700;">${mLabel}</span>`;
     }
     if (desc) {
-      let mText = `Mốc ${milestoneNum}`;
-      if (milestoneNum === 6) mText = `Mốc 6 (3.000.000 shots - Đánh giá mòn thân khuôn)`;
-      else if (milestoneNum === 7) mText = `Mốc 7 (4.500.000 shots - Báo cáo HQ phê duyệt)`;
-      else if (milestoneNum === 8) mText = `Mốc 8 (5.000.000 shots - Chạm trần tuổi thọ 5M)`;
-
-      // Tìm số shot hiện tại của mốc
-      const allMolds = getAllUnifiedMolds();
-      const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
-      const curVal = currentMold ? (currentMold['m' + milestoneNum] || currentMold.curShots || 0) : 0;
-      const isOver = curVal > targetLimit && milestoneNum <= 5;
-      const excess = curVal - targetLimit;
+      let mText = `Mốc ${num}`;
+      if (num === 6) mText = `Mốc 6 (3.000.000 shots - Đánh giá mòn thân khuôn)`;
+      else if (num === 7) mText = `Mốc 7 (4.500.000 shots - Báo cáo HQ phê duyệt)`;
+      else if (num === 8) mText = `Mốc 8 (5.000.000 shots - Chạm trần tuổi thọ 5M)`;
 
       if (isClosing) {
         if (isOver) {
@@ -1194,7 +1189,7 @@ window.MoldMaintenance = (function() {
             <div style="background:#fff7ed; border:1px solid #fed7aa; padding:8px 10px; border-radius:6px; color:#9a3412; font-size:12px; line-height:1.45;">
               ⚠️ <b>Số shot hiện tại (${formatNum(curVal)}) đã vượt mốc định mức (${formatNum(targetLimit)}):</b><br>
               • <b>${mText}</b> sẽ được chốt hoàn thành ở mức <b>${formatNum(targetLimit)}</b> shots.<br>
-              • Phần shot dôi dư (<b>+${formatNum(excess)}</b> shots) sẽ tự động chuyển tiếp sang <b>Mốc ${milestoneNum + 1}</b> để tiếp tục tích lũy!
+              • Phần shot dôi dư (<b>+${formatNum(excess)}</b> shots) sẽ tự động chuyển tiếp sang <b>Mốc ${num + 1}</b> để tiếp tục tích lũy!
             </div>
           `;
         } else {
