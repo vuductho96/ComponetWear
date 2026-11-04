@@ -969,19 +969,28 @@ window.MoldMaintenance = (function() {
   // Legend màu cảnh báo mốc 1 - mốc 8 & tổng năm
   function getMilestoneLegendHtml() {
     return `
-      <div class="mm-milestone-legend" style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:7px 14px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:12px; font-size:12.5px; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+      <div class="mm-milestone-legend" style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:8px 14px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:12px; font-size:12.5px; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
         <span style="font-weight:800; color:#0f172a; display:inline-flex; align-items:center; gap:5px;">
-          <span>🎯</span> Quy Ước Mốc:
+          <span>🎯</span> Quy Chuẩn Màu SOP:
         </span>
-        <span style="display:inline-flex; align-items:center; gap:5px; color:#15803d; font-weight:700; background:#f0fdf4; padding:3px 9px; border-radius:5px; border:1px solid #bbf7d0;">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#854d0e; font-weight:800; background:#fef08a; padding:3px 10px; border-radius:5px; border:1px solid #facc15;" title="Chu kỳ trong năm sắp đến hạn bảo dưỡng định kỳ">
+          <span style="width:10px; height:10px; border-radius:2px; background:#eab308; display:inline-block;"></span>
+          750k ~ 800K
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#991b1b; font-weight:800; background:#fee2e2; padding:3px 10px; border-radius:5px; border:1px solid #f87171;" title="Chu kỳ trong năm đã vượt mốc bảo dưỡng định kỳ">
+          <span style="width:10px; height:10px; border-radius:2px; background:#ef4444; display:inline-block;"></span>
+          OVER - 800K
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="Mốc vòng đời SOP 3M: Đánh giá mòn thân khuôn & đo thêm bước">
+          <span style="width:10px; height:10px; border-radius:2px; background:#d946ef; display:inline-block;"></span>
+          2900~3000K (Đo bước 3M)
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:5px; color:#15803d; font-weight:700; background:#f0fdf4; padding:3px 10px; border-radius:5px; border:1px solid #bbf7d0;">
           <span style="width:9px; height:9px; border-radius:50%; background:#22c55e; display:inline-block;"></span>
-          Mốc 1 - 5: Trong năm (~800K/lần)
+          Đã chốt
         </span>
-        <span style="display:inline-flex; align-items:center; gap:5px; color:#0f172a; font-weight:700; background:#f1f5f9; padding:3px 9px; border-radius:5px; border:1px solid #cbd5e1;" title="Năm 2026 = Mốc 1 + Mốc 2 + Mốc 3 + Mốc 4 + Mốc 5">
-          <span>📊</span> Tổng Năm: = Mốc 1 + ... + Mốc 5
-        </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#0369a1; font-weight:700; background:#f0f9ff; padding:3px 9px; border-radius:5px; border:1px solid #bae6fd;" title="Các mốc SOP đánh giá tuổi thọ dựa trên Tổng Vòng Đời qua các năm">
-          <span>⭐</span> Mốc Vòng Đời: Mốc 6 (3M) • Mốc 7 (4.5M) • Mốc 8 (5M)
+        <span style="display:inline-flex; align-items:center; gap:5px; color:#0f172a; font-weight:700; background:#f1f5f9; padding:3px 10px; border-radius:5px; border:1px solid #cbd5e1;" title="Năm 2026 = Mốc 1 + Mốc 2 + Mốc 3 + Mốc 4 + Mốc 5">
+          <span>📊</span> Tổng Năm = Mốc 1 + ... + Mốc 5
         </span>
       </div>
     `;
@@ -1545,7 +1554,7 @@ window.MoldMaintenance = (function() {
       const isDone6 = (closedMilestones || []).includes(6);
       const isDone7 = (closedMilestones || []).includes(7);
       const isDone8 = (closedMilestones || []).includes(8);
-      const m6 = Math.round(m.m6 || (isDone6 ? 3000000 : (totalLife >= 3000000 ? 3000000 : (totalLife >= 2850000 ? totalLife : 0))));
+      const m6 = Math.round(m.m6 || (isDone6 ? 3000000 : (totalLife >= 2900000 ? totalLife : 0)));
       const m7 = Math.round(m.m7 || (isDone7 ? 4500000 : (totalLife >= 4500000 ? 4500000 : (totalLife >= 4300000 ? totalLife : 0))));
       const m8 = Math.round(m.m8 || (isDone8 ? 5000000 : (totalLife >= 5000000 ? 5000000 : (totalLife >= 4800000 ? totalLife : 0))));
       const moldNote = notesMap[code] || m.note || (live ? live.note : '') || '';
@@ -1903,7 +1912,7 @@ window.MoldMaintenance = (function() {
             warnLimit = 350000;
           } else if (num === 6) {
             targetLimit = 3000000;
-            warnLimit = 2850000;
+            warnLimit = 2900000;
           } else if (num === 7) {
             targetLimit = 4500000;
             warnLimit = 4300000;
@@ -1918,20 +1927,30 @@ window.MoldMaintenance = (function() {
             btnBorder = '1px solid #86efac';
             btnBg = '#dcfce7';
             btnColor = '#15803d';
+          } else if (num === 6 && val >= 2900000) {
+            // MỐC 6 (2900~3000K): CẢNH BÁO MÀU TÍM / HỒNG PHẤN THEO QUY CHUẨN (Đo bước 3M)
+            cellBg = '#fdf4ff';
+            textColor = '#86198f';
+            btnBorder = '1px solid #e879f9';
+            btnBg = '#fae8ff';
+            btnColor = '#a21caf';
+            warningTag = '<div style="font-size:10px; font-weight:800; color:#a21caf; margin-top:2px;">2900~3000K (Đo bước 3M)</div>';
           } else if (val >= targetLimit) {
-            cellBg = '#fff1f2';
-            textColor = '#e11d48';
-            btnBorder = '1px solid #f43f5e';
-            btnBg = '#ffe4e6';
-            btnColor = '#be123c';
-            warningTag = '';
+            // OVER - 800K (MÀU ĐỎ THEO QUY CHUẨN)
+            cellBg = '#fee2e2';
+            textColor = '#991b1b';
+            btnBorder = '1px solid #ef4444';
+            btnBg = '#fecaca';
+            btnColor = '#991b1b';
+            warningTag = num <= 5 ? '<div style="font-size:10px; font-weight:800; color:#b91c1c; margin-top:2px;">OVER - 800K</div>' : '';
           } else if (val >= warnLimit) {
-            cellBg = '#fffbeb';
-            textColor = '#b45309';
-            btnBorder = '1px solid #f59e0b';
-            btnBg = '#fef3c7';
-            btnColor = '#b45309';
-            warningTag = '';
+            // 750k ~ 800K (MÀU VÀNG THEO QUY CHUẨN)
+            cellBg = '#fefce8';
+            textColor = '#854d0e';
+            btnBorder = '1px solid #facc15';
+            btnBg = '#fef08a';
+            btnColor = '#854d0e';
+            warningTag = num <= 5 ? '<div style="font-size:10px; font-weight:800; color:#854d0e; margin-top:2px;">750k ~ 800K</div>' : '';
           } else if (val > 0) {
             cellBg = '#f0fdf4';
             textColor = '#15803d';
@@ -2236,7 +2255,7 @@ window.MoldMaintenance = (function() {
         const isDone6 = closedMilestones.includes(6);
         const isDone7 = closedMilestones.includes(7);
         const isDone8 = closedMilestones.includes(8);
-        const m6 = Math.round(masterMold?.m6 || (isDone6 ? 3000000 : (totalLife >= 3000000 ? 3000000 : (totalLife >= 2850000 ? totalLife : 0))));
+        const m6 = Math.round(masterMold?.m6 || (isDone6 ? 3000000 : (totalLife >= 2900000 ? totalLife : 0)));
         const m7 = Math.round(masterMold?.m7 || (isDone7 ? 4500000 : (totalLife >= 4500000 ? 4500000 : (totalLife >= 4300000 ? totalLife : 0))));
         const m8 = Math.round(masterMold?.m8 || (isDone8 ? 5000000 : (totalLife >= 5000000 ? 5000000 : (totalLife >= 4800000 ? totalLife : 0))));
 
@@ -2317,7 +2336,7 @@ window.MoldMaintenance = (function() {
             warnLimit = 350000;
           } else if (num === 6) {
             targetLimit = 3000000;
-            warnLimit = 2850000;
+            warnLimit = 2900000;
           } else if (num === 7) {
             targetLimit = 4500000;
             warnLimit = 4300000;
@@ -2332,20 +2351,30 @@ window.MoldMaintenance = (function() {
             btnBorder = '1px solid #86efac';
             btnBg = '#dcfce7';
             btnColor = '#15803d';
+          } else if (num === 6 && val >= 2900000) {
+            // MỐC 6 (2900~3000K): CẢNH BÁO MÀU TÍM / HỒNG PHẤN THEO QUY CHUẨN (Đo bước 3M)
+            cellBg = '#fdf4ff';
+            textColor = '#86198f';
+            btnBorder = '1px solid #e879f9';
+            btnBg = '#fae8ff';
+            btnColor = '#a21caf';
+            warningTag = '<div style="font-size:10px; font-weight:800; color:#a21caf; margin-top:2px;">2900~3000K (Đo bước 3M)</div>';
           } else if (val >= targetLimit) {
-            cellBg = '#fff1f2';
-            textColor = '#e11d48';
-            btnBorder = '1px solid #f43f5e';
-            btnBg = '#ffe4e6';
-            btnColor = '#be123c';
-            warningTag = '';
+            // OVER - 800K (MÀU ĐỎ THEO QUY CHUẨN)
+            cellBg = '#fee2e2';
+            textColor = '#991b1b';
+            btnBorder = '1px solid #ef4444';
+            btnBg = '#fecaca';
+            btnColor = '#991b1b';
+            warningTag = num <= 5 ? '<div style="font-size:10px; font-weight:800; color:#b91c1c; margin-top:2px;">OVER - 800K</div>' : '';
           } else if (val >= warnLimit) {
-            cellBg = '#fffbeb';
-            textColor = '#b45309';
-            btnBorder = '1px solid #f59e0b';
-            btnBg = '#fef3c7';
-            btnColor = '#b45309';
-            warningTag = '';
+            // 750k ~ 800K (MÀU VÀNG THEO QUY CHUẨN)
+            cellBg = '#fefce8';
+            textColor = '#854d0e';
+            btnBorder = '1px solid #facc15';
+            btnBg = '#fef08a';
+            btnColor = '#854d0e';
+            warningTag = num <= 5 ? '<div style="font-size:10px; font-weight:800; color:#854d0e; margin-top:2px;">750k ~ 800K</div>' : '';
           } else if (val > 0) {
             cellBg = '#f0fdf4';
             textColor = '#15803d';
