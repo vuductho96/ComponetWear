@@ -1522,38 +1522,41 @@ window.MoldMaintenance = (function() {
         currentCycleNum++;
       }
 
-      // Cập nhật số shot của mốc chưa chốt đang chạy với số shot live tháng 11
+      // Cập nhật số shot của mốc chưa chốt đang chạy với số shot live tháng 11 (tránh cộng trùng nếu JSON đã đồng bộ T11)
+      const isNovAlreadySynced = (Number(m.monthlyHistory?.M11) || 0) > 0;
+      const novLiveShotsToAdd = isNovAlreadySynced ? 0 : novLiveShots;
+
       if (currentCycleNum === 1) {
-        m1 = Math.max(m1, m1 + novLiveShots, (Number(lastYearRemaining) || 0) + totalYearFromMonths);
+        m1 = Math.max(m1, m1 + novLiveShotsToAdd, (Number(lastYearRemaining) || 0) + totalYearFromMonths);
       } else if (currentCycleNum === 2) {
         if (m2 === 0) {
           m2 = Math.max(0, totalYearFromMonths - m1);
         } else {
-          m2 += novLiveShots;
+          m2 += novLiveShotsToAdd;
         }
       } else if (currentCycleNum === 3) {
         if (m3 === 0) {
           m3 = Math.max(0, totalYearFromMonths - m1 - m2);
         } else {
-          m3 += novLiveShots;
+          m3 += novLiveShotsToAdd;
         }
       } else if (currentCycleNum === 4) {
         if (m4 === 0) {
           m4 = Math.max(0, totalYearFromMonths - m1 - m2 - m3);
         } else {
-          m4 += novLiveShots;
+          m4 += novLiveShotsToAdd;
         }
       } else if (currentCycleNum === 5) {
         if (m5 === 0) {
           m5 = Math.max(0, totalYearFromMonths - m1 - m2 - m3 - m4);
         } else {
-          m5 += novLiveShots;
+          m5 += novLiveShotsToAdd;
         }
       }
 
       const totalYear = m1 + m2 + m3 + m4 + m5;
       const baseLife = Math.max(Number(m.total_life) || 0, Number(live?.totalLifeShots) || 0);
-      const totalLife = Math.round(baseLife + (baseLife > 0 ? novLiveShots : 0));
+      const totalLife = Math.round(baseLife + (baseLife > 0 ? novLiveShotsToAdd : 0));
 
       const isDone6 = (closedMilestones || []).includes(6);
       const isDone7 = (closedMilestones || []).includes(7);

@@ -92,12 +92,13 @@ try {
         foreach($entry in $manifest.files){$separator=$entry.LastIndexOf('=');$copiedFiles[$entry.Substring(0,$separator)]=$entry.Substring($separator+1)}
         foreach($entry in $after.files){$separator=$entry.LastIndexOf('=');$currentFiles[$entry.Substring(0,$separator)]=$entry.Substring($separator+1)}
         $changed=@(@($expectedFiles.Keys)+@($copiedFiles.Keys)+@($currentFiles.Keys) | Sort-Object -Unique | Where-Object { $expectedFiles[$_] -ne $copiedFiles[$_] -or $expectedFiles[$_] -ne $currentFiles[$_] })
-        $codeChanged = @($changed | Where-Object { $_ -notlike "*mold-maintenance-data*" })
+        $codeChanged = @($changed | Where-Object { $_ -notlike "*mold-maintenance-data*" -and $_ -notlike "*shoot-data.json*" })
         if ($codeChanged.Count -gt 0) {
             Add-Content -LiteralPath $log -Value ("Files changed during staging: "+(($codeChanged | Select-Object -First 20) -join ", "))
             throw "Source changed during snapshot copy; retry required."
         }
         Copy-Item -LiteralPath (Join-Path $source "data/mold-maintenance-data.json") -Destination (Join-Path $assets "data/mold-maintenance-data.json") -Force
+        if (Test-Path (Join-Path $source "data/shoot-data.json")) { Copy-Item -LiteralPath (Join-Path $source "data/shoot-data.json") -Destination (Join-Path $assets "data/shoot-data.json") -Force }
         $manifest = Get-PublicAssetManifest $assets
     }
     Write-PublishJson (Join-Path $assets 'data/version.json') $manifest
