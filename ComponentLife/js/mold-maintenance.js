@@ -855,7 +855,23 @@ window.MoldMaintenance = (function() {
 
   function getClosedMilestonesMap() {
     try {
-      return JSON.parse(localStorage.getItem(MOLD_CLOSED_KEY) || '{}');
+      const map = JSON.parse(localStorage.getItem(MOLD_CLOSED_KEY) || '{}');
+      // Tuyệt đối không tự ý chốt mốc 6, 7, 8: chỉ coi là đã chốt nếu có biên bản/chi tiết xác nhận thực tế từ Staff
+      let changed = false;
+      Object.keys(map).forEach(k => {
+        if (Array.isArray(map[k])) {
+          const originalLen = map[k].length;
+          map[k] = map[k].filter(n => {
+            if (n >= 6 && n <= 8) return !!getMilestoneDetail(k, n);
+            return true;
+          });
+          if (map[k].length !== originalLen) changed = true;
+        }
+      });
+      if (changed) {
+        try { localStorage.setItem(MOLD_CLOSED_KEY, JSON.stringify(map)); } catch (e) {}
+      }
+      return map;
     } catch (e) { return {}; }
   }
 
@@ -1469,22 +1485,21 @@ window.MoldMaintenance = (function() {
         totalYearFromMonths += Math.round(Number(monthlyHistory['M' + i]) || 0);
       }
 
-      // Infer past closed milestones if not explicitly set in localStorage
+      // Xác định các mốc đã chốt trong quá khứ (Mốc 1, 2 từ file excel nếu m2 > 0 hoặc m3 > 0)
+      // Tuyệt đối KHÔNG tự ý chốt Mốc 6, 7, 8 (chỉ chốt khi KTV/Staff chủ động thao tác)
       let closedMilestones = closedMap[code];
-      if (!closedMilestones) {
+      if (Array.isArray(closedMilestones)) {
+        closedMilestones = closedMilestones.filter(n => {
+          if (n >= 6 && n <= 8) return !!getMilestoneDetail(code, n);
+          return true;
+        });
+      }
+      if (!closedMilestones || closedMilestones.length === 0) {
         closedMilestones = [];
         if (m3 > 0) {
           closedMilestones.push(1, 2);
         } else if (m2 > 0) {
           closedMilestones.push(1);
-        }
-        const pastLife = Number(m.totalShotLastYear || m.lastYearShot || 0);
-        if (pastLife >= 5000000) {
-          closedMilestones.push(6, 7, 8);
-        } else if (pastLife >= 4500000) {
-          closedMilestones.push(6, 7);
-        } else if (pastLife >= 3000000) {
-          closedMilestones.push(6);
         }
       }
 
@@ -1670,7 +1685,7 @@ window.MoldMaintenance = (function() {
     let maxRatio = 0;
     let highestVal = 0;
 
-    for (let c = 1; c <= 8; c++) {
+    for (let c = 1; c <= 5; c++) {
       const isDone = closed.includes(c);
       if (isDone) continue; // ĐÃ CHỐT -> Bỏ qua
 
@@ -2000,6 +2015,9 @@ window.MoldMaintenance = (function() {
           else if (c === 3) val = m.m3;
           else if (c === 4) val = m.m4;
           else if (c === 5) val = m.m5;
+          else if (c === 6) val = m.m6;
+          else if (c === 7) val = m.m7;
+          else if (c === 8) val = m.m8;
           else if (c === m.currentCycleNum) val = m.curShots;
           else if ((m.closedMilestones || []).includes(c)) val = m['m' + c] || 0;
           milestoneCells += renderMilestoneCell(c, val);
@@ -2387,6 +2405,9 @@ window.MoldMaintenance = (function() {
           else if (c === 3) val = m3;
           else if (c === 4) val = m4;
           else if (c === 5) val = m5;
+          else if (c === 6) val = m6;
+          else if (c === 7) val = m7;
+          else if (c === 8) val = m8;
           else if (c === currentCycleNum) val = curShots;
           else if (closedMilestones.includes(c)) val = (c === 1 ? m1 : (c === 2 ? m2 : (c === 3 ? m3 : (c === 4 ? m4 : (c === 5 ? m5 : 0))))) || 0;
           milestoneCells += renderMilestoneCell(c, val);
