@@ -267,6 +267,7 @@ window.MoldMaintenance = (function() {
       filterText = '';
     }
     updateToolbarVisibility();
+    renderKpis();
     renderTable();
   }
 
@@ -540,9 +541,20 @@ window.MoldMaintenance = (function() {
     }
 
     if (kpiProgress) {
-      const urgentCount = rawData.urgentCount || 0;
-      const warningCount = rawData.warningCount || 0;
-      const safeCount = rawData.safeCount || 0;
+      let urgentCount = 0, warningCount = 0, safeCount = 0;
+      let labelText = 'Khuôn Cần Bảo Dưỡng';
+      if (currentSubTab === 'molds') {
+        const unified = getAllUnifiedMolds();
+        urgentCount = unified.filter(m => m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0)).length;
+        warningCount = unified.filter(m => (m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90)) && !(m.status === 'due' || m.statusLevel === 'urgent')).length;
+        safeCount = Math.max(0, unified.length - urgentCount - warningCount);
+        labelText = 'Khuôn Cần Bảo Dưỡng (' + unified.length + ' Khuôn)';
+      } else {
+        urgentCount = rawData.urgentCount || 0;
+        warningCount = rawData.warningCount || 0;
+        safeCount = rawData.safeCount || 0;
+        labelText = 'Máy Cần Chú Ý (44 Máy)';
+      }
       const kpiColor = urgentCount > 0 ? '#dc2626' : (warningCount > 0 ? '#d97706' : '#16a34a');
       const iconClass = urgentCount > 0 ? 'red' : (warningCount > 0 ? 'amber' : 'green');
       const displayVal = urgentCount > 0 ? `${urgentCount} khẩn cấp` : (warningCount > 0 ? `${warningCount} cảnh báo` : 'Tất cả an toàn');
@@ -550,7 +562,7 @@ window.MoldMaintenance = (function() {
         <div class="mm-kpi-icon ${iconClass}">🛠️</div>
         <div class="mm-kpi-details">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span class="mm-kpi-label">Khuôn Cần Bảo Dưỡng</span>
+            <span class="mm-kpi-label">${labelText}</span>
             <span style="cursor:pointer; font-size:11px; color:#64748b; background:#f1f5f9; padding:1px 6px; border-radius:4px;" title="Quy chuẩn SOP: Chuẩn 800K | High-Impact 350K~400K | Đại tu 3M, 4.5M, 5M" onclick="alert('QUY CHUẨN MỐC BẢO DƯỠNG (SOP):\n• Khuôn Tiêu Chuẩn: Bảo dưỡng mỗi 800K shot\n• Khuôn High-Impact: Đo dự phòng 350K~400K shot\n• Mốc Đại Tu: 3.000K shot\n• Giới Hạn Vòng Đời: 4.5M ~ 5M shot')">ℹ️ SOP</span>
           </div>
           <div class="mm-kpi-val" style="color:${kpiColor};">${displayVal}</div>
@@ -3558,6 +3570,7 @@ window.MoldMaintenance = (function() {
     document.querySelectorAll('.mm-subtab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.subtab === tabName);
     });
+    renderKpis();
     renderTable();
   }
 
