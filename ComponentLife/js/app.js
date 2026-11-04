@@ -76,8 +76,10 @@ function renderMonth() {
     const pB = (b.part || '').toLowerCase(), dNewB = (b.moldNew || b.moldOld || '').toLowerCase();
     const countA = (repByPartMold.get(`${pA}|${dNewA}`) || []).length;
     const countB = (repByPartMold.get(`${pB}|${dNewB}`) || []).length;
-    const shootsA = (shootByMold.get(dNewA) || []).length;
-    const shootsB = (shootByMold.get(dNewB) || []).length;
+    const dOldA = (a.moldOld || '').toLowerCase();
+    const dOldB = (b.moldOld || '').toLowerCase();
+    const shootsA = (shootByMold.get(dNewA) || []).length || (dOldA ? (shootByMold.get(dOldA) || []).length : 0);
+    const shootsB = (shootByMold.get(dNewB) || []).length || (dOldB ? (shootByMold.get(dOldB) || []).length : 0);
 
     const scoreA = countA > 0 ? 3 : (shootsA > 0 ? 2 : 1);
     const scoreB = countB > 0 ? 3 : (shootsB > 0 ? 2 : 1);
@@ -106,12 +108,16 @@ function renderMonth() {
       existing.totalQty += val; existing.rows.push(row); replacementMap.set(dayNum, existing);
     });
 
-    const rawShoots = shootByMold.get(dLower) || [];
+    const oldMoldLower = item.moldOld ? String(item.moldOld).toLowerCase().trim() : "";
+    const newMoldLower = item.moldNew ? String(item.moldNew).toLowerCase().trim() : "";
     const shootMap = new Map();
-    rawShoots.forEach(row => {
-      const dayNum = Number(row.Date.slice(8, 10));
-      const existing = shootMap.get(dayNum) || { Date: row.Date, Part: partName, DieSet: dieSet, Output: 0 };
-      existing.Output += (Number(row.Output) || 0); shootMap.set(dayNum, existing);
+    const moldKeysToCheck = [...new Set([dLower, oldMoldLower, newMoldLower].filter(Boolean))];
+    moldKeysToCheck.forEach(mKey => {
+      (shootByMold.get(mKey) || []).forEach(row => {
+        const dayNum = Number(row.Date.slice(8, 10));
+        const existing = shootMap.get(dayNum) || { Date: row.Date, Part: partName, DieSet: dieSet, Output: 0 };
+        existing.Output += (Number(row.Output) || 0); shootMap.set(dayNum, existing);
+      });
     });
 
     const displayShootMap = new Map();
