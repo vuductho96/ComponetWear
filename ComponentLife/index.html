@@ -735,7 +735,7 @@
   <script src="js/language.js?v=20261020-iqc"></script>
   <script src="js/auth.js?v=20261104_rbac"></script>
   <script src="js/account-permissions.js?v=20261023-per-account"></script>
-  <script src="js/mold-maintenance.js?v=20261104_v18"></script>
+  <script src="js/mold-maintenance.js?v=20261104_v19"></script>
   <script src="js/app.js?v=20261104_v7"></script>
 
     <!-- MINI WINDOW: XÁC THỰC CHỐT / MỞ MỐC BẢO DƯỠNG (MK: 1234 + UPLOAD PDF OPTION) -->
@@ -769,6 +769,31 @@
             <div id="mmAuthPassError" style="color:#e11d48; font-size:11.5px; font-weight:600; margin-top:4px; display:none;">⚠️ Mật khẩu không đúng! Vui lòng nhập 1234.</div>
           </div>
 
+          <!-- Nhập số shot chốt mốc bảo dưỡng (Tùy chỉnh, không bắt buộc tròn 800k hay 400k) -->
+          <div id="mmAuthClosedShotsGroup" style="background:#f8fafc; border:1px solid #cbd5e1; padding:10px 12px; border-radius:8px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
+              <label style="font-size:12px; font-weight:700; color:#0f172a; display:inline-flex; align-items:center; gap:4px;">
+                🎯 Số shot chốt mốc bảo dưỡng *
+              </label>
+              <span id="mmAuthTierBadge" style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px; background:#dcfce7; color:#15803d; border:1px solid #86efac;">
+                Định mức: 800.000
+              </span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="number" id="mmAuthClosedShotsInput" min="0" step="1" placeholder="Nhập số shot chốt mốc..." 
+                class="mm-input" style="flex:1; font-size:14.5px; font-weight:800; font-family:monospace; padding:7px 12px; border:1px solid #94a3b8; border-radius:6px; background:#ffffff; color:#0f172a;"
+                oninput="MoldMaintenance.onClosedShotsChange()">
+              <button type="button" id="mmAuthResetShotsBtn" onclick="MoldMaintenance.resetClosedShotsToDefault()"
+                style="border:1px solid #cbd5e1; background:#ffffff; color:#475569; border-radius:6px; padding:7px 10px; font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap;"
+                title="Đặt lại về định mức hoặc số shot thực tế">
+                Đặt lại
+              </button>
+            </div>
+            <div id="mmAuthRolloverNotice" style="font-size:11.5px; color:#15803d; line-height:1.45; margin-top:5px;">
+              <!-- Thông tin chuyển tiếp shot live -->
+            </div>
+          </div>
+
           <!-- Thông tin bảo dưỡng: Ngày bảo dưỡng & Ai bảo dưỡng -->
           <div id="mmAuthMaintenanceFields" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; background:#f8fafc; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
             <div>
@@ -785,16 +810,29 @@
             </div>
           </div>
 
-          <!-- PDF Upload Section (Option) -->
+          <!-- PDF Upload Section (Option + Nút xóa PDF ✕) -->
           <div id="mmAuthPdfSection">
             <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
               📄 Biên bản / Báo cáo bảo dưỡng PDF <span style="font-weight:normal; color:#64748b;">(Tùy chọn)</span>
             </label>
-            <div id="mmAuthExistingPdfInfo" style="display:none; font-size:11.5px; margin-bottom:6px; color:#15803d; background:#f0fdf4; padding:6px 10px; border-radius:4px; border:1px solid #bbf7d0; align-items:center; justify-content:space-between;">
-              <span id="mmAuthExistingPdfName">Tệp đính kèm: report.pdf</span>
-              <a id="mmAuthExistingPdfLink" href="javascript:void(0)" style="color:#0284c7; font-weight:700; text-decoration:underline;">[Xem PDF]</a>
+            <div id="mmAuthExistingPdfInfo" style="display:none; font-size:11.5px; margin-bottom:6px; color:#15803d; background:#f0fdf4; padding:6px 10px; border-radius:4px; border:1px solid #bbf7d0; align-items:center; justify-content:space-between; gap:6px;">
+              <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
+                <span style="font-size:13px;">📎</span>
+                <span id="mmAuthExistingPdfName" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:230px;">Tệp đính kèm: report.pdf</span>
+                <a id="mmAuthExistingPdfLink" href="javascript:void(0)" style="color:#0284c7; font-weight:700; text-decoration:underline;">[Xem PDF]</a>
+              </div>
+              <button type="button" id="mmAuthDeletePdfBtn" onclick="MoldMaintenance.deleteCurrentMilestonePdf()" 
+                style="cursor:pointer; border:1px solid #fca5a5; background:#fee2e2; color:#b91c1c; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:3px; white-space:nowrap;"
+                title="Xóa tệp PDF đã lưu này">
+                ✕ Xóa PDF
+              </button>
             </div>
-            <input type="file" id="mmAuthPdfFileInput" accept="application/pdf,.pdf" class="mm-input" style="width:100%; font-size:12px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <input type="file" id="mmAuthPdfFileInput" accept="application/pdf,.pdf" class="mm-input" style="flex:1; font-size:12px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc;" onchange="MoldMaintenance.onNewPdfSelected()">
+              <button type="button" id="mmAuthClearNewPdfBtn" onclick="MoldMaintenance.clearSelectedPdfFile()" style="display:none; cursor:pointer; border:1px solid #cbd5e1; background:#ffffff; color:#64748b; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:700;" title="Hủy chọn file PDF này">
+                ✕
+              </button>
+            </div>
             <div style="font-size:11px; color:#64748b; margin-top:3px;">Đính kèm file PDF phiếu kiểm tra, biên bản hoàn thành bảo dưỡng khuôn.</div>
           </div>
 

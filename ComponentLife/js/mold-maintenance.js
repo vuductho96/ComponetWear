@@ -1136,7 +1136,7 @@ window.MoldMaintenance = (function() {
     }
   }
 
-  // Mini Window: Mở hộp thoại xác thực chốt mốc bảo dưỡng (MK: 1234 + Upload PDF)
+  // Mini Window: Mở hộp thoại xác thực chốt mốc bảo dưỡng (MK: 1234 + Upload/Xóa PDF + Nhập số shot chốt mốc)
   let activeMilestoneAuth = null; // { moldNo, milestoneNum, isClosing }
 
   function openMilestoneModal(moldNo, milestoneNum, isClosing) {
@@ -1148,7 +1148,7 @@ window.MoldMaintenance = (function() {
     const allMolds = getAllUnifiedMolds();
     const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
     const isHigh = currentMold?.isHighImpact || false;
-    const cycleLimit = (num <= 5) ? 800000 : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
+    const cycleLimit = (num <= 5) ? (isHigh ? 400000 : 800000) : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
     const targetLimit = cycleLimit;
     const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
     const isOver = curVal > targetLimit && num <= 5;
@@ -1164,13 +1164,18 @@ window.MoldMaintenance = (function() {
     const existingPdfName = document.getElementById('mmAuthExistingPdfName');
     const existingPdfLink = document.getElementById('mmAuthExistingPdfLink');
     const pdfFileInput = document.getElementById('mmAuthPdfFileInput');
+    const clearNewPdfBtn = document.getElementById('mmAuthClearNewPdfBtn');
     const noteInput = document.getElementById('mmAuthNoteInput');
     const confirmBtn = document.getElementById('mmAuthConfirmBtn');
+
+    const shotsGroup = document.getElementById('mmAuthClosedShotsGroup');
+    const shotsInput = document.getElementById('mmAuthClosedShotsInput');
+    const tierBadge = document.getElementById('mmAuthTierBadge');
 
     if (icon) icon.textContent = isClosing ? '🔒' : '🔓';
     if (title) title.textContent = isClosing ? 'Xác Nhận Chốt Bảo Dưỡng Mốc' : 'Xác Nhận Mở Lại Mốc Bảo Dưỡng';
     if (subtitle) {
-      let mLabel = `Mốc ${num} (${formatNum(cycleLimit)} shots)`;
+      let mLabel = `Mốc ${num} (${formatNum(cycleLimit)} shots${isHigh && num <= 5 ? ' - Cấp độ cao' : ''})`;
       if (num === 6) mLabel = `Mốc 6 (3.000.000 shots - 3M SOP)`;
       else if (num === 7) mLabel = `Mốc 7 (4.500.000 shots - 4.5M HQ)`;
       else if (num === 8) mLabel = `Mốc 8 (5.000.000 shots - 5M Chạm trần)`;
@@ -1188,8 +1193,8 @@ window.MoldMaintenance = (function() {
             <div style="font-weight:700; color:#0f172a; margin-bottom:4px;">Xác nhận hoàn tất bảo dưỡng định kỳ <b>${mText}</b> cho khuôn <b>${moldNo}</b>.</div>
             <div style="background:#fff7ed; border:1px solid #fed7aa; padding:8px 10px; border-radius:6px; color:#9a3412; font-size:12px; line-height:1.45;">
               ⚠️ <b>Số shot hiện tại (${formatNum(curVal)}) đã vượt mốc định mức (${formatNum(targetLimit)}):</b><br>
-              • <b>${mText}</b> sẽ được chốt hoàn thành ở mức <b>${formatNum(targetLimit)}</b> shots.<br>
-              • Phần shot dôi dư (<b>+${formatNum(excess)}</b> shots) sẽ tự động chuyển tiếp sang <b>Mốc ${num + 1}</b> để tiếp tục tích lũy!
+              • Bạn có thể chốt tại mức định mức <b>${formatNum(targetLimit)}</b> hoặc tùy chỉnh số shot chốt bên dưới.<br>
+              • Phần shot dôi dư sẽ tự động chuyển tiếp sang <b>Mốc ${num + 1}</b> để tiếp tục tích lũy!
             </div>
           `;
         } else {
@@ -1199,6 +1204,40 @@ window.MoldMaintenance = (function() {
         desc.innerHTML = `Xác nhận <b>Mở lại ${mText}</b> của khuôn <b>${moldNo}</b> (Hủy trạng thái đã chốt để bảo dưỡng hoặc đếm lại shot).`;
       }
     }
+
+    // Thiết lập ô nhập số shot chốt mốc bảo dưỡng
+    if (shotsGroup && shotsInput) {
+      if (isClosing) {
+        shotsGroup.style.display = 'block';
+        if (tierBadge) {
+          if (num <= 5) {
+            tierBadge.textContent = isHigh ? 'Cấp độ cao: 400.000 shots' : 'Tiêu chuẩn: 800.000 shots';
+            tierBadge.style.background = isHigh ? '#ffedd5' : '#dcfce7';
+            tierBadge.style.color = isHigh ? '#c2410c' : '#15803d';
+            tierBadge.style.border = isHigh ? '1px solid #fb923c' : '1px solid #86efac';
+          } else {
+            tierBadge.textContent = num === 6 ? 'Mốc vòng đời 3M SOP' : (num === 7 ? 'Mốc vòng đời 4.5M HQ' : 'Mốc vòng đời 5M');
+            tierBadge.style.background = '#fae8ff';
+            tierBadge.style.color = '#86198f';
+            tierBadge.style.border = '1px solid #e879f9';
+          }
+        }
+        const existingDetail = getMilestoneDetail(moldNo, milestoneNum);
+        let defaultClosedVal = existingDetail?.closedShots;
+        if (!defaultClosedVal) {
+          if (num <= 5) {
+            defaultClosedVal = curVal >= cycleLimit ? cycleLimit : (curVal > 0 ? curVal : cycleLimit);
+          } else {
+            defaultClosedVal = curVal > 0 ? curVal : cycleLimit;
+          }
+        }
+        shotsInput.value = defaultClosedVal;
+        onClosedShotsChange();
+      } else {
+        shotsGroup.style.display = 'none';
+      }
+    }
+
     if (confirmBtn) {
       confirmBtn.textContent = isClosing ? 'Chốt Hoàn Thành' : 'Mở Lại Mốc';
       confirmBtn.style.background = isClosing ? '#16a34a' : '#ea580c';
@@ -1221,6 +1260,7 @@ window.MoldMaintenance = (function() {
       }
     }
     if (pdfFileInput) pdfFileInput.value = '';
+    if (clearNewPdfBtn) clearNewPdfBtn.style.display = 'none';
 
     if (noteInput) {
       const notesMap = getMoldNotesMap();
@@ -1243,6 +1283,95 @@ window.MoldMaintenance = (function() {
     setTimeout(() => {
       if (passInput) passInput.focus();
     }, 80);
+  }
+
+  function onClosedShotsChange() {
+    const input = document.getElementById('mmAuthClosedShotsInput');
+    const notice = document.getElementById('mmAuthRolloverNotice');
+    if (!input || !notice || !activeMilestoneAuth) return;
+
+    const entered = Math.round(Number(input.value) || 0);
+    const { moldNo, milestoneNum } = activeMilestoneAuth;
+    const num = Number(milestoneNum);
+    const allMolds = getAllUnifiedMolds();
+    const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
+    const isHigh = currentMold?.isHighImpact || false;
+    const cycleLimit = (num <= 5) ? (isHigh ? 400000 : 800000) : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
+    const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
+
+    if (num <= 5) {
+      if (entered <= 0) {
+        notice.innerHTML = `<span style="color:#b91c1c;">⚠️ Vui lòng nhập số shot chốt mốc (> 0).</span>`;
+      } else if (curVal > entered) {
+        const diff = curVal - entered;
+        notice.innerHTML = `
+          <span>✅ Chốt mốc tại: <b>${formatNum(entered)}</b> shots.</span><br>
+          <span style="color:#c2410c; font-weight:700;">➡️ Phần dôi dư (+<b>${formatNum(diff)}</b> shots) sẽ tự động chuyển tiếp sang Mốc ${num + 1}!</span>
+        `;
+      } else {
+        notice.innerHTML = `
+          <span>✅ Chốt toàn bộ <b>${formatNum(entered)}</b> shots cho Mốc ${num}.</span>
+        `;
+      }
+    } else {
+      notice.innerHTML = `
+        <span>✅ Xác nhận mốc vòng đời tại: <b>${formatNum(entered || cycleLimit)}</b> shots.</span>
+      `;
+    }
+  }
+
+  function resetClosedShotsToDefault() {
+    if (!activeMilestoneAuth) return;
+    const { moldNo, milestoneNum } = activeMilestoneAuth;
+    const num = Number(milestoneNum);
+    const allMolds = getAllUnifiedMolds();
+    const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
+    const isHigh = currentMold?.isHighImpact || false;
+    const cycleLimit = (num <= 5) ? (isHigh ? 400000 : 800000) : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
+    const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
+    const defaultVal = (num <= 5 && curVal >= cycleLimit) ? cycleLimit : (curVal > 0 ? curVal : cycleLimit);
+
+    const input = document.getElementById('mmAuthClosedShotsInput');
+    if (input) {
+      input.value = defaultVal;
+      onClosedShotsChange();
+    }
+  }
+
+  function deleteCurrentMilestonePdf() {
+    if (!activeMilestoneAuth) return;
+    const { moldNo, milestoneNum } = activeMilestoneAuth;
+    if (!confirm(`Bạn có chắc chắn muốn xóa tệp PDF báo cáo đính kèm của mốc ${milestoneNum} khuôn ${moldNo}?`)) {
+      return;
+    }
+    saveMilestonePdf(moldNo, milestoneNum, null);
+    const detail = getMilestoneDetail(moldNo, milestoneNum);
+    if (detail) {
+      detail.pdf = null;
+      saveMilestoneDetail(moldNo, milestoneNum, detail);
+    }
+    const existingPdfBox = document.getElementById('mmAuthExistingPdfInfo');
+    if (existingPdfBox) existingPdfBox.style.display = 'none';
+
+    renderAll();
+    if (typeof renderOverviewTab === 'function') {
+      try { renderOverviewTab(); } catch (e) {}
+    }
+  }
+
+  function clearSelectedPdfFile() {
+    const input = document.getElementById('mmAuthPdfFileInput');
+    const clearBtn = document.getElementById('mmAuthClearNewPdfBtn');
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
+
+  function onNewPdfSelected() {
+    const input = document.getElementById('mmAuthPdfFileInput');
+    const clearBtn = document.getElementById('mmAuthClearNewPdfBtn');
+    if (clearBtn) {
+      clearBtn.style.display = (input && input.files && input.files[0]) ? 'inline-flex' : 'none';
+    }
   }
 
   function closeMilestoneModal() {
@@ -1326,9 +1455,15 @@ window.MoldMaintenance = (function() {
       const allMolds = getAllUnifiedMolds();
       const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
       const isHigh = currentMold?.isHighImpact || false;
-      const targetLimit = (milestoneNum <= 5) ? 800000 : (milestoneNum === 6 ? 3000000 : (milestoneNum === 7 ? 4500000 : 5000000));
+      const targetLimit = (milestoneNum <= 5) ? (isHigh ? 400000 : 800000) : (milestoneNum === 6 ? 3000000 : (milestoneNum === 7 ? 4500000 : 5000000));
       const curVal = currentMold ? (currentMold['m' + milestoneNum] || currentMold.curShots || 0) : 0;
-      const closedShots = (milestoneNum <= 5 && curVal >= targetLimit) ? targetLimit : curVal;
+
+      // Lấy số shot chốt do người dùng nhập vào (hoặc mặc định targetLimit / curVal)
+      let closedShots = Number(document.getElementById('mmAuthClosedShotsInput')?.value);
+      if (!closedShots || isNaN(closedShots) || closedShots <= 0) {
+        closedShots = (milestoneNum <= 5 && curVal >= targetLimit) ? targetLimit : curVal;
+      }
+      closedShots = Math.round(closedShots);
 
       const detailObj = {
         date: dateVal,
@@ -1549,8 +1684,8 @@ window.MoldMaintenance = (function() {
         currentCycleNum++;
       }
 
-      // Giới hạn định mức cho từng chu kỳ mốc trong năm là 800K
-      const cycleLimit = 800000;
+      // Giới hạn định mức cho từng chu kỳ mốc trong năm: 400K cho High-Impact, 800K cho Tiêu chuẩn
+      const cycleLimit = isHigh ? 400000 : 800000;
       const totalAccumulatedYear = (Number(lastYearRemaining) || 0) + totalYearFromMonths;
 
       const d1 = getMilestoneDetail(code, 1);
@@ -1560,13 +1695,19 @@ window.MoldMaintenance = (function() {
       const d5 = getMilestoneDetail(code, 5);
 
       if (closedMilestones.includes(1)) {
-        m1 = Math.round(d1?.closedShots || (m.m1_800k >= 700000 ? m.m1_800k : (totalAccumulatedYear >= cycleLimit ? cycleLimit : m.m1_800k || totalAccumulatedYear)));
+        m1 = Math.round(d1?.closedShots || (m.m1_800k >= (isHigh ? 350000 : 700000) ? m.m1_800k : (totalAccumulatedYear >= cycleLimit ? cycleLimit : m.m1_800k || totalAccumulatedYear)));
       }
       if (closedMilestones.includes(2)) {
-        m2 = Math.round(d2?.closedShots || (m.m2_800k >= 700000 ? m.m2_800k : (m2 > 0 ? m2 : cycleLimit)));
+        m2 = Math.round(d2?.closedShots || (m.m2_800k >= (isHigh ? 350000 : 700000) ? m.m2_800k : (m2 > 0 ? m2 : cycleLimit)));
       }
       if (closedMilestones.includes(3)) {
         m3 = Math.round(d3?.closedShots || (m.m3_800k > 0 ? m.m3_800k : cycleLimit));
+      }
+      if (closedMilestones.includes(4)) {
+        m4 = Math.round(d4?.closedShots || (m.m4_800k > 0 ? m.m4_800k : cycleLimit));
+      }
+      if (closedMilestones.includes(5)) {
+        m5 = Math.round(d5?.closedShots || (m.m5_800k > 0 ? m.m5_800k : cycleLimit));
       }
 
       // Cập nhật số shot của mốc chưa chốt đang chạy với số shot live tháng 11 (tránh cộng trùng nếu JSON đã đồng bộ T11)
@@ -4058,6 +4199,11 @@ window.MoldMaintenance = (function() {
     openMilestoneModal,
     closeMilestoneModal,
     confirmMilestoneAuth,
+    onClosedShotsChange,
+    resetClosedShotsToDefault,
+    deleteCurrentMilestonePdf,
+    clearSelectedPdfFile,
+    onNewPdfSelected,
     viewMilestonePdf,
     getMilestonePdf,
     loadMoreMolds,
