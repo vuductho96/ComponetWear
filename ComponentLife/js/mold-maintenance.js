@@ -1339,6 +1339,14 @@ window.MoldMaintenance = (function() {
         } else if (m2 > 0) {
           closedMilestones.push(1);
         }
+        const pastLife = Number(m.totalShotLastYear || m.lastYearShot || 0);
+        if (pastLife >= 5000000) {
+          closedMilestones.push(6, 7, 8);
+        } else if (pastLife >= 4500000) {
+          closedMilestones.push(6, 7);
+        } else if (pastLife >= 3000000) {
+          closedMilestones.push(6);
+        }
       }
 
       const isDone6 = (closedMilestones || []).includes(6);
@@ -1491,6 +1499,71 @@ window.MoldMaintenance = (function() {
     return Object.values(allMoldsMap);
   }
 
+  // Hàm đánh giá các mốc bảo dưỡng CHƯA CHỐT mà đã đến hạn hoặc sắp đến hạn
+  function getUnclosedDueInfo(m) {
+    if (!m) return { tier: 3, maxRatio: 0, highestVal: 0 };
+    const closed = Array.isArray(m.closedMilestones) ? m.closedMilestones : [];
+    const isHigh = Boolean(m.isHighImpact);
+
+    let bestTier = 3; // 1: Đến hạn / Quá hạn (val >= targetLimit), 2: Sắp đến hạn (val >= warnLimit), 3: An toàn / Đã chốt
+    let maxRatio = 0;
+    let highestVal = 0;
+
+    for (let c = 1; c <= 8; c++) {
+      const isDone = closed.includes(c);
+      if (isDone) continue; // ĐÃ CHỐT -> Bỏ qua
+
+      let val = 0;
+      if (c === 1) val = m.m1;
+      else if (c === 2) val = m.m2;
+      else if (c === 3) val = m.m3;
+      else if (c === 4) val = m.m4;
+      else if (c === 5) val = m.m5;
+      else if (c === m.currentCycleNum) val = m.curShots;
+      else val = m['m' + c] || 0;
+
+      val = Number(val) || 0;
+      if (val <= 0) continue;
+
+      let targetLimit = 800000;
+      let warnLimit = 750000;
+      if (isHigh && c <= 5) {
+        targetLimit = 400000;
+        warnLimit = 350000;
+      } else if (c === 6) {
+        targetLimit = 3000000;
+        warnLimit = 2850000;
+      } else if (c === 7) {
+        targetLimit = 4500000;
+        warnLimit = 4300000;
+      } else if (c === 8) {
+        targetLimit = 5000000;
+        warnLimit = 4800000;
+      }
+
+      const ratio = val / targetLimit;
+      if (ratio > maxRatio) {
+        maxRatio = ratio;
+        highestVal = val;
+      }
+
+      if (val >= targetLimit) {
+        bestTier = 1; // ĐẾN HẠN / QUÁ HẠN CHƯA CHỐT (ĐỎ)
+      } else if (val >= warnLimit && bestTier > 1) {
+        bestTier = 2; // SẮP ĐẾN HẠN CHƯA CHỐT (VÀNG / CAM)
+      }
+    }
+
+    // Nếu trạng thái tổng thể tính theo chu kỳ đang chạy báo due/warning mà chu kỳ đó chưa chốt
+    if (m.status === 'due' && !closed.includes(m.currentCycleNum || 1)) {
+      bestTier = 1;
+    } else if (m.status === 'warning' && bestTier > 1 && !closed.includes(m.currentCycleNum || 1)) {
+      bestTier = 2;
+    }
+
+    return { tier: bestTier, maxRatio, highestVal };
+  }
+
   function getFilteredMolds() {
     const list = getAllUnifiedMolds();
     const q = filterText.toLowerCase();
@@ -1516,18 +1589,27 @@ window.MoldMaintenance = (function() {
       return matchText && matchTier && matchStatus;
     });
 
-    // Luôn hiển thị báo đỏ từ trên xuống (Đỏ -> Vàng -> An toàn)
-    // Đồng thời ưu tiên các khuôn có số shot thực tế trong tháng lên trên, khuôn ít/không có shot (vd 500410) cho xuống dưới
+    // Hàm xác định mức độ ưu tiên của khuôn có mốc CHƯA CHỐT mà đã đến hạn hoặc sắp đến hạn
+    // Tier 1: ĐẾN HẠN / QUÁ HẠN CHƯA CHỐT (ĐỎ: val >= 800K hoặc >= 400K với High-Impact)
+    // Tier 2: SẮP ĐẾN HẠN CHƯA CHỐT (VÀNG/CAM: val >= 750K hoặc >= 350K với High-Impact)
+    // Tier 3: AN TOÀN HOẶC ĐÃ CHỐT
     filtered.sort((a, b) => {
-      const getPriority = (x) => {
-        if (x.status === 'due') return 1;
-        if (x.status === 'warning') return 2;
-        return 3;
-      };
-      const pA = getPriority(a);
-      const pB = getPriority(b);
-      if (pA !== pB) return pA - pB;
+      const infoA = getUnclosedDueInfo(a);
+      const infoB = getUnclosedDueInfo(b);
 
+      // Ưu tiên 1: Đưa mấy con chưa chốt mà đến hạn (Tier 1 & Tier 2) lên trên đầu bảng
+      if (infoA.tier !== infoB.tier) {
+        return infoA.tier - infoB.tier;
+      }
+
+      // Trong cùng nhóm Tier 1 hoặc Tier 2: Ưu tiên con có tỷ lệ % chạm mốc cao nhất lên trước
+      if (infoA.tier <= 2) {
+        if (infoB.maxRatio !== infoA.maxRatio) {
+          return infoB.maxRatio - infoA.maxRatio;
+        }
+      }
+
+      // Nhóm Tier 3 (An toàn / Đã chốt): Duy trì logic ưu tiên khuôn có sản lượng thực tế trong tháng
       const histA = a.monthlyHistory || {};
       const histB = b.monthlyHistory || {};
       const m11A = Number(histA.M11 || 0) + (a.machineNo !== '-' ? Number(a.curShots || 0) : 0);
@@ -1640,7 +1722,10 @@ window.MoldMaintenance = (function() {
 
           let targetLimit = 800000;
           let warnLimit = 750000;
-          if (num === 6) {
+          if (m.isHighImpact && num <= 5) {
+            targetLimit = 400000;
+            warnLimit = 350000;
+          } else if (num === 6) {
             targetLimit = 3000000;
             warnLimit = 2850000;
           } else if (num === 7) {
@@ -2043,7 +2128,10 @@ window.MoldMaintenance = (function() {
 
           let targetLimit = 800000;
           let warnLimit = 750000;
-          if (num === 6) {
+          if (r.isHighImpact && num <= 5) {
+            targetLimit = 400000;
+            warnLimit = 350000;
+          } else if (num === 6) {
             targetLimit = 3000000;
             warnLimit = 2850000;
           } else if (num === 7) {
@@ -2442,6 +2530,13 @@ window.MoldMaintenance = (function() {
       // tiếp theo là tổng số shot trong năm, các khuôn ít hoặc không có shot (vd 500410) cho xuống dưới
       const sortMoldsByActivity = (list) => {
         return [...list].sort((a, b) => {
+          const infoA = getUnclosedDueInfo(a);
+          const infoB = getUnclosedDueInfo(b);
+          if (infoA.tier !== infoB.tier) return infoA.tier - infoB.tier;
+          if (infoA.tier <= 2 && infoB.maxRatio !== infoA.maxRatio) {
+            return infoB.maxRatio - infoA.maxRatio;
+          }
+
           const histA = a.monthlyHistory || {};
           const histB = b.monthlyHistory || {};
           const liveA = recordsByMold[(a.mold || '').toUpperCase()];
