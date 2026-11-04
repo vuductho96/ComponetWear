@@ -13,9 +13,9 @@ function stage({sourceRoot,targetRoot,files}){
     if(/^data\/inspection\/(?:drawings\/[a-f0-9]{64}-v[0-9]+-p[0-9]{4}\.webp|downloads\/[a-f0-9]{64}\.(?:pdf|xlsx|xlsm))$/.test(relative)){
       try{fs.linkSync(from,to);stats.linked++;continue;}catch(error){if(error.code==='EEXIST')throw error;}
     }
-    fs.copyFileSync(from,to,fs.constants.COPYFILE_EXCL);stats.copied++;
+    fs.copyFileSync(from,to);stats.copied++;
   }
   return stats;
 }
 module.exports={stage};
-if(require.main===module){let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',s=>input+=s);process.stdin.on('end',()=>{try{process.stdout.write(JSON.stringify(stage(JSON.parse(input))));}catch(error){console.error(error.message);process.exitCode=1;}});}
+if(require.main===module){let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',s=>input+=s);process.stdin.on('end',()=>{try{process.stdout.write(JSON.stringify(stage(JSON.parse(input.replace(/^\uFEFF/, '')))));}catch(error){console.error(error.message);process.exitCode=1;}});}

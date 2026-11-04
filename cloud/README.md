@@ -33,3 +33,15 @@ Missing-result diagnostics remain in the desktop Inspection Tool. Publish only c
 ## Validation
 
 `node --test tests/accounts.test.cjs tests/verify-cloud.test.cjs` runs account/policy/authorization checks in local workerd with D1, plus credential-scoped publish verification. `tests/publish.test.cjs` covers deployment failures and asset hashes. `tests/inspection-publish-missing.tests.ps1` checks the desktop-only missing-result boundary. Rendered QA used bundled Playwright with Edge because Browser plugin was not available: guest entry, separate login, admin column persistence, username creation, logout, Staff restrictions, mobile and dark mode; no JavaScript runtime errors were observed. Live login still requires the user to Publish this code; creating the D1 admin does not update the web UI.
+
+
+## TMS Cloud Crawler & Credential Security Vault
+
+- **Autonomous Cron Trigger**: Configured in `wrangler.jsonc` with `"triggers": { "crons": ["*/30 * * * *"] }`. Cloudflare Workers automatically executes `syncTmsOnCloud(env)` every 30 minutes without requiring any local `.bat` script or PC to remain active.
+- **D1 Cloud Persistence**: Scraped metrics and daily shot calculations are persisted in Cloudflare D1 table `tms_sync_data` (`0003_tms_sync.sql`). If a local file or script is lost, the website continues to serve the latest data seamlessly.
+- **Cryptographic Vault (`tms-crypto.mjs`)**:
+  - TMS username & password are encrypted using AES-256-GCM.
+  - Encryption key is derived using PBKDF2 with 100,000 iterations and SHA-256 (`iriso-tms-salt-2026`).
+  - Passwords and sensitive credentials are never stored in cleartext. Plaintext exists strictly in ephemeral RAM during HTTP requests to TMS.
+  - Credential digests (SHA-256 fingerprint) are verifiable via `/api/tms/security`.
+- **Excel Export**: Single `Export Excel` button in header utilizes local standard SOP template `MMFD-I-F-022.01` (`đếm số shot và tiến hành bảo dưỡng khuôn.xlsx`) to produce formatted maintenance reports with full daily columns.

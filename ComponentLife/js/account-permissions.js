@@ -7,6 +7,7 @@ const accountTabLabels = {
   chart: "Phân tích & Biểu đồ",
   inspection: "Đo linh kiện",
   dimensionocr: "Kiểm tra kích thước IQC",
+  moldmaintenance: "Bảo dưỡng khuôn",
 };
 function accountTabsMarkup(tabs) {
   return `<fieldset><legend>Tab được phép sử dụng</legend><div class="account-fields">${Object.entries(

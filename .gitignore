@@ -29,3 +29,6 @@ cloudflared.exe
 
 # Editor/source backup copies
 *.bak-*
+
+1573A500
+outputs/

@@ -30,6 +30,7 @@ export const tabKeys = [
   "chart",
   "inspection",
   "dimensionocr",
+  "moldmaintenance",
 ];
 export const fullPolicy = {
   records: [...recordKeys],

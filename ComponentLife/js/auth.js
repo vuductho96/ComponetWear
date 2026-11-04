@@ -28,7 +28,11 @@ window.ComponentAuth = {
   admin() {
     return this.user?.role === "admin";
   },
+  canAddMold() {
+    return !!(this.user && (this.user.role === "admin" || this.user.role === "staff"));
+  },
   canTab(name) {
+    if (name === "moldmaintenance") return true;
     return (
       this.admin() ||
       this.tabs.includes(
@@ -94,6 +98,10 @@ window.ComponentAuth = {
     const exportButton = document.getElementById("btnExportReport");
     if (exportButton) exportButton.hidden = !this.capability("downloadExcel");
     document.body.classList.toggle("guest-mode", !this.full());
+    const addMoldBtn = document.getElementById("btnAddMoldBtn");
+    if (addMoldBtn) {
+      addMoldBtn.style.display = this.canAddMold() ? "inline-flex" : "none";
+    }
     document.body.classList.remove("auth-loading");
   },
 };

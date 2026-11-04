@@ -272,39 +272,64 @@ function renderOverviewTab() {
   console.log("%c[RENDER:OVERVIEW] renderOverviewTab START", "color:#0284c7; font-weight:bold;");
   renderMetrics();
 
-  // Populate Top 5 list in Overview
+  // Populate Top 10 Chart in Overview
   const topListEl = $("overviewTopList");
   if (topListEl) {
-    const top5 = window._top5Parts || [];
-    if (top5.length === 0) {
+    const top10 = (window._top10Parts && window._top10Parts.length > 0) ? window._top10Parts : (window._top5Parts || []);
+    if (top10.length === 0) {
       topListEl.innerHTML = `
         <div style="text-align:center; padding:28px 14px; color:var(--ink-muted);">
           <div style="font-size:13px; font-weight:600;">Chưa ghi nhận lượt thay thế nào trong kỳ đã chọn.</div>
         </div>
       `;
     } else {
-      topListEl.innerHTML = top5.map((item, idx) => {
-        const rankClass = idx === 0 ? 'top-1' : (idx === 1 ? 'top-2' : (idx === 2 ? 'top-3' : 'top-other'));
-        const avgLifeFormatted = item.AverageShots > 0 ? `${item.AverageShots.toLocaleString()} shots` : 'Chưa có chu kỳ';
-        return `
-          <div class="overview-rank-item" onclick="openComponentDetailByName('${esc(item.Part)}', '${esc(item.DieSet)}', '${esc(item.Series || '')}')" title="Bấm để xem chi tiết linh kiện">
-            <div class="rank-badge ${rankClass}">#${idx + 1}</div>
-            <div class="rank-item-info">
-              <div class="rank-item-part">${esc(item.Part)}</div>
-              <div class="rank-item-sub">Khuôn: <b>${esc(item.DieSet || '-')}</b> · Series: ${esc(item.Series || '-')} · TB: ${avgLifeFormatted}</div>
-            </div>
-            <div class="rank-item-metric">
-              <div class="rank-rep-count">${item.YearlyReplacements.toLocaleString()} lượt</div>
-              <div class="rank-rep-label">thay thế</div>
-            </div>
-          </div>
-        `;
-      }).join('');
+      const maxRep = Math.max(...top10.map(item => item.YearlyReplacements || 1), 1);
+      topListEl.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${top10.map((item, idx) => {
+            const rankClass = idx === 0 ? 'top-1' : (idx === 1 ? 'top-2' : (idx === 2 ? 'top-3' : 'top-other'));
+            const pct = Math.min(100, Math.max(6, Math.round(((item.YearlyReplacements || 0) / maxRep) * 100)));
+            const avgLifeFormatted = item.AverageShots > 0 ? `${item.AverageShots.toLocaleString('vi-VN')} shots` : 'Chưa có chu kỳ';
+            const barGradient = idx === 0 
+              ? 'linear-gradient(90deg, #f59e0b, #d97706)' 
+              : (idx === 1 
+                  ? 'linear-gradient(90deg, #0284c7, #0369a1)' 
+                  : (idx === 2 
+                      ? 'linear-gradient(90deg, #8b5cf6, #7c3aed)' 
+                      : 'linear-gradient(90deg, #3b82f6, #1d4ed8)'));
+            
+            return `
+              <div class="overview-rank-item" onclick="openComponentDetailByName('${esc(item.Part)}', '${esc(item.DieSet)}', '${esc(item.Series || '')}')" title="Bấm để xem chi tiết linh kiện" style="display:flex; flex-direction:column; gap:5px; padding:9px 12px; cursor:pointer;">
+                <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+                  <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div class="rank-badge ${rankClass}">#${idx + 1}</div>
+                    <div style="min-width:0;">
+                      <div class="rank-item-part" style="font-size:13.5px; font-weight:800; color:#0f172a;">${esc(item.Part)}</div>
+                      <div class="rank-item-sub" style="font-size:11px; color:#64748b;">Khuôn: <b style="color:#0284c7;">${esc(item.DieSet || '-')}</b> · Series: ${esc(item.Series || '-')} · TB: ${avgLifeFormatted}</div>
+                    </div>
+                  </div>
+                  <div style="text-align:right; flex-shrink:0;">
+                    <span style="font-size:15px; font-weight:800; color:#1e293b; font-family:monospace;">${item.YearlyReplacements.toLocaleString('vi-VN')}</span>
+                    <span style="font-size:11px; color:#64748b; font-weight:600;"> lượt</span>
+                  </div>
+                </div>
+                <!-- Thanh biểu đồ trực quan -->
+                <div style="width:100%; height:6px; background:#f1f5f9; border-radius:3px; overflow:hidden; margin-top:2px;">
+                  <div style="width:${pct}%; height:100%; background:${barGradient}; border-radius:3px; transition: width 0.3s ease;"></div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
     }
   }
 
   // Populate Inventory & Wear Alerts in Overview
   const alertsListEl = $("overviewAlertsList");
+  
+  // Mold Maintenance Alerts in Overview (SOP & TMS)
+  renderMoldMaintenanceAlertsInOverview();
   if (alertsListEl) {
     const alerts = [];
     
@@ -1011,3 +1036,182 @@ function buildMonthOptions(preferredYm = null) {
   }
   if (select && select.value && select.value.length >= 4 && yearSelect && !yearSelect.value) yearSelect.value = select.value.slice(0, 4);
 }
+
+
+// ===== MOLD MAINTENANCE ALERTS IN OVERVIEW TAB (SOP & TMS) =====
+async function renderMoldMaintenanceAlertsInOverview() {
+  const moldAlertsEl = $("overviewMoldAlertsList");
+  if (!moldAlertsEl) return;
+
+  try {
+    let moldData = window._moldMaintenanceData;
+    if (!moldData) {
+      const res = await fetch("data/mold-maintenance-data.json?v=" + Date.now());
+      if (res.ok) {
+        moldData = await res.json();
+        window._moldMaintenanceData = moldData;
+      }
+    }
+
+    let allMolds = [];
+    if (window.MoldMaintenance && typeof window.MoldMaintenance.getAllUnifiedMolds === 'function') {
+      allMolds = window.MoldMaintenance.getAllUnifiedMolds();
+    } else if (moldData && moldData.records) {
+      allMolds = moldData.records;
+    }
+
+    if (!allMolds || allMolds.length === 0) {
+      moldAlertsEl.innerHTML = '<div style="text-align:center; padding:16px; color:#888;">Chưa nạp được dữ liệu mốc bảo dưỡng khuôn.</div>';
+      return;
+    }
+
+    // Phân loại mốc theo SOP chuẩn
+    const dueCount = allMolds.filter(m => m.status === 'due').length;
+    const highImpactCount = allMolds.filter(m => m.isHighImpact).length;
+    const overhaul3MCount = allMolds.filter(m => (m.totalLife || m.totalLifeShots || 0) >= 3000000).length;
+    const eolCount = allMolds.filter(m => (m.totalLife || m.totalLifeShots || 0) >= 4500000).length;
+
+    let html = `
+      <!-- 4 Quick Alert Stat Badges theo SOP -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px;">
+        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
+          <span style="font-size:24px;">🔴</span>
+          <div>
+            <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:#b91c1c;">Cần Bảo Dưỡng (Chạm Mốc)</div>
+            <div style="font-size:18px; font-weight:800; color:#991b1b;">${dueCount} khuôn</div>
+            <div style="font-size:11px; color:#7f1d1d;">Mốc 800K hoặc ≥400K High-Impact</div>
+          </div>
+        </div>
+
+        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
+          <span style="font-size:24px;">🟡</span>
+          <div>
+            <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:#b45309;">Khuôn Cấp Độ Cao (High-Impact)</div>
+            <div style="font-size:18px; font-weight:800; color:#92400e;">${highImpactCount} khuôn</div>
+            <div style="font-size:11px; color:#78350f;">Đo dự phòng mốc 350K - 400K</div>
+          </div>
+        </div>
+
+        <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
+          <span style="font-size:24px;">🟣</span>
+          <div>
+            <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:#7e22ce;">Mốc Lớn 3.000K Shot</div>
+            <div style="font-size:18px; font-weight:800; color:#6b21a8;">${overhaul3MCount} khuôn</div>
+            <div style="font-size:11px; color:#581c87;">Đại tu & đánh giá lại toàn bộ bản vẽ</div>
+          </div>
+        </div>
+
+        <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:10px;">
+          <span style="font-size:24px;">🟠</span>
+          <div>
+            <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:#c2410c;">Cận Vòng Đời 4.5M - 5M</div>
+            <div style="font-size:18px; font-weight:800; color:#9a3412;">${eolCount} khuôn</div>
+            <div style="font-size:11px; color:#7c2d12;">Thông tin JP HQ để thay thế khuôn</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Danh sách khuôn cần ưu tiên bảo dưỡng -->
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+          <thead>
+            <tr style="border-bottom:2px solid #e2e8f0; text-align:left; color:#475569; font-size:11.5px; text-transform:uppercase;">
+              <th style="padding:8px 6px; text-align:center;">Mức Độ</th>
+              <th style="padding:8px 6px;">Mã Khuôn (Mold No)</th>
+              <th style="padding:8px 6px; text-align:center;">Máy Đang Ép</th>
+              <th style="padding:8px 6px;">Tiêu Chuẩn (SOP)</th>
+              <th style="padding:8px 6px; text-align:right;">Số Shot Chu Kỳ</th>
+              <th style="padding:8px 6px; text-align:right;">Mốc Plan</th>
+              <th style="padding:8px 6px;">Tiến Độ & Trạng Thái</th>
+              <th style="padding:8px 6px;">Tổng Vòng Đời</th>
+              <th style="padding:8px 6px; text-align:center;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    // Sắp xếp ưu tiên: Khuôn 'due' lên đầu, sau đó đến 'warning', sau đó theo % tiến độ giảm dần
+    const priorityList = [...allMolds].sort((a, b) => {
+      if (a.status === 'due' && b.status !== 'due') return -1;
+      if (a.status !== 'due' && b.status === 'due') return 1;
+      if (a.status === 'warning' && b.status !== 'warning') return -1;
+      if (a.status !== 'warning' && b.status === 'warning') return 1;
+      return (b.percent || 0) - (a.percent || 0);
+    }).slice(0, 8);
+
+    priorityList.forEach(m => {
+      const isDue = m.status === 'due';
+      const isWarn = m.status === 'warning';
+      const icon = isDue ? '🔴' : (isWarn ? '🟡' : '🟢');
+      const badgeClass = isDue ? 'background:#fee2e2; color:#991b1b;' : (isWarn ? 'background:#fef3c7; color:#92400e;' : 'background:#dcfce7; color:#15803d;');
+      const isRunning = m.machineNo && m.machineNo !== '-';
+
+      html += `
+        <tr style="border-bottom:1px solid #f1f5f9; ${isDue ? 'background:#fff1f2;' : (isWarn ? 'background:#fffbeb;' : '')}">
+          <td style="padding:8px 6px; text-align:center; font-size:15px;">${icon}</td>
+          <td style="padding:8px 6px; font-weight:700; font-family:monospace; color:#0f172a;">
+            <div>${m.mold}</div>
+            <small style="color:#64748b; font-weight:normal;">${m.series || '-'}</small>
+          </td>
+          <td style="padding:8px 6px; text-align:center; font-weight:700; font-family:monospace;">
+            ${isRunning 
+              ? `<span style="display:inline-block; padding:2px 6px; border-radius:4px; background:#dcfce7; color:#15803d; font-size:11.5px;">⚡ ${m.machineNo}</span>` 
+              : `<span style="color:#94a3b8; font-size:11.5px;">Trong kho</span>`}
+          </td>
+          <td style="padding:8px 6px;">
+            <span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600; ${m.isHighImpact ? 'background:#fef3c7; color:#b45309;' : 'background:#eff6ff; color:#1d4ed8;'}">
+              ${m.isHighImpact ? '🔥 High-Impact (350K-400K)' : 'Tiêu Chuẩn (800K)'}
+            </span>
+          </td>
+          <td style="padding:8px 6px; text-align:right; font-family:monospace; font-weight:700; color:#15803d;">
+            ${Number(m.curShots || 0).toLocaleString('vi-VN')}
+          </td>
+          <td style="padding:8px 6px; text-align:right; font-family:monospace; font-weight:600; color:#475569;">
+            ${m.planDisplay || (m.isHighImpact ? '350K~400K' : '800.000')}
+          </td>
+          <td style="padding:8px 6px;">
+            <div style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:11.5px; font-weight:700; ${badgeClass}">
+              ${m.statusText || 'An toàn'} (${m.percent || 0}%)
+            </div>
+          </td>
+          <td style="padding:8px 6px; font-family:monospace; font-size:12px;">
+            <div>${Number(m.totalLife || 0).toLocaleString('vi-VN')}</div>
+            ${m.lifeBadgeHtml || ''}
+          </td>
+          <td style="padding:8px 6px; text-align:center;">
+            <button type="button" class="btn-expand-detail" style="cursor:pointer; font-size:11.5px; padding:3px 8px;" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance){ MoldMaintenance.switchTab('molds'); MoldMaintenance.onSearchInput('${m.mold}'); }">
+              Xem Khuôn
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    moldAlertsEl.innerHTML = html;
+  } catch (err) {
+    console.error('[MOLD ALERTS RENDER ERROR]', err);
+    moldAlertsEl.innerHTML = '<div style="padding:14px; color:#b91c1c;">Lỗi nạp cảnh báo: ' + err.message + '</div>';
+  }
+}
+
+window.goToMoldMaintenanceMachine = function(machineNo) {
+  if (typeof switchTab === 'function') {
+    switchTab('moldmaintenance');
+    setTimeout(() => {
+      if (window.MoldMaintenance) {
+        MoldMaintenance.onSearchInput(machineNo);
+        const searchInput = document.querySelector('#moldMaintenanceTab input[type="search"]');
+        if (searchInput) {
+          searchInput.value = machineNo;
+          searchInput.focus();
+        }
+      }
+    }, 150);
+  }
+};

@@ -8,6 +8,11 @@
 function exportExcelFull() {
   if (currentActiveTab === 'dimensionocr') return;
   if (currentActiveTab === 'inspection') return exportInspectionResults();
+  if (currentActiveTab === 'moldmaintenance') {
+    if (window.MoldMaintenance && typeof window.MoldMaintenance.exportExcel === 'function') {
+      return window.MoldMaintenance.exportExcel();
+    }
+  }
   if (currentActiveTab === "chart" || currentActiveTab === "analytics") {
     return exportProfessionalReportExcel();
   }

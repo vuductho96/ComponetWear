@@ -31,6 +31,7 @@
   <link rel="stylesheet" href="css/modals.css?v=20261016_v3">
   <link rel="stylesheet" href="css/inspection.css?v=20261020-row-download">
   <link rel="stylesheet" href="css/dimension-ocr.css?v=20261020-iqc">
+  <link rel="stylesheet" href="css/mold-maintenance.css?v=20261030_v1">
 
   <link rel="stylesheet" href="css/language.css?v=20261020-1">
 
@@ -86,6 +87,10 @@
           <span class="tab-icon" aria-hidden="true">▧</span>
           <span class="tab-label">Kiểm tra kích thước <span class="dimension-ocr-beta">IQC</span></span>
         </button>
+        <div class="tab" data-tab="moldmaintenance" title="Giám sát số shot & bảo dưỡng khuôn theo SOP (TMS Real-time)">
+          <span class="tab-icon" aria-hidden="true">🛠️</span>
+          <span class="tab-label">Bảo Dưỡng Khuôn</span>
+        </div>
       </nav>
 
       <!-- Sidebar Footer (Theme, Collapse, Server Status) -->
@@ -196,6 +201,106 @@
         </section>
 
         <!-- ===== TAB 0: OVERVIEW (NEW IN V3) ===== -->
+                <!-- ===== TAB: MOLD MAINTENANCE (TMS REAL-TIME) ===== -->
+        <section id="moldMaintenanceTab" class="hidden" aria-label="Bảo dưỡng khuôn">
+          <div class="mold-maintenance-container" id="moldMaintenanceWorkspace">
+            <div class="mm-kpi-grid" aria-live="polite">
+              <div class="mm-kpi-card" id="mmKpiFleet"></div>
+              <div class="mm-kpi-card" id="mmKpiShots"></div>
+              <div class="mm-kpi-card" id="mmKpiOutput"></div>
+              <div class="mm-kpi-card" id="mmKpiProgress"></div>
+            </div>
+            <!-- 2 Subtabs Navigation (Ưu tiên show Bảng 1: Toàn bộ khuôn & Mốc chạm plan 800K / 350K~400K) -->
+            <div class="mm-subtabs" style="margin-top: 10px; margin-bottom: 12px; display: inline-flex;">
+              <button type="button" class="mm-subtab-btn active" id="btnTabMolds" onclick="MoldMaintenance.switchTab('molds')">🎯 Mold</button>
+              <button type="button" class="mm-subtab-btn" id="btnTabMachines" onclick="MoldMaintenance.switchTab('machines')">⚡ Machine</button>
+            </div>
+
+            <!-- Toolbar Controls -->
+            <div class="mm-toolbar">
+              <!-- Bộ Lọc Trạng Thái Chạm Mốc (Dành cho Bảng 1) -->
+              <div id="mmStatusFilterWrap" style="display: none; align-items: center; gap: 8px;">
+                <select id="mmStatusSelect" class="mm-input" onchange="MoldMaintenance.onStatusFilterChange()" title="Lọc theo trạng thái chạm mốc">
+                  <option value="all" selected>Tất cả trạng thái mốc</option>
+                  <option value="due">🔴 Cần bảo dưỡng (Đã chạm mốc 800K / ≥400K)</option>
+                  <option value="warning">🟡 Cảnh báo / Đo dự phòng (350K~400K hoặc ≥90%)</option>
+                  <option value="safe">🟢 An toàn</option>
+                  <option value="running">⚡ Đang gá trên máy chạy</option>
+                  <option value="life_alert">⚠️ Cảnh báo vòng đời (≥3M / ≥4.5M / &gt;5M)</option>
+                </select>
+              </div>
+
+              <!-- Bộ Lọc Tiêu Chuẩn (High-Impact vs Tiêu Chuẩn Thường) -->
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <select id="mmTierSelect" class="mm-input" onchange="MoldMaintenance.onTierFilterChange()" title="Lọc theo tiêu chuẩn khuôn">
+                  <option value="all" selected>Tất cả tiêu chuẩn</option>
+                  <option value="high_impact">Khuôn Cấp Độ Cao (Dự phòng 350K~400K)</option>
+                  <option value="standard">Tiêu chuẩn thường (Đo lại 800K)</option>
+                </select>
+              </div>
+
+              <!-- Bộ Lọc Ngày / Tháng / Năm (Dành cho Bảng 2 Live 44 máy) -->
+              <div id="mmDateFiltersWrap" class="mm-date-filters" style="display: flex; align-items: center; gap: 8px;">
+                <select id="mmYearSelect" class="mm-input" onchange="MoldMaintenance.onDateFilterChange()" title="Lọc theo năm">
+                  <option value="2026" selected>Năm 2026</option>
+                  <option value="2025">Năm 2025</option>
+                </select>
+                <select id="mmMonthSelect" class="mm-input" onchange="MoldMaintenance.onDateFilterChange()" title="Lọc theo tháng">
+                  <option value="10" selected>Tháng 10</option>
+                  <option value="09">Tháng 09</option>
+                  <option value="08">Tháng 08</option>
+                  <option value="07">Tháng 07</option>
+                </select>
+                <select id="mmDaySelect" class="mm-input" onchange="MoldMaintenance.onDateFilterChange()" title="Lọc theo ngày">
+                  <option value="30" selected>Ngày 30 (Hôm nay)</option>
+                  <option value="29">Ngày 29 (Hôm qua)</option>
+                  <option value="all">Tất cả ngày</option>
+                </select>
+              </div>
+
+              <div class="mm-filters" style="flex: 1; min-width: 220px;">
+                <input type="search" id="mmSearchInput" name="q_search_mold_no_autofill" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="mm-input" style="width: 100%;" placeholder="Tìm mã máy, mã khuôn, series..." oninput="MoldMaintenance.onSearchInput(this.value)">
+              </div>
+
+              <!-- NÚT THÊM MOLD (DÀNH CHO ADMIN & STAFF) -->
+              <button type="button" id="btnAddMoldBtn" class="mm-btn mm-btn-primary" onclick="MoldMaintenance.openAddMoldModal()" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; font-size: 12.5px; font-weight: 700; background: #0284c7; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); white-space: nowrap;" title="Thêm khuôn mới vào hệ thống (Chỉ Admin & Staff)">
+                <span style="font-size: 15px;">➕</span>
+                <span>Thêm Mold</span>
+              </button>
+
+              <!-- NÚT XUẤT EXCEL MMFD-I-F-022.01 -->
+              <button type="button" id="btnExportMoldExcel" class="mm-btn" onclick="MoldMaintenance.exportExcel()" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; font-size: 12.5px; font-weight: 700; background: #16a34a; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); white-space: nowrap;" title="Xuất báo cáo đếm số shot và bảo dưỡng khuôn theo template MMFD-I-F-022.01">
+                <span style="font-size: 15px;">📊</span>
+                <span>Export MMFD-I-F-022.01</span>
+              </button>
+            </div>
+
+            <!-- Floating Column Picker Popover -->
+            <div id="mmColPickerMenu" class="mm-col-picker-menu hidden" onclick="event.stopPropagation()">
+              <div class="mm-cpm-header">
+                <div>
+                  <span style="font-weight:700; font-size:13px; color:#1e293b;">Thêm / Ẩn cột dữ liệu</span>
+                  <div style="font-size:11px; color:#64748b;">Mặc định ẩn: Trạng thái, Dòng SP, Tiêu chuẩn, Cavity</div>
+                </div>
+                <button type="button" class="mm-cpm-close" onclick="MoldMaintenance.toggleColPicker(event)">✕</button>
+              </div>
+              <div id="mmColPickerList" class="mm-cpm-body">
+                <!-- Checkboxes populated by js -->
+              </div>
+              <div class="mm-cpm-footer">
+                <button type="button" class="mm-btn-sub" onclick="MoldMaintenance.resetDefaultCols()">Khôi phục mặc định</button>
+                <button type="button" class="mm-btn mm-btn-primary mm-btn-sm" onclick="MoldMaintenance.toggleColPicker(event)">Xong</button>
+              </div>
+            </div>
+            
+
+            <!-- Table Container -->
+            <div class="mm-table-wrapper" id="mmTableContainer">
+              <!-- Rendered via mold-maintenance.js -->
+            </div>
+          </div>
+        </section>
+
         <section id="overviewTab">
           <div class="overview-container">
             <!-- 4 Top KPI Stat Cards -->
@@ -237,6 +342,25 @@
               </div>
             </div>
 
+            <!-- Mold Maintenance Alerts Section (SOP & TMS) -->
+            <div class="overview-card" style="margin-top: 16px; margin-bottom: 20px;">
+              <div class="overview-card-header">
+                <div class="overview-card-title">
+                  <span style="font-size: 20px;">🛠️</span>
+                  <span style="font-size: 15px; font-weight: 700; color: #1e293b;">Khuôn Cần Bảo Dưỡng (Theo Quy Trình SOP &amp; TMS Real-time)</span>
+                </div>
+                <button type="button" class="overview-card-action" onclick="switchTab('moldmaintenance'); if (window.MoldMaintenance) MoldMaintenance.switchTab('molds');">
+                  <span>Xem Chi Tiết Bảng Mold</span>
+                  <span id="overviewArrowIcon3">→</span>
+                </button>
+              </div>
+              <div class="overview-card-body" style="padding: 16px 20px;">
+                <div id="overviewMoldAlertsList">
+                  <div style="text-align:center; padding:20px; color:#64748b;">Đang tổng hợp dữ liệu mốc bảo dưỡng khuôn...</div>
+                </div>
+              </div>
+            </div>
+
             <!-- Two-Column Widgets Section -->
             <div class="overview-sections-grid">
               <!-- Left Widget: Top 5 Replaced Components -->
@@ -244,7 +368,7 @@
                 <div class="overview-card-header">
                   <div class="overview-card-title">
                     <span id="overviewTop5Icon"></span>
-                    <span>Top Linh Kiện Thay Thế Nhiều Nhất</span>
+                    <span>Biểu Đồ Top 10 Linh Kiện Thay Thế Nhiều Nhất</span>
                   </div>
                   <button type="button" class="overview-card-action" onclick="openTop5Modal()">
                     <span>Xem chi tiết năm</span>
@@ -276,6 +400,9 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            
             </div>
           </div>
         </section>
@@ -602,6 +729,160 @@
   <script src="js/language.js?v=20261020-iqc"></script>
   <script src="js/auth.js?v=20261023-account-permissions"></script>
   <script src="js/account-permissions.js?v=20261023-per-account"></script>
+  <script src="js/mold-maintenance.js?v=20261104_v5"></script>
   <script src="js/app.js?v=20261023-account-permissions"></script>
-</body>
+
+    <!-- MINI WINDOW: XÁC THỰC CHỐT / MỞ MỐC BẢO DƯỠNG (MK: 1234 + UPLOAD PDF OPTION) -->
+    <div id="mmMilestoneAuthModal" class="hidden" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.65); align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) MoldMaintenance.closeMilestoneModal()">
+      <div style="background:#ffffff; border-radius:12px; width:100%; max-width:460px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div style="padding:14px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="mmAuthModalIcon" style="font-size:20px;">🔒</span>
+            <div>
+              <div id="mmAuthModalTitle" style="font-size:14.5px; font-weight:800; color:#0f172a;">Xác Nhận Chốt Bảo Dưỡng Mốc</div>
+              <div id="mmAuthModalSubtitle" style="font-size:11.5px; color:#64748b;">Khuôn: <b id="mmAuthMoldName" style="color:#0284c7;">-</b> | <span id="mmAuthMilestoneTitle">Mốc 1</span></div>
+            </div>
+          </div>
+          <button type="button" style="background:transparent; border:none; font-size:18px; color:#64748b; cursor:pointer;" onclick="MoldMaintenance.closeMilestoneModal()">✕</button>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:18px 20px; display:flex; flex-direction:column; gap:12px;">
+          <!-- Description message -->
+          <div id="mmAuthModalDesc" style="font-size:12.5px; color:#334155; line-height:1.5; background:#f1f5f9; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0;">
+            Xác nhận khuôn đã hoàn tất bảo dưỡng định kỳ mốc này.
+          </div>
+
+          <!-- Password input (1234) -->
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+              Mật khẩu xác thực * <span style="font-weight:normal; color:#64748b;">(Mặc định: <b>1234</b>)</span>
+            </label>
+            <input type="text" inputmode="numeric" id="mmAuthPasswordInput" placeholder="Nhập mã xác thực (1234)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="mm-input" style="width:100%; font-size:14px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; -webkit-text-security: disc; text-security: disc;" onkeydown="if(event.key==='Enter') MoldMaintenance.confirmMilestoneAuth()">
+            <div id="mmAuthPassError" style="color:#e11d48; font-size:11.5px; font-weight:600; margin-top:4px; display:none;">⚠️ Mật khẩu không đúng! Vui lòng nhập 1234.</div>
+          </div>
+
+          <!-- Thông tin bảo dưỡng: Ngày bảo dưỡng & Ai bảo dưỡng -->
+          <div id="mmAuthMaintenanceFields" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; background:#f8fafc; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+                📅 Ngày bảo dưỡng *
+              </label>
+              <input type="date" id="mmAuthDateInput" class="mm-input" style="width:100%; font-size:13px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;">
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+                👤 Ai bảo dưỡng (KTV) *
+              </label>
+              <input type="text" id="mmAuthTechInput" placeholder="Tên kỹ thuật viên..." class="mm-input" style="width:100%; font-size:13px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;">
+            </div>
+          </div>
+
+          <!-- PDF Upload Section (Option) -->
+          <div id="mmAuthPdfSection">
+            <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+              📄 Biên bản / Báo cáo bảo dưỡng PDF <span style="font-weight:normal; color:#64748b;">(Tùy chọn)</span>
+            </label>
+            <div id="mmAuthExistingPdfInfo" style="display:none; font-size:11.5px; margin-bottom:6px; color:#15803d; background:#f0fdf4; padding:6px 10px; border-radius:4px; border:1px solid #bbf7d0; align-items:center; justify-content:space-between;">
+              <span id="mmAuthExistingPdfName">Tệp đính kèm: report.pdf</span>
+              <a id="mmAuthExistingPdfLink" href="javascript:void(0)" style="color:#0284c7; font-weight:700; text-decoration:underline;">[Xem PDF]</a>
+            </div>
+            <input type="file" id="mmAuthPdfFileInput" accept="application/pdf,.pdf" class="mm-input" style="width:100%; font-size:12px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc;">
+            <div style="font-size:11px; color:#64748b; margin-top:3px;">Đính kèm file PDF phiếu kiểm tra, biên bản hoàn thành bảo dưỡng khuôn.</div>
+          </div>
+
+          <!-- Note (Option) -->
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+              Ghi chú bảo dưỡng <span style="font-weight:normal; color:#64748b;">(Tùy chọn)</span>
+            </label>
+            <textarea id="mmAuthNoteInput" rows="2" placeholder="Ghi chú linh kiện thay thế, kỹ thuật viên phụ trách..." class="mm-input" style="width:100%; font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; resize:vertical;"></textarea>
+          </div>
+        </div>
+
+        <!-- Footer Buttons -->
+        <div style="padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; align-items:center; justify-content:flex-end; gap:8px;">
+          <button type="button" class="mm-btn" onclick="MoldMaintenance.closeMilestoneModal()" style="padding:6px 14px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer;">Hủy</button>
+          <button type="button" id="mmAuthConfirmBtn" class="mm-btn mm-btn-primary" onclick="MoldMaintenance.confirmMilestoneAuth()" style="padding:6px 18px; background:#0284c7; color:#ffffff; border:none; border-radius:6px; font-size:12.5px; font-weight:700; cursor:pointer;">Xác Nhận</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL THÊM MOLD MỚI (ADMIN & STAFF) -->
+    <div id="mmAddMoldModal" class="hidden" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.65); align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) MoldMaintenance.closeAddMoldModal()">
+      <div style="background:#ffffff; border-radius:12px; width:100%; max-width:520px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2); overflow:hidden; display:flex; flex-direction:column; max-height:92vh;" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div style="padding:16px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:22px;">➕</span>
+            <div>
+              <div style="font-size:15px; font-weight:800; color:#0f172a;">Thêm Khuôn Mới (Mold Management)</div>
+              <div style="font-size:11.5px; color:#64748b;">Quyền thực hiện: <b style="color:#0284c7;">Admin &amp; Staff</b></div>
+            </div>
+          </div>
+          <button type="button" style="background:transparent; border:none; font-size:18px; color:#64748b; cursor:pointer;" onclick="MoldMaintenance.closeAddMoldModal()">✕</button>
+        </div>
+
+        <!-- Form Body -->
+        <form id="mmAddMoldForm" onsubmit="MoldMaintenance.submitAddMold(event)" style="padding:20px; display:flex; flex-direction:column; gap:14px; overflow-y:auto;">
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Mã Khuôn (Mold No) *</label>
+            <input type="text" id="newMoldNo" required placeholder="VD: H9637S20, H10109C30..." class="mm-input" style="width:100%; font-family:monospace; font-weight:700; text-transform:uppercase;">
+          </div>
+
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Dòng Sản Phẩm (Series) *</label>
+            <input type="text" id="newMoldSeries" required placeholder="VD: FA06005, 10109S-E1A-30..." class="mm-input" style="width:100%;">
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Tiêu Chuẩn Khuôn (SOP) *</label>
+              <select id="newMoldTier" class="mm-input" style="width:100%; font-weight:600;">
+                <option value="standard" selected>Tiêu chuẩn thường (800K)</option>
+                <option value="high_impact">High-Impact (350K~400K)</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Số Cavity</label>
+              <input type="number" id="newMoldCavity" value="4" min="1" max="128" class="mm-input" style="width:100%; font-family:monospace;">
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Máy Gá Ép (nếu có)</label>
+              <input type="text" id="newMoldMachine" placeholder="VD: F3-1 hoặc - (Trong kho)" class="mm-input" style="width:100%; font-family:monospace;">
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Shot Khởi Đầu (Mốc 1)</label>
+              <input type="number" id="newMoldM1" value="0" min="0" class="mm-input" style="width:100%; font-family:monospace;">
+            </div>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Tổng Vòng Đời Lũy Kế Hiện Tại</label>
+            <input type="number" id="newMoldTotalLife" value="0" min="0" class="mm-input" style="width:100%; font-family:monospace;">
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">Mốc SOP: ≥3M (đánh giá lại) &bull; ≥4.5M (báo JP HQ) &bull; 5M (trần)</div>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">Ghi Chú</label>
+            <input type="text" id="newMoldNote" placeholder="Ghi chú thêm về khuôn..." class="mm-input" style="width:100%;">
+          </div>
+
+          <div id="newMoldStatus" style="font-size:12.5px; font-weight:600; padding:6px 10px; border-radius:4px; display:none;"></div>
+
+          <!-- Footer Actions -->
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:6px; padding-top:12px; border-top:1px solid #f1f5f9;">
+            <button type="button" class="mm-btn mm-btn-sub" onclick="MoldMaintenance.closeAddMoldModal()">Hủy</button>
+            <button type="submit" id="btnSubmitNewMold" class="mm-btn mm-btn-primary" style="background:#0284c7; color:#fff; font-weight:700; padding:6px 20px;">
+              💾 Lưu Khuôn Mới
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
 </html>

@@ -697,7 +697,8 @@ function switchTab(name) {
   const exportButton=document.getElementById('btnExportReport');if(exportButton)exportButton.hidden=name==='inspection'?!ComponentAuth.capability('downloadExcel'):name==='noaccess';
   document.body.classList.toggle('inspection-active', name === 'inspection' || name === 'noaccess');
   document.body.classList.toggle('dimension-ocr-active', name === 'dimensionocr');
-  const isToolTab = name === 'inspection' || name === 'dimensionocr' || name==='noaccess';
+  document.body.classList.toggle('moldmaintenance-active', name === 'moldmaintenance');
+  const isToolTab = name === 'inspection' || name === 'dimensionocr' || name === 'moldmaintenance' || name==='noaccess';
   console.log(`%c[TAB] Switched to tab: "${name}"`, "color:#7c3aed; font-weight:bold; font-size:13px;");
   const isDashboard = (name === "stock" || name === "dashboard" || name === "report");
   const isOverview = (name === "overview");
@@ -716,6 +717,7 @@ function switchTab(name) {
   if ($("chartTab")) $("chartTab").classList.toggle("hidden", name !== "chart");
   if ($("inspectionTab")) $("inspectionTab").classList.toggle("hidden", name !== "inspection");
   if ($("dimensionOcrTab")) $("dimensionOcrTab").classList.toggle("hidden", name !== "dimensionocr");
+  if ($("moldMaintenanceTab")) $("moldMaintenanceTab").classList.toggle("hidden", name !== "moldmaintenance");
   ['yearPick', 'monthPick', 'dayPick'].forEach(id => { if ($(id)) $(id).classList.toggle('hidden', isToolTab); });
   document.querySelector('.topbar-center')?.classList.toggle('hidden', isToolTab);
   if (isToolTab && $('globalPaginationDock')) $('globalPaginationDock').style.display = 'none';
@@ -730,6 +732,7 @@ function switchTab(name) {
     else if (name === "chart") titleText = "Phân Tích & Biểu Đồ Tiêu Hao";
     else if (name === "inspection") titleText = "Đo linh kiện";
     else if (name === "dimensionocr") titleText = "IQC · Kiểm tra kích thước";
+    else if (name === "moldmaintenance") titleText = "Bảo Dưỡng Khuôn · Giám Sát Số Shot (SOP & TMS)";
     else if (name === "noaccess") titleText = "Quyền truy cập";
     $("topbarTitle").innerHTML = `<span>${titleText}</span>`;
   }
@@ -741,6 +744,7 @@ function switchTab(name) {
   else if (name === "chart") renderChartsTab();
   else if (name === "inspection") renderInspectionTab();
   else if (name === "dimensionocr") initDimensionOcr();
+  else if (name === "moldmaintenance") { if (window.MoldMaintenance) MoldMaintenance.init(); }
 }
 window.switchTab = switchTab;
 

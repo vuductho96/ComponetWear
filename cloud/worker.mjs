@@ -15,6 +15,12 @@ import {
   fullPolicy,
   validatePermissions,
 } from "./policy.mjs";
+import {
+  syncTmsOnCloud,
+  getLatestTmsDataFromD1,
+  saveTmsDataToD1,
+} from "./tms-crawler.mjs";
+import { getTmsSecurityMetadata } from "./tms-crypto.mjs";
 
 const cookieName = "__Host-componentlife_session";
 const json = (value, status = 200, headers = {}) =>
@@ -32,7 +38,7 @@ const fail = (message, status = 400) => {
 };
 const publicUser = (user) =>
   user && { id: user.id, username: user.username, role: user.role };
-async function body(request) {
+async function body(request, maxBytes = 8192) {
   if (!request.headers.get("content-type")?.startsWith("application/json"))
     fail("Cần gửi JSON.", 415);
   const reader = request.body?.getReader();
@@ -43,7 +49,7 @@ async function body(request) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > 8192) {
+    if (size > maxBytes) {
       await reader.cancel();
       fail("Dữ liệu quá lớn.", 413);
     }
@@ -113,12 +119,12 @@ async function api(request, env, path, user) {
       csrf: user?.csrf || null,
       version: guest.version,
       accessVersion: account?.version || 0,
-      tabs: account?.permissions.tabs || ["inspection", "dimensionocr"],
+      tabs: account?.permissions.tabs || ["inspection", "dimensionocr", "moldmaintenance"],
       policy: account?.permissions.inspection || guest.policy,
       ...(user?.role === "admin" ? { guestPolicy: guest.policy } : {}),
     });
   }
-  if (request.method !== "GET") sameOrigin(request);
+  if (request.method !== "GET" && path !== "/api/tms/push") sameOrigin(request);
   if (path === "/api/auth/login" && request.method === "POST") {
     const data = await body(request),
       username = String(data.username || "")
@@ -183,12 +189,65 @@ async function api(request, env, path, user) {
       "Set-Cookie": `${cookieName}=${raw}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=28800`,
     });
   }
+  // Public TMS Data & Sync APIs (cho phép truy cập trực tiếp từ Nút Refresh & Auto Timer)
+  if (path === "/api/tms/push" && request.method === "POST") {
+    // Xác thực secret token an toàn của bot cào local
+    const pushToken = request.headers.get("x-tms-sync-key");
+    const EXPECTED_KEY = "iriso-tms-sync-secret-2026";
+    if (pushToken !== EXPECTED_KEY) {
+      fail("Không có quyền đồng bộ dữ liệu TMS.", 403);
+    }
+    const incomingData = await body(request, 10 * 1024 * 1024); // Cho phép gói dữ liệu TMS lên tới 10MB
+    if (!incomingData || !incomingData.records) {
+      fail("Dữ liệu gửi lên không đúng định dạng.", 400);
+    }
+    await saveTmsDataToD1(env, incomingData);
+    return json({
+      ok: true,
+      message: `Đã cập nhật ${incomingData.records.length} máy và lưu an toàn vào Cloudflare D1`,
+      updatedAt: incomingData.lastUpdated || new Date().toISOString()
+    });
+  }
+  if (path === "/api/tms/data" && request.method === "GET") {
+    let cached = await getLatestTmsDataFromD1(env);
+    const assetRes = await env.ASSETS.fetch(new Request("https://localhost/data/mold-maintenance-data.json"));
+    let assetData = null;
+    if (assetRes.ok) {
+      try { assetData = await assetRes.json(); } catch {}
+    }
+    // Nếu D1 hợp lệ và có chứa records + excelMasterMolds thì ưu tiên D1
+    if (cached && Array.isArray(cached.records) && cached.records.length > 0 && Array.isArray(cached.excelMasterMolds) && cached.excelMasterMolds.length > 0) {
+      return json(cached);
+    }
+    // Nếu D1 chưa có hoặc bị rỗng (do bot mới khởi tạo), fallback ngay về static asset JSON chuẩn
+    if (assetData && Array.isArray(assetData.records) && assetData.records.length > 0) {
+      // Bổ sung số liệu live từ D1 nếu có
+      if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
+        assetData.records = cached.records;
+        assetData.runningMachines = cached.runningMachines;
+        assetData.totalShotsToday = cached.totalShotsToday;
+        assetData.totalOutputToday = cached.totalOutputToday;
+      }
+      return json(assetData);
+    }
+    if (cached) return json(cached);
+    if (assetData) return json(assetData);
+    return json({ records: [], totalShotsToday: 0 });
+  }
+  if (path === "/api/tms/security" && request.method === "GET") {
+    return json(getTmsSecurityMetadata());
+  }
+
   if (!user) fail("Vui lòng đăng nhập.", 401);
   if (
     request.method !== "GET" &&
     !equal(request.headers.get("x-csrf-token"), user.csrf)
   )
     fail("Phiên thao tác không hợp lệ. Hãy tải lại trang.", 403);
+  if (path === "/api/tms/sync" && request.method === "POST") {
+    const result = await syncTmsOnCloud(env);
+    return json(result);
+  }
   if (path === "/api/auth/logout" && request.method === "POST") {
     await env.DB.prepare("DELETE FROM auth_sessions WHERE token_hash=?")
       .bind(user.token_hash)
@@ -217,6 +276,130 @@ async function api(request, env, path, user) {
     ]);
     await audit(env, user, "password-change", user.id);
     return json({ ok: true });
+  }
+
+    if (path === "/api/molds/create" && request.method === "POST") {
+    sameOrigin(request);
+    if (!user || (user.role !== "admin" && user.role !== "staff")) {
+      fail("Chỉ tài khoản admin hoặc staff mới có quyền thêm khuôn mới.", 403);
+    }
+    const newMold = await body(request);
+    if (!newMold || !newMold.mold) fail("Mã khuôn không được để trống.", 400);
+
+    let currentData = await getLatestTmsDataFromD1(env);
+    if (!currentData) {
+      const assetRes = await env.ASSETS.fetch(new Request("https://localhost/data/mold-maintenance-data.json"));
+      if (assetRes.ok) currentData = await assetRes.json();
+    }
+    if (!currentData) currentData = { excelMasterMolds: [], records: [] };
+    if (!currentData.excelMasterMolds) currentData.excelMasterMolds = [];
+
+    const moldEntry = {
+      mold: String(newMold.mold).trim().toUpperCase(),
+      series: String(newMold.series || '').trim(),
+      is_high_impact: !!newMold.is_high_impact,
+      total_last_year: 0,
+      rem_last_year: 0,
+      months: { M1: 0, M2: 0, M3: 0, M4: 0, M5: 0, M6: 0, M7: 0, M8: 0, M9: 0, M10: 0, M11: 0, M12: 0 },
+      m1_800k: Math.round(Number(newMold.m1_800k) || 0),
+      m2_800k: Math.round(Number(newMold.m2_800k) || 0),
+      m3_800k: Math.round(Number(newMold.m3_800k) || 0),
+      total_life: Math.round(Number(newMold.total_life) || 0),
+      machineNo: newMold.machineNo || '-',
+      cavity: Number(newMold.cavity) || 4,
+      note: newMold.note || '',
+      createdAt: new Date().toISOString(),
+      createdBy: user.username
+    };
+
+    const existingIdx = currentData.excelMasterMolds.findIndex(
+      m => (m.mold || '').toUpperCase() === moldEntry.mold ||
+           (m.oldMold && m.oldMold.toUpperCase() === moldEntry.mold) ||
+           (m.newMold && m.newMold.toUpperCase() === moldEntry.mold)
+    );
+    if (existingIdx >= 0) {
+      currentData.excelMasterMolds[existingIdx] = {
+        ...currentData.excelMasterMolds[existingIdx],
+        ...moldEntry
+      };
+    } else {
+      currentData.excelMasterMolds.unshift(moldEntry);
+    }
+
+    await saveTmsDataToD1(env, currentData);
+    await audit(env, user, "create-mold", moldEntry.mold);
+    return json({ ok: true, mold: moldEntry, message: `Đã thêm khuôn ${moldEntry.mold} thành công!` });
+  }
+
+  // Cập nhật trạng thái mốc (chốt tích xanh) hoặc ghi chú (note) cho khuôn
+  if (path === "/api/molds/update" && request.method === "POST") {
+    sameOrigin(request);
+    if (!user || (user.role !== "admin" && user.role !== "staff")) {
+      fail("Chỉ tài khoản admin hoặc staff mới có quyền cập nhật khuôn.", 403);
+    }
+    const updateReq = await body(request);
+    if (!updateReq || !updateReq.mold) fail("Mã khuôn không được để trống.", 400);
+
+    let currentData = await getLatestTmsDataFromD1(env);
+    if (!currentData) {
+      const assetRes = await env.ASSETS.fetch(new Request("https://localhost/data/mold-maintenance-data.json"));
+      if (assetRes.ok) currentData = await assetRes.json();
+    }
+    if (!currentData) currentData = { excelMasterMolds: [], records: [] };
+    if (!currentData.excelMasterMolds) currentData.excelMasterMolds = [];
+
+    const moldCode = String(updateReq.mold).trim().toUpperCase();
+    const moldItem = currentData.excelMasterMolds.find(m => 
+      (m.mold || '').toUpperCase() === moldCode ||
+      (m.oldMold && m.oldMold.toUpperCase() === moldCode) ||
+      (m.newMold && m.newMold.toUpperCase() === moldCode)
+    );
+    const previouslyCompleted = new Set(moldItem?.completedMilestones || []);
+    if (moldItem) {
+      if (typeof updateReq.note === 'string') moldItem.note = updateReq.note.trim();
+      if (Array.isArray(updateReq.completedMilestones)) moldItem.completedMilestones = updateReq.completedMilestones;
+      if (updateReq.milestonePdfs && typeof updateReq.milestonePdfs === 'object') {
+        if (!moldItem.milestonePdfs) moldItem.milestonePdfs = {};
+        Object.assign(moldItem.milestonePdfs, updateReq.milestonePdfs);
+      }
+      if (updateReq.milestoneDetails && typeof updateReq.milestoneDetails === 'object') {
+        if (!moldItem.milestoneDetails) moldItem.milestoneDetails = {};
+        Object.assign(moldItem.milestoneDetails, updateReq.milestoneDetails);
+      }
+      if (typeof updateReq.closedMilestone === 'number') {
+        if (!moldItem.completedMilestones) moldItem.completedMilestones = [];
+        if (!moldItem.completedMilestones.includes(updateReq.closedMilestone)) {
+          moldItem.completedMilestones.push(updateReq.closedMilestone);
+        }
+      }
+      moldItem.updatedAt = new Date().toISOString();
+      moldItem.updatedBy = user.username;
+    }
+
+    // Đồng bộ sang records nếu máy đang gá khuôn này (khớp cả mã mới và mã cũ)
+    const recItem = (currentData.records || []).find(r => {
+      const rCode = (r.moldNo || '').toUpperCase();
+      return rCode === moldCode || (moldItem && (
+        (moldItem.mold && moldItem.mold.toUpperCase() === rCode) ||
+        (moldItem.oldMold && moldItem.oldMold.toUpperCase() === rCode) ||
+        (moldItem.newMold && moldItem.newMold.toUpperCase() === rCode)
+      ));
+    });
+    if (recItem) {
+      if (typeof updateReq.note === 'string') recItem.note = updateReq.note.trim();
+      if (Array.isArray(updateReq.completedMilestones)) {
+        recItem.completedMilestones = updateReq.completedMilestones;
+        const newlyClosed = updateReq.completedMilestones.find(milestone => !previouslyCompleted.has(milestone));
+        if (newlyClosed === Number(recItem.currentCycleNum) || newlyClosed === (previouslyCompleted.size + 1)) {
+          recItem._tmsCycleBaseShots = 0;
+          recItem.currentCycleShots = Number(recItem.todayShots) || 0;
+        }
+      }
+    }
+
+    await saveTmsDataToD1(env, currentData);
+    await audit(env, user, "update-mold", moldCode);
+    return json({ ok: true, mold: moldCode, message: "Đã cập nhật trạng thái mốc khuôn thành công!" });
   }
   if (user.role !== "admin") fail("Chỉ admin được thao tác.", 403);
   if (path === "/api/admin/settings" && request.method === "PUT") {
@@ -360,6 +543,35 @@ async function api(request, env, path, user) {
     await audit(env, user, "update-staff", id);
     return json({ ok: true });
   }
+  if (path === "/api/tms/data" && request.method === "GET") {
+    let cached = await getLatestTmsDataFromD1(env);
+    const assetRes = await env.ASSETS.fetch(new Request("https://localhost/data/mold-maintenance-data.json"));
+    let assetData = null;
+    if (assetRes.ok) {
+      try { assetData = await assetRes.json(); } catch {}
+    }
+    // Nếu D1 hợp lệ và có chứa records + excelMasterMolds thì ưu tiên D1
+    if (cached && Array.isArray(cached.records) && cached.records.length > 0 && Array.isArray(cached.excelMasterMolds) && cached.excelMasterMolds.length > 0) {
+      return json(cached);
+    }
+    // Nếu D1 chưa có hoặc bị rỗng (do bot mới khởi tạo), fallback ngay về static asset JSON chuẩn
+    if (assetData && Array.isArray(assetData.records) && assetData.records.length > 0) {
+      // Bổ sung số liệu live từ D1 nếu có
+      if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
+        assetData.records = cached.records;
+        assetData.runningMachines = cached.runningMachines;
+        assetData.totalShotsToday = cached.totalShotsToday;
+        assetData.totalOutputToday = cached.totalOutputToday;
+      }
+      return json(assetData);
+    }
+    if (cached) return json(cached);
+    if (assetData) return json(assetData);
+    return json({ records: [], totalShotsToday: 0 });
+  }
+  if (path === "/api/tms/security" && request.method === "GET") {
+    return json(getTmsSecurityMetadata());
+  }
   fail("Không tìm thấy API.", 404);
 }
 function privateResponse(response) {
@@ -370,6 +582,9 @@ function privateResponse(response) {
   return new Response(response.body, { status: response.status, headers });
 }
 export default {
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(syncTmsOnCloud(env));
+  },
   async fetch(request, env) {
     try {
       const url = new URL(request.url),
@@ -404,7 +619,33 @@ export default {
       const user = await session(request, env);
       if (path.startsWith("/api/")) return await api(request, env, path, user);
       const account = await access(env, user);
-      const tabs = account?.permissions.tabs || ["inspection", "dimensionocr"];
+      const tabs = account?.permissions.tabs || ["inspection", "dimensionocr", "moldmaintenance"];
+      if (path === "/data/mold-maintenance-data.json") {
+        const d1Data = await getLatestTmsDataFromD1(env);
+        const hasFullD1 = d1Data && Array.isArray(d1Data.records) && d1Data.records.length > 0 && Array.isArray(d1Data.excelMasterMolds) && d1Data.excelMasterMolds.length > 0;
+        if (hasFullD1) return json(d1Data);
+
+        // Fallback to static asset and overlay live records from D1 if available
+        const assetRes = await env.ASSETS.fetch(request);
+        if (assetRes.ok) {
+          const assetData = await assetRes.json();
+          if (d1Data && Array.isArray(d1Data.records) && d1Data.records.length > 0) {
+            assetData.records = d1Data.records;
+            assetData.runningMachines = d1Data.runningMachines;
+            assetData.totalShotsToday = d1Data.totalShotsToday;
+            assetData.totalOutputToday = d1Data.totalOutputToday;
+            assetData.lastUpdated = d1Data.lastUpdated;
+          }
+          return json(assetData);
+        }
+        if (d1Data) return json(d1Data);
+        return privateResponse(assetRes);
+      }
+      if (
+        path === "/data/MOCKUP_THEO_DOI_SHOT_VA_BAO_DUONG_KHUON.xlsx" ||
+        path === "/data/MMFD-I-F-022.01_Template.xlsx"
+      )
+        return privateResponse(await env.ASSETS.fetch(request));
       if (path.startsWith("/dimension-ocr/"))
         return tabs.includes("dimensionocr")
           ? privateResponse(await env.ASSETS.fetch(request))

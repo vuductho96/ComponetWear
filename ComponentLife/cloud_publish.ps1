@@ -1,6 +1,6 @@
 # Shared snapshot helpers. Only explicitly public files enter a deployment.
 function Get-PublicAssetFiles([string]$SourceRoot) {
-    $files = @('index.html', 'ComponentMaster.json', 'data/shoot-data.json', 'data/replacement-log.json', 'data/stock-data.json')
+    $files = @('index.html', 'ComponentMaster.json', 'data/shoot-data.json', 'data/replacement-log.json', 'data/stock-data.json', 'data/mold-maintenance-data.json', 'data/MOCKUP_THEO_DOI_SHOT_VA_BAO_DUONG_KHUON.xlsx', 'data/MMFD-I-F-022.01_Template.xlsx')
     $inspectionDir = Join-Path $SourceRoot 'data/inspection'
     if (Test-Path -LiteralPath $inspectionDir) {
         $summary = Get-Content -LiteralPath (Join-Path $inspectionDir 'summary.json') -Raw -Encoding UTF8 | ConvertFrom-Json
