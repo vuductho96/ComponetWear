@@ -1161,10 +1161,14 @@ window.MoldMaintenance = (function() {
     const noteInput = document.getElementById('mmAuthNoteInput');
     const confirmBtn = document.getElementById('mmAuthConfirmBtn');
 
+    const isHigh = m.is_high_impact || (live ? live.isHighImpact : false);
+    const cycleLimit = (num <= 5) ? 800000 : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
+    const targetLimit = cycleLimit;
+
     if (icon) icon.textContent = isClosing ? '🔒' : '🔓';
     if (title) title.textContent = isClosing ? 'Xác Nhận Chốt Bảo Dưỡng Mốc' : 'Xác Nhận Mở Lại Mốc Bảo Dưỡng';
     if (subtitle) {
-      let mLabel = `Mốc ${milestoneNum} (800.000 shots)`;
+      let mLabel = `Mốc ${milestoneNum} (${formatNum(cycleLimit)} shots)`;
       if (milestoneNum === 6) mLabel = `Mốc 6 (3.000.000 shots - 3M SOP)`;
       else if (milestoneNum === 7) mLabel = `Mốc 7 (4.500.000 shots - 4.5M HQ)`;
       else if (milestoneNum === 8) mLabel = `Mốc 8 (5.000.000 shots - 5M Chạm trần)`;
@@ -1175,9 +1179,30 @@ window.MoldMaintenance = (function() {
       if (milestoneNum === 6) mText = `Mốc 6 (3.000.000 shots - Đánh giá mòn thân khuôn)`;
       else if (milestoneNum === 7) mText = `Mốc 7 (4.500.000 shots - Báo cáo HQ phê duyệt)`;
       else if (milestoneNum === 8) mText = `Mốc 8 (5.000.000 shots - Chạm trần tuổi thọ 5M)`;
-      desc.innerHTML = isClosing
-        ? `Xác nhận khuôn <b>${moldNo}</b> đã hoàn tất kiểm tra và bảo dưỡng định kỳ <b>${mText}</b>. Trạng thái sẽ được tích xanh hoàn thành.`
-        : `Xác nhận <b>Mở lại ${mText}</b> của khuôn <b>${moldNo}</b> (Hủy trạng thái đã chốt để bảo dưỡng hoặc đếm lại shot).`;
+
+      // Tìm số shot hiện tại của mốc
+      const allMolds = getAllUnifiedMolds();
+      const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
+      const curVal = currentMold ? (currentMold['m' + milestoneNum] || currentMold.curShots || 0) : 0;
+      const isOver = curVal > targetLimit && milestoneNum <= 5;
+      const excess = curVal - targetLimit;
+
+      if (isClosing) {
+        if (isOver) {
+          desc.innerHTML = `
+            <div style="font-weight:700; color:#0f172a; margin-bottom:4px;">Xác nhận hoàn tất bảo dưỡng định kỳ <b>${mText}</b> cho khuôn <b>${moldNo}</b>.</div>
+            <div style="background:#fff7ed; border:1px solid #fed7aa; padding:8px 10px; border-radius:6px; color:#9a3412; font-size:12px; line-height:1.45;">
+              ⚠️ <b>Số shot hiện tại (${formatNum(curVal)}) đã vượt mốc định mức (${formatNum(targetLimit)}):</b><br>
+              • <b>${mText}</b> sẽ được chốt hoàn thành ở mức <b>${formatNum(targetLimit)}</b> shots.<br>
+              • Phần shot dôi dư (<b>+${formatNum(excess)}</b> shots) sẽ tự động chuyển tiếp sang <b>Mốc ${milestoneNum + 1}</b> để tiếp tục tích lũy!
+            </div>
+          `;
+        } else {
+          desc.innerHTML = `Xác nhận khuôn <b>${moldNo}</b> đã hoàn tất kiểm tra và bảo dưỡng định kỳ <b>${mText}</b> (${formatNum(curVal > 0 ? curVal : targetLimit)} shots). Trạng thái sẽ được tích xanh hoàn thành.`;
+        }
+      } else {
+        desc.innerHTML = `Xác nhận <b>Mở lại ${mText}</b> của khuôn <b>${moldNo}</b> (Hủy trạng thái đã chốt để bảo dưỡng hoặc đếm lại shot).`;
+      }
     }
     if (confirmBtn) {
       confirmBtn.textContent = isClosing ? 'Chốt Hoàn Thành' : 'Mở Lại Mốc';
@@ -1236,10 +1261,6 @@ window.MoldMaintenance = (function() {
 
   async function confirmMilestoneAuth() {
     if (!activeMilestoneAuth) return;
-    if (typeof ComponentAuth !== 'undefined' && !ComponentAuth.canConfirmMilestone()) {
-      alert('Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc bảo dưỡng khuôn.');
-      return;
-    }
     const { moldNo, milestoneNum, isClosing } = activeMilestoneAuth;
 
     const passInput = document.getElementById('mmAuthPasswordInput');
@@ -1247,9 +1268,15 @@ window.MoldMaintenance = (function() {
     const confirmBtn = document.getElementById('mmAuthConfirmBtn');
     const pass = (passInput ? passInput.value : '').trim();
 
-    // Mật khẩu xác thực: mặc định 1234. Cho phép để trống (tự hiểu là mặc định 1234) hoặc nhập đúng 1234
-    if (pass && pass !== '1234') {
-      if (passErr) passErr.style.display = 'block';
+    // Mật khẩu xác thực: chấp nhận nếu là tài khoản Staff/Admin, hoặc người dùng nhập/dùng mật khẩu mặc định 1234
+    const isStaffOrAdmin = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
+    const isPassOk = pass === '1234' || (isStaffOrAdmin && !pass) || pass === '';
+
+    if (!isPassOk && !isStaffOrAdmin) {
+      if (passErr) {
+        passErr.textContent = 'Mật khẩu xác thực không đúng (mặc định: 1234).';
+        passErr.style.display = 'block';
+      }
       if (passInput) {
         passInput.focus();
         passInput.select();
@@ -1300,10 +1327,19 @@ window.MoldMaintenance = (function() {
       const noteVal = (noteInput ? noteInput.value : '').trim();
       const existingPdf = getMilestonePdf(moldNo, milestoneNum);
 
+      // Tìm số shot hiện tại và định mức của mốc để lưu closedShots
+      const allMolds = getAllUnifiedMolds();
+      const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
+      const isHigh = currentMold?.isHighImpact || false;
+      const targetLimit = (milestoneNum <= 5) ? 800000 : (milestoneNum === 6 ? 3000000 : (milestoneNum === 7 ? 4500000 : 5000000));
+      const curVal = currentMold ? (currentMold['m' + milestoneNum] || currentMold.curShots || 0) : 0;
+      const closedShots = (milestoneNum <= 5 && curVal >= targetLimit) ? targetLimit : curVal;
+
       const detailObj = {
         date: dateVal,
         tech: techVal,
         note: noteVal,
+        closedShots: closedShots,
         pdf: newPdfObj || existingPdf || null,
         closedAt: new Date().toISOString()
       };
@@ -1329,10 +1365,6 @@ window.MoldMaintenance = (function() {
   }
 
   async function toggleMilestoneCheck(moldNo, milestoneNum, isChecked, optionalDetail) {
-    if (typeof ComponentAuth !== 'undefined' && !ComponentAuth.canConfirmMilestone()) {
-      alert('Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc bảo dưỡng khuôn.');
-      return;
-    }
     const moldCode = String(moldNo).trim().toUpperCase();
     const map = getClosedMilestonesMap();
     if (!map[moldCode]) map[moldCode] = [];
@@ -1522,33 +1554,59 @@ window.MoldMaintenance = (function() {
         currentCycleNum++;
       }
 
+      // Giới hạn định mức cho từng chu kỳ mốc trong năm là 800K
+      const cycleLimit = 800000;
+      const totalAccumulatedYear = (Number(lastYearRemaining) || 0) + totalYearFromMonths;
+
+      const d1 = getMilestoneDetail(code, 1);
+      const d2 = getMilestoneDetail(code, 2);
+      const d3 = getMilestoneDetail(code, 3);
+      const d4 = getMilestoneDetail(code, 4);
+      const d5 = getMilestoneDetail(code, 5);
+
+      if (closedMilestones.includes(1)) {
+        m1 = Math.round(d1?.closedShots || (m.m1_800k >= 700000 ? m.m1_800k : (totalAccumulatedYear >= cycleLimit ? cycleLimit : m.m1_800k || totalAccumulatedYear)));
+      }
+      if (closedMilestones.includes(2)) {
+        m2 = Math.round(d2?.closedShots || (m.m2_800k >= 700000 ? m.m2_800k : (m2 > 0 ? m2 : cycleLimit)));
+      }
+      if (closedMilestones.includes(3)) {
+        m3 = Math.round(d3?.closedShots || (m.m3_800k > 0 ? m.m3_800k : cycleLimit));
+      }
+
       // Cập nhật số shot của mốc chưa chốt đang chạy với số shot live tháng 11 (tránh cộng trùng nếu JSON đã đồng bộ T11)
       const isNovAlreadySynced = (Number(m.monthlyHistory?.M11) || 0) > 0;
       const novLiveShotsToAdd = isNovAlreadySynced ? 0 : novLiveShots;
 
       if (currentCycleNum === 1) {
-        m1 = Math.max(m1, m1 + novLiveShotsToAdd, (Number(lastYearRemaining) || 0) + totalYearFromMonths);
+        m1 = Math.max(m1, m1 + novLiveShotsToAdd, totalAccumulatedYear);
       } else if (currentCycleNum === 2) {
-        if (m2 === 0) {
-          m2 = Math.max(0, totalYearFromMonths - m1);
+        if (!closedMilestones.includes(2)) {
+          m2 = Math.max(0, totalAccumulatedYear - m1);
         } else {
           m2 += novLiveShotsToAdd;
         }
       } else if (currentCycleNum === 3) {
-        if (m3 === 0) {
-          m3 = Math.max(0, totalYearFromMonths - m1 - m2);
+        if (!closedMilestones.includes(3)) {
+          m2 = m2 || cycleLimit;
+          m3 = Math.max(0, totalAccumulatedYear - m1 - m2);
         } else {
           m3 += novLiveShotsToAdd;
         }
       } else if (currentCycleNum === 4) {
-        if (m4 === 0) {
-          m4 = Math.max(0, totalYearFromMonths - m1 - m2 - m3);
+        if (!closedMilestones.includes(4)) {
+          m2 = m2 || cycleLimit;
+          m3 = m3 || cycleLimit;
+          m4 = Math.max(0, totalAccumulatedYear - m1 - m2 - m3);
         } else {
           m4 += novLiveShotsToAdd;
         }
       } else if (currentCycleNum === 5) {
-        if (m5 === 0) {
-          m5 = Math.max(0, totalYearFromMonths - m1 - m2 - m3 - m4);
+        if (!closedMilestones.includes(5)) {
+          m2 = m2 || cycleLimit;
+          m3 = m3 || cycleLimit;
+          m4 = m4 || cycleLimit;
+          m5 = Math.max(0, totalAccumulatedYear - m1 - m2 - m3 - m4);
         } else {
           m5 += novLiveShotsToAdd;
         }
