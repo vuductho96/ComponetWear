@@ -1660,9 +1660,9 @@ window.MoldMaintenance = (function() {
 
       const novLiveShots = Math.round(Number(monthlyHistory.M11 || moldLiveShots?.M11 || 0));
 
-      let m1 = Math.round(m.m1_800k || (live ? live.m1_800k : 0));
-      let m2 = Math.round(m.m2_800k || (live ? live.m2_800k : 0));
-      let m3 = Math.round(m.m3_800k || (live ? live.m3_800k : 0));
+      let m1 = Math.round(m.m1_800k || 0);
+      let m2 = Math.round(m.m2_800k || 0);
+      let m3 = Math.round(m.m3_800k || 0);
       let m4 = Math.round(m.m4_800k || 0);
       let m5 = Math.round(m.m5_800k || 0);
 
@@ -2476,6 +2476,15 @@ window.MoldMaintenance = (function() {
                               (selYearNumHead === curYearNow && selMonthNumHead > curMonthNow) ||
                               (selYearNumHead === curYearNow && selMonthNumHead === curMonthNow && selDayNumHead > curDayNow);
 
+    // Map đồng bộ 100% dữ liệu mốc từ getAllUnifiedMolds để tránh rò rỉ dữ liệu máy cũ
+    const allUnifiedList = getAllUnifiedMolds();
+    const unifiedMap = {};
+    allUnifiedList.forEach(um => {
+      if (um.mold) unifiedMap[um.mold.toUpperCase().trim()] = um;
+      if (um.oldMold && um.oldMold !== '-') unifiedMap[um.oldMold.toUpperCase().trim()] = um;
+      if (um.newMold && um.newMold !== '-') unifiedMap[um.newMold.toUpperCase().trim()] = um;
+    });
+
     let html = `
       ${getMilestoneLegendHtml()}
       <div style="overflow-x:auto;">
@@ -2524,18 +2533,19 @@ window.MoldMaintenance = (function() {
           (m.oldMold && m.oldMold.toUpperCase() === moldKey) ||
           (m.newMold && m.newMold.toUpperCase() === moldKey)
         );
-        const oldMold = masterMold?.oldMold || '-';
-        const isHigh = r.isHighImpact || masterMold?.is_high_impact || false;
-        const totalLife = Math.max(Number(r.totalLifeShots) || 0, Number(masterMold?.total_life) || 0);
+        const uMold = unifiedMap[moldKey];
+        const oldMold = uMold?.oldMold || masterMold?.oldMold || '-';
+        const isHigh = uMold ? uMold.isHighImpact : (r.isHighImpact || masterMold?.is_high_impact || false);
+        const totalLife = Math.max(Number(uMold?.totalLife) || 0, Number(r.totalLifeShots) || 0, Number(masterMold?.total_life) || 0);
 
         const closedMap = getClosedMilestonesMap();
-        let closedMilestones = closedMap[moldKey] || masterMold?.completedMilestones || [];
+        let closedMilestones = uMold?.closedMilestones || closedMap[moldKey] || masterMold?.completedMilestones || [];
 
-        const m1 = Math.round(r.m1_800k || masterMold?.m1_800k || 0);
-        const m2 = Math.round(r.m2_800k || masterMold?.m2_800k || 0);
-        const m3 = Math.round(r.m3_800k || masterMold?.m3_800k || 0);
-        const m4 = Math.round(masterMold?.m4_800k || 0);
-        const m5 = Math.round(masterMold?.m5_800k || 0);
+        const m1 = uMold ? uMold.m1 : Math.round(masterMold?.m1_800k || 0);
+        const m2 = uMold ? uMold.m2 : Math.round(masterMold?.m2_800k || 0);
+        const m3 = uMold ? uMold.m3 : Math.round(masterMold?.m3_800k || 0);
+        const m4 = uMold ? uMold.m4 : Math.round(masterMold?.m4_800k || 0);
+        const m5 = uMold ? uMold.m5 : Math.round(masterMold?.m5_800k || 0);
         const isDone6 = closedMilestones.includes(6);
         const isDone7 = closedMilestones.includes(7);
         const isDone8 = closedMilestones.includes(8);
@@ -2573,17 +2583,20 @@ window.MoldMaintenance = (function() {
           m8 = totalLife;
         }
 
-        let currentCycleNum = 1;
+        let currentCycleNum = uMold?.currentCycleNum || 1;
         while (closedMilestones.includes(currentCycleNum)) currentCycleNum++;
 
         let curShots = 0;
-        if (currentCycleNum === 1) curShots = m1;
-        else if (currentCycleNum === 2) curShots = m2;
-        else if (currentCycleNum === 3) curShots = m3;
-        else if (currentCycleNum === 4) curShots = m4;
-        else if (currentCycleNum === 5) curShots = m5;
-        else curShots = totalLife > 0 ? (totalLife % 800000) : 0;
-        if (Number.isFinite(Number(r.currentCycleShots))) curShots = Math.round(Number(r.currentCycleShots));
+        if (uMold && uMold.curShots !== undefined) {
+          curShots = uMold.curShots;
+        } else {
+          if (currentCycleNum === 1) curShots = m1;
+          else if (currentCycleNum === 2) curShots = m2;
+          else if (currentCycleNum === 3) curShots = m3;
+          else if (currentCycleNum === 4) curShots = m4;
+          else if (currentCycleNum === 5) curShots = m5;
+          else curShots = totalLife > 0 ? (totalLife % 800000) : 0;
+        }
 
         const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife);
         
