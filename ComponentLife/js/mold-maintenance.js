@@ -1194,7 +1194,7 @@ window.MoldMaintenance = (function() {
   // Render ô 400K đơn lẻ trên bảng chính: chỉ ghi số shot kèm màu cảnh báo, chuẩn gọn gàng
   function render400kCell(m) {
     if (!m || !m.isHighImpact) {
-      return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
+      return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:6px 4px; border-left:1px solid #f1f5f9;" title="Không áp dụng mốc 400K (Chỉ dành cho khuôn High-Impact)">-</td>`;
     }
 
     const cycles = get400kCyclesInfo(m);
@@ -1202,51 +1202,55 @@ window.MoldMaintenance = (function() {
     const closedList = cycles.filter(c => c.isClosed);
     const currCycleNum = current ? current.num : 1;
     const currShots = current ? current.shots : 0;
+    const isDue = currShots >= 400000;
+    const isWarn = currShots >= 350000 && !isDue;
 
-    let cellBg = '#f8fafc';
-    let textColor = '#1e293b';
-    let btnBg = '#ffffff';
-    let btnBorder = '1px solid #cbd5e1';
-    let btnColor = '#475569';
+    let cellBg = '#ffffff';
+    let boxBorder = '1.5px solid #cbd5e1';
+    let boxBg = '#ffffff';
+    let boxColor = 'transparent';
+    let subInfoHtml = '';
 
-    if (currShots >= 400000) {
+    if (isDue) {
       cellBg = '#fee2e2';
-      textColor = '#b91c1c';
-      btnBg = '#fee2e2';
-      btnBorder = '1px solid #fca5a5';
-      btnColor = '#b91c1c';
-    } else if (currShots >= 350000) {
+      boxBorder = '2px solid #ef4444';
+      boxBg = '#ffffff';
+      subInfoHtml = `
+        <div style="font-size:10px; font-weight:700; color:#b91c1c; line-height:1.1; margin-top:2px;">
+          ${closedList.length > 0 ? `<span style="color:#15803d; font-weight:800;">✓L${closedList.length}</span> ` : ''}400k-${currCycleNum}
+        </div>
+      `;
+    } else if (isWarn) {
       cellBg = '#fffbeb';
-      textColor = '#b45309';
-      btnBg = '#fef3c7';
-      btnBorder = '1px solid #fcd34d';
-      btnColor = '#b45309';
+      boxBorder = '2px solid #f59e0b';
+      boxBg = '#ffffff';
+      subInfoHtml = `
+        <div style="font-size:10px; font-weight:600; color:#b45309; line-height:1.1; margin-top:2px;">
+          ${closedList.length > 0 ? `<span style="color:#15803d; font-weight:800;">✓L${closedList.length}</span> ` : ''}400k-${currCycleNum}
+        </div>
+      `;
+    } else {
+      cellBg = '#ffffff';
+      boxBorder = '1.5px solid #cbd5e1';
+      boxBg = '#ffffff';
+      subInfoHtml = `
+        <div style="font-size:10px; color:#64748b; line-height:1.1; margin-top:2px;">
+          ${closedList.length > 0 ? `<span style="color:#15803d; font-weight:800;">✓L${closedList.length}</span> ` : ''}400k-${currCycleNum}
+        </div>
+      `;
     }
 
-    const targetKey = currCycleNum <= 3 ? currCycleNum : ('400k-' + currCycleNum);
-    const canConfirm = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
+    const cellTitle = `400K Cữ ${currCycleNum}: ${formatNum(currShots)} / 400.000 shots${isDue ? ' (Quá hạn - Cần bảo dưỡng)' : ''} (Bấm để xem lịch sử & chốt cữ)`;
 
     return `
-      <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:8px 6px; border-left:1px solid #e2e8f0; cursor:pointer;"
+      <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:6px 4px; border-left:1px solid #f1f5f9; cursor:pointer; user-select:none;"
           onclick="MoldMaintenance.open400kDetailModal('${m.mold}')"
-          title="Cữ 400k-${currCycleNum}: ${formatNum(currShots)} shots (Bấm để xem chi tiết các cữ)">
-        <div style="font-size:16.5px; font-weight:${currShots > 0 ? '800' : '500'}; color:${textColor};">
-          ${currShots > 0 ? formatNum(currShots) : '-'}
-        </div>
-        <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
-          <button type="button" onclick="event.stopPropagation(); MoldMaintenance.open400kDetailModal('${m.mold}')"
-            style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:700; display:inline-flex; align-items:center; gap:3px;"
-            title="Chốt bảo dưỡng cữ 400k-${currCycleNum} và upload file kết quả đo (PDF)">
-            <span style="font-size:13px;">${canConfirm ? '☐' : '🔒'}</span>
-            <span>Chốt</span>
-          </button>
-          ${closedList.length > 0 ? `
-            <span onclick="event.stopPropagation(); MoldMaintenance.open400kDetailModal('${m.mold}')"
-              style="cursor:pointer; color:#15803d; font-size:12px; font-weight:700; background:#dcfce7; border:1px solid #86efac; border-radius:4px; padding:2px 5px;"
-              title="Đã hoàn thành ${closedList.length} cữ (Bấm xem chi tiết & PDF)">
-              ✓ L${closedList.length}${closedList.some(c => c.pdf) ? ' 📄' : ''}
-            </span>
-          ` : ''}
+          title="${cellTitle}">
+        <div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;">
+          <div class="mm-excel-tickbox" style="width:20px; height:20px; border-radius:4px; border:${boxBorder}; background:${boxBg}; color:${boxColor}; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; transition:all 0.15s ease;">
+            ${isDue ? '!' : (isWarn ? '!' : '')}
+          </div>
+          ${subInfoHtml}
         </div>
       </td>
     `;
@@ -2786,11 +2790,6 @@ window.MoldMaintenance = (function() {
           const pdfData = detail?.pdf || getMilestonePdf(m.mold, num);
           const mTitle = num === 4 ? '3.0M' : (num === 5 ? '3.5M' : (num === 6 ? '4.0M' : (num === 7 ? '4.5M' : (num === 8 ? '5.0M' : `Mốc ${num}`))));
 
-          // 1. Kiểm tra các mốc không áp dụng -> hiển thị '-'
-          if (shotVal === null || shotVal === undefined) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 4px; font-size:13px;">-</td>`;
-          }
-
           const val = Number(shotVal) || 0;
           let isDue = false;
           let isWarn = false;
@@ -3195,11 +3194,6 @@ window.MoldMaintenance = (function() {
           const detail = getMilestoneDetail(r.moldNo, num);
           const pdfData = detail?.pdf || getMilestonePdf(r.moldNo, num);
           const mTitle = num === 4 ? '3.0M' : (num === 5 ? '3.5M' : (num === 6 ? '4.0M' : (num === 7 ? '4.5M' : (num === 8 ? '5.0M' : `Mốc ${num}`))));
-
-          // 1. Kiểm tra các mốc không áp dụng -> hiển thị '-'
-          if (shotVal === null || shotVal === undefined) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 4px; font-size:13px;">-</td>`;
-          }
 
           const val = Number(shotVal) || 0;
           let isDue = false;
