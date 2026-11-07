@@ -54,6 +54,7 @@ window.MoldMaintenance = (function() {
   }
 
   function setupLazyObserver() {
+    if (typeof IntersectionObserver === 'undefined') return;
     setTimeout(() => {
       const sentinel = document.getElementById('mmLazySentinel');
       if (!sentinel) return;
@@ -1545,6 +1546,61 @@ window.MoldMaintenance = (function() {
       saveMilestoneDetail(moldNo, targetKey, detail);
     }
     open400kDetailModal(moldNo, targetCycleNum);
+  }
+
+  function getMilestonePdfsMap() {
+    try {
+      return JSON.parse(localStorage.getItem(MOLD_PDF_KEY) || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function getMilestonePdf(moldNo, num) {
+    const code = String(moldNo || '').trim().toUpperCase();
+    const map = getMilestonePdfsMap();
+    if (map[code]) {
+      if (map[code][num]) return map[code][num];
+      if (String(num).startsWith('400k-')) {
+        const n = parseInt(num.replace('400k-', ''), 10);
+        if (map[code][n]) return map[code][n];
+      } else if (Number.isFinite(Number(num)) && Number(num) <= 7) {
+        if (map[code]['400k-' + num]) return map[code]['400k-' + num];
+      }
+    }
+    if (rawData && rawData.excelMasterMolds) {
+      const item = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === code);
+      if (item) {
+        if (item.milestonePdfs && item.milestonePdfs[num]) return item.milestonePdfs[num];
+        if (item.milestoneDetails && item.milestoneDetails[num] && item.milestoneDetails[num].pdf) {
+          return item.milestoneDetails[num].pdf;
+        }
+      }
+    }
+    return null;
+  }
+
+  function saveMilestonePdf(moldNo, num, pdfObj) {
+    const code = String(moldNo || '').trim().toUpperCase();
+    const map = getMilestonePdfsMap();
+    if (!map[code]) map[code] = {};
+    if (pdfObj) {
+      map[code][num] = pdfObj;
+    } else {
+      delete map[code][num];
+    }
+    try {
+      localStorage.setItem(MOLD_PDF_KEY, JSON.stringify(map));
+    } catch (e) {}
+
+    if (rawData && rawData.excelMasterMolds) {
+      const item = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === code);
+      if (item) {
+        if (!item.milestonePdfs) item.milestonePdfs = {};
+        if (pdfObj) item.milestonePdfs[num] = pdfObj;
+        else delete item.milestonePdfs[num];
+      }
+    }
   }
 
   function viewMilestonePdf(moldNo, num) {
