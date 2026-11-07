@@ -526,3 +526,58 @@
 #mmAddMoldModal.hidden {
   display: none !important;
 }
+
+/* --- Prominent Horizontal Scroll Container --- */
+.mm-table-scroll-container {
+  overflow-x: auto !important;
+  overflow-y: visible;
+  scrollbar-width: auto;
+  scrollbar-color: #0284c7 #e2e8f0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mm-table-scroll-container::-webkit-scrollbar {
+  height: 14px;
+}
+
+.mm-table-scroll-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.mm-table-scroll-container::-webkit-scrollbar-thumb {
+  background: #0284c7;
+  border-radius: 8px;
+  border: 3px solid #f1f5f9;
+}
+
+.mm-table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #0369a1;
+}
+
+/* Sticky First Column for Mold Name and Machine */
+.mm-sticky-col-1 {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 10 !important;
+  box-shadow: 3px 0 6px rgba(0, 0, 0, 0.06);
+}
+
+.mm-sticky-col-header {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 15 !important;
+  box-shadow: 3px 0 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Pagination Buttons */
+.mm-page-btn {
+  transition: all 0.15s ease-in-out;
+}
+.mm-page-btn:hover:not(:disabled) {
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+  transform: translateY(-1px);
+}
+

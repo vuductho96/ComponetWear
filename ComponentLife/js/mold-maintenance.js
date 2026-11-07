@@ -21,65 +21,120 @@ window.MoldMaintenance = (function() {
   let selectedDay = String(initialToday.getDate()).padStart(2, '0');
   let initialized = false;
 
-  // Cấu hình Lazy Loading (tối đa 30 dòng / 1 lần tải)
+  // Cấu hình Phân trang (Mỗi trang đúng 20 khuôn/máy theo yêu cầu SOP)
   const PAGE_SIZE = 20;
-  let moldVisibleLimit = PAGE_SIZE;
-  let machineVisibleLimit = 99999; // Mặc định hiển thị trọn vẹn toàn bộ 44 máy
-  let isLazyLoading = false;
+  let moldCurrentPage = 1;
+  let machineCurrentPage = 1;
 
-  function loadMoreMolds() {
-    if (isLazyLoading) return;
-    isLazyLoading = true;
-    moldVisibleLimit += PAGE_SIZE;
+  function goToMoldPage(page) {
+    const list = getFilteredMolds();
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    let p = parseInt(page, 10) || 1;
+    if (p < 1) p = 1;
+    if (p > totalPages) p = totalPages;
+    moldCurrentPage = p;
     renderTable();
-    setTimeout(() => { isLazyLoading = false; }, 150);
+    scrollTableToTop();
   }
 
-  function showAllMolds() {
-    moldVisibleLimit = 99999;
+  function goToMachinePage(page) {
+    const list = getFilteredRecords();
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    let p = parseInt(page, 10) || 1;
+    if (p < 1) p = 1;
+    if (p > totalPages) p = totalPages;
+    machineCurrentPage = p;
     renderTable();
+    scrollTableToTop();
   }
 
-  function loadMoreMachines() {
-    if (isLazyLoading) return;
-    isLazyLoading = true;
-    machineVisibleLimit += PAGE_SIZE;
-    renderTable();
-    setTimeout(() => { isLazyLoading = false; }, 150);
+  function scrollTableToTop() {
+    const el = document.getElementById('mmTableContainer');
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
-  function showAllMachines() {
-    machineVisibleLimit = 99999;
-    renderTable();
+  function scrollTableHorizontal(amount) {
+    const box = document.getElementById('mmTableScrollBox');
+    if (box && typeof box.scrollBy === 'function') {
+      box.scrollBy({ left: amount, behavior: 'smooth' });
+    }
   }
 
-  function setupLazyObserver() {
-    if (typeof IntersectionObserver === 'undefined') return;
-    setTimeout(() => {
-      const sentinel = document.getElementById('mmLazySentinel');
-      if (!sentinel) return;
-      if (window._mmLazyObserver) {
-        window._mmLazyObserver.disconnect();
-        window._mmLazyObserver = null;
+  function renderPaginationHtml(currentPage, totalPages, totalCount, onPageChangeFnName, unitName = 'khuôn') {
+    if (totalCount <= 0) return '';
+    const startItem = (currentPage - 1) * PAGE_SIZE + 1;
+    const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
+
+    let pages = [];
+    if (totalPages <= 7) {
+      for (let p = 1; p <= totalPages; p++) pages.push(p);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let p = start; p <= end; p++) {
+        if (!pages.includes(p)) pages.push(p);
       }
-      window._mmLazyObserver = new IntersectionObserver((entries) => {
-        if (entries[0] && entries[0].isIntersecting && !isLazyLoading) {
-          if (currentSubTab === 'molds') {
-            const list = getFilteredMolds();
-            if (moldVisibleLimit < list.length) {
-              loadMoreMolds();
-            }
-          } else {
-            const list = getFilteredRecords();
-            if (machineVisibleLimit < list.length) {
-              loadMoreMachines();
-            }
-          }
-        }
-      }, { rootMargin: '300px' });
-      window._mmLazyObserver.observe(sentinel);
-    }, 60);
+      if (currentPage < totalPages - 2) pages.push('...');
+      if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+
+    let buttonsHtml = '';
+    const isFirst = currentPage <= 1;
+    buttonsHtml += `
+      <button type="button" class="mm-btn mm-page-btn" ${isFirst ? 'disabled' : ''} 
+        onclick="${onPageChangeFnName}(${currentPage - 1})"
+        style="padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; background:${isFirst ? '#f1f5f9' : '#ffffff'}; color:${isFirst ? '#94a3b8' : '#1e293b'}; font-weight:600; font-size:13px; cursor:${isFirst ? 'not-allowed' : 'pointer'}; display:inline-flex; align-items:center; gap:4px;">
+        ◀ Trang trước
+      </button>
+    `;
+
+    pages.forEach(p => {
+      if (p === '...') {
+        buttonsHtml += `<span style="padding:6px 6px; color:#94a3b8; font-weight:700;">…</span>`;
+      } else {
+        const isActive = p === currentPage;
+        buttonsHtml += `
+          <button type="button" class="mm-btn mm-page-btn" 
+            onclick="${onPageChangeFnName}(${p})"
+            style="min-width:36px; padding:6px 10px; border-radius:6px; border:${isActive ? '1px solid #0284c7' : '1px solid #cbd5e1'}; background:${isActive ? '#0284c7' : '#ffffff'}; color:${isActive ? '#ffffff' : '#1e293b'}; font-weight:${isActive ? '800' : '600'}; font-size:13.5px; cursor:pointer;">
+            ${p}
+          </button>
+        `;
+      }
+    });
+
+    const isLast = currentPage >= totalPages;
+    buttonsHtml += `
+      <button type="button" class="mm-btn mm-page-btn" ${isLast ? 'disabled' : ''} 
+        onclick="${onPageChangeFnName}(${currentPage + 1})"
+        style="padding:6px 14px; border-radius:6px; border:${isLast ? '1px solid #cbd5e1' : '1px solid #0284c7'}; background:${isLast ? '#f1f5f9' : '#0284c7'}; color:${isLast ? '#94a3b8' : '#ffffff'}; font-weight:700; font-size:13px; cursor:${isLast ? 'not-allowed' : 'pointer'}; display:inline-flex; align-items:center; gap:4px; box-shadow:${isLast ? 'none' : '0 1px 2px rgba(2,132,199,0.2)'};">
+        Trang tiếp theo ▶
+      </button>
+    `;
+
+    return `
+      <div class="mm-pagination-container" style="margin-top:16px; padding:12px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div style="font-size:14px; font-weight:700; color:#334155;">
+          Đang hiển thị <span style="color:#0284c7; font-weight:800;">${startItem} - ${endItem}</span> trên tổng số <span style="color:#0f172a; font-weight:800;">${totalCount}</span> ${unitName}
+          <span style="font-weight:600; color:#64748b; margin-left:10px; background:#e2e8f0; padding:2px 8px; border-radius:12px; font-size:12.5px;">Trang ${currentPage} / ${totalPages}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          ${buttonsHtml}
+        </div>
+      </div>
+    `;
   }
+
+  // Compatibility aliases
+  function loadMoreMolds() { goToMoldPage(moldCurrentPage + 1); }
+  function showAllMolds() {}
+  function loadMoreMachines() { goToMachinePage(machineCurrentPage + 1); }
+  function showAllMachines() {}
+  function setupLazyObserver() {}
 
   // Cấu hình cột hiển thị mặc định:
   // Ẩn: machineStatus, series, tier, cavity, cycleTime, prodOutput
@@ -258,8 +313,8 @@ window.MoldMaintenance = (function() {
   // Chuyển đổi giữa 2 Bảng: Bảng 1 (Toàn bộ khuôn & Mốc plan) vs Bảng 2 (Live 44 máy)
   function switchTab(tabName) {
     currentSubTab = tabName;
-    moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = 99999; // Mặc định hiển thị đầy đủ 44 máy khi chuyển tab
+    moldCurrentPage = 1;
+    machineCurrentPage = 1;
     const btnMolds = document.getElementById('btnTabMolds');
     const btnMach = document.getElementById('btnTabMachines');
     if (btnMolds) btnMolds.classList.toggle('active', tabName === 'molds');
@@ -286,8 +341,8 @@ window.MoldMaintenance = (function() {
   function onStatusFilterChange() {
     const sel = document.getElementById('mmStatusSelect');
     filterStatus = sel ? sel.value : 'all';
-    moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = 99999;
+    moldCurrentPage = 1;
+    machineCurrentPage = 1;
     renderTable();
   }
 
@@ -756,7 +811,7 @@ window.MoldMaintenance = (function() {
       return matchText && matchTier && matchStatus;
     });
 
-    // Luôn hiển thị báo đỏ từ trên xuống (Đỏ -> Vàng -> An toàn)
+    // Luôn hiển thị khuôn cần chốt / báo đỏ lên đầu (Đỏ -> Vàng -> An toàn)
     list.sort((a, b) => {
       const getPriority = (r) => {
         const masterMold = (rawData.excelMasterMolds || []).find(m => 
@@ -767,13 +822,51 @@ window.MoldMaintenance = (function() {
         const totalLife = Math.max(Number(r.totalLifeShots) || 0, Number(masterMold?.total_life) || 0);
         const curShots = Number(r.currentCycleShots || r.m1_800k || 0);
         const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife);
-        if (evalData.status === 'due') return 1;
-        if (evalData.status === 'warning') return 2;
-        return 3;
+
+        let priority = 3;
+        let maxRatio = 0;
+        let overShots = 0;
+
+        // Kiểm tra cữ 400K nếu là High-Impact
+        if (isHigh && masterMold) {
+          const cycles = get400kCyclesInfo(masterMold);
+          const curr = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
+          if (curr && !curr.isClosed) {
+            if (curr.shots >= 400000) {
+              priority = 1;
+              overShots = Math.max(overShots, curr.shots - 400000);
+              maxRatio = Math.max(maxRatio, curr.shots / 400000);
+            } else if (curr.shots >= 350000 && priority > 1) {
+              priority = 2;
+              maxRatio = Math.max(maxRatio, curr.shots / 400000);
+            }
+          }
+        }
+
+        if (evalData.status === 'due') {
+          priority = 1;
+          const plan = evalData.plan || 500000;
+          overShots = Math.max(overShots, curShots >= plan ? curShots - plan : curShots);
+          maxRatio = Math.max(maxRatio, curShots / plan);
+        } else if (evalData.status === 'warning' && priority > 1) {
+          priority = 2;
+          const plan = evalData.plan || 500000;
+          maxRatio = Math.max(maxRatio, curShots / plan);
+        }
+
+        return { priority, maxRatio, overShots };
       };
+
       const pA = getPriority(a);
       const pB = getPriority(b);
-      if (pA !== pB) return pA - pB;
+      if (pA.priority !== pB.priority) return pA.priority - pB.priority;
+      if (pA.priority <= 2) {
+        if (pB.maxRatio !== pA.maxRatio) return pB.maxRatio - pA.maxRatio;
+        return pB.overShots - pA.overShots;
+      }
+      const runA = a.machineStatus === 'Running' ? 1 : 0;
+      const runB = b.machineStatus === 'Running' ? 1 : 0;
+      if (runA !== runB) return runB - runA;
       return (Number(b.currentCycleShots || b.m1_800k || 0)) - (Number(a.currentCycleShots || a.m1_800k || 0));
     });
 
@@ -783,8 +876,8 @@ window.MoldMaintenance = (function() {
   function onTierFilterChange() {
     const sel = document.getElementById('mmTierSelect');
     filterTier = sel ? sel.value : 'all';
-    moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = 99999;
+    moldCurrentPage = 1;
+    machineCurrentPage = 1;
     renderTable();
   }
 
@@ -2467,80 +2560,86 @@ window.MoldMaintenance = (function() {
     return Object.values(allMoldsMap);
   }
 
-  // Hàm đánh giá các mốc bảo dưỡng CHƯA CHỐT mà đã đến hạn hoặc sắp đến hạn
-  function getUnclosedDueInfo(m) {
-    if (!m) return { tier: 3, maxRatio: 0, highestVal: 0 };
-    const closed = Array.isArray(m.closedMilestones) ? m.closedMilestones : [];
-    const isHigh = Boolean(m.isHighImpact);
-    const moldLife = Number(m.totalLife || m.total_life || 0);
-    const isHighBefore3M = isHigh && moldLife < 3000000;
-    const isStandardBefore3M = !isHigh && moldLife < 3000000;
+  // Hàm xác định mức độ ưu tiên của khuôn cần chốt bảo dưỡng
+  // Priority 1: CẦN CHỐT NGAY (ĐỎ) - Quá hạn 400K (High-Impact), hoặc chạm mốc chu kỳ định kỳ (≥500K), hoặc mốc 3M/3.5M/4M/4.5M/5M
+  // Priority 2: SẮP CẦN CHỐT (VÀNG) - Cảnh báo sớm 400K (≥350K/380K), hoặc sắp chạm mốc (≥470K, 2.8M~3.0M)
+  // Priority 3: AN TOÀN / BÌNH THƯỜNG / ĐÃ CHỐT
+  function getMoldDuePriority(m) {
+    if (!m) return { priority: 3, overShots: 0, maxRatio: 0, reason: '' };
 
-    let bestTier = 3;
+    let priority = 3;
+    let overShots = 0;
     let maxRatio = 0;
-    let highestVal = 0;
+    let reason = '';
 
-    // 1. Mốc 1, 2, 3 (400K-1, 400K-2, 400K-3): Chỉ xét cho High-Impact < 3M
-    if (isHighBefore3M) {
-      for (let c = 1; c <= 3; c++) {
-        if (closed.includes(c)) continue;
-        const val = Number(m['m' + c]) || 0;
-        if (val <= 0) continue;
-        const targetLimit = 400000;
-        const warnLimit = 380000;
-        const ratio = val / targetLimit;
-        if (ratio > maxRatio) {
-          maxRatio = ratio;
-          highestVal = val;
+    // 1. Kiểm tra 400K cho High-Impact
+    if (m.isHighImpact) {
+      const cycles = get400kCyclesInfo(m);
+      const curr = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
+      if (curr && !curr.isClosed) {
+        if (curr.shots >= 400000) {
+          priority = 1;
+          overShots = Math.max(overShots, curr.shots - 400000);
+          maxRatio = Math.max(maxRatio, curr.shots / 400000);
+          reason = `400k cữ ${curr.num} (${formatNum(curr.shots)} ≥ 400K)`;
+        } else if (curr.shots >= 350000 && priority > 1) {
+          priority = 2;
+          maxRatio = Math.max(maxRatio, curr.shots / 400000);
+          reason = `400k cữ ${curr.num} cảnh báo (${formatNum(curr.shots)})`;
         }
-        if (val >= targetLimit) bestTier = 1;
-        else if (val >= warnLimit && bestTier > 1) bestTier = 2;
       }
     }
 
-    // 2. Mốc 4 (3.0M): Xét cho tất cả khuôn
-    if (!closed.includes(4)) {
-      if (moldLife >= 3000000) {
-        bestTier = 1;
-        maxRatio = Math.max(maxRatio, moldLife / 3000000);
-      } else if (moldLife >= 2800000 && bestTier > 1) {
-        bestTier = 2;
-        maxRatio = Math.max(maxRatio, moldLife / 3000000);
-      }
-    }
-
-    // 3. Mốc 5 (3.5M): Khi khuôn đạt >= 3M
-    if (moldLife >= 3000000 && !closed.includes(5)) {
-      if (moldLife >= 3500000) bestTier = 1;
-      else if (moldLife >= 3470000 && bestTier > 1) bestTier = 2;
-    }
-
-    // 4. Mốc 6 (4.0M): Khi khuôn đạt >= 3.5M
-    if (moldLife >= 3500000 && !closed.includes(6)) {
-      if (moldLife >= 4000000) bestTier = 1;
-      else if (moldLife >= 3970000 && bestTier > 1) bestTier = 2;
-    }
-
-    // 5. Mốc 7 (4.5M): Khi khuôn đạt >= 4.0M
-    if (moldLife >= 4000000 && !closed.includes(7)) {
-      if (moldLife >= 4500000) bestTier = 1;
-      else if (moldLife >= 4300000 && bestTier > 1) bestTier = 2;
-    }
-
-    // 6. Mốc 8 (5.0M): Khi khuôn đạt >= 4.5M
-    if (moldLife >= 4500000 && !closed.includes(8)) {
-      if (moldLife >= 5000000) bestTier = 1;
-      else if (moldLife >= 4800000 && bestTier > 1) bestTier = 2;
-    }
-
-    // Nếu trạng thái tổng thể m.status báo due hoặc warning
+    // 2. Trạng thái chung m.status (chu kỳ 500K sau 3M hoặc chu kỳ hiện tại)
     if (m.status === 'due') {
-      bestTier = 1;
-    } else if (m.status === 'warning' && bestTier > 1) {
-      bestTier = 2;
+      priority = 1;
+      const plan = m.planMilestone || 500000;
+      const cur = Number(m.curShots) || 0;
+      overShots = Math.max(overShots, cur >= plan ? (cur - plan) : cur);
+      maxRatio = Math.max(maxRatio, cur / plan);
+      if (!reason) reason = `Chu kỳ (${formatNum(cur)} ≥ ${formatNum(plan)})`;
+    } else if (m.status === 'warning' && priority > 1) {
+      priority = 2;
+      const plan = m.planMilestone || 500000;
+      const cur = Number(m.curShots) || 0;
+      maxRatio = Math.max(maxRatio, cur / plan);
+      if (!reason) reason = `Sắp đến hạn (${formatNum(cur)} / ${formatNum(plan)})`;
     }
 
-    return { tier: bestTier, maxRatio, highestVal };
+    // 3. Kiểm tra mốc 3.0M (m4) nếu khuôn chưa chốt mốc 4
+    const closed = Array.isArray(m.closedMilestones) ? m.closedMilestones : [];
+    if (!closed.includes(4) && m.m4 != null) {
+      const val4 = Number(m.m4) || 0;
+      if (val4 >= 3000000) {
+        priority = 1;
+        overShots = Math.max(overShots, val4 - 3000000);
+        maxRatio = Math.max(maxRatio, val4 / 3000000);
+        if (!reason) reason = `Mốc 3.0M (${formatNum(val4)} ≥ 3.0M)`;
+      } else if (val4 >= 2800000 && priority > 1) {
+        priority = 2;
+        maxRatio = Math.max(maxRatio, val4 / 3000000);
+        if (!reason) reason = `Sắp chạm 3.0M (${formatNum(val4)})`;
+      }
+    }
+
+    // 4. Kiểm tra các mốc 3.5M, 4.0M, 4.5M, 5.0M (m5, m6, m7, m8)
+    for (let c = 5; c <= 8; c++) {
+      if (!closed.includes(c) && m['m' + c] != null) {
+        const val = Number(m['m' + c]) || 0;
+        if (val >= 500000) {
+          priority = 1;
+          overShots = Math.max(overShots, val - 500000);
+          maxRatio = Math.max(maxRatio, val / 500000);
+          if (!reason) reason = `Mốc ${c === 5 ? '3.5M' : c === 6 ? '4.0M' : c === 7 ? '4.5M' : '5.0M'} (${formatNum(val)} ≥ 500K)`;
+        } else if (val >= 470000 && priority > 1) {
+          priority = 2;
+          maxRatio = Math.max(maxRatio, val / 500000);
+          if (!reason) reason = `Mốc ${c === 5 ? '3.5M' : c === 6 ? '4.0M' : c === 7 ? '4.5M' : '5.0M'} (${formatNum(val)} ≥ 470K)`;
+        }
+      }
+    }
+
+    return { priority, overShots, maxRatio, reason };
   }
 
   function getFilteredMolds() {
@@ -2568,37 +2667,33 @@ window.MoldMaintenance = (function() {
       return matchText && matchTier && matchStatus;
     });
 
-    // Hàm xác định mức độ ưu tiên của khuôn có mốc CHƯA CHỐT mà đã đến hạn hoặc sắp đến hạn
-    // Tier 1: ĐẾN HẠN / QUÁ HẠN CHƯA CHỐT (ĐỎ: val >= 500K hoặc >= 400K với High-Impact < 3M)
-    // Tier 2: SẮP ĐẾN HẠN CHƯA CHỐT (VÀNG/CAM: 470K-500K hoặc 380K-400K với High-Impact < 3M)
-    // Tier 3: AN TOÀN HOẶC ĐÃ CHỐT
+    // Mặc định đẩy toàn bộ các khuôn CẦN CHỐT lên đầu (Đỏ -> Vàng -> An toàn)
     filtered.sort((a, b) => {
-      const infoA = getUnclosedDueInfo(a);
-      const infoB = getUnclosedDueInfo(b);
+      const pA = getMoldDuePriority(a);
+      const pB = getMoldDuePriority(b);
 
-      // Ưu tiên 1: Đưa mấy con chưa chốt mà đến hạn (Tier 1 & Tier 2) lên trên đầu bảng
-      if (infoA.tier !== infoB.tier) {
-        return infoA.tier - infoB.tier;
+      // Ưu tiên 1: Đẩy khuôn cần chốt lên đầu (Priority 1: Đỏ -> Priority 2: Vàng -> Priority 3: An toàn)
+      if (pA.priority !== pB.priority) {
+        return pA.priority - pB.priority;
       }
 
-      // Trong cùng nhóm Tier 1 hoặc Tier 2: Ưu tiên con có tỷ lệ % chạm mốc cao nhất lên trước
-      if (infoA.tier <= 2) {
-        if (infoB.maxRatio !== infoA.maxRatio) {
-          return infoB.maxRatio - infoA.maxRatio;
-        }
+      // Trong cùng nhóm cần chốt: Xếp con có tỷ lệ % hoặc số shot vượt mốc cao nhất lên trước
+      if (pA.priority <= 2) {
+        if (pB.maxRatio !== pA.maxRatio) return pB.maxRatio - pA.maxRatio;
+        if (pB.overShots !== pA.overShots) return pB.overShots - pA.overShots;
       }
 
-      // Nhóm Tier 3 (An toàn / Đã chốt): Duy trì logic ưu tiên khuôn có sản lượng thực tế trong tháng
-      const histA = a.monthlyHistory || {};
-      const histB = b.monthlyHistory || {};
-      const m11A = Number(histA.M11 || 0) + (a.machineNo !== '-' ? Number(a.curShots || 0) : 0);
-      const m11B = Number(histB.M11 || 0) + (b.machineNo !== '-' ? Number(b.curShots || 0) : 0);
-      const hasShotsA = (m11A > 0 || (Number(a.curShots) || 0) > 0) ? 1 : 0;
-      const hasShotsB = (m11B > 0 || (Number(b.curShots) || 0) > 0) ? 1 : 0;
-      if (hasShotsA !== hasShotsB) return hasShotsB - hasShotsA;
-      if (m11A !== m11B) return m11B - m11A;
+      // Nhóm An toàn / Đã chốt: Ưu tiên khuôn đang chạy trên máy (machineNo !== '-')
+      const runA = a.machineNo && a.machineNo !== '-' ? 1 : 0;
+      const runB = b.machineNo && b.machineNo !== '-' ? 1 : 0;
+      if (runA !== runB) return runB - runA;
 
-      return (Number(b.curShots) || 0) - (Number(a.curShots) || 0);
+      // Ưu tiên khuôn có sản lượng thực tế trong năm
+      const totA = Number(a.totalYear) || Number(a.totalAccumulatedYear) || (Number(a.curShots) || 0);
+      const totB = Number(b.totalYear) || Number(b.totalAccumulatedYear) || (Number(b.curShots) || 0);
+      if (totA !== totB) return totB - totA;
+
+      return (a.mold || '').localeCompare(b.mold || '');
     });
 
     return filtered;
@@ -2611,7 +2706,11 @@ window.MoldMaintenance = (function() {
     const all = getAllUnifiedMolds();
     const list = getFilteredMolds();
     const totalCount = list.length;
-    const visibleList = list.slice(0, moldVisibleLimit);
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    if (moldCurrentPage > totalPages) moldCurrentPage = totalPages;
+    if (moldCurrentPage < 1) moldCurrentPage = 1;
+    const startIndex = (moldCurrentPage - 1) * PAGE_SIZE;
+    const visibleList = list.slice(startIndex, startIndex + PAGE_SIZE);
 
     // Determine max milestone number across all molds (minimum 8: Mốc 1-5 theo chu kỳ năm, Mốc 6 3M, Mốc 7 4.5M, Mốc 8 5M)
     let maxMilestoneCols = 8;
@@ -2657,11 +2756,25 @@ window.MoldMaintenance = (function() {
 
     let html = `
       ${getMilestoneLegendHtml()}
-      <div style="overflow-x:auto;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px; padding:6px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
+        <div style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#334155;">
+          <span>↔️ Thanh cuộn ngang:</span>
+          <span style="font-weight:normal; color:#64748b; font-size:12px;">Kéo thanh cuộn bên dưới hoặc bấm nút điều hướng nhanh:</span>
+        </div>
+        <div style="display:inline-flex; align-items:center; gap:6px;">
+          <button type="button" onclick="MoldMaintenance.scrollTableHorizontal(-500)" class="mm-btn" style="padding:4px 10px; border-radius:5px; border:1px solid #cbd5e1; background:#ffffff; color:#334155; font-size:12px; font-weight:700; cursor:pointer;" title="Cuộn sang trái về các cột tháng T1..T6">
+            ◀ Cuộn trái (T1..T6)
+          </button>
+          <button type="button" onclick="MoldMaintenance.scrollTableHorizontal(500)" class="mm-btn" style="padding:4px 10px; border-radius:5px; border:1px solid #0284c7; background:#eff6ff; color:#0284c7; font-size:12px; font-weight:700; cursor:pointer;" title="Cuộn sang phải xem các mốc 400K, 3.0M - 5.0M">
+            Cuộn phải (400K, 3M..5M) ▶
+          </button>
+        </div>
+      </div>
+      <div id="mmTableScrollBox" class="mm-table-scroll-container" style="overflow-x:auto; width:100%; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff;">
         <table class="mm-table">
           <thead>
             <tr>
-              <th style="min-width:130px;">Tên Khuôn</th>
+              <th class="mm-sticky-col-header" style="min-width:130px; position:sticky; left:0; z-index:15; background:#f8fafc;">Tên Khuôn</th>
               ${moldColPrefs.series ? '<th>Dòng Sản Phẩm (Series)</th>' : ''}
               ${moldColPrefs.tier ? '<th class="text-center">Tiêu Chuẩn</th>' : ''}
               ${moldColPrefs.machine ? '<th class="text-center">Máy Đang Ép</th>' : ''}
@@ -2843,7 +2956,7 @@ window.MoldMaintenance = (function() {
 
         html += `
           <tr style="${m.status === 'due' ? 'background:#fff1f2;' : (m.status === 'warning' ? 'background:#fffbeb;' : '')}">
-            <td class="font-mono" style="vertical-align:middle; padding:8px 10px;">
+            <td class="font-mono mm-sticky-col-1" style="vertical-align:middle; padding:8px 10px; position:sticky; left:0; z-index:10; background:${m.status === 'due' ? '#fff1f2' : (m.status === 'warning' ? '#fffbeb' : '#ffffff')};">
               <div style="font-weight:700; color:#0f172a; font-size:15px; letter-spacing:0.2px;" title="${m.oldMold && m.oldMold !== '-' ? 'Mã cũ: ' + m.oldMold : ''}${m.series && m.series !== '-' ? ' | ' + m.series : ''}">
                 ${displayMoldName}
               </div>
@@ -2922,29 +3035,7 @@ window.MoldMaintenance = (function() {
     }
 
     html += `</tbody></table></div>`;
-
-    if (totalCount > 0) {
-      html += `
-        <div style="margin-top:16px; padding:12px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-          <div style="font-size:14px; font-weight:700; color:#334155;">
-            Đang hiển thị <span style="color:#0284c7; font-weight:800;">1 - ${Math.min(moldVisibleLimit, totalCount)}</span> trên tổng số <span style="color:#0f172a; font-weight:800;">${totalCount}</span> khuôn
-            ${moldVisibleLimit < totalCount ? `<span style="font-weight:normal; color:#64748b; margin-left:8px;">(Cuộn xuống để tự động tải thêm 30)</span>` : `<span style="color:#15803d; font-weight:700; margin-left:8px;">✓ Đã hiển thị tất cả</span>`}
-          </div>
-          ${moldVisibleLimit < totalCount ? `
-            <div style="display:flex; align-items:center; gap:8px;">
-              <button type="button" onclick="MoldMaintenance.loadMoreMolds()" class="mm-btn" style="padding:6px 14px; background:#0284c7; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer;">
-                ⬇ Tải thêm 20 khuôn
-              </button>
-              <button type="button" onclick="MoldMaintenance.showAllMolds()" class="mm-btn" style="padding:6px 14px; background:#ffffff; color:#334155; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">
-                Xem tất cả (${totalCount})
-              </button>
-            </div>
-          ` : ''}
-        </div>
-        ${moldVisibleLimit < totalCount ? `<div id="mmLazySentinel" style="height:25px; margin-top:5px;"></div>` : ''}
-      `;
-    }
-
+    html += renderPaginationHtml(moldCurrentPage, totalPages, totalCount, 'MoldMaintenance.goToMoldPage', 'khuôn');
     container.innerHTML = html;
   }
 
@@ -2968,7 +3059,11 @@ window.MoldMaintenance = (function() {
   function renderDailySheet(container) {
     const list = getFilteredRecords();
     const totalCount = list.length;
-    const visibleList = list.slice(0, machineVisibleLimit);
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    if (machineCurrentPage > totalPages) machineCurrentPage = totalPages;
+    if (machineCurrentPage < 1) machineCurrentPage = 1;
+    const startIndex = (machineCurrentPage - 1) * PAGE_SIZE;
+    const visibleList = list.slice(startIndex, startIndex + PAGE_SIZE);
     const dayLabel = selectedDay === 'all' ? 'Tất cả các ngày' : `Ngày ${selectedDay}/${selectedMonth}/${selectedYear}`;
     const todayNow = new Date();
     const curYearNow = todayNow.getFullYear();
@@ -2992,11 +3087,25 @@ window.MoldMaintenance = (function() {
 
     let html = `
       ${getMilestoneLegendHtml()}
-      <div style="overflow-x:auto;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px; padding:6px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
+        <div style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#334155;">
+          <span>↔️ Thanh cuộn ngang:</span>
+          <span style="font-weight:normal; color:#64748b; font-size:12px;">Kéo thanh cuộn bên dưới hoặc bấm nút điều hướng:</span>
+        </div>
+        <div style="display:inline-flex; align-items:center; gap:6px;">
+          <button type="button" onclick="MoldMaintenance.scrollTableHorizontal(-500)" class="mm-btn" style="padding:4px 10px; border-radius:5px; border:1px solid #cbd5e1; background:#ffffff; color:#334155; font-size:12px; font-weight:700; cursor:pointer;" title="Cuộn sang trái">
+            ◀ Cuộn trái
+          </button>
+          <button type="button" onclick="MoldMaintenance.scrollTableHorizontal(500)" class="mm-btn" style="padding:4px 10px; border-radius:5px; border:1px solid #0284c7; background:#eff6ff; color:#0284c7; font-size:12px; font-weight:700; cursor:pointer;" title="Cuộn sang phải xem các mốc 400K, 3.0M - 5.0M">
+            Cuộn phải (400K, 3M..5M) ▶
+          </button>
+        </div>
+      </div>
+      <div id="mmTableScrollBox" class="mm-table-scroll-container" style="overflow-x:auto; width:100%; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff;">
         <table class="mm-table">
           <thead>
             <tr>
-              <th class="text-center">Mã Máy</th>
+              <th class="text-center mm-sticky-col-header" style="position:sticky; left:0; z-index:15; background:#f8fafc; min-width:80px;">Mã Máy</th>
               <th style="min-width:120px;">Tên Khuôn</th>
               ${colPrefs.series ? '<th>Dòng Sản Phẩm (Series)</th>' : ''}
               ${colPrefs.tier ? '<th class="text-center">Tiêu Chuẩn</th>' : ''}
@@ -3241,7 +3350,7 @@ window.MoldMaintenance = (function() {
 
         html += `
           <tr style="${evalData.status === 'due' ? 'background:#fff1f2;' : (evalData.status === 'warning' ? 'background:#fffbeb;' : '')}">
-            <td class="text-center font-bold font-mono">
+            <td class="text-center font-bold font-mono mm-sticky-col-1" style="vertical-align:middle; position:sticky; left:0; z-index:10; background:${evalData.status === 'due' ? '#fff1f2' : (evalData.status === 'warning' ? '#fffbeb' : '#ffffff')};">
               <span style="color:#0284c7; font-size:16px; font-weight:800;">${r.machineNo}</span>
             </td>
             <td class="font-mono" style="vertical-align:middle; padding:8px 10px;">
@@ -3302,29 +3411,7 @@ window.MoldMaintenance = (function() {
     }
 
     html += `</tbody></table></div>`;
-
-    if (totalCount > 0) {
-      html += `
-        <div style="margin-top:16px; padding:12px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-          <div style="font-size:14px; font-weight:700; color:#334155;">
-            Đang hiển thị <span style="color:#0284c7; font-weight:800;">1 - ${Math.min(machineVisibleLimit, totalCount)}</span> trên tổng số <span style="color:#0f172a; font-weight:800;">${totalCount}</span> máy
-            ${machineVisibleLimit < totalCount ? `<span style="font-weight:normal; color:#64748b; margin-left:8px;">(Cuộn xuống để tự động tải tiếp 30)</span>` : `<span style="color:#15803d; font-weight:700; margin-left:8px;">✓ Đã hiển thị tất cả</span>`}
-          </div>
-          ${machineVisibleLimit < totalCount ? `
-            <div style="display:flex; align-items:center; gap:8px;">
-              <button type="button" onclick="MoldMaintenance.loadMoreMachines()" class="mm-btn" style="padding:6px 14px; background:#0284c7; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer;">
-                ⬇ Tải thêm 20 máy
-              </button>
-              <button type="button" onclick="MoldMaintenance.showAllMachines()" class="mm-btn" style="padding:6px 14px; background:#ffffff; color:#334155; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">
-                Xem tất cả (${totalCount})
-              </button>
-            </div>
-          ` : ''}
-        </div>
-        ${machineVisibleLimit < totalCount ? `<div id="mmLazySentinel" style="height:25px; margin-top:5px;"></div>` : ''}
-      `;
-    }
-
+    html += renderPaginationHtml(machineCurrentPage, totalPages, totalCount, 'MoldMaintenance.goToMachinePage', 'máy');
     container.innerHTML = html;
   }
 
@@ -4448,8 +4535,8 @@ window.MoldMaintenance = (function() {
   // Chuyển đổi Sub-Tab
   function setSubTab(tabName) {
     currentSubTab = tabName;
-    moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = 99999;
+    moldCurrentPage = 1;
+    machineCurrentPage = 1;
     document.querySelectorAll('.mm-subtab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.subtab === tabName);
     });
@@ -4459,8 +4546,8 @@ window.MoldMaintenance = (function() {
 
   // Xử lý bộ lọc (Chặn triệt để autofill email từ trình duyệt)
   function onSearchInput(val) {
-    moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = 99999;
+    moldCurrentPage = 1;
+    machineCurrentPage = 1;
     if (val && (val.includes('@') || val.includes('.com'))) {
       const s = document.getElementById('mmSearchInput');
       if (s) s.value = '';
@@ -4473,8 +4560,8 @@ window.MoldMaintenance = (function() {
   }
 
   function onDateFilterChange() {
-    moldVisibleLimit = PAGE_SIZE;
-    machineVisibleLimit = 99999;
+    moldCurrentPage = 1;
+    machineCurrentPage = 1;
     const y = document.getElementById('mmYearSelect')?.value;
     const m = document.getElementById('mmMonthSelect')?.value;
     const d = document.getElementById('mmDaySelect')?.value;
@@ -4691,6 +4778,9 @@ window.MoldMaintenance = (function() {
     onNewPdfSelected,
     viewMilestonePdf,
     getMilestonePdf,
+    goToMoldPage,
+    goToMachinePage,
+    scrollTableHorizontal,
     loadMoreMolds,
     showAllMolds,
     loadMoreMachines,
