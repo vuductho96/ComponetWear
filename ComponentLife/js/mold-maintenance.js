@@ -108,7 +108,7 @@ window.MoldMaintenance = (function() {
     if (colPrefs.totalYear === undefined) colPrefs.totalYear = true;
   } catch (e) {}
 
-  const MOLD_STORAGE_KEY = 'mm_mold_col_prefs_v14';
+  const MOLD_STORAGE_KEY = 'mm_mold_col_prefs_v15';
   let moldColPrefs = {
     lastYear: false,   // Số shot còn lại năm trước (Last Year carryover): Mặc định ẨN theo yêu cầu
     months: true,      // 12 cột tháng (T1..T12): Mặc định HIỆN (như bảng SHOT COUNT MONITOR PER MONTH)
@@ -974,10 +974,24 @@ window.MoldMaintenance = (function() {
   function getMilestoneDetail(moldNo, num) {
     const code = String(moldNo || '').trim().toUpperCase();
     const map = getMilestoneDetailsMap();
-    if (map[code] && map[code][num]) return map[code][num];
+    if (map[code]) {
+      if (map[code][num]) return map[code][num];
+      if (String(num).startsWith('400k-')) {
+        const n = parseInt(num.replace('400k-', ''), 10);
+        if (map[code][n]) return map[code][n];
+      } else if (Number.isFinite(Number(num)) && Number(num) <= 7) {
+        if (map[code]['400k-' + num]) return map[code]['400k-' + num];
+      }
+    }
     if (rawData && rawData.excelMasterMolds) {
       const item = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === code);
-      if (item && item.milestoneDetails && item.milestoneDetails[num]) return item.milestoneDetails[num];
+      if (item && item.milestoneDetails) {
+        if (item.milestoneDetails[num]) return item.milestoneDetails[num];
+        if (String(num).startsWith('400k-')) {
+          const n = parseInt(num.replace('400k-', ''), 10);
+          if (item.milestoneDetails[n]) return item.milestoneDetails[n];
+        }
+      }
     }
     const pdf = getMilestonePdf(moldNo, num);
     if (pdf && pdf.date) {
@@ -1055,6 +1069,242 @@ window.MoldMaintenance = (function() {
         </span>
       </div>
     `;
+  }
+
+  // Thông tin các cữ 400K của khuôn High-Impact (cữ 1 đến 7)
+  function get400kCyclesInfo(m) {
+    const code = String(m?.mold || '').trim().toUpperCase();
+    const closedMap = getClosedMilestonesMap();
+    const closedList = m?.closedMilestones || closedMap[code] || [];
+    const totalYear = Number(m?.totalYear) || Number(m?.totalAccumulatedYear) || 0;
+
+    const cycles = [];
+    let remainingShots = totalYear;
+
+    for (let i = 1; i <= 7; i++) {
+      const cycleKey = i <= 3 ? i : ('400k-' + i);
+      const isClosed = closedList.includes(i) || closedList.includes('400k-' + i) || closedList.includes(String(i));
+      const detail = getMilestoneDetail(code, cycleKey) || getMilestoneDetail(code, i);
+      const pdf = detail?.pdf || getMilestonePdf(code, cycleKey) || getMilestonePdf(code, i);
+
+      let closedShots = 0;
+      let cycleShots = 0;
+
+      if (isClosed) {
+        closedShots = Number(detail?.closedShots) || (i === 1 ? (m?.m1 || 400000) : (i === 2 ? (m?.m2 || 400000) : 400000));
+        cycleShots = closedShots;
+        remainingShots = Math.max(0, remainingShots - closedShots);
+      } else {
+        cycleShots = remainingShots;
+        remainingShots = 0;
+      }
+
+      cycles.push({
+        num: i,
+        name: '400k-' + i,
+        key: cycleKey,
+        isClosed,
+        closedShots,
+        shots: cycleShots,
+        date: detail?.date || '',
+        tech: detail?.tech || '',
+        note: detail?.note || '',
+        pdf
+      });
+    }
+
+    return cycles;
+  }
+
+  // Render ô 400K đơn lẻ trên bảng chính: hiển thị cữ hiện tại + badge cữ đã xong
+  function render400kCell(m) {
+    if (!m || !m.isHighImpact) {
+      return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
+    }
+
+    const cycles = get400kCyclesInfo(m);
+    const current = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
+    const closedList = cycles.filter(c => c.isClosed);
+    const currCycleNum = current ? current.num : 1;
+    const currShots = current ? current.shots : 0;
+
+    let cellBg = '#f0fdf4';
+    let textColor = '#15803d';
+    let warnIcon = '';
+    let btnBg = '#ffffff';
+    let btnBorder = '1px solid #86efac';
+    let btnColor = '#15803d';
+
+    if (currShots >= 400000) {
+      cellBg = '#fee2e2';
+      textColor = '#991b1b';
+      warnIcon = '⛔ ';
+      btnBg = '#dc2626';
+      btnBorder = '1px solid #b91c1c';
+      btnColor = '#ffffff';
+    } else if (currShots >= 350000) {
+      cellBg = '#fffbeb';
+      textColor = '#b45309';
+      warnIcon = '⚠️ ';
+      btnBg = '#f59e0b';
+      btnBorder = '1px solid #d97706';
+      btnColor = '#ffffff';
+    }
+
+    let closedBadgesHtml = '';
+    if (closedList.length > 0) {
+      closedList.forEach(c => {
+        const pdfIcon = c.pdf ? ' 📄' : '';
+        closedBadgesHtml += `
+          <span onclick="event.stopPropagation(); MoldMaintenance.open400kDetailModal('${m.mold}')"
+            style="display:inline-flex; align-items:center; gap:2px; font-size:10px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac; border-radius:3px; padding:1px 4px; cursor:pointer;"
+            title="Cữ 400k-${c.num} đã chốt (${formatNum(c.closedShots)} shots) - Bấm xem chi tiết">
+            ✓ L${c.num}${pdfIcon}
+          </span>
+        `;
+      });
+    }
+
+    const targetKey = currCycleNum <= 3 ? currCycleNum : ('400k-' + currCycleNum);
+
+    return `
+      <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:6px 6px; border-left:1px solid #e2e8f0; cursor:pointer;"
+          onclick="MoldMaintenance.open400kDetailModal('${m.mold}')"
+          title="Bấm để mở bảng chi tiết các cữ bảo dưỡng 400K của khuôn ${m.mold}">
+        <div style="display:flex; align-items:center; justify-content:center; gap:4px; margin-bottom:3px;">
+          <span style="font-weight:800; font-family:monospace; font-size:12px; color:${textColor};">
+            ${warnIcon}400k-${currCycleNum}: ${formatNum(currShots)}
+          </span>
+          <button type="button" onclick="event.stopPropagation(); MoldMaintenance.openMilestoneModal('${m.mold}', ${currCycleNum <= 3 ? currCycleNum : ('\'' + targetKey + '\'')}, true)"
+            style="padding:2px 6px; font-size:11px; font-weight:700; border-radius:4px; background:${btnBg}; color:${btnColor}; border:${btnBorder}; cursor:pointer;"
+            title="Chốt bảo dưỡng cữ 400k-${currCycleNum} và upload file kết quả đo (PDF)">
+            ☐ Chốt
+          </button>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:3px; flex-wrap:wrap;">
+          ${closedBadgesHtml}
+          <span style="font-size:10px; color:#0284c7; text-decoration:underline;">[Chi tiết]</span>
+        </div>
+      </td>
+    `;
+  }
+
+  // Mở popup bảng nhỏ chi tiết các cữ bảo dưỡng 400K
+  function open400kDetailModal(moldNo) {
+    const code = String(moldNo || '').trim().toUpperCase();
+    const allMolds = getAllUnifiedMolds();
+    const m = allMolds.find(x => (x.mold || '').toUpperCase() === code);
+    if (!m) return;
+
+    let modal = document.getElementById('mm400kDetailModal');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('mm400kMoldTitle');
+    if (titleEl) titleEl.textContent = code;
+
+    const bannerEl = document.getElementById('mm400kCurrentShotBanner');
+    const tbodyEl = document.getElementById('mm400kTableBody');
+
+    const cycles = get400kCyclesInfo(m);
+    const current = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
+    const currNum = current ? current.num : 1;
+    const currShots = current ? current.shots : 0;
+    const targetKey = currNum <= 3 ? currNum : ('400k-' + currNum);
+
+    if (bannerEl) {
+      if (currShots >= 400000) {
+        bannerEl.style.background = '#fee2e2';
+        bannerEl.style.color = '#991b1b';
+        bannerEl.style.borderBottom = '1px solid #fca5a5';
+        bannerEl.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <span>⛔ <b>Current shot cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (QUÁ HẠN ${formatNum(currShots - 400000)} SHOTS - CẦN BẢO DƯỠNG NGAY!)</span>
+            <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', ${currNum <= 3 ? currNum : ('\'' + targetKey + '\'')}, true); MoldMaintenance.close400kDetailModal();" style="padding:4px 12px; background:#dc2626; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">🔒 Chốt Cữ ${currNum}</button>
+          </div>
+        `;
+      } else if (currShots >= 350000) {
+        bannerEl.style.background = '#fffbeb';
+        bannerEl.style.color = '#b45309';
+        bannerEl.style.borderBottom = '1px solid #fde68a';
+        bannerEl.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <span>⚠️ <b>Current shot cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (SẮP ĐẾN HẠN BẢO DƯỠNG CỮ ${currNum})</span>
+            <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', ${currNum <= 3 ? currNum : ('\'' + targetKey + '\'')}, true); MoldMaintenance.close400kDetailModal();" style="padding:4px 12px; background:#f59e0b; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">🔒 Chốt Cữ ${currNum}</button>
+          </div>
+        `;
+      } else {
+        bannerEl.style.background = '#f0fdf4';
+        bannerEl.style.color = '#15803d';
+        bannerEl.style.borderBottom = '1px solid #bbf7d0';
+        bannerEl.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <span>🟢 <b>Current shot cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (Đang vận hành an toàn)</span>
+            <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', ${currNum <= 3 ? currNum : ('\'' + targetKey + '\'')}, true); MoldMaintenance.close400kDetailModal();" style="padding:4px 12px; background:#16a34a; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">☐ Chốt Cữ ${currNum}</button>
+          </div>
+        `;
+      }
+    }
+
+    if (tbodyEl) {
+      let trs = '';
+      cycles.forEach(c => {
+        const isCurrent = c.num === currNum && !c.isClosed;
+        const rowBg = c.isClosed ? '#f8fafc' : (isCurrent ? (currShots >= 400000 ? '#fef2f2' : (currShots >= 350000 ? '#fffbeb' : '#ffffff')) : '#ffffff');
+        
+        let shotText = '-';
+        if (c.isClosed) shotText = `<span style="font-weight:700; font-family:monospace; color:#1e293b;">${formatNum(c.closedShots)}</span>`;
+        else if (isCurrent) shotText = `<span style="font-weight:800; font-family:monospace; color:${currShots >= 400000 ? '#dc2626' : (currShots >= 350000 ? '#b45309' : '#15803d')};">${formatNum(currShots)}</span>`;
+
+        let dateText = c.date || (isCurrent ? 'Hôm nay' : '-');
+        
+        let pdfText = '-';
+        if (c.pdf) {
+          pdfText = `<a href="javascript:void(0)" onclick="MoldMaintenance.viewMilestonePdf('${code}', '${c.key}')" style="color:#0284c7; font-weight:700; text-decoration:underline; display:inline-flex; align-items:center; gap:3px;">📄 ${c.pdf.name || 'Xem PDF'}</a>`;
+        } else if (isCurrent) {
+          pdfText = `<span style="color:#64748b; font-size:11px;">(Đính kèm khi chốt)</span>`;
+        }
+
+        let actionHtml = '';
+        if (c.isClosed) {
+          actionHtml = `
+            <div style="display:inline-flex; align-items:center; gap:6px;">
+              <span style="color:#15803d; font-weight:700; font-size:11.5px;">✓ Đã chốt</span>
+              <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', '${c.key}', false); MoldMaintenance.close400kDetailModal();" style="border:1px solid #cbd5e1; background:#ffffff; color:#ea580c; border-radius:4px; padding:2px 6px; font-size:10.5px; font-weight:600; cursor:pointer;" title="Mở lại cữ này">Mở lại</button>
+            </div>
+          `;
+        } else if (isCurrent) {
+          actionHtml = `
+            <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', '${c.key}', true); MoldMaintenance.close400kDetailModal();" style="border:none; background:${currShots >= 400000 ? '#dc2626' : (currShots >= 350000 ? '#f59e0b' : '#16a34a')}; color:white; border-radius:4px; padding:3px 10px; font-size:11.5px; font-weight:700; cursor:pointer;">
+              🔒 Chốt Cữ ${c.num}
+            </button>
+          `;
+        } else {
+          actionHtml = `<span style="color:#94a3b8; font-size:11.5px;">Chờ cữ trước</span>`;
+        }
+
+        trs += `
+          <tr style="border-bottom:1px solid #e2e8f0; background:${rowBg};">
+            <td style="padding:9px 10px; font-weight:700; color:#0f172a;">${c.name}</td>
+            <td style="padding:9px 10px; text-align:right;">${shotText}</td>
+            <td style="padding:9px 10px; text-align:center; color:#475569;">${dateText}</td>
+            <td style="padding:9px 10px; text-align:center;">${pdfText}</td>
+            <td style="padding:9px 10px; text-align:center;">${actionHtml}</td>
+          </tr>
+        `;
+      });
+      tbodyEl.innerHTML = trs;
+    }
+
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
+
+  function close400kDetailModal() {
+    const modal = document.getElementById('mm400kDetailModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
   }
 
   // Render ô Mốc Vòng Đời lớn (Mốc 6: 3M, Mốc 7: 4.5M, Mốc 8: 5M)
@@ -1138,10 +1388,23 @@ window.MoldMaintenance = (function() {
   function getMilestonePdf(moldNo, num) {
     const code = String(moldNo || '').trim().toUpperCase();
     const map = getMilestonePdfsMap();
-    if (map[code] && map[code][num]) return map[code][num];
+    if (map[code]) {
+      if (map[code][num]) return map[code][num];
+      if (String(num).startsWith('400k-')) {
+        const n = parseInt(num.replace('400k-', ''), 10);
+        if (map[code][n]) return map[code][n];
+      } else if (Number.isFinite(Number(num)) && Number(num) <= 7) {
+        if (map[code]['400k-' + num]) return map[code]['400k-' + num];
+      }
+    }
     if (rawData && rawData.excelMasterMolds) {
       const item = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === code);
-      if (item && item.milestonePdfs && item.milestonePdfs[num]) return item.milestonePdfs[num];
+      if (item) {
+        if (item.milestonePdfs && item.milestonePdfs[num]) return item.milestonePdfs[num];
+        if (item.milestoneDetails && item.milestoneDetails[num] && item.milestoneDetails[num].pdf) {
+          return item.milestoneDetails[num].pdf;
+        }
+      }
     }
     return null;
   }
@@ -1197,32 +1460,44 @@ window.MoldMaintenance = (function() {
   let activeMilestoneAuth = null; // { moldNo, milestoneNum, isClosing }
 
   function openMilestoneModal(moldNo, milestoneNum, isClosing) {
-    activeMilestoneAuth = { moldNo: String(moldNo).trim(), milestoneNum: Number(milestoneNum), isClosing: Boolean(isClosing) };
+    activeMilestoneAuth = { moldNo: String(moldNo).trim(), milestoneNum, isClosing: Boolean(isClosing) };
     const modal = document.getElementById('mmMilestoneAuthModal');
     if (!modal) return;
 
-    const num = Number(milestoneNum);
     const allMolds = getAllUnifiedMolds();
     const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
     const isHigh = currentMold?.isHighImpact || false;
     const moldLife = Number(currentMold?.totalLife) || 0;
     const isHighBefore3M = isHigh && moldLife < 3000000;
 
-    // 8 mốc theo chuẩn mới: 1: 400K-1, 2: 400K-2, 3: 400K-3, 4: 3.0M, 5: 3.5M, 6: 4.0M, 7: 4.5M, 8: 5.0M
-    let mTitle = `Mốc ${num}`;
+    let mTitle = `Mốc ${milestoneNum}`;
     let cycleLimit = 400000;
-    if (num === 1) { mTitle = '400K-1'; cycleLimit = 400000; }
-    else if (num === 2) { mTitle = '400K-2'; cycleLimit = 400000; }
-    else if (num === 3) { mTitle = '400K-3'; cycleLimit = 400000; }
-    else if (num === 4) { mTitle = '3.0M'; cycleLimit = 3000000; }
-    else if (num === 5) { mTitle = '3.5M'; cycleLimit = 3500000; }
-    else if (num === 6) { mTitle = '4.0M'; cycleLimit = 4000000; }
-    else if (num === 7) { mTitle = '4.5M'; cycleLimit = 4500000; }
-    else if (num === 8) { mTitle = '5.0M'; cycleLimit = 5000000; }
+    let curVal = 0;
 
+    const is400kCycle = String(milestoneNum).toLowerCase().startsWith('400k-') || (Number(milestoneNum) <= 3 && isHigh);
+    let cycleIdx = 1;
+    if (is400kCycle) {
+      cycleIdx = String(milestoneNum).toLowerCase().startsWith('400k-')
+        ? parseInt(milestoneNum.split('-')[1], 10)
+        : Number(milestoneNum);
+      mTitle = '400K-' + cycleIdx;
+      cycleLimit = 400000;
+      const cyclesInfo = get400kCyclesInfo(currentMold || { mold: moldNo, isHighImpact: true });
+      const thisCycle = cyclesInfo.find(c => c.num === cycleIdx);
+      curVal = thisCycle ? (thisCycle.isClosed ? thisCycle.closedShots : thisCycle.shots) : 400000;
+    } else {
+      const num = Number(milestoneNum);
+      if (num === 4 || milestoneNum === '3.0M') { mTitle = '3.0M'; cycleLimit = 3000000; curVal = currentMold?.m4 || currentMold?.totalAccumulatedYear || 0; }
+      else if (num === 5 || milestoneNum === '3.5M') { mTitle = '3.5M'; cycleLimit = 3500000; curVal = currentMold?.m5 || 500000; }
+      else if (num === 6 || milestoneNum === '4.0M') { mTitle = '4.0M'; cycleLimit = 4000000; curVal = currentMold?.m6 || 500000; }
+      else if (num === 7 || milestoneNum === '4.5M') { mTitle = '4.5M'; cycleLimit = 4500000; curVal = currentMold?.m7 || 500000; }
+      else if (num === 8 || milestoneNum === '5.0M') { mTitle = '5.0M'; cycleLimit = 5000000; curVal = currentMold?.m8 || 500000; }
+      else { curVal = currentMold ? (currentMold['m' + num] || 0) : 0; }
+    }
+
+    const num = is400kCycle ? cycleIdx : Number(milestoneNum);
     const targetLimit = cycleLimit;
-    const curVal = currentMold ? (currentMold['m' + num] || (num <= 3 ? currentMold.curShots : currentMold.totalLife) || 0) : 0;
-    const isOver = curVal > targetLimit && num <= 3;
+    const isOver = curVal > targetLimit && is400kCycle;
     const excess = curVal - targetLimit;
 
     const icon = document.getElementById('mmAuthModalIcon');
@@ -1592,10 +1867,13 @@ window.MoldMaintenance = (function() {
     if (!map[moldCode]) map[moldCode] = [];
 
     const num = Number(milestoneNum);
+    const key = String(milestoneNum);
     if (isChecked) {
-      if (!map[moldCode].includes(num)) map[moldCode].push(num);
+      if (!map[moldCode].includes(num) && !map[moldCode].includes(key)) {
+        map[moldCode].push(Number.isFinite(num) ? num : key);
+      }
     } else {
-      map[moldCode] = map[moldCode].filter(x => x !== num);
+      map[moldCode] = map[moldCode].filter(x => x !== num && x !== key && x !== ('400k-' + num));
     }
     try { localStorage.setItem(MOLD_CLOSED_KEY, JSON.stringify(map)); } catch (e) {}
 
@@ -2188,23 +2466,23 @@ window.MoldMaintenance = (function() {
       lastYearHeader = `<th class="text-right" style="background:#fef2f2; color:#b91c1c; min-width:105px; font-size:12.5px; border-left:1px solid #fee2e2;" title="Số shot dở dang của chu kỳ cuối năm ngoái chuyển sang (Last Year Carryover)">Last Year (Còn lại)</th>`;
     }
 
+    let sumShotHeader = '';
+    if (moldColPrefs.totalYear !== false) {
+      sumShotHeader = `<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px; border-left:2px solid #cbd5e1;" title="Tổng số shot tích lũy thực tế của các tháng trong năm (Sum shot)">Sum shot</th>`;
+    }
+
     const milestoneDefs = [
-      { id: 1, title: '400K-1', tooltip: '400K-1 (High-Impact < 3M cữ 1)' },
-      { id: 2, title: '400K-2', tooltip: '400K-2 (High-Impact < 3M cữ 2)' },
-      { id: 3, title: '400K-3', tooltip: '400K-3 (High-Impact < 3M cữ 3)' },
-      { id: 4, title: '3.0M', tooltip: '3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)' },
-      { id: 5, title: '3.5M', tooltip: '3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
-      { id: 6, title: '4.0M', tooltip: '4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
-      { id: 7, title: '4.5M', tooltip: '4.5M - Báo cáo Japan HQ xin hướng xử lý trước 5M' },
-      { id: 8, title: '5.0M', tooltip: '5.0M - Ngưỡng trần tuổi thọ khuôn (Cảnh báo từ 4.8M)' }
+      { id: '400k', title: '400K', minWidth: '125px', tooltip: '400K - Chu kỳ bảo dưỡng dự phòng cho khuôn High-Impact (Bấm để xem chi tiết từng cữ 400k-1..7)' },
+      { id: 4, title: '3.0M', minWidth: '88px', tooltip: '3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)' },
+      { id: 5, title: '3.5M', minWidth: '88px', tooltip: '3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
+      { id: 6, title: '4.0M', minWidth: '88px', tooltip: '4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
+      { id: 7, title: '4.5M', minWidth: '88px', tooltip: '4.5M - Báo cáo Japan HQ xin hướng xử lý trước 5M' },
+      { id: 8, title: '5.0M', minWidth: '88px', tooltip: '5.0M - Ngưỡng trần tuổi thọ khuôn (Cảnh báo từ 4.8M)' }
     ];
     let milestoneHeaders = '';
     milestoneDefs.forEach(d => {
-      milestoneHeaders += `<th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="${d.tooltip}">${d.title}</th>`;
+      milestoneHeaders += `<th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:${d.minWidth};" title="${d.tooltip}">${d.title}</th>`;
     });
-    if (moldColPrefs.totalYear !== false) {
-      milestoneHeaders += `<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px;" title="Tổng số shot của các mốc trong năm">Tổng Năm</th>`;
-    }
 
     let html = `
       ${getMilestoneLegendHtml()}
@@ -2223,6 +2501,7 @@ window.MoldMaintenance = (function() {
               ${moldColPrefs.status ? '<th class="text-center">Trạng Thái</th>' : ''}
               ${lastYearHeader}
               ${monthHeaders}
+              ${sumShotHeader}
               ${milestoneHeaders}
               ${moldColPrefs.totalLife ? '<th class="text-right font-bold" style="background:#f8fafc; color:#0f172a;">Tổng Vòng Đời</th>' : ''}
               ${moldColPrefs.note ? '<th style="min-width:180px;">Note (Ghi Chú)</th>' : ''}
@@ -2364,28 +2643,29 @@ window.MoldMaintenance = (function() {
           }
         }
 
-        for (let c = 1; c <= 8; c++) {
+        let sumShotCell = '';
+        if (moldColPrefs.totalYear !== false) {
+          const totYear = m.totalYear || 0;
+          sumShotCell = `
+            <td class="text-right font-mono font-bold" style="background:#f1f5f9; color:#0f172a; font-size:15px; vertical-align:middle; padding:8px 8px; border-left:2px solid #cbd5e1;" title="Tổng số shot của các tháng trong năm (Sum shot)">
+              ${totYear > 0 ? formatNum(totYear) : '-'}
+            </td>
+          `;
+        }
+
+        // Cột 400K duy nhất
+        milestoneCells += render400kCell(m);
+
+        // Các mốc 3.0M, 3.5M, 4.0M, 4.5M, 5.0M
+        for (let c = 4; c <= 8; c++) {
           let val = 0;
-          if (c === 1) val = m.m1;
-          else if (c === 2) val = m.m2;
-          else if (c === 3) val = m.m3;
-          else if (c === 4) val = m.m4;
+          if (c === 4) val = m.m4;
           else if (c === 5) val = m.m5;
           else if (c === 6) val = m.m6;
           else if (c === 7) val = m.m7;
           else if (c === 8) val = m.m8;
-          else if (c === m.currentCycleNum) val = m.curShots;
           else if ((m.closedMilestones || []).includes(c)) val = m['m' + c] || 0;
           milestoneCells += renderMilestoneCell(c, val);
-        }
-
-        if (moldColPrefs.totalYear !== false) {
-          const totYear = m.totalYear || 0;
-          milestoneCells += `
-            <td class="text-right font-mono font-bold" style="background:#f8fafc; color:#0f172a; font-size:15px; vertical-align:middle; padding:8px 8px;" title="Tổng số shot của các mốc trong năm">
-              ${totYear > 0 ? formatNum(totYear) : '-'}
-            </td>
-          `;
         }
 
         const displayMoldName = (m.newMold && m.newMold !== '-' && m.newMold !== 'null') ? m.newMold : (m.oldMold && m.oldMold !== '-' ? m.oldMold : m.mold);
@@ -2451,6 +2731,7 @@ window.MoldMaintenance = (function() {
             ` : ''}
             ${lastYearCell}
             ${monthCells}
+            ${sumShotCell}
             ${milestoneCells}
             ${moldColPrefs.totalLife ? `
               <td class="text-right font-mono font-bold" style="background:#f8fafc; color:#0f172a; font-size:15px;">
@@ -2554,15 +2835,13 @@ window.MoldMaintenance = (function() {
               ${colPrefs.prodScrap ? '<th class="text-right" style="color:#e11d48;">Phế Phẩm NG (Pcs)</th>' : ''}
               ${colPrefs.dailyShots ? `<th class="text-right" style="background:#f0fdf4; color:#15803d; font-size:14px;" title="Chuẩn SOP: Số Shot = (Sản Lượng + Phế Phẩm) / Cavity">Số Shot Ngày ${selectedDay === 'all' ? 'Tổng' : selectedDay}${isFutureSelection ? ' (Chưa chạy)' : ''}</th>` : ''}
               ${colPrefs.status ? '<th class="text-center">Trạng Thái</th>' : ''}
-              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="400K-1 (High-Impact < 3M cữ 1)">400K-1</th>
-              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="400K-2 (High-Impact < 3M cữ 2)">400K-2</th>
-              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="400K-3 (High-Impact < 3M cữ 3)">400K-3</th>
+              ${colPrefs.totalYear !== false ? '<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px; border-left:2px solid #cbd5e1;" title="Tổng số shot của các tháng trong năm (Sum shot)">Sum shot</th>' : ''}
+              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:125px;" title="400K - Chu kỳ bảo dưỡng dự phòng cho khuôn High-Impact (Bấm để xem chi tiết từng cữ 400k-1..7)">400K</th>
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)">3.0M</th>
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions">3.5M</th>
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions">4.0M</th>
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="4.5M - Báo cáo Japan HQ xin hướng xử lý trước 5M">4.5M</th>
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="5.0M - Ngưỡng trần tuổi thọ khuôn (Cảnh báo từ 4.8M)">5.0M</th>
-              ${colPrefs.totalYear !== false ? '<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px;" title="Tổng số shot của các mốc trong năm">Tổng Năm</th>' : ''}
               ${colPrefs.totalLife ? '<th class="text-right font-bold" style="background:#f8fafc; color:#0f172a;">Tổng Vòng Đời</th>' : ''}
               ${colPrefs.machineStatus ? '<th class="text-center">Trạng Thái Máy</th>' : ''}
               ${colPrefs.note ? '<th style="min-width:160px;">Note</th>' : ''}
@@ -2760,29 +3039,31 @@ window.MoldMaintenance = (function() {
           `;
         };
 
+        let sumShotCell = '';
+        if (colPrefs.totalYear !== false) {
+          const totYear = uMold?.totalYear || 0;
+          sumShotCell = `
+            <td class="text-right font-mono font-bold" style="background:#f1f5f9; color:#0f172a; font-size:15px; vertical-align:middle; padding:8px 8px; border-left:2px solid #cbd5e1;" title="Tổng số shot của các tháng trong năm (Sum shot)">
+              ${totYear > 0 ? formatNum(totYear) : '-'}
+            </td>
+          `;
+        }
+
         let milestoneCells = '';
-        for (let c = 1; c <= 8; c++) {
+        // Cột 400K
+        const targetMoldFor400k = uMold || { mold: r.moldNo, isHighImpact: isHigh, totalYear: uMold?.totalYear || 0 };
+        milestoneCells += render400kCell(targetMoldFor400k);
+
+        // Các mốc 3.0M đến 5.0M
+        for (let c = 4; c <= 8; c++) {
           let val = 0;
-          if (c === 1) val = m1;
-          else if (c === 2) val = m2;
-          else if (c === 3) val = m3;
-          else if (c === 4) val = m4;
+          if (c === 4) val = m4;
           else if (c === 5) val = m5;
           else if (c === 6) val = m6;
           else if (c === 7) val = m7;
           else if (c === 8) val = m8;
-          else if (c === currentCycleNum) val = curShots;
-          else if (closedMilestones.includes(c)) val = (c === 1 ? m1 : (c === 2 ? m2 : (c === 3 ? m3 : (c === 4 ? m4 : (c === 5 ? m5 : (c === 6 ? m6 : (c === 7 ? m7 : m8))))))) || 0;
+          else if (closedMilestones.includes(c)) val = (c === 4 ? m4 : (c === 5 ? m5 : (c === 6 ? m6 : (c === 7 ? m7 : m8)))) || 0;
           milestoneCells += renderMilestoneCell(c, val);
-        }
-
-        if (colPrefs.totalYear !== false) {
-          const totYear = uMold?.totalYear || 0;
-          milestoneCells += `
-            <td class="text-right font-mono font-bold" style="background:#f8fafc; color:#0f172a; font-size:15px; vertical-align:middle; padding:8px 8px;" title="Tổng số shot của các mốc trong năm 2026">
-              ${totYear > 0 ? formatNum(totYear) : '-'}
-            </td>
-          `;
         }
 
         const mDisplay = (r.newMold && r.newMold !== '-') ? r.newMold : (masterMold?.newMold && masterMold.newMold !== '-' ? masterMold.newMold : (oldMold && oldMold !== '-' ? oldMold : r.moldNo));
@@ -4225,6 +4506,9 @@ window.MoldMaintenance = (function() {
     onMoldColPrefChange,
     openMilestoneModal,
     closeMilestoneModal,
+    open400kDetailModal,
+    close400kDetailModal,
+    get400kCyclesInfo,
     confirmMilestoneAuth,
     onClosedShotsChange,
     resetClosedShotsToDefault,
