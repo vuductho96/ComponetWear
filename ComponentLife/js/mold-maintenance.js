@@ -1826,60 +1826,70 @@ window.MoldMaintenance = (function() {
         }
       }
 
-      // CỘT 4: MỐC 3.0M (Đại tu tổng thể & Full bản vẽ) - Áp dụng cho TẤT CẢ khuôn
+      // CỘT 4 (3.0M): VỚI KHUÔN TIÊU CHUẨN -> GHI TỔNG SỐ SHOT TÍCH LŨY THỰC TẾ CỦA CÁC THÁNG TRONG NĂM!
       const isDone4 = closedMilestones.includes(4);
-      let m4 = 0;
-      if (isDone4) {
-        m4 = 3000000;
-      } else if (totalLife >= 2800000 && totalLife <= 3050000) {
-        m4 = totalLife;
-      } else if (totalLife > 3050000) {
-        m4 = 3000000;
-      } else {
-        m4 = totalLife > 0 ? totalLife : 0;
+      let m4 = null;
+      if (!isHighBefore3M) {
+        // Khuôn tiêu chuẩn: Ghi nhận tổng số shot tích lũy thực tế của các tháng trong năm
+        if (isDone4) {
+          m4 = Math.round(d4?.closedShots || totalAccumulatedYear);
+        } else {
+          m4 = totalAccumulatedYear > 0 ? totalAccumulatedYear : 0;
+        }
+      } else if (closedMilestones.includes(3)) {
+        // Khuôn High-Impact: đã chốt xong 3 cữ 400K
+        if (isDone4) {
+          m4 = Math.round(d4?.closedShots || Math.max(0, totalAccumulatedYear - (m1 || 0) - (m2 || 0) - (m3 || 0)));
+        } else {
+          m4 = Math.max(0, totalAccumulatedYear - (m1 || 0) - (m2 || 0) - (m3 || 0));
+        }
       }
 
-      // CỘT 5: MỐC 3.5M (Chu kỳ 500K sau 3M)
-      const isDone5 = closedMilestones.includes(5);
+      // CỘT 5 (3.5M): Bỏ số cứng 3.500.000 - chỉ xuất hiện khi Mốc 4 đã được chốt
       let m5 = null;
-      if (totalLife >= 3000000) {
-        if (isDone5) m5 = 3500000;
-        else if (totalLife >= 3470000 && totalLife <= 3550000) m5 = totalLife;
-        else if (totalLife > 3550000) m5 = 3500000;
-        else m5 = totalLife;
+      if (isDone4) {
+        const isDone5 = closedMilestones.includes(5);
+        if (isDone5) {
+          m5 = Math.round(d5?.closedShots || Math.max(0, totalAccumulatedYear - (m4 || 0)));
+        } else {
+          m5 = Math.max(0, totalAccumulatedYear - (m4 || 0));
+        }
       }
 
-      // CỘT 6: MỐC 4.0M (Chu kỳ 500K sau 3M)
-      const isDone6 = closedMilestones.includes(6);
+      // CỘT 6 (4.0M): Bỏ số cứng 4.000.000 - chỉ xuất hiện khi Mốc 5 đã được chốt
       let m6 = null;
-      if (totalLife >= 3500000) {
-        if (isDone6) m6 = 4000000;
-        else if (totalLife >= 3970000 && totalLife <= 4050000) m6 = totalLife;
-        else if (totalLife > 4050000) m6 = 4000000;
-        else m6 = totalLife;
+      if (closedMilestones.includes(5)) {
+        const isDone6 = closedMilestones.includes(6);
+        if (isDone6) {
+          m6 = Math.round(d6?.closedShots || Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0)));
+        } else {
+          m6 = Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0));
+        }
       }
 
-      // CỘT 7: MỐC 4.5M (Báo cáo JP HQ xin hướng xử lý)
-      const isDone7 = closedMilestones.includes(7);
+      // CỘT 7 (4.5M): Bỏ số cứng 4.500.000 - chỉ xuất hiện khi Mốc 6 đã được chốt
       let m7 = null;
-      if (totalLife >= 4000000) {
-        if (isDone7) m7 = 4500000;
-        else if (totalLife >= 4300000 && totalLife <= 4550000) m7 = totalLife;
-        else if (totalLife > 4550000) m7 = 4500000;
-        else m7 = totalLife;
+      if (closedMilestones.includes(6)) {
+        const isDone7 = closedMilestones.includes(7);
+        if (isDone7) {
+          m7 = Math.round(d7?.closedShots || Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0) - (m6 || 0)));
+        } else {
+          m7 = Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0) - (m6 || 0));
+        }
       }
 
-      // CỘT 8: MỐC 5.0M (Ngưỡng trần tuổi thọ 5M)
-      const isDone8 = closedMilestones.includes(8);
+      // CỘT 8 (5.0M): Bỏ số cứng 5.000.000 - chỉ xuất hiện khi Mốc 7 đã được chốt
       let m8 = null;
-      if (totalLife >= 4500000) {
-        if (isDone8) m8 = 5000000;
-        else if (totalLife >= 4800000 && totalLife <= 5050000) m8 = totalLife;
-        else if (totalLife > 5050000) m8 = 5000000;
-        else m8 = totalLife;
+      if (closedMilestones.includes(7)) {
+        const isDone8 = closedMilestones.includes(8);
+        if (isDone8) {
+          m8 = Math.round(d8?.closedShots || Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0) - (m6 || 0) - (m7 || 0)));
+        } else {
+          m8 = Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0) - (m6 || 0) - (m7 || 0));
+        }
       }
 
-      const totalYear = isHighBefore3M ? ((m1 || 0) + (m2 || 0) + (m3 || 0)) : totalYearFromMonths;
+      const totalYear = totalAccumulatedYear;
       const cycleName = isHighBefore3M 
         ? ('400K-' + Math.min(3, currentCycleNum)) 
         : (isStandardBefore3M ? 'Chuẩn < 3M' : ('Sau 3M (500K-' + currentCycleNum + ')'));
@@ -2240,24 +2250,12 @@ window.MoldMaintenance = (function() {
           const isHighBefore3M = m.isHighImpact && moldLife < 3000000;
 
           // 1. Kiểm tra các mốc không áp dụng -> hiển thị '-'
-          if (num <= 3 && !isHighBefore3M) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
-          }
-          if (num === 5 && moldLife < 3000000) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
-          }
-          if (num === 6 && moldLife < 3500000) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
-          }
-          if (num === 7 && moldLife < 4000000) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
-          }
-          if (num === 8 && moldLife < 4500000) {
+          if (shotVal === null || shotVal === undefined) {
             return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
           }
 
-          const val = shotVal !== null && shotVal !== undefined ? Number(shotVal) : 0;
-          let cellBg = '#eff6ff';
+          const val = Number(shotVal) || 0;
+          let cellBg = '#f8fafc';
           let textColor = '#1e293b';
           let btnBorder = '1px solid #cbd5e1';
           let btnBg = '#ffffff';
@@ -2270,47 +2268,26 @@ window.MoldMaintenance = (function() {
             btnBg = '#dcfce7';
             btnColor = '#15803d';
           } else if (num === 4) {
-            // MỐC 3.0M (Bảo dưỡng tổng thể & Đánh giá full kích thước bản vẽ)
-            if (moldLife >= 2800000 && moldLife <= 3050000) {
+            // MỐC 3.0M: Cảnh báo vàng khi >= 2.8M, đỏ khi >= 3.0M
+            if (val >= 3000000) {
+              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
+            } else if (val >= 2800000) {
               cellBg = '#fdf4ff'; textColor = '#86198f'; btnBorder = '1px solid #e879f9'; btnBg = '#fae8ff'; btnColor = '#a21caf';
-            } else if (moldLife > 3050000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
+            } else if (val > 0) {
+              cellBg = '#f8fafc'; textColor = '#1e293b';
             } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
+              cellBg = '#f8fafc'; textColor = '#94a3b8';
             }
-          } else if (num === 5) {
-            // MỐC 3.5M (Chu kỳ 500K sau 3M)
-            if (moldLife >= 3500000 && moldLife <= 3550000) {
+          } else if (num >= 5) {
+            // CÁC MỐC 3.5M, 4.0M, 4.5M, 5.0M (Chu kỳ 500K)
+            if (val >= 500000) {
               cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (moldLife >= 3470000 && moldLife < 3500000) {
+            } else if (val >= 470000) {
               cellBg = '#fefce8'; textColor = '#854d0e'; btnBorder = '1px solid #facc15'; btnBg = '#fef08a'; btnColor = '#854d0e';
+            } else if (val > 0) {
+              cellBg = '#f8fafc'; textColor = '#1e293b';
             } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
-            }
-          } else if (num === 6) {
-            // MỐC 4.0M (Chu kỳ 500K sau 3M)
-            if (moldLife >= 4000000 && moldLife <= 4050000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (moldLife >= 3970000 && moldLife < 4000000) {
-              cellBg = '#fefce8'; textColor = '#854d0e'; btnBorder = '1px solid #facc15'; btnBg = '#fef08a'; btnColor = '#854d0e';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
-            }
-          } else if (num === 7) {
-            // MỐC 4.5M (Báo cáo JP HQ xin hướng xử lý)
-            if (moldLife >= 4500000 && moldLife <= 4550000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (moldLife >= 4300000 && moldLife < 4500000) {
-              cellBg = '#fffbeb'; textColor = '#b45309'; btnBorder = '1px solid #fcd34d'; btnBg = '#fef3c7'; btnColor = '#b45309';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
-            }
-          } else if (num === 8) {
-            // MỐC 5.0M (Ngưỡng trần)
-            if (moldLife >= 4800000 && moldLife <= 5050000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
+              cellBg = '#f8fafc'; textColor = '#94a3b8';
             }
           } else if (num <= 3) {
             // MỐC 400K-1, 400K-2, 400K-3 (High-Impact < 3M)
@@ -2694,24 +2671,12 @@ window.MoldMaintenance = (function() {
           const isHighBefore3M = isHigh && moldLife < 3000000;
 
           // 1. Kiểm tra các mốc không áp dụng -> hiển thị '-'
-          if (num <= 3 && !isHighBefore3M) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
-          }
-          if (num === 5 && moldLife < 3000000) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
-          }
-          if (num === 6 && moldLife < 3500000) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
-          }
-          if (num === 7 && moldLife < 4000000) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
-          }
-          if (num === 8 && moldLife < 4500000) {
+          if (shotVal === null || shotVal === undefined) {
             return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
           }
 
-          const val = shotVal !== null && shotVal !== undefined ? Number(shotVal) : 0;
-          let cellBg = '#eff6ff';
+          const val = Number(shotVal) || 0;
+          let cellBg = '#f8fafc';
           let textColor = '#1e293b';
           let btnBorder = '1px solid #cbd5e1';
           let btnBg = '#ffffff';
@@ -2724,47 +2689,26 @@ window.MoldMaintenance = (function() {
             btnBg = '#dcfce7';
             btnColor = '#15803d';
           } else if (num === 4) {
-            // MỐC 3.0M (Bảo dưỡng tổng thể & Đánh giá full kích thước bản vẽ)
-            if (moldLife >= 2800000 && moldLife <= 3050000) {
+            // MỐC 3.0M: Cảnh báo vàng khi >= 2.8M, đỏ khi >= 3.0M
+            if (val >= 3000000) {
+              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
+            } else if (val >= 2800000) {
               cellBg = '#fdf4ff'; textColor = '#86198f'; btnBorder = '1px solid #e879f9'; btnBg = '#fae8ff'; btnColor = '#a21caf';
-            } else if (moldLife > 3050000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
+            } else if (val > 0) {
+              cellBg = '#f8fafc'; textColor = '#1e293b';
             } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
+              cellBg = '#f8fafc'; textColor = '#94a3b8';
             }
-          } else if (num === 5) {
-            // MỐC 3.5M (Chu kỳ 500K sau 3M)
-            if (moldLife >= 3500000 && moldLife <= 3550000) {
+          } else if (num >= 5) {
+            // CÁC MỐC 3.5M, 4.0M, 4.5M, 5.0M (Chu kỳ 500K)
+            if (val >= 500000) {
               cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (moldLife >= 3470000 && moldLife < 3500000) {
+            } else if (val >= 470000) {
               cellBg = '#fefce8'; textColor = '#854d0e'; btnBorder = '1px solid #facc15'; btnBg = '#fef08a'; btnColor = '#854d0e';
+            } else if (val > 0) {
+              cellBg = '#f8fafc'; textColor = '#1e293b';
             } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
-            }
-          } else if (num === 6) {
-            // MỐC 4.0M (Chu kỳ 500K sau 3M)
-            if (moldLife >= 4000000 && moldLife <= 4050000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (moldLife >= 3970000 && moldLife < 4000000) {
-              cellBg = '#fefce8'; textColor = '#854d0e'; btnBorder = '1px solid #facc15'; btnBg = '#fef08a'; btnColor = '#854d0e';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
-            }
-          } else if (num === 7) {
-            // MỐC 4.5M (Báo cáo JP HQ xin hướng xử lý)
-            if (moldLife >= 4500000 && moldLife <= 4550000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (moldLife >= 4300000 && moldLife < 4500000) {
-              cellBg = '#fffbeb'; textColor = '#b45309'; btnBorder = '1px solid #fcd34d'; btnBg = '#fef3c7'; btnColor = '#b45309';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
-            }
-          } else if (num === 8) {
-            // MỐC 5.0M (Ngưỡng trần)
-            if (moldLife >= 4800000 && moldLife <= 5050000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#64748b';
+              cellBg = '#f8fafc'; textColor = '#94a3b8';
             }
           } else if (num <= 3) {
             // MỐC 400K-1, 400K-2, 400K-3 (High-Impact < 3M)
@@ -3460,12 +3404,12 @@ window.MoldMaintenance = (function() {
                 cellFill = 'FFFFFBEB'; // Cam mốc 4.5M
                 fontColor = 'FFB45309';
               } else if (mNum === 4) {
-                if (val >= 2800000 && val <= 3050000) {
-                  cellFill = 'FFD8B4FE'; // Tím mốc 3M
+                if (val >= 3000000) {
+                  cellFill = 'FFFF0000'; // Đỏ OVER 3M
+                  fontColor = 'FFFFFFFF';
+                } else if (val >= 2800000) {
+                  cellFill = 'FFD8B4FE'; // Tím cảnh báo mốc 3M
                   fontColor = 'FF701A75';
-                } else if (val > 3050000) {
-                  cellFill = 'FFFEE2E2';
-                  fontColor = 'FF991B1B';
                 }
               } else if (isHighImpact && mNum <= 3) {
                 if (val >= 400000) {
