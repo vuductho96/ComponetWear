@@ -108,16 +108,16 @@ window.MoldMaintenance = (function() {
     if (colPrefs.totalYear === undefined) colPrefs.totalYear = true;
   } catch (e) {}
 
-  const MOLD_STORAGE_KEY = 'mm_mold_col_prefs_v12';
+  const MOLD_STORAGE_KEY = 'mm_mold_col_prefs_v14';
   let moldColPrefs = {
-    lastYear: true,    // Số shot còn lại năm trước (Last Year carryover): Mặc định HIỆN
+    lastYear: false,   // Số shot còn lại năm trước (Last Year carryover): Mặc định ẨN theo yêu cầu
     months: true,      // 12 cột tháng (T1..T12): Mặc định HIỆN (như bảng SHOT COUNT MONITOR PER MONTH)
     status: false,     // Trạng thái: Mặc định ẨN
-    totalLife: true,   // Tổng vòng đời: Mặc định HIỆN
-    totalYear: true,   // Tổng năm: Mặc định HIỆN
+    totalLife: false,  // Tổng vòng đời: Mặc định ẨN theo yêu cầu
+    totalYear: true,   // Tổng năm (Sum shot): Mặc định HIỆN
     series: false,     // Dòng sản phẩm: Mặc định ẨN (bật qua dấu +)
     tier: false,       // Tiêu chuẩn: Mặc định ẨN
-    machine: true,     // Máy đang ép: Mặc định HIỆN (không làm mất tên máy khi đổi qua đổi lại)
+    machine: true,     // Máy đang ép: Mặc định HIỆN
     cycle: false,      // Chu kỳ: Mặc định ẨN
     curShots: false,   // Số shot chu kỳ: Mặc định ẨN
     plan: false,       // Mốc plan: Mặc định ẨN
@@ -132,7 +132,8 @@ window.MoldMaintenance = (function() {
     const savedM = localStorage.getItem(MOLD_STORAGE_KEY);
     if (savedM) Object.assign(moldColPrefs, JSON.parse(savedM));
     if (moldColPrefs.totalYear === undefined) moldColPrefs.totalYear = true;
-    if (moldColPrefs.lastYear === undefined) moldColPrefs.lastYear = true;
+    if (moldColPrefs.lastYear === undefined) moldColPrefs.lastYear = false;
+    if (moldColPrefs.totalLife === undefined) moldColPrefs.totalLife = false;
     if (moldColPrefs.machine === undefined) moldColPrefs.machine = true;
   } catch (e) {}
 
