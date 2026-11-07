@@ -811,62 +811,43 @@ window.MoldMaintenance = (function() {
       return matchText && matchTier && matchStatus;
     });
 
-    // Luôn hiển thị khuôn cần chốt / báo đỏ lên đầu (Đỏ -> Vàng -> An toàn)
+    // Luôn hiển thị khuôn cần chốt / báo đỏ lên đầu: Cứ ĐỎ là lên trước (Đỏ -> Vàng -> An toàn)
     list.sort((a, b) => {
-      const getPriority = (r) => {
+      const getRecordVisualStatus = (r) => {
+        const mCode = (r.moldNo || '').toUpperCase().trim();
         const masterMold = (rawData.excelMasterMolds || []).find(m => 
-          (m.mold || '').toUpperCase() === (r.moldNo || '').toUpperCase() ||
-          (m.oldMold && m.oldMold.toUpperCase() === (r.moldNo || '').toUpperCase())
+          (m.mold || '').toUpperCase() === mCode ||
+          (m.oldMold && m.oldMold.toUpperCase() === mCode) ||
+          (m.newMold && m.newMold.toUpperCase() === mCode)
         );
-        const isHigh = r.isHighImpact || masterMold?.is_high_impact || false;
-        const totalLife = Math.max(Number(r.totalLifeShots) || 0, Number(masterMold?.total_life) || 0);
-        const curShots = Number(r.currentCycleShots || r.m1_800k || 0);
-        const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife);
-
-        let priority = 3;
-        let maxRatio = 0;
-        let overShots = 0;
-
-        // Kiểm tra cữ 400K nếu là High-Impact
-        if (isHigh && masterMold) {
-          const cycles = get400kCyclesInfo(masterMold);
-          const curr = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
-          if (curr && !curr.isClosed) {
-            if (curr.shots >= 400000) {
-              priority = 1;
-              overShots = Math.max(overShots, curr.shots - 400000);
-              maxRatio = Math.max(maxRatio, curr.shots / 400000);
-            } else if (curr.shots >= 350000 && priority > 1) {
-              priority = 2;
-              maxRatio = Math.max(maxRatio, curr.shots / 400000);
-            }
-          }
-        }
-
-        if (evalData.status === 'due') {
-          priority = 1;
-          const plan = evalData.plan || 500000;
-          overShots = Math.max(overShots, curShots >= plan ? curShots - plan : curShots);
-          maxRatio = Math.max(maxRatio, curShots / plan);
-        } else if (evalData.status === 'warning' && priority > 1) {
-          priority = 2;
-          const plan = evalData.plan || 500000;
-          maxRatio = Math.max(maxRatio, curShots / plan);
-        }
-
-        return { priority, maxRatio, overShots };
+        return getMoldVisualStatus(masterMold);
       };
 
-      const pA = getPriority(a);
-      const pB = getPriority(b);
-      if (pA.priority !== pB.priority) return pA.priority - pB.priority;
-      if (pA.priority <= 2) {
-        if (pB.maxRatio !== pA.maxRatio) return pB.maxRatio - pA.maxRatio;
-        return pB.overShots - pA.overShots;
+      const vA = getRecordVisualStatus(a);
+      const vB = getRecordVisualStatus(b);
+
+      // 1. Cứ ĐỎ là lên trước: Tier 1 (Đỏ) -> Tier 2 (Vàng) -> Tier 3 (Trắng)
+      if (vA.tier !== vB.tier) return vA.tier - vB.tier;
+
+      // 2. Trong nhóm ĐỎ: Xếp giảm dần theo số shot mốc đỏ
+      if (vA.tier === 1) {
+        if (vB.highestRedShots !== vA.highestRedShots) {
+          return vB.highestRedShots - vA.highestRedShots;
+        }
       }
+
+      // 3. Trong nhóm VÀNG: Xếp giảm dần theo số shot tiệm cận
+      if (vA.tier === 2) {
+        if (vB.highestYellowShots !== vA.highestYellowShots) {
+          return vB.highestYellowShots - vA.highestYellowShots;
+        }
+      }
+
+      // 4. Nhóm Trắng / An toàn: Ưu tiên máy đang chạy
       const runA = a.machineStatus === 'Running' ? 1 : 0;
       const runB = b.machineStatus === 'Running' ? 1 : 0;
       if (runA !== runB) return runB - runA;
+
       return (Number(b.currentCycleShots || b.m1_800k || 0)) - (Number(a.currentCycleShots || a.m1_800k || 0));
     });
 
@@ -2561,85 +2542,74 @@ window.MoldMaintenance = (function() {
   }
 
   // Hàm xác định mức độ ưu tiên của khuôn cần chốt bảo dưỡng
-  // Priority 1: CẦN CHỐT NGAY (ĐỎ) - Quá hạn 400K (High-Impact), hoặc chạm mốc chu kỳ định kỳ (≥500K), hoặc mốc 3M/3.5M/4M/4.5M/5M
-  // Priority 2: SẮP CẦN CHỐT (VÀNG) - Cảnh báo sớm 400K (≥350K/380K), hoặc sắp chạm mốc (≥470K, 2.8M~3.0M)
-  // Priority 3: AN TOÀN / BÌNH THƯỜNG / ĐÃ CHỐT
-  function getMoldDuePriority(m) {
-    if (!m) return { priority: 3, overShots: 0, maxRatio: 0, reason: '' };
+  // Hàm kiểm tra trạng thái trực quan (Visual Status) của khuôn trên bảng:
+  // "Cứ ĐỎ là lên trước": Chỉ những khuôn thực sự có ô mốc hiển thị màu ĐỎ (≥400K đối với 400K, ≥3.0M đối với 3M, ≥500K đối với 3.5M..5M)
+  // mới được tính là Tier 1 (ĐỎ).
+  // Tier 1: CẦN CHỐT (ĐỎ)
+  // Tier 2: SẮP CHỐT / CẢNH BÁO (VÀNG)
+  // Tier 3: AN TOÀN / BÌNH THƯỜNG / ĐÃ CHỐT
+  function getMoldVisualStatus(m) {
+    if (!m) return { tier: 3, hasRed: false, hasYellow: false, highestRedShots: 0, highestYellowShots: 0, redCol: '' };
 
-    let priority = 3;
-    let overShots = 0;
-    let maxRatio = 0;
-    let reason = '';
+    let hasRed = false;
+    let hasYellow = false;
+    let highestRedShots = 0;
+    let highestYellowShots = 0;
+    let redCol = '';
 
-    // 1. Kiểm tra 400K cho High-Impact
+    // 1. Cột 400K (chỉ High-Impact mới áp dụng mốc 400K)
     if (m.isHighImpact) {
       const cycles = get400kCyclesInfo(m);
       const curr = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
       if (curr && !curr.isClosed) {
         if (curr.shots >= 400000) {
-          priority = 1;
-          overShots = Math.max(overShots, curr.shots - 400000);
-          maxRatio = Math.max(maxRatio, curr.shots / 400000);
-          reason = `400k cữ ${curr.num} (${formatNum(curr.shots)} ≥ 400K)`;
-        } else if (curr.shots >= 350000 && priority > 1) {
-          priority = 2;
-          maxRatio = Math.max(maxRatio, curr.shots / 400000);
-          reason = `400k cữ ${curr.num} cảnh báo (${formatNum(curr.shots)})`;
+          hasRed = true;
+          if (curr.shots > highestRedShots) {
+            highestRedShots = curr.shots;
+            redCol = `400K (${formatNum(curr.shots)})`;
+          }
+        } else if (curr.shots >= 350000) {
+          hasYellow = true;
+          if (curr.shots > highestYellowShots) highestYellowShots = curr.shots;
         }
       }
     }
 
-    // 2. Trạng thái chung m.status (chu kỳ 500K sau 3M hoặc chu kỳ hiện tại)
-    if (m.status === 'due') {
-      priority = 1;
-      const plan = m.planMilestone || 500000;
-      const cur = Number(m.curShots) || 0;
-      overShots = Math.max(overShots, cur >= plan ? (cur - plan) : cur);
-      maxRatio = Math.max(maxRatio, cur / plan);
-      if (!reason) reason = `Chu kỳ (${formatNum(cur)} ≥ ${formatNum(plan)})`;
-    } else if (m.status === 'warning' && priority > 1) {
-      priority = 2;
-      const plan = m.planMilestone || 500000;
-      const cur = Number(m.curShots) || 0;
-      maxRatio = Math.max(maxRatio, cur / plan);
-      if (!reason) reason = `Sắp đến hạn (${formatNum(cur)} / ${formatNum(plan)})`;
-    }
-
-    // 3. Kiểm tra mốc 3.0M (m4) nếu khuôn chưa chốt mốc 4
+    // 2. Cột 3.0M (m4) nếu khuôn chưa chốt mốc 4
     const closed = Array.isArray(m.closedMilestones) ? m.closedMilestones : [];
     if (!closed.includes(4) && m.m4 != null) {
       const val4 = Number(m.m4) || 0;
       if (val4 >= 3000000) {
-        priority = 1;
-        overShots = Math.max(overShots, val4 - 3000000);
-        maxRatio = Math.max(maxRatio, val4 / 3000000);
-        if (!reason) reason = `Mốc 3.0M (${formatNum(val4)} ≥ 3.0M)`;
-      } else if (val4 >= 2800000 && priority > 1) {
-        priority = 2;
-        maxRatio = Math.max(maxRatio, val4 / 3000000);
-        if (!reason) reason = `Sắp chạm 3.0M (${formatNum(val4)})`;
+        hasRed = true;
+        if (val4 > highestRedShots) {
+          highestRedShots = val4;
+          redCol = `3.0M (${formatNum(val4)})`;
+        }
+      } else if (val4 >= 2800000) {
+        hasYellow = true;
+        if (val4 > highestYellowShots) highestYellowShots = val4;
       }
     }
 
-    // 4. Kiểm tra các mốc 3.5M, 4.0M, 4.5M, 5.0M (m5, m6, m7, m8)
+    // 3. Các cột 3.5M, 4.0M, 4.5M, 5.0M (m5, m6, m7, m8)
     for (let c = 5; c <= 8; c++) {
       if (!closed.includes(c) && m['m' + c] != null) {
         const val = Number(m['m' + c]) || 0;
         if (val >= 500000) {
-          priority = 1;
-          overShots = Math.max(overShots, val - 500000);
-          maxRatio = Math.max(maxRatio, val / 500000);
-          if (!reason) reason = `Mốc ${c === 5 ? '3.5M' : c === 6 ? '4.0M' : c === 7 ? '4.5M' : '5.0M'} (${formatNum(val)} ≥ 500K)`;
-        } else if (val >= 470000 && priority > 1) {
-          priority = 2;
-          maxRatio = Math.max(maxRatio, val / 500000);
-          if (!reason) reason = `Mốc ${c === 5 ? '3.5M' : c === 6 ? '4.0M' : c === 7 ? '4.5M' : '5.0M'} (${formatNum(val)} ≥ 470K)`;
+          hasRed = true;
+          if (val > highestRedShots) {
+            highestRedShots = val;
+            redCol = `Mốc ${c === 5 ? '3.5M' : c === 6 ? '4.0M' : c === 7 ? '4.5M' : '5.0M'} (${formatNum(val)})`;
+          }
+        } else if (val >= 470000) {
+          hasYellow = true;
+          if (val > highestYellowShots) highestYellowShots = val;
         }
       }
     }
 
-    return { priority, overShots, maxRatio, reason };
+    const tier = hasRed ? 1 : (hasYellow ? 2 : 3);
+    return { tier, hasRed, hasYellow, highestRedShots, highestYellowShots, redCol };
   }
 
   function getFilteredMolds() {
@@ -2667,28 +2637,32 @@ window.MoldMaintenance = (function() {
       return matchText && matchTier && matchStatus;
     });
 
-    // Mặc định đẩy toàn bộ các khuôn CẦN CHỐT lên đầu (Đỏ -> Vàng -> An toàn)
+    // Xếp theo khuôn, không theo máy: Cứ ĐỎ là lên trước (Tier 1: Đỏ -> Tier 2: Vàng -> Tier 3: Trắng)
     filtered.sort((a, b) => {
-      const pA = getMoldDuePriority(a);
-      const pB = getMoldDuePriority(b);
+      const vA = getMoldVisualStatus(a);
+      const vB = getMoldVisualStatus(b);
 
-      // Ưu tiên 1: Đẩy khuôn cần chốt lên đầu (Priority 1: Đỏ -> Priority 2: Vàng -> Priority 3: An toàn)
-      if (pA.priority !== pB.priority) {
-        return pA.priority - pB.priority;
+      // 1. Phân cấp mức độ: Đỏ (Tier 1) -> Vàng (Tier 2) -> Trắng (Tier 3)
+      if (vA.tier !== vB.tier) {
+        return vA.tier - vB.tier;
       }
 
-      // Trong cùng nhóm cần chốt: Xếp con có tỷ lệ % hoặc số shot vượt mốc cao nhất lên trước
-      if (pA.priority <= 2) {
-        if (pB.maxRatio !== pA.maxRatio) return pB.maxRatio - pA.maxRatio;
-        if (pB.overShots !== pA.overShots) return pB.overShots - pA.overShots;
+      // 2. Trong nhóm ĐỎ: Xếp giảm dần theo số shot mốc đỏ (không phân biệt máy)
+      if (vA.tier === 1) {
+        if (vB.highestRedShots !== vA.highestRedShots) {
+          return vB.highestRedShots - vA.highestRedShots;
+        }
       }
 
-      // Nhóm An toàn / Đã chốt: Ưu tiên khuôn đang chạy trên máy (machineNo !== '-')
-      const runA = a.machineNo && a.machineNo !== '-' ? 1 : 0;
-      const runB = b.machineNo && b.machineNo !== '-' ? 1 : 0;
-      if (runA !== runB) return runB - runA;
+      // 3. Trong nhóm VÀNG: Xếp giảm dần theo số shot tiệm cận
+      if (vA.tier === 2) {
+        if (vB.highestYellowShots !== vA.highestYellowShots) {
+          return vB.highestYellowShots - vA.highestYellowShots;
+        }
+      }
 
-      // Ưu tiên khuôn có sản lượng thực tế trong năm
+      // 4. Nhóm Trắng / An toàn: Xếp theo khuôn, không theo máy!
+      // Ưu tiên khuôn có sản lượng thực tế trong năm (totalYear)
       const totA = Number(a.totalYear) || Number(a.totalAccumulatedYear) || (Number(a.curShots) || 0);
       const totB = Number(b.totalYear) || Number(b.totalAccumulatedYear) || (Number(b.curShots) || 0);
       if (totA !== totB) return totB - totA;
@@ -2953,10 +2927,13 @@ window.MoldMaintenance = (function() {
         }
 
         const displayMoldName = (m.newMold && m.newMold !== '-' && m.newMold !== 'null') ? m.newMold : (m.oldMold && m.oldMold !== '-' ? m.oldMold : m.mold);
+        const vStatus = getMoldVisualStatus(m);
+        const rowBg = vStatus.hasRed ? 'background:#fff1f2;' : (vStatus.hasYellow ? 'background:#fffbeb;' : '');
+        const stickyBg = vStatus.hasRed ? '#fff1f2' : (vStatus.hasYellow ? '#fffbeb' : '#ffffff');
 
         html += `
-          <tr style="${m.status === 'due' ? 'background:#fff1f2;' : (m.status === 'warning' ? 'background:#fffbeb;' : '')}">
-            <td class="font-mono mm-sticky-col-1" style="vertical-align:middle; padding:8px 10px; position:sticky; left:0; z-index:10; background:${m.status === 'due' ? '#fff1f2' : (m.status === 'warning' ? '#fffbeb' : '#ffffff')};">
+          <tr style="${rowBg}">
+            <td class="font-mono mm-sticky-col-1" style="vertical-align:middle; padding:8px 10px; position:sticky; left:0; z-index:10; background:${stickyBg};">
               <div style="font-weight:700; color:#0f172a; font-size:15px; letter-spacing:0.2px;" title="${m.oldMold && m.oldMold !== '-' ? 'Mã cũ: ' + m.oldMold : ''}${m.series && m.series !== '-' ? ' | ' + m.series : ''}">
                 ${displayMoldName}
               </div>
@@ -3347,10 +3324,13 @@ window.MoldMaintenance = (function() {
         }
 
         const mDisplay = (r.newMold && r.newMold !== '-') ? r.newMold : (masterMold?.newMold && masterMold.newMold !== '-' ? masterMold.newMold : (oldMold && oldMold !== '-' ? oldMold : r.moldNo));
+        const vStatus = getMoldVisualStatus(uMold || masterMold);
+        const rowBg = vStatus.hasRed ? 'background:#fff1f2;' : (vStatus.hasYellow ? 'background:#fffbeb;' : '');
+        const stickyBg = vStatus.hasRed ? '#fff1f2' : (vStatus.hasYellow ? '#fffbeb' : '#ffffff');
 
         html += `
-          <tr style="${evalData.status === 'due' ? 'background:#fff1f2;' : (evalData.status === 'warning' ? 'background:#fffbeb;' : '')}">
-            <td class="text-center font-bold font-mono mm-sticky-col-1" style="vertical-align:middle; position:sticky; left:0; z-index:10; background:${evalData.status === 'due' ? '#fff1f2' : (evalData.status === 'warning' ? '#fffbeb' : '#ffffff')};">
+          <tr style="${rowBg}">
+            <td class="text-center font-bold font-mono mm-sticky-col-1" style="vertical-align:middle; position:sticky; left:0; z-index:10; background:${stickyBg};">
               <span style="color:#0284c7; font-size:16px; font-weight:800;">${r.machineNo}</span>
             </td>
             <td class="font-mono" style="vertical-align:middle; padding:8px 10px;">
