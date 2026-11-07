@@ -1116,7 +1116,7 @@ window.MoldMaintenance = (function() {
     return cycles;
   }
 
-  // Render ô 400K đơn lẻ trên bảng chính: hiển thị cữ hiện tại + badge cữ đã xong
+  // Render ô 400K đơn lẻ trên bảng chính: chỉ ghi số shot kèm màu cảnh báo, chuẩn gọn gàng
   function render400kCell(m) {
     if (!m || !m.isHighImpact) {
       return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
@@ -1128,62 +1128,50 @@ window.MoldMaintenance = (function() {
     const currCycleNum = current ? current.num : 1;
     const currShots = current ? current.shots : 0;
 
-    let cellBg = '#f0fdf4';
-    let textColor = '#15803d';
-    let warnIcon = '';
+    let cellBg = '#f8fafc';
+    let textColor = '#1e293b';
     let btnBg = '#ffffff';
-    let btnBorder = '1px solid #86efac';
-    let btnColor = '#15803d';
+    let btnBorder = '1px solid #cbd5e1';
+    let btnColor = '#475569';
 
     if (currShots >= 400000) {
       cellBg = '#fee2e2';
-      textColor = '#991b1b';
-      warnIcon = '⛔ ';
-      btnBg = '#dc2626';
-      btnBorder = '1px solid #b91c1c';
-      btnColor = '#ffffff';
+      textColor = '#b91c1c';
+      btnBg = '#fee2e2';
+      btnBorder = '1px solid #fca5a5';
+      btnColor = '#b91c1c';
     } else if (currShots >= 350000) {
       cellBg = '#fffbeb';
       textColor = '#b45309';
-      warnIcon = '⚠️ ';
-      btnBg = '#f59e0b';
-      btnBorder = '1px solid #d97706';
-      btnColor = '#ffffff';
-    }
-
-    let closedBadgesHtml = '';
-    if (closedList.length > 0) {
-      closedList.forEach(c => {
-        const pdfIcon = c.pdf ? ' 📄' : '';
-        closedBadgesHtml += `
-          <span onclick="event.stopPropagation(); MoldMaintenance.open400kDetailModal('${m.mold}')"
-            style="display:inline-flex; align-items:center; gap:2px; font-size:10px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac; border-radius:3px; padding:1px 4px; cursor:pointer;"
-            title="Cữ 400k-${c.num} đã chốt (${formatNum(c.closedShots)} shots) - Bấm xem chi tiết">
-            ✓ L${c.num}${pdfIcon}
-          </span>
-        `;
-      });
+      btnBg = '#fef3c7';
+      btnBorder = '1px solid #fcd34d';
+      btnColor = '#b45309';
     }
 
     const targetKey = currCycleNum <= 3 ? currCycleNum : ('400k-' + currCycleNum);
+    const canConfirm = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
 
     return `
-      <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:6px 6px; border-left:1px solid #e2e8f0; cursor:pointer;"
+      <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:8px 6px; border-left:1px solid #e2e8f0; cursor:pointer;"
           onclick="MoldMaintenance.open400kDetailModal('${m.mold}')"
-          title="Bấm để mở bảng chi tiết các cữ bảo dưỡng 400K của khuôn ${m.mold}">
-        <div style="display:flex; align-items:center; justify-content:center; gap:4px; margin-bottom:3px;">
-          <span style="font-weight:800; font-family:monospace; font-size:12px; color:${textColor};">
-            ${warnIcon}400k-${currCycleNum}: ${formatNum(currShots)}
-          </span>
-          <button type="button" onclick="event.stopPropagation(); MoldMaintenance.openMilestoneModal('${m.mold}', ${currCycleNum <= 3 ? currCycleNum : ('\'' + targetKey + '\'')}, true)"
-            style="padding:2px 6px; font-size:11px; font-weight:700; border-radius:4px; background:${btnBg}; color:${btnColor}; border:${btnBorder}; cursor:pointer;"
-            title="Chốt bảo dưỡng cữ 400k-${currCycleNum} và upload file kết quả đo (PDF)">
-            ☐ Chốt
-          </button>
+          title="Cữ 400k-${currCycleNum}: ${formatNum(currShots)} shots (Bấm để xem chi tiết các cữ)">
+        <div style="font-size:16.5px; font-weight:${currShots > 0 ? '800' : '500'}; color:${textColor};">
+          ${currShots > 0 ? formatNum(currShots) : '-'}
         </div>
-        <div style="display:flex; align-items:center; justify-content:center; gap:3px; flex-wrap:wrap;">
-          ${closedBadgesHtml}
-          <span style="font-size:10px; color:#0284c7; text-decoration:underline;">[Chi tiết]</span>
+        <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
+          <button type="button" onclick="event.stopPropagation(); MoldMaintenance.openMilestoneModal('${m.mold}', ${currCycleNum <= 3 ? currCycleNum : ('\'' + targetKey + '\'')}, true)"
+            style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:700; display:inline-flex; align-items:center; gap:3px;"
+            title="Chốt bảo dưỡng cữ 400k-${currCycleNum} và upload file kết quả đo (PDF)">
+            <span style="font-size:13px;">${canConfirm ? '☐' : '🔒'}</span>
+            <span>Chốt</span>
+          </button>
+          ${closedList.length > 0 ? `
+            <span onclick="event.stopPropagation(); MoldMaintenance.open400kDetailModal('${m.mold}')"
+              style="cursor:pointer; color:#15803d; font-size:12px; font-weight:700; background:#dcfce7; border:1px solid #86efac; border-radius:4px; padding:2px 5px;"
+              title="Đã hoàn thành ${closedList.length} cữ (Bấm xem chi tiết & PDF)">
+              ✓ L${closedList.length}${closedList.some(c => c.pdf) ? ' 📄' : ''}
+            </span>
+          ` : ''}
         </div>
       </td>
     `;
