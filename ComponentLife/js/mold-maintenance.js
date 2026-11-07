@@ -2717,11 +2717,11 @@ window.MoldMaintenance = (function() {
 
     const milestoneDefs = [
       { id: '400k', title: '400K', minWidth: '125px', tooltip: '400K - Chu kỳ bảo dưỡng dự phòng cho khuôn High-Impact (Bấm để xem chi tiết từng cữ 400k-1..7)' },
-      { id: 4, title: '3.0M', minWidth: '88px', tooltip: '3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)' },
-      { id: 5, title: '3.5M', minWidth: '88px', tooltip: '3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
-      { id: 6, title: '4.0M', minWidth: '88px', tooltip: '4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
-      { id: 7, title: '4.5M', minWidth: '88px', tooltip: '4.5M - Báo cáo Japan HQ xin hướng xử lý trước 5M' },
-      { id: 8, title: '5.0M', minWidth: '88px', tooltip: '5.0M - Ngưỡng trần tuổi thọ khuôn (Cảnh báo từ 4.8M)' }
+      { id: 4, title: '3.0M', minWidth: '65px', tooltip: '3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)' },
+      { id: 5, title: '3.5M', minWidth: '65px', tooltip: '3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
+      { id: 6, title: '4.0M', minWidth: '65px', tooltip: '4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
+      { id: 7, title: '4.5M', minWidth: '65px', tooltip: '4.5M - Báo cáo Japan HQ xin hướng xử lý trước 5M' },
+      { id: 8, title: '5.0M', minWidth: '65px', tooltip: '5.0M - Ngưỡng trần tuổi thọ khuôn (Cảnh báo từ 4.8M)' }
     ];
     let milestoneHeaders = '';
     milestoneDefs.forEach(d => {
@@ -2784,94 +2784,84 @@ window.MoldMaintenance = (function() {
           const isDone = (m.closedMilestones || []).includes(num);
           const detail = getMilestoneDetail(m.mold, num);
           const pdfData = detail?.pdf || getMilestonePdf(m.mold, num);
-          const moldLife = Number(m.totalLife) || 0;
-          const isHighBefore3M = m.isHighImpact && moldLife < 3000000;
+          const mTitle = num === 4 ? '3.0M' : (num === 5 ? '3.5M' : (num === 6 ? '4.0M' : (num === 7 ? '4.5M' : (num === 8 ? '5.0M' : `Mốc ${num}`))));
 
           // 1. Kiểm tra các mốc không áp dụng -> hiển thị '-'
           if (shotVal === null || shotVal === undefined) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
+            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 4px; font-size:13px;">-</td>`;
           }
 
           const val = Number(shotVal) || 0;
-          let cellBg = '#f8fafc';
-          let textColor = '#1e293b';
-          let btnBorder = '1px solid #cbd5e1';
-          let btnBg = '#ffffff';
-          let btnColor = '#475569';
+          let isDue = false;
+          let isWarn = false;
 
-          if (isDone) {
-            cellBg = '#f0fdf4';
-            textColor = '#15803d';
-            btnBorder = '1px solid #86efac';
-            btnBg = '#dcfce7';
-            btnColor = '#15803d';
-          } else if (num === 4) {
+          if (num === 4) {
             // MỐC 3.0M: Cảnh báo vàng khi >= 2.8M, đỏ khi >= 3.0M
-            if (val >= 3000000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (val >= 2800000) {
-              cellBg = '#fdf4ff'; textColor = '#86198f'; btnBorder = '1px solid #e879f9'; btnBg = '#fae8ff'; btnColor = '#a21caf';
-            } else if (val > 0) {
-              cellBg = '#f8fafc'; textColor = '#1e293b';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#94a3b8';
-            }
+            if (val >= 3000000) isDue = true;
+            else if (val >= 2800000) isWarn = true;
           } else if (num >= 5) {
             // CÁC MỐC 3.5M, 4.0M, 4.5M, 5.0M (Chu kỳ 500K)
-            if (val >= 500000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (val >= 470000) {
-              cellBg = '#fefce8'; textColor = '#854d0e'; btnBorder = '1px solid #facc15'; btnBg = '#fef08a'; btnColor = '#854d0e';
-            } else if (val > 0) {
-              cellBg = '#f8fafc'; textColor = '#1e293b';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#94a3b8';
-            }
-          } else if (num <= 3) {
-            // MỐC 400K-1, 400K-2, 400K-3 (High-Impact < 3M)
-            if (val >= 400000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (val >= 380000) {
-              cellBg = '#fff7ed'; textColor = '#c2410c'; btnBorder = '1px solid #fb923c'; btnBg = '#ffedd5'; btnColor = '#c2410c';
-            } else if (val > 0) {
-              cellBg = '#f0fdf4'; textColor = '#15803d';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#94a3b8';
-            }
+            if (val >= 500000) isDue = true;
+            else if (val >= 470000) isWarn = true;
           }
+
+          let cellBg = '#ffffff';
+          let boxBorder = '1.5px solid #cbd5e1';
+          let boxBg = '#ffffff';
+          let boxColor = 'transparent';
+          let cellTitle = `Mốc ${mTitle} (Chưa chốt)`;
+          let subInfoHtml = '';
 
           const dateDisplay = detail?.date ? (detail.date.includes('-') ? detail.date.split('-').reverse().join('/') : detail.date) : '';
 
-          const canConfirm = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
-          const btnTitle = canConfirm
-            ? (isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : 'Bấm để chốt hoàn thành mốc (yêu cầu mật khẩu 1234)')
-            : (isDone ? 'Mốc đã được chốt (Chỉ Staff/Admin có quyền thao tác)' : 'Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc này');
+          if (isDone) {
+            cellBg = '#f0fdf4';
+            boxBorder = '1.5px solid #16a34a';
+            boxBg = '#16a34a';
+            boxColor = '#ffffff';
+            cellTitle = `Đã chốt mốc ${mTitle}${dateDisplay ? ' ngày ' + dateDisplay : ''}${detail?.tech ? ' bởi ' + detail.tech : ''} (Bấm để xem chi tiết / mở lại)`;
 
-          return `
-            <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:8px 6px;">
-              <div style="font-size:16.5px; font-weight:${val > 0 ? '800' : '500'}; color:${textColor};">
-                ${val > 0 ? formatNum(val) : '-'}
-              </div>
-              <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
-                <button type="button" onclick="MoldMaintenance.openMilestoneModal('${m.mold}', ${num}, ${!isDone})" 
-                  style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:${isDone ? '800' : '700'}; display:inline-flex; align-items:center; gap:3px;"
-                  title="${btnTitle}">
-                  <span style="font-size:13px;">${isDone ? '☑' : (canConfirm ? '☐' : '🔒')}</span>
-                  <span>${isDone ? 'Đã chốt' : 'Chốt'}</span>
-                </button>
+            subInfoHtml = `
+              <div style="display:inline-flex; align-items:center; justify-content:center; gap:3px; margin-top:2px;">
+                ${dateDisplay ? `<span style="font-size:10.5px; color:#15803d; font-weight:600; line-height:1;" title="Ngày chốt: ${dateDisplay}">${dateDisplay}</span>` : ''}
                 ${pdfData ? `
-                  <a href="javascript:void(0)" onclick="MoldMaintenance.viewMilestonePdf('${m.mold}', ${num})" 
-                    style="color:#0284c7; font-size:14px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center;" title="Xem file PDF đính kèm: ${pdfData.name || 'Biên bản'}">
+                  <a href="javascript:void(0)" onclick="event.stopPropagation(); MoldMaintenance.viewMilestonePdf('${m.mold}', ${num})" 
+                    style="font-size:12px; line-height:1; text-decoration:none;" title="Xem file PDF kết quả đo: ${pdfData.name || 'Biên bản'}">
                     📄
                   </a>
                 ` : ''}
               </div>
-              ${isDone && (dateDisplay || detail?.tech) ? `
-                <div style="font-size:10.5px; line-height:1.2; margin-top:3px; color:#15803d; font-weight:600;" title="Bảo dưỡng ngày ${dateDisplay} bởi ${detail?.tech || ''}">
-                  ${dateDisplay ? `<div>📅 ${dateDisplay}</div>` : ''}
-                  ${detail?.tech ? `<div style="color:#0284c7; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:85px; margin:0 auto;">👤 ${detail.tech}</div>` : ''}
+            `;
+          } else if (isDue) {
+            cellBg = '#fee2e2';
+            boxBorder = '2px solid #ef4444';
+            boxBg = '#ffffff';
+            cellTitle = `⛔ Mốc ${mTitle}: Đã chạm hạn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:700; color:#b91c1c; line-height:1; margin-top:2px;">Cần chốt</span>`;
+          } else if (isWarn) {
+            cellBg = '#fffbeb';
+            boxBorder = '2px solid #f59e0b';
+            boxBg = '#ffffff';
+            cellTitle = `⚠️ Mốc ${mTitle}: Sắp đến hạn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:600; color:#b45309; line-height:1; margin-top:2px;">Sắp đến</span>`;
+          } else {
+            cellBg = '#ffffff';
+            boxBorder = '1.5px solid #cbd5e1';
+            boxBg = '#ffffff';
+            cellTitle = `Mốc ${mTitle} (Chưa đến hạn - Bấm để chốt trước nếu cần)`;
+            subInfoHtml = '';
+          }
+
+          return `
+            <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:6px 4px; cursor:pointer; user-select:none; border-left:1px solid #f1f5f9;"
+                onclick="MoldMaintenance.openMilestoneModal('${m.mold}', ${num}, ${!isDone})"
+                title="${cellTitle}">
+              <div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;">
+                <div class="mm-excel-tickbox" style="width:20px; height:20px; border-radius:4px; border:${boxBorder}; background:${boxBg}; color:${boxColor}; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; transition:all 0.15s ease;">
+                  ${isDone ? '✓' : ''}
                 </div>
-              ` : ''}
+                ${subInfoHtml}
+              </div>
             </td>
           `;
         };
@@ -3094,11 +3084,11 @@ window.MoldMaintenance = (function() {
               ${colPrefs.status ? '<th class="text-center">Trạng Thái</th>' : ''}
               ${colPrefs.totalYear !== false ? '<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px; border-left:2px solid #cbd5e1;" title="Tổng số shot của các tháng trong năm (Sum shot)">Sum shot</th>' : ''}
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:125px;" title="400K - Chu kỳ bảo dưỡng dự phòng cho khuôn High-Impact (Bấm để xem chi tiết từng cữ 400k-1..7)">400K</th>
-              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)">3.0M</th>
-              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions">3.5M</th>
-              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions">4.0M</th>
-              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="4.5M - Báo cáo Japan HQ xin hướng xử lý trước 5M">4.5M</th>
-              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:88px;" title="5.0M - Ngưỡng trần tuổi thọ khuôn (Cảnh báo từ 4.8M)">5.0M</th>
+              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)">3.0M</th>
+              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions">3.5M</th>
+              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions">4.0M</th>
+              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="4.5M - Báo cáo Japan HQ xin hướng xử lý trước 5M">4.5M</th>
+              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="5.0M - Ngưỡng trần tuổi thọ khuôn (Cảnh báo từ 4.8M)">5.0M</th>
               ${colPrefs.totalLife ? '<th class="text-right font-bold" style="background:#f8fafc; color:#0f172a;">Tổng Vòng Đời</th>' : ''}
               ${colPrefs.machineStatus ? '<th class="text-center">Trạng Thái Máy</th>' : ''}
               ${colPrefs.note ? '<th style="min-width:160px;">Note</th>' : ''}
@@ -3204,94 +3194,82 @@ window.MoldMaintenance = (function() {
           const isDone = closedMilestones.includes(num);
           const detail = getMilestoneDetail(r.moldNo, num);
           const pdfData = detail?.pdf || getMilestonePdf(r.moldNo, num);
-          const moldLife = Math.max(Number(r.totalLifeShots) || 0, Number(masterMold?.total_life) || 0);
-          const isHighBefore3M = isHigh && moldLife < 3000000;
+          const mTitle = num === 4 ? '3.0M' : (num === 5 ? '3.5M' : (num === 6 ? '4.0M' : (num === 7 ? '4.5M' : (num === 8 ? '5.0M' : `Mốc ${num}`))));
 
           // 1. Kiểm tra các mốc không áp dụng -> hiển thị '-'
           if (shotVal === null || shotVal === undefined) {
-            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 6px;">-</td>`;
+            return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:8px 4px; font-size:13px;">-</td>`;
           }
 
           const val = Number(shotVal) || 0;
-          let cellBg = '#f8fafc';
-          let textColor = '#1e293b';
-          let btnBorder = '1px solid #cbd5e1';
-          let btnBg = '#ffffff';
-          let btnColor = '#475569';
+          let isDue = false;
+          let isWarn = false;
 
-          if (isDone) {
-            cellBg = '#f0fdf4';
-            textColor = '#15803d';
-            btnBorder = '1px solid #86efac';
-            btnBg = '#dcfce7';
-            btnColor = '#15803d';
-          } else if (num === 4) {
-            // MỐC 3.0M: Cảnh báo vàng khi >= 2.8M, đỏ khi >= 3.0M
-            if (val >= 3000000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (val >= 2800000) {
-              cellBg = '#fdf4ff'; textColor = '#86198f'; btnBorder = '1px solid #e879f9'; btnBg = '#fae8ff'; btnColor = '#a21caf';
-            } else if (val > 0) {
-              cellBg = '#f8fafc'; textColor = '#1e293b';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#94a3b8';
-            }
+          if (num === 4) {
+            if (val >= 3000000) isDue = true;
+            else if (val >= 2800000) isWarn = true;
           } else if (num >= 5) {
-            // CÁC MỐC 3.5M, 4.0M, 4.5M, 5.0M (Chu kỳ 500K)
-            if (val >= 500000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (val >= 470000) {
-              cellBg = '#fefce8'; textColor = '#854d0e'; btnBorder = '1px solid #facc15'; btnBg = '#fef08a'; btnColor = '#854d0e';
-            } else if (val > 0) {
-              cellBg = '#f8fafc'; textColor = '#1e293b';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#94a3b8';
-            }
-          } else if (num <= 3) {
-            // MỐC 400K-1, 400K-2, 400K-3 (High-Impact < 3M)
-            if (val >= 400000) {
-              cellBg = '#fee2e2'; textColor = '#991b1b'; btnBorder = '1px solid #ef4444'; btnBg = '#fecaca'; btnColor = '#991b1b';
-            } else if (val >= 380000) {
-              cellBg = '#fff7ed'; textColor = '#c2410c'; btnBorder = '1px solid #fb923c'; btnBg = '#ffedd5'; btnColor = '#c2410c';
-            } else if (val > 0) {
-              cellBg = '#f0fdf4'; textColor = '#15803d';
-            } else {
-              cellBg = '#f8fafc'; textColor = '#94a3b8';
-            }
+            if (val >= 500000) isDue = true;
+            else if (val >= 470000) isWarn = true;
           }
+
+          let cellBg = '#ffffff';
+          let boxBorder = '1.5px solid #cbd5e1';
+          let boxBg = '#ffffff';
+          let boxColor = 'transparent';
+          let cellTitle = `Mốc ${mTitle} (Chưa chốt)`;
+          let subInfoHtml = '';
 
           const dateDisplay = detail?.date ? (detail.date.includes('-') ? detail.date.split('-').reverse().join('/') : detail.date) : '';
 
-          const canConfirm = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
-          const btnTitle = canConfirm
-            ? (isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : 'Bấm để chốt hoàn thành mốc (yêu cầu mật khẩu 1234)')
-            : (isDone ? 'Mốc đã được chốt (Chỉ Staff/Admin có quyền thao tác)' : 'Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc này');
+          if (isDone) {
+            cellBg = '#f0fdf4';
+            boxBorder = '1.5px solid #16a34a';
+            boxBg = '#16a34a';
+            boxColor = '#ffffff';
+            cellTitle = `Đã chốt mốc ${mTitle}${dateDisplay ? ' ngày ' + dateDisplay : ''}${detail?.tech ? ' bởi ' + detail.tech : ''} (Bấm để xem chi tiết / mở lại)`;
 
-          return `
-            <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:8px 6px;">
-              <div style="font-size:16.5px; font-weight:${val > 0 ? '800' : '500'}; color:${textColor};">
-                ${val > 0 ? formatNum(val) : '-'}
-              </div>
-              <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
-                <button type="button" onclick="MoldMaintenance.openMilestoneModal('${r.moldNo}', ${num}, ${!isDone})" 
-                  style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:${isDone ? '800' : '700'}; display:inline-flex; align-items:center; gap:3px;"
-                  title="${btnTitle}">
-                  <span style="font-size:13px;">${isDone ? '☑' : (canConfirm ? '☐' : '🔒')}</span>
-                  <span>${isDone ? 'Đã chốt' : 'Chốt'}</span>
-                </button>
+            subInfoHtml = `
+              <div style="display:inline-flex; align-items:center; justify-content:center; gap:3px; margin-top:2px;">
+                ${dateDisplay ? `<span style="font-size:10.5px; color:#15803d; font-weight:600; line-height:1;" title="Ngày chốt: ${dateDisplay}">${dateDisplay}</span>` : ''}
                 ${pdfData ? `
-                  <a href="javascript:void(0)" onclick="MoldMaintenance.viewMilestonePdf('${r.moldNo}', ${num})" 
-                    style="color:#0284c7; font-size:14px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center;" title="Xem file PDF đính kèm: ${pdfData.name || 'Biên bản'}">
+                  <a href="javascript:void(0)" onclick="event.stopPropagation(); MoldMaintenance.viewMilestonePdf('${r.moldNo}', ${num})" 
+                    style="font-size:12px; line-height:1; text-decoration:none;" title="Xem file PDF kết quả đo: ${pdfData.name || 'Biên bản'}">
                     📄
                   </a>
                 ` : ''}
               </div>
-              ${isDone && (dateDisplay || detail?.tech) ? `
-                <div style="font-size:10.5px; line-height:1.2; margin-top:3px; color:#15803d; font-weight:600;" title="Bảo dưỡng ngày ${dateDisplay} bởi ${detail?.tech || ''}">
-                  ${dateDisplay ? `<div>📅 ${dateDisplay}</div>` : ''}
-                  ${detail?.tech ? `<div style="color:#0284c7; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:85px; margin:0 auto;">👤 ${detail.tech}</div>` : ''}
+            `;
+          } else if (isDue) {
+            cellBg = '#fee2e2';
+            boxBorder = '2px solid #ef4444';
+            boxBg = '#ffffff';
+            cellTitle = `⛔ Mốc ${mTitle}: Đã chạm hạn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:700; color:#b91c1c; line-height:1; margin-top:2px;">Cần chốt</span>`;
+          } else if (isWarn) {
+            cellBg = '#fffbeb';
+            boxBorder = '2px solid #f59e0b';
+            boxBg = '#ffffff';
+            cellTitle = `⚠️ Mốc ${mTitle}: Sắp đến hạn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:600; color:#b45309; line-height:1; margin-top:2px;">Sắp đến</span>`;
+          } else {
+            cellBg = '#ffffff';
+            boxBorder = '1.5px solid #cbd5e1';
+            boxBg = '#ffffff';
+            cellTitle = `Mốc ${mTitle} (Chưa đến hạn - Bấm để chốt trước nếu cần)`;
+            subInfoHtml = '';
+          }
+
+          return `
+            <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:6px 4px; cursor:pointer; user-select:none; border-left:1px solid #f1f5f9;"
+                onclick="MoldMaintenance.openMilestoneModal('${r.moldNo}', ${num}, ${!isDone})"
+                title="${cellTitle}">
+              <div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;">
+                <div class="mm-excel-tickbox" style="width:20px; height:20px; border-radius:4px; border:${boxBorder}; background:${boxBg}; color:${boxColor}; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; transition:all 0.15s ease;">
+                  ${isDone ? '✓' : ''}
                 </div>
-              ` : ''}
+                ${subInfoHtml}
+              </div>
             </td>
           `;
         };
