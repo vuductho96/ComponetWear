@@ -853,44 +853,123 @@
       </div>
     </div>
 
-    <!-- MODAL CHI TIẾT CÁC CỮ BẢO DƯỠNG 400K (HIGH-IMPACT) -->
+    <!-- MODAL DUY NHẤT: XEM LỊCH SỬ & CHỐT BẢO DƯỠNG 400K (HIGH-IMPACT) -->
     <div id="mm400kDetailModal" class="hidden" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.65); align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) MoldMaintenance.close400kDetailModal()">
-      <div style="background:#ffffff; border-radius:12px; width:100%; max-width:680px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; max-height:90vh;" onclick="event.stopPropagation()">
+      <div style="background:#ffffff; border-radius:12px; width:100%; max-width:660px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; max-height:92vh;" onclick="event.stopPropagation()">
         <!-- Header -->
-        <div style="padding:14px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+        <div style="padding:12px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
           <div style="display:flex; align-items:center; gap:8px;">
             <span style="font-size:22px;">⚙️</span>
             <div>
-              <div style="font-size:15px; font-weight:800; color:#0f172a;">Lịch Sử Các Cữ Bảo Dưỡng 400K (High-Impact)</div>
+              <div style="font-size:15px; font-weight:800; color:#0f172a;">Quản Lý &amp; Chốt Bảo Dưỡng 400K (High-Impact)</div>
               <div style="font-size:12px; color:#64748b;">Khuôn: <b id="mm400kMoldTitle" style="color:#0284c7;">-</b> | Định mức: <b>400.000 shots / cữ</b></div>
             </div>
           </div>
           <button type="button" style="background:transparent; border:none; font-size:18px; color:#64748b; cursor:pointer;" onclick="MoldMaintenance.close400kDetailModal()">✕</button>
         </div>
 
-        <!-- Banner cảnh báo current shot -->
-        <div id="mm400kCurrentShotBanner" style="padding:12px 18px; border-bottom:1px solid #e2e8f0; font-size:13px; font-weight:700;"></div>
+        <!-- Scrollable content -->
+        <div style="padding:14px 18px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:12px;">
+          
+          <!-- 1. Banner cảnh báo cữ hiện tại -->
+          <div id="mm400kCurrentShotBanner" style="padding:10px 14px; border-radius:8px; font-size:12.5px; font-weight:700;"></div>
 
-        <!-- Table body: 400k-1 to 400k-7 -->
-        <div style="padding:16px 18px; overflow-y:auto; flex:1;">
-          <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
-            <thead>
-              <tr style="background:#f1f5f9; color:#334155; border-bottom:2px solid #cbd5e1;">
-                <th style="padding:8px 10px; text-align:left; font-weight:700;">Cữ</th>
-                <th style="padding:8px 10px; text-align:right; font-weight:700;">Số Shot Chốt</th>
-                <th style="padding:8px 10px; text-align:center; font-weight:700;">Ngày Bảo Dưỡng</th>
-                <th style="padding:8px 10px; text-align:center; font-weight:700;">Kết Quả Đo (PDF)</th>
-                <th style="padding:8px 10px; text-align:center; font-weight:700;">Thao Tác</th>
-              </tr>
-            </thead>
-            <tbody id="mm400kTableBody"></tbody>
-          </table>
+          <!-- 2. Bảng lịch sử các cữ 400k-1..7 -->
+          <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead>
+                <tr style="background:#f1f5f9; color:#334155; border-bottom:1px solid #cbd5e1;">
+                  <th style="padding:7px 10px; text-align:left; font-weight:700;">Cữ</th>
+                  <th style="padding:7px 10px; text-align:right; font-weight:700;">Số Shot</th>
+                  <th style="padding:7px 10px; text-align:center; font-weight:700;">Ngày Bảo Dưỡng</th>
+                  <th style="padding:7px 10px; text-align:center; font-weight:700;">Kết Quả Đo (PDF)</th>
+                  <th style="padding:7px 10px; text-align:center; font-weight:700;">Trạng Thái</th>
+                </tr>
+              </thead>
+              <tbody id="mm400kTableBody"></tbody>
+            </table>
+          </div>
+
+          <!-- 3. Form chốt trực tiếp cữ hiện tại ngay trong cùng 1 bảng -->
+          <div id="mm400kFormSection" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px 14px;">
+            <div style="font-size:13.5px; font-weight:800; color:#0f172a; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+              <span id="mm400kFormTitle">🔒 Xác Nhận Chốt Cữ Bảo Dưỡng</span>
+              <span id="mm400kFormBadge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; background:#ffedd5; color:#c2410c; border:1px solid #fb923c;">Định mức: 400.000</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+              <!-- Mật khẩu -->
+              <div>
+                <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:3px;">
+                  Mật khẩu xác thực * <span style="font-weight:normal; color:#64748b;">(Mặc định: <b>1234</b>)</span>
+                </label>
+                <input type="text" id="mm400kPassInput" value="1234" class="mm-input" style="width:100%; font-size:13px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; -webkit-text-security: disc; text-security: disc;">
+                <div id="mm400kPassError" style="color:#e11d48; font-size:11px; font-weight:600; margin-top:2px; display:none;">⚠️ Mật khẩu không đúng!</div>
+              </div>
+
+              <!-- Số shot chốt -->
+              <div>
+                <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:3px;">
+                  🎯 Số shot chốt mốc *
+                </label>
+                <input type="number" id="mm400kShotsInput" class="mm-input" style="width:100%; font-size:13.5px; font-weight:800; font-family:monospace; padding:6px 10px; border:1px solid #94a3b8; border-radius:6px; background:#ffffff;">
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+              <!-- Ngày bảo dưỡng -->
+              <div>
+                <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:3px;">📅 Ngày bảo dưỡng *</label>
+                <input type="date" id="mm400kDateInput" class="mm-input" style="width:100%; font-size:12.5px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+              </div>
+
+              <!-- Ai bảo dưỡng -->
+              <div>
+                <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:3px;">👤 Kỹ thuật viên (KTV) *</label>
+                <input type="text" id="mm400kTechInput" placeholder="Tên KTV..." class="mm-input" style="width:100%; font-size:12.5px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+              </div>
+            </div>
+
+            <!-- File PDF đính kèm -->
+            <div style="margin-bottom:10px;">
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:3px;">
+                📄 Biên bản / Báo cáo kết quả đo PDF <span style="font-weight:normal; color:#64748b;">(Tùy chọn)</span>
+              </label>
+              <div id="mm400kExistingPdfInfo" style="display:none; font-size:11.5px; margin-bottom:4px; color:#15803d; background:#f0fdf4; padding:5px 8px; border-radius:4px; border:1px solid #bbf7d0; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:5px; overflow:hidden;">
+                  <span>📎</span>
+                  <span id="mm400kExistingPdfName" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px;">report.pdf</span>
+                  <a id="mm400kExistingPdfLink" href="javascript:void(0)" style="color:#0284c7; font-weight:700; text-decoration:underline;">[Xem PDF]</a>
+                </div>
+                <button type="button" id="mm400kDeletePdfBtn" onclick="MoldMaintenance.delete400kPdf()" style="cursor:pointer; border:1px solid #fca5a5; background:#fee2e2; color:#b91c1c; border-radius:4px; padding:1px 6px; font-size:11px; font-weight:700;">✕ Xóa</button>
+              </div>
+              <input type="file" id="mm400kPdfFileInput" accept="application/pdf,.pdf" class="mm-input" style="width:100%; font-size:12px; padding:5px 8px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;">
+            </div>
+
+            <!-- Ghi chú -->
+            <div style="margin-bottom:12px;">
+              <label style="display:block; font-size:11.5px; font-weight:700; color:#334155; margin-bottom:3px;">
+                Ghi chú bảo dưỡng <span style="font-weight:normal; color:#64748b;">(Tùy chọn)</span>
+              </label>
+              <input type="text" id="mm400kNoteInput" placeholder="Ghi chú linh kiện thay thế, kích thước đo..." class="mm-input" style="width:100%; font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px;">
+            </div>
+
+            <!-- Nút hành động -->
+            <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px;">
+              <button type="button" id="mm400kReopenBtn" onclick="MoldMaintenance.reopenCurrent400kCycle()" style="display:none; padding:7px 16px; background:#ea580c; color:white; border:none; border-radius:6px; font-size:12.5px; font-weight:700; cursor:pointer;">
+                🔓 Mở Lại Cữ Này
+              </button>
+              <button type="button" id="mm400kConfirmBtn" onclick="MoldMaintenance.confirm400kFromModal()" style="padding:7px 22px; background:#16a34a; color:white; border:none; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer;">
+                Chốt Hoàn Thành
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Footer -->
-        <div style="padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+        <div style="padding:10px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
           <span style="font-size:11.5px; color:#64748b;">💡 Sau khi chốt cữ, số shot sẽ tự động reset bắt đầu đếm cho cữ tiếp theo.</span>
-          <button type="button" class="mm-btn" onclick="MoldMaintenance.close400kDetailModal()" style="padding:6px 16px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer;">Đóng</button>
+          <button type="button" class="mm-btn" onclick="MoldMaintenance.close400kDetailModal()" style="padding:5px 14px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Đóng</button>
         </div>
       </div>
     </div>

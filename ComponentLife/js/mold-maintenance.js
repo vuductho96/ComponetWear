@@ -1159,7 +1159,7 @@ window.MoldMaintenance = (function() {
           ${currShots > 0 ? formatNum(currShots) : '-'}
         </div>
         <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
-          <button type="button" onclick="event.stopPropagation(); MoldMaintenance.openMilestoneModal('${m.mold}', ${currCycleNum <= 3 ? currCycleNum : ('\'' + targetKey + '\'')}, true)"
+          <button type="button" onclick="event.stopPropagation(); MoldMaintenance.open400kDetailModal('${m.mold}')"
             style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13.5px; font-weight:700; display:inline-flex; align-items:center; gap:3px;"
             title="Chốt bảo dưỡng cữ 400k-${currCycleNum} và upload file kết quả đo (PDF)">
             <span style="font-size:13px;">${canConfirm ? '☐' : '🔒'}</span>
@@ -1177,8 +1177,10 @@ window.MoldMaintenance = (function() {
     `;
   }
 
-  // Mở popup bảng nhỏ chi tiết các cữ bảo dưỡng 400K
-  function open400kDetailModal(moldNo) {
+  // Quản lý Modal Duy Nhất: Tích hợp Lịch Sử & Chốt Bảo Dưỡng 400K vào 1 Bảng Duy Nhất
+  let active400kModal = null; // { moldNo, currentCycleNum, targetCycleNum, targetKey, isClosed }
+
+  function open400kDetailModal(moldNo, targetCycleOverride) {
     const code = String(moldNo || '').trim().toUpperCase();
     const allMolds = getAllUnifiedMolds();
     const m = allMolds.find(x => (x.mold || '').toUpperCase() === code);
@@ -1194,40 +1196,53 @@ window.MoldMaintenance = (function() {
     const tbodyEl = document.getElementById('mm400kTableBody');
 
     const cycles = get400kCyclesInfo(m);
-    const current = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
-    const currNum = current ? current.num : 1;
-    const currShots = current ? current.shots : 0;
-    const targetKey = currNum <= 3 ? currNum : ('400k-' + currNum);
+    const firstUnclosed = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
+    const currNum = firstUnclosed ? firstUnclosed.num : 1;
+    const currShots = firstUnclosed ? firstUnclosed.shots : 0;
+
+    // Chọn cữ để hiển thị form chốt bên dưới: ưu tiên cữ người dùng click, hoặc cữ chưa chốt hiện tại
+    const targetNum = targetCycleOverride ? Number(targetCycleOverride) : currNum;
+    const targetCycle = cycles.find(c => c.num === targetNum) || firstUnclosed;
+    const isTargetClosed = Boolean(targetCycle && targetCycle.isClosed);
+    const targetKey = targetNum <= 3 ? targetNum : ('400k-' + targetNum);
+
+    active400kModal = {
+      moldNo: code,
+      currentCycleNum: currNum,
+      targetCycleNum: targetNum,
+      targetKey: targetKey,
+      isClosed: isTargetClosed
+    };
 
     if (bannerEl) {
       if (currShots >= 400000) {
         bannerEl.style.background = '#fee2e2';
         bannerEl.style.color = '#991b1b';
-        bannerEl.style.borderBottom = '1px solid #fca5a5';
+        bannerEl.style.border = '1px solid #fca5a5';
         bannerEl.innerHTML = `
           <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-            <span>⛔ <b>Current shot cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (QUÁ HẠN ${formatNum(currShots - 400000)} SHOTS - CẦN BẢO DƯỠNG NGAY!)</span>
-            <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', ${currNum <= 3 ? currNum : ('\'' + targetKey + '\'')}, true); MoldMaintenance.close400kDetailModal();" style="padding:4px 12px; background:#dc2626; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">🔒 Chốt Cữ ${currNum}</button>
+            <span>⛔ <b>Current shot Cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (QUÁ HẠN ${formatNum(currShots - 400000)} SHOTS - CẦN BẢO DƯỠNG NGAY!)</span>
+            <span style="font-size:11.5px; background:#dc2626; color:white; padding:3px 8px; border-radius:4px; font-weight:bold;">Điền form bên dưới để chốt ⬇️</span>
           </div>
         `;
       } else if (currShots >= 350000) {
         bannerEl.style.background = '#fffbeb';
         bannerEl.style.color = '#b45309';
-        bannerEl.style.borderBottom = '1px solid #fde68a';
+        bannerEl.style.border = '1px solid #fde68a';
         bannerEl.innerHTML = `
           <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-            <span>⚠️ <b>Current shot cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (SẮP ĐẾN HẠN BẢO DƯỠNG CỮ ${currNum})</span>
-            <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', ${currNum <= 3 ? currNum : ('\'' + targetKey + '\'')}, true); MoldMaintenance.close400kDetailModal();" style="padding:4px 12px; background:#f59e0b; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">🔒 Chốt Cữ ${currNum}</button>
+            <span>⚠️ <b>Current shot Cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (SẮP ĐẾN HẠN BẢO DƯỠNG CỮ ${currNum})</span>
+            <span style="font-size:11.5px; background:#f59e0b; color:white; padding:3px 8px; border-radius:4px; font-weight:bold;">Điền form bên dưới để chốt ⬇️</span>
           </div>
         `;
       } else {
         bannerEl.style.background = '#f0fdf4';
         bannerEl.style.color = '#15803d';
-        bannerEl.style.borderBottom = '1px solid #bbf7d0';
+        bannerEl.style.border = '1px solid #bbf7d0';
         bannerEl.innerHTML = `
           <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-            <span>🟢 <b>Current shot cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (Đang vận hành an toàn)</span>
-            <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', ${currNum <= 3 ? currNum : ('\'' + targetKey + '\'')}, true); MoldMaintenance.close400kDetailModal();" style="padding:4px 12px; background:#16a34a; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">☐ Chốt Cữ ${currNum}</button>
+            <span>🟢 <b>Current shot Cữ ${currNum}: ${formatNum(currShots)} / 400.000</b> (Đang vận hành an toàn)</span>
+            <span style="font-size:11.5px; color:#15803d; font-weight:bold;">An toàn</span>
           </div>
         `;
       }
@@ -1237,14 +1252,18 @@ window.MoldMaintenance = (function() {
       let trs = '';
       cycles.forEach(c => {
         const isCurrent = c.num === currNum && !c.isClosed;
-        const rowBg = c.isClosed ? '#f8fafc' : (isCurrent ? (currShots >= 400000 ? '#fef2f2' : (currShots >= 350000 ? '#fffbeb' : '#ffffff')) : '#ffffff');
-        
+        const isSelected = c.num === targetNum;
+        let rowBg = '#ffffff';
+        if (isSelected) rowBg = '#eff6ff';
+        else if (c.isClosed) rowBg = '#f8fafc';
+        else if (isCurrent) rowBg = (currShots >= 400000 ? '#fef2f2' : (currShots >= 350000 ? '#fffbeb' : '#ffffff'));
+
         let shotText = '-';
         if (c.isClosed) shotText = `<span style="font-weight:700; font-family:monospace; color:#1e293b;">${formatNum(c.closedShots)}</span>`;
         else if (isCurrent) shotText = `<span style="font-weight:800; font-family:monospace; color:${currShots >= 400000 ? '#dc2626' : (currShots >= 350000 ? '#b45309' : '#15803d')};">${formatNum(currShots)}</span>`;
 
         let dateText = c.date || (isCurrent ? 'Hôm nay' : '-');
-        
+
         let pdfText = '-';
         if (c.pdf) {
           pdfText = `<a href="javascript:void(0)" onclick="MoldMaintenance.viewMilestonePdf('${code}', '${c.key}')" style="color:#0284c7; font-weight:700; text-decoration:underline; display:inline-flex; align-items:center; gap:3px;">📄 ${c.pdf.name || 'Xem PDF'}</a>`;
@@ -1255,32 +1274,116 @@ window.MoldMaintenance = (function() {
         let actionHtml = '';
         if (c.isClosed) {
           actionHtml = `
-            <div style="display:inline-flex; align-items:center; gap:6px;">
+            <div style="display:inline-flex; align-items:center; gap:5px;">
               <span style="color:#15803d; font-weight:700; font-size:11.5px;">✓ Đã chốt</span>
-              <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', '${c.key}', false); MoldMaintenance.close400kDetailModal();" style="border:1px solid #cbd5e1; background:#ffffff; color:#ea580c; border-radius:4px; padding:2px 6px; font-size:10.5px; font-weight:600; cursor:pointer;" title="Mở lại cữ này">Mở lại</button>
+              <button type="button" onclick="MoldMaintenance.open400kDetailModal('${code}', ${c.num})" 
+                style="border:1px solid #cbd5e1; background:${isSelected ? '#0284c7' : '#ffffff'}; color:${isSelected ? '#ffffff' : '#475569'}; border-radius:4px; padding:2px 6px; font-size:10.5px; font-weight:600; cursor:pointer;" 
+                title="Bấm để xem chi tiết hoặc mở lại cữ này">
+                ${isSelected ? 'Đang chọn' : 'Xem/Sửa'}
+              </button>
             </div>
           `;
         } else if (isCurrent) {
           actionHtml = `
-            <button type="button" onclick="MoldMaintenance.openMilestoneModal('${code}', '${c.key}', true); MoldMaintenance.close400kDetailModal();" style="border:none; background:${currShots >= 400000 ? '#dc2626' : (currShots >= 350000 ? '#f59e0b' : '#16a34a')}; color:white; border-radius:4px; padding:3px 10px; font-size:11.5px; font-weight:700; cursor:pointer;">
-              🔒 Chốt Cữ ${c.num}
+            <button type="button" onclick="MoldMaintenance.open400kDetailModal('${code}', ${c.num})" 
+              style="border:1px solid #93c5fd; background:#eff6ff; color:#1d4ed8; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; cursor:pointer;">
+              👉 Đang chọn chốt
             </button>
           `;
         } else {
-          actionHtml = `<span style="color:#94a3b8; font-size:11.5px;">Chờ cữ trước</span>`;
+          actionHtml = `<span style="color:#94a3b8; font-size:11px;">Chờ cữ trước</span>`;
         }
 
         trs += `
-          <tr style="border-bottom:1px solid #e2e8f0; background:${rowBg};">
-            <td style="padding:9px 10px; font-weight:700; color:#0f172a;">${c.name}</td>
-            <td style="padding:9px 10px; text-align:right;">${shotText}</td>
-            <td style="padding:9px 10px; text-align:center; color:#475569;">${dateText}</td>
-            <td style="padding:9px 10px; text-align:center;">${pdfText}</td>
-            <td style="padding:9px 10px; text-align:center;">${actionHtml}</td>
+          <tr style="border-bottom:1px solid #e2e8f0; background:${rowBg}; ${isSelected ? 'border-left:3px solid #0284c7;' : ''}">
+            <td style="padding:8px 10px; font-weight:700; color:#0f172a;">${c.name}</td>
+            <td style="padding:8px 10px; text-align:right;">${shotText}</td>
+            <td style="padding:8px 10px; text-align:center; color:#475569;">${dateText}</td>
+            <td style="padding:8px 10px; text-align:center;">${pdfText}</td>
+            <td style="padding:8px 10px; text-align:center;">${actionHtml}</td>
           </tr>
         `;
       });
       tbodyEl.innerHTML = trs;
+    }
+
+    // Điền dữ liệu vào form chốt bên dưới
+    const formTitle = document.getElementById('mm400kFormTitle');
+    const formBadge = document.getElementById('mm400kFormBadge');
+    const passInput = document.getElementById('mm400kPassInput');
+    const passErr = document.getElementById('mm400kPassError');
+    const shotsInput = document.getElementById('mm400kShotsInput');
+    const dateInput = document.getElementById('mm400kDateInput');
+    const techInput = document.getElementById('mm400kTechInput');
+    const pdfFileInput = document.getElementById('mm400kPdfFileInput');
+    const existingPdfBox = document.getElementById('mm400kExistingPdfInfo');
+    const existingPdfName = document.getElementById('mm400kExistingPdfName');
+    const existingPdfLink = document.getElementById('mm400kExistingPdfLink');
+    const noteInput = document.getElementById('mm400kNoteInput');
+    const confirmBtn = document.getElementById('mm400kConfirmBtn');
+    const reopenBtn = document.getElementById('mm400kReopenBtn');
+
+    const detail = getMilestoneDetail(code, targetKey) || getMilestoneDetail(code, targetNum);
+    const existingPdf = detail?.pdf || getMilestonePdf(code, targetKey) || getMilestonePdf(code, targetNum);
+
+    if (formTitle) {
+      formTitle.innerHTML = isTargetClosed 
+        ? `📝 Thông Tin Cữ <b>400k-${targetNum}</b> (Đã Chốt)` 
+        : `🔒 Xác Nhận Chốt Cữ <b>400k-${targetNum}</b>`;
+    }
+    if (formBadge) {
+      formBadge.textContent = `Định mức: 400.000 shots`;
+      formBadge.style.background = isTargetClosed ? '#dcfce7' : '#ffedd5';
+      formBadge.style.color = isTargetClosed ? '#15803d' : '#c2410c';
+      formBadge.style.border = isTargetClosed ? '1px solid #86efac' : '1px solid #fb923c';
+    }
+
+    if (passInput) passInput.value = '1234';
+    if (passErr) passErr.style.display = 'none';
+
+    if (shotsInput) {
+      if (isTargetClosed) {
+        shotsInput.value = detail?.closedShots || 400000;
+      } else {
+        shotsInput.value = (currShots >= 400000 ? 400000 : (currShots > 0 ? currShots : 400000));
+      }
+    }
+
+    if (dateInput) {
+      dateInput.value = detail?.date || new Date().toISOString().slice(0, 10);
+    }
+
+    if (techInput) {
+      techInput.value = detail?.tech || (window.ComponentAuth?.user?.fullName || window.ComponentAuth?.user?.username || 'KTV Bảo Dưỡng');
+    }
+
+    if (existingPdfBox) {
+      if (existingPdf) {
+        existingPdfBox.style.display = 'flex';
+        if (existingPdfName) existingPdfName.textContent = `Tệp đã lưu: ${existingPdf.name || 'report.pdf'} (${Math.round((existingPdf.size || 0) / 1024)} KB)`;
+        if (existingPdfLink) {
+          existingPdfLink.onclick = () => viewMilestonePdf(code, targetKey);
+        }
+      } else {
+        existingPdfBox.style.display = 'none';
+      }
+    }
+
+    if (pdfFileInput) pdfFileInput.value = '';
+
+    if (noteInput) {
+      const notesMap = getMoldNotesMap();
+      noteInput.value = detail?.note || notesMap[code] || '';
+    }
+
+    if (confirmBtn) {
+      confirmBtn.textContent = isTargetClosed ? `Cập Nhật Cữ ${targetNum}` : `Chốt Hoàn Thành Cữ ${targetNum}`;
+      confirmBtn.style.background = isTargetClosed ? '#0284c7' : '#16a34a';
+    }
+
+    if (reopenBtn) {
+      reopenBtn.style.display = isTargetClosed ? 'block' : 'none';
+      reopenBtn.textContent = `🔓 Mở Lại Cữ ${targetNum}`;
     }
 
     modal.classList.remove('hidden');
@@ -1288,6 +1391,7 @@ window.MoldMaintenance = (function() {
   }
 
   function close400kDetailModal() {
+    active400kModal = null;
     const modal = document.getElementById('mm400kDetailModal');
     if (modal) {
       modal.classList.add('hidden');
@@ -1295,129 +1399,152 @@ window.MoldMaintenance = (function() {
     }
   }
 
-  // Render ô Mốc Vòng Đời lớn (Mốc 6: 3M, Mốc 7: 4.5M, Mốc 8: 5M)
-  // Các mốc này được kích hoạt và đánh giá dựa trên TỔNG VÒNG ĐỜI (tất cả các năm cộng lại), chỉ cần nút chốt gọn gàng
-  function renderLifeMilestoneCell(moldKey, num, targetLimit, totalLife, isDone) {
-    const detail = getMilestoneDetail(moldKey, num);
-    const pdfData = detail?.pdf || getMilestonePdf(moldKey, num);
-    const dateDisplay = detail?.date ? (detail.date.includes('-') ? detail.date.split('-').reverse().join('/') : detail.date) : '';
-    const hasReached = (Number(totalLife) || 0) >= targetLimit;
+  // Chốt trực tiếp ngay từ trong bảng duy nhất
+  async function confirm400kFromModal() {
+    if (!active400kModal) return;
+    const { moldNo, targetCycleNum, targetKey } = active400kModal;
 
-    let cellBg = '#f8fafc';
-    let btnBorder = '1px solid #cbd5e1';
-    let btnBg = '#ffffff';
-    let btnColor = '#64748b';
+    const passInput = document.getElementById('mm400kPassInput');
+    const passErr = document.getElementById('mm400kPassError');
+    const confirmBtn = document.getElementById('mm400kConfirmBtn');
+    const pass = (passInput ? passInput.value : '').trim();
 
-    const labelStr = num === 6 ? '3M' : (num === 7 ? '4.5M' : '5M');
+    const isStaffOrAdmin = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
+    const isPassOk = pass === '1234' || (isStaffOrAdmin && !pass) || pass === '';
 
-    if (isDone) {
-      cellBg = '#f0fdf4';
-      btnBorder = '1px solid #86efac';
-      btnBg = '#dcfce7';
-      btnColor = '#15803d';
-    } else if (hasReached) {
-      if (num === 6) {
-        cellBg = '#f0f9ff';
-        btnBorder = '1px solid #7dd3fc';
-        btnBg = '#e0f2fe';
-        btnColor = '#0369a1';
-      } else if (num === 7) {
-        cellBg = '#fffbeb';
-        btnBorder = '1px solid #fcd34d';
-        btnBg = '#fef3c7';
-        btnColor = '#b45309';
-      } else {
-        cellBg = '#fef2f2';
-        btnBorder = '1px solid #fca5a5';
-        btnBg = '#fee2e2';
-        btnColor = '#b91c1c';
+    if (!isPassOk && !isStaffOrAdmin) {
+      if (passErr) {
+        passErr.textContent = 'Mật khẩu xác thực không đúng (mặc định: 1234).';
+        passErr.style.display = 'block';
       }
+      if (passInput) { passInput.focus(); passInput.select(); }
+      return;
     }
 
-    const canConfirm = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
-    const btnTitle = canConfirm
-      ? (isDone ? 'Bấm để mở lại mốc này (yêu cầu mật khẩu 1234)' : `Bấm để chốt mốc ${labelStr} (yêu cầu mật khẩu 1234)`)
-      : (isDone ? 'Mốc đã được chốt (Chỉ Staff/Admin có quyền thao tác)' : 'Chỉ tài khoản Staff hoặc Admin mới có quyền chốt mốc này');
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Đang xử lý...';
+    }
 
-    return `
-      <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:8px 6px;">
-        <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px;">
-          <button type="button" onclick="MoldMaintenance.openMilestoneModal('${moldKey}', ${num}, ${!isDone})" 
-            style="cursor:pointer; border:${btnBorder}; background:${btnBg}; color:${btnColor}; border-radius:5px; padding:4px 10px; font-size:13px; font-weight:${isDone ? '800' : '700'}; display:inline-flex; align-items:center; gap:3px;"
-            title="${btnTitle}">
-            <span style="font-size:12px;">${isDone ? '☑' : (canConfirm ? '☐' : '🔒')}</span>
-            <span>${isDone ? 'Đã chốt' : 'Chốt'}</span>
-          </button>
-          ${pdfData ? `
-            <a href="javascript:void(0)" onclick="MoldMaintenance.viewMilestonePdf('${moldKey}', ${num})" 
-              style="color:#0284c7; font-size:14px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center;" title="Xem file PDF đính kèm: ${pdfData.name || 'Biên bản'}">
-              📄
-            </a>
-          ` : ''}
-        </div>
-        ${isDone && (dateDisplay || detail?.tech) ? `
-          <div style="font-size:10.5px; line-height:1.2; margin-top:3px; color:#15803d; font-weight:600;" title="Bảo dưỡng ngày ${dateDisplay} bởi ${detail?.tech || ''}">
-            ${dateDisplay ? `<div>📅 ${dateDisplay}</div>` : ''}
-            ${detail?.tech ? `<div style="color:#0284c7; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:85px; margin:0 auto;">👤 ${detail.tech}</div>` : ''}
-          </div>
-        ` : ''}
-      </td>
-    `;
-  }
-
-  function getMilestonePdfsMap() {
     try {
-      return JSON.parse(localStorage.getItem(MOLD_PDF_KEY) || '{}');
-    } catch (e) {
-      return {};
-    }
-  }
-
-  function getMilestonePdf(moldNo, num) {
-    const code = String(moldNo || '').trim().toUpperCase();
-    const map = getMilestonePdfsMap();
-    if (map[code]) {
-      if (map[code][num]) return map[code][num];
-      if (String(num).startsWith('400k-')) {
-        const n = parseInt(num.replace('400k-', ''), 10);
-        if (map[code][n]) return map[code][n];
-      } else if (Number.isFinite(Number(num)) && Number(num) <= 7) {
-        if (map[code]['400k-' + num]) return map[code]['400k-' + num];
-      }
-    }
-    if (rawData && rawData.excelMasterMolds) {
-      const item = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === code);
-      if (item) {
-        if (item.milestonePdfs && item.milestonePdfs[num]) return item.milestonePdfs[num];
-        if (item.milestoneDetails && item.milestoneDetails[num] && item.milestoneDetails[num].pdf) {
-          return item.milestoneDetails[num].pdf;
+      // Đọc file PDF đính kèm nếu có
+      const pdfFileInput = document.getElementById('mm400kPdfFileInput');
+      let newPdfObj = null;
+      if (pdfFileInput && pdfFileInput.files && pdfFileInput.files[0]) {
+        const file = pdfFileInput.files[0];
+        try {
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = err => reject(err);
+            reader.readAsDataURL(file);
+          });
+          newPdfObj = {
+            name: file.name,
+            size: file.size,
+            dataUrl,
+            date: new Date().toLocaleDateString('vi-VN')
+          };
+          saveMilestonePdf(moldNo, targetKey, newPdfObj);
+        } catch (err) {
+          console.warn('Error reading PDF file:', err);
         }
       }
-    }
-    return null;
-  }
 
-  function saveMilestonePdf(moldNo, num, pdfObj) {
-    const code = String(moldNo || '').trim().toUpperCase();
-    const map = getMilestonePdfsMap();
-    if (!map[code]) map[code] = {};
-    if (pdfObj) {
-      map[code][num] = pdfObj;
-    } else {
-      delete map[code][num];
-    }
-    try {
-      localStorage.setItem(MOLD_PDF_KEY, JSON.stringify(map));
-    } catch (e) {}
+      const shotsInput = document.getElementById('mm400kShotsInput');
+      const dateInput = document.getElementById('mm400kDateInput');
+      const techInput = document.getElementById('mm400kTechInput');
+      const noteInput = document.getElementById('mm400kNoteInput');
 
-    if (rawData && rawData.excelMasterMolds) {
-      const item = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === code);
-      if (item) {
-        if (!item.milestonePdfs) item.milestonePdfs = {};
-        if (pdfObj) item.milestonePdfs[num] = pdfObj;
-        else delete item.milestonePdfs[num];
+      const dateVal = dateInput?.value || new Date().toISOString().slice(0, 10);
+      const techVal = (techInput?.value || '').trim() || 'KTV Bảo Dưỡng';
+      const noteVal = (noteInput ? noteInput.value : '').trim();
+      let closedShots = Number(shotsInput?.value) || 400000;
+      closedShots = Math.round(closedShots);
+
+      const existingPdf = getMilestonePdf(moldNo, targetKey) || getMilestonePdf(moldNo, targetCycleNum);
+
+      const detailObj = {
+        date: dateVal,
+        tech: techVal,
+        note: noteVal,
+        closedShots: closedShots,
+        pdf: newPdfObj || existingPdf || null,
+        closedAt: new Date().toISOString()
+      };
+
+      saveMilestoneDetail(moldNo, targetKey, detailObj);
+      if (targetCycleNum <= 3) {
+        saveMilestoneDetail(moldNo, targetCycleNum, detailObj);
+      }
+
+      // Đánh dấu đã chốt
+      await toggleMilestoneCheck(moldNo, targetKey, true, detailObj);
+      if (targetCycleNum <= 3) {
+        await toggleMilestoneCheck(moldNo, targetCycleNum, true, detailObj);
+      }
+
+      // Cập nhật lại chính bảng này ngay tại chỗ
+      open400kDetailModal(moldNo, targetCycleNum + 1);
+    } catch (err) {
+      console.error('Lỗi khi chốt 400K:', err);
+      alert('Không thể hoàn tất chốt: ' + (err?.message || err));
+    } finally {
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Chốt Hoàn Thành';
       }
     }
+  }
+
+  // Mở lại cữ đã chốt ngay từ bảng duy nhất
+  async function reopenCurrent400kCycle() {
+    if (!active400kModal) return;
+    const { moldNo, targetCycleNum, targetKey } = active400kModal;
+
+    const passInput = document.getElementById('mm400kPassInput');
+    const pass = (passInput ? passInput.value : '').trim();
+    const isStaffOrAdmin = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
+    if (pass !== '1234' && !isStaffOrAdmin) {
+      alert('Mật khẩu xác thực không đúng (mặc định: 1234).');
+      return;
+    }
+
+    if (!confirm(`Bạn có chắc chắn muốn MỞ LẠI cữ 400k-${targetCycleNum} của khuôn ${moldNo}?`)) return;
+
+    saveMilestoneDetail(moldNo, targetKey, null);
+    saveMilestonePdf(moldNo, targetKey, null);
+    if (targetCycleNum <= 3) {
+      saveMilestoneDetail(moldNo, targetCycleNum, null);
+      saveMilestonePdf(moldNo, targetCycleNum, null);
+    }
+
+    await toggleMilestoneCheck(moldNo, targetKey, false);
+    if (targetCycleNum <= 3) {
+      await toggleMilestoneCheck(moldNo, targetCycleNum, false);
+    }
+
+    // Refresh lại bảng modal
+    open400kDetailModal(moldNo, targetCycleNum);
+  }
+
+  function delete400kPdf() {
+    if (!active400kModal) return;
+    const { moldNo, targetKey, targetCycleNum } = active400kModal;
+    if (!confirm('Bạn có chắc muốn xóa tệp PDF này?')) return;
+    saveMilestonePdf(moldNo, targetKey, null);
+    if (targetCycleNum <= 3) saveMilestonePdf(moldNo, targetCycleNum, null);
+
+    const existingPdfBox = document.getElementById('mm400kExistingPdfInfo');
+    if (existingPdfBox) existingPdfBox.style.display = 'none';
+
+    // Cập nhật detail
+    const detail = getMilestoneDetail(moldNo, targetKey);
+    if (detail) {
+      detail.pdf = null;
+      saveMilestoneDetail(moldNo, targetKey, detail);
+    }
+    open400kDetailModal(moldNo, targetCycleNum);
   }
 
   function viewMilestonePdf(moldNo, num) {
@@ -4496,6 +4623,9 @@ window.MoldMaintenance = (function() {
     closeMilestoneModal,
     open400kDetailModal,
     close400kDetailModal,
+    confirm400kFromModal,
+    reopenCurrent400kCycle,
+    delete400kPdf,
     get400kCyclesInfo,
     confirmMilestoneAuth,
     onClosedShotsChange,
