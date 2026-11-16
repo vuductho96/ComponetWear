@@ -1147,11 +1147,11 @@ async function renderMoldMaintenanceAlertsInOverview() {
       <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:16px;">🎯</span>
-          <span style="font-size:13px; font-weight:700; color:#1e293b;">QUY CHUẨN MÀU SOP: 🟣 TRƯỚC 20K (MỨC PLAN) • 🟠 TRƯỚC 10K (BÁO BẢO DƯỠNG) • 🔴 CHẠM/VƯỢT MỐC TIÊU CHUẨN</span>
+          <span style="font-size:13px; font-weight:700; color:#1e293b;">QUY CHUẨN MÀU SOP: 🟣 TRƯỚC 20K (MỨC PLAN) • 🟡 TRƯỚC 10K (BÁO BẢO DƯỠNG) • 🔴 CHẠM/VƯỢT MỐC TIÊU CHUẨN</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700;">
           ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} vượt mốc</span>` : ''}
-          ${orangeCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#ffedd5; color:#c2410c;">🟠 ${orangeCount} sắp chạm</span>` : ''}
+          ${orangeCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fef9c3; color:#854d0e; border:1px solid #fde047;">🟡 ${orangeCount} sắp chạm</span>` : ''}
           ${planCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fae8ff; color:#701a75;">🟣 ${planCount} lên plan</span>` : ''}
           <span style="padding:4px 10px; border-radius:12px; background:#dcfce7; color:#15803d;">🟢 ${safeCount} an toàn</span>
           <button type="button" onclick="switchTab('moldmaintenance');" style="background:#2563eb; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:11.5px; font-weight:600; margin-left:4px;">
@@ -1218,12 +1218,12 @@ async function renderMoldMaintenanceAlertsInOverview() {
           statusBadgeText = '🔴 Vượt Mốc Tiêu Chuẩn';
           daysText = 'Vượt mốc bảo dưỡng';
         } else if (isWarn) {
-          icon = '🟠';
-          barColor = '#ea580c';
-          rowBg = 'background:#fff7ed;';
-          sopBadgeBg = 'background:#ffedd5; color:#c2410c; border:1px solid #fdba74;';
-          statusBadgeStyle = 'background:#ffedd5; color:#c2410c; border:1px solid #fdba74; font-weight:800;';
-          statusBadgeText = '🟠 Báo Bảo Dưỡng';
+          icon = '🟡';
+          barColor = '#ca8a04';
+          rowBg = 'background:#fefce8;';
+          sopBadgeBg = 'background:#fef9c3; color:#854d0e; border:1px solid #fde047;';
+          statusBadgeStyle = 'background:#fef9c3; color:#854d0e; border:1px solid #fde047; font-weight:800;';
+          statusBadgeText = '🟡 Báo Bảo Dưỡng';
           daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot (sắp chạm)` : 'Sắp đạt ngưỡng';
         } else if (isPlan) {
           icon = '🟣';
