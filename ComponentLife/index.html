@@ -204,12 +204,6 @@
                 <!-- ===== TAB: MOLD MAINTENANCE (TMS REAL-TIME) ===== -->
         <section id="moldMaintenanceTab" class="hidden" aria-label="Bảo dưỡng khuôn">
           <div class="mold-maintenance-container" id="moldMaintenanceWorkspace">
-            <div class="mm-kpi-grid" aria-live="polite">
-              <div class="mm-kpi-card" id="mmKpiFleet"></div>
-              <div class="mm-kpi-card" id="mmKpiShots"></div>
-              <div class="mm-kpi-card" id="mmKpiOutput"></div>
-              <div class="mm-kpi-card" id="mmKpiProgress"></div>
-            </div>
             <!-- 2 Subtabs Navigation (Ưu tiên show Bảng 1: Toàn bộ khuôn & Mốc chạm plan 800K / 350K~400K) -->
             <div class="mm-subtabs" style="margin-top: 10px; margin-bottom: 12px; display: inline-flex;">
               <button type="button" class="mm-subtab-btn active" id="btnTabMolds" onclick="MoldMaintenance.switchTab('molds')">🎯 Mold</button>
@@ -268,17 +262,7 @@
                 <span>Thêm Mold</span>
               </button>
 
-              <!-- NÚT LÀM MỚI / ĐỒNG BỘ TMS -->
-              <button type="button" id="btnRefreshTms" class="mm-btn" onclick="MoldMaintenance.refreshData(true)" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; font-size: 12.5px; font-weight: 700; background: #f8fafc; color: #0284c7; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; white-space: nowrap;" title="Tự động đồng bộ mỗi 60s hoặc bấm để làm mới số shot từ TMS ngay lập tức">
-                <span style="font-size: 13px;">🔄</span>
-                <span id="txtRefreshTms">Đồng bộ TMS</span>
-              </button>
-
-              <!-- NÚT XUẤT EXCEL MMFD-I-F-022.01 -->
-              <button type="button" id="btnExportMoldExcel" class="mm-btn" onclick="MoldMaintenance.exportExcel()" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; font-size: 12.5px; font-weight: 700; background: #16a34a; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); white-space: nowrap;" title="Xuất báo cáo đếm số shot và bảo dưỡng khuôn theo template MMFD-I-F-022.01">
-                <span style="font-size: 15px;">📊</span>
-                <span>Export MMFD-I-F-022.01</span>
-              </button>
+              
             </div>
 
             <!-- Floating Column Picker Popover -->
@@ -894,17 +878,8 @@
           </div>
 
           <!-- Bottom Action Bar -->
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; flex-wrap:wrap; gap:10px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:12px; font-weight:700; color:#334155;">Mật khẩu:</span>
-              <input type="password" id="mm400kPassInput" value="1234" placeholder="1234" 
-                     style="width:85px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px; text-align:center;">
-              <button type="button" id="mm400kUnlockBtn" onclick="MoldMaintenance.unlock400kEdit()" 
-                      style="padding:6px 12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; font-weight:600; color:#475569; cursor:pointer;">
-                🔓 Mở lại edit
-              </button>
-              <span id="mm400kPassError" style="color:#dc2626; font-size:11.5px; font-weight:700; display:none;">⚠️ Sai mật khẩu!</span>
-            </div>
+          <div style="display:flex; align-items:center; justify-content:flex-end; margin-top:14px; gap:10px;">
+            
             <div style="display:flex; align-items:center; gap:8px;">
               <button type="button" onclick="MoldMaintenance.close400kDetailModal()" 
                       style="padding:6px 16px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer;">

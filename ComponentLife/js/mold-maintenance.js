@@ -559,6 +559,7 @@ window.MoldMaintenance = (function() {
     const kpiShots = document.getElementById('mmKpiShots');
     const kpiOutput = document.getElementById('mmKpiOutput');
     const kpiProgress = document.getElementById('mmKpiProgress');
+    if (!kpiFleet || !kpiShots || !kpiOutput || !kpiProgress) return;
 
     const totalProdYesterday = (rawData.records || []).reduce((a, b) => a + (b.yesterdayProdOutputPcs || 0), 0);
     const totalShotsYesterday = (rawData.records || []).reduce((a, b) => a + (b.yesterdayShots || 0), 0);
@@ -1500,19 +1501,7 @@ window.MoldMaintenance = (function() {
     if (!active400kModalMold) return;
     const moldNo = active400kModalMold;
 
-    const passInput = document.getElementById('mm400kPassInput');
-    const passErr = document.getElementById('mm400kPassError');
-    const pass = (passInput ? passInput.value : '').trim();
 
-    if (pass !== '1234') {
-      if (passErr) {
-        passErr.textContent = 'Mật khẩu không đúng! Vui lòng nhập 1234 để hoàn thành.';
-        passErr.style.display = 'inline-block';
-      }
-      if (passInput) { passInput.focus(); passInput.select(); }
-      return;
-    }
-    if (passErr) passErr.style.display = 'none';
 
     const confirmBtn = document.getElementById('mm400kConfirmBtn');
     if (confirmBtn) {
@@ -2704,20 +2693,7 @@ window.MoldMaintenance = (function() {
 
     let html = `
       ${getMilestoneLegendHtml()}
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px; padding:6px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
-        <div style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#334155;">
-          <span>↔️ Thanh cuộn ngang:</span>
-          <span style="font-weight:normal; color:#64748b; font-size:12px;">Kéo thanh cuộn bên dưới hoặc bấm nút điều hướng nhanh:</span>
-        </div>
-        <div style="display:inline-flex; align-items:center; gap:6px;">
-          <button type="button" onclick="MoldMaintenance.scrollTableHorizontal(-500)" class="mm-btn" style="padding:4px 10px; border-radius:5px; border:1px solid #cbd5e1; background:#ffffff; color:#334155; font-size:12px; font-weight:700; cursor:pointer;" title="Cuộn sang trái về các cột tháng T1..T6">
-            ◀ Cuộn trái (T1..T6)
-          </button>
-          <button type="button" onclick="MoldMaintenance.scrollTableHorizontal(500)" class="mm-btn" style="padding:4px 10px; border-radius:5px; border:1px solid #0284c7; background:#eff6ff; color:#0284c7; font-size:12px; font-weight:700; cursor:pointer;" title="Cuộn sang phải xem các mốc 400K, 3.0M - 5.0M">
-            Cuộn phải (400K, 3M..5M) ▶
-          </button>
-        </div>
-      </div>
+
       <div id="mmTableScrollBox" class="mm-table-scroll-container" style="overflow-x:auto; width:100%; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff;">
         <table class="mm-table">
           <thead>
@@ -3023,20 +2999,7 @@ window.MoldMaintenance = (function() {
 
     let html = `
       ${getMilestoneLegendHtml()}
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px; padding:6px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
-        <div style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#334155;">
-          <span>↔️ Thanh cuộn ngang:</span>
-          <span style="font-weight:normal; color:#64748b; font-size:12px;">Kéo thanh cuộn bên dưới hoặc bấm nút điều hướng:</span>
-        </div>
-        <div style="display:inline-flex; align-items:center; gap:6px;">
-          <button type="button" onclick="MoldMaintenance.scrollTableHorizontal(-500)" class="mm-btn" style="padding:4px 10px; border-radius:5px; border:1px solid #cbd5e1; background:#ffffff; color:#334155; font-size:12px; font-weight:700; cursor:pointer;" title="Cuộn sang trái">
-            ◀ Cuộn trái
-          </button>
-          <button type="button" onclick="MoldMaintenance.scrollTableHorizontal(500)" class="mm-btn" style="padding:4px 10px; border-radius:5px; border:1px solid #0284c7; background:#eff6ff; color:#0284c7; font-size:12px; font-weight:700; cursor:pointer;" title="Cuộn sang phải xem các mốc 400K, 3.0M - 5.0M">
-            Cuộn phải (400K, 3M..5M) ▶
-          </button>
-        </div>
-      </div>
+
       <div id="mmTableScrollBox" class="mm-table-scroll-container" style="overflow-x:auto; width:100%; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff;">
         <table class="mm-table">
           <thead>
