@@ -1248,20 +1248,64 @@ window.MoldMaintenance = (function() {
     `;
   }
 
-  // Quản lý Bảng Nhập Shot 400K (High-Impact) Dạng Excel
-  let active400kModalMold = null;
-  let active400kRowsData = []; // [{ num, name, actualShot, date, ktv, note, pdf, isClosed }]
+  // =========================================================================
+  // BẢNG NHẬP SHOT BẢO DƯỠNG (EXCEL GRID UI) - ÁP DỤNG CHO TẤT CẢ CÁC MỐC
+  // Tích hợp: Chu kỳ 400K (High-Impact) & Các mốc lớn (3.0M - 5.0M)
+  // Quy chuẩn SOP: Tuyệt đối KHÔNG CHO CHỐT SỚM trước định mức!
+  // =========================================================================
+  let activeShotModalMold = null;
+  let activeShotModalTab = '400k'; // '400k' hoặc 'major'
+  let active400kRowsData = [];
+  let activeMajorRowsData = [];
 
-  function render400kDocCell(row, idx) {
+  function getActiveExcelRows() {
+    return activeShotModalTab === '400k' ? active400kRowsData : activeMajorRowsData;
+  }
+
+  function switchShotModalTab(tab) {
+    activeShotModalTab = tab === 'major' ? 'major' : '400k';
+    const btn400k = document.getElementById('mmTabBtn400k');
+    const btnMajor = document.getElementById('mmTabBtnMajor');
+
+    if (btn400k) {
+      if (activeShotModalTab === '400k') {
+        btn400k.style.background = '#ffffff';
+        btn400k.style.color = '#0284c7';
+        btn400k.style.borderBottom = '2px solid #0284c7';
+      } else {
+        btn400k.style.background = '#f1f5f9';
+        btn400k.style.color = '#64748b';
+        btn400k.style.borderBottom = 'none';
+      }
+    }
+    if (btnMajor) {
+      if (activeShotModalTab === 'major') {
+        btnMajor.style.background = '#ffffff';
+        btnMajor.style.color = '#0284c7';
+        btnMajor.style.borderBottom = '2px solid #0284c7';
+      } else {
+        btnMajor.style.background = '#f1f5f9';
+        btnMajor.style.color = '#64748b';
+        btnMajor.style.borderBottom = 'none';
+      }
+    }
+
+    renderActiveExcelRows();
+  }
+
+  function renderExcelDocCell(row, idx) {
+    if (row.isEligible === false && !row.isClosed) {
+      return `<span style="color:#94a3b8; font-size:11px; font-style:italic;">-</span>`;
+    }
     if (row.pdf && row.pdf.name) {
       return `
         <div style="display:inline-flex; align-items:center; gap:4px; justify-content:center; max-width:130px;">
-          <a href="javascript:void(0)" onclick="MoldMaintenance.view400kRowFile(${idx})" 
+          <a href="javascript:void(0)" onclick="MoldMaintenance.viewExcelRowFile(${idx})" 
              style="color:#0284c7; font-weight:700; text-decoration:underline; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
              title="${row.pdf.name || 'Xem file'}">
             📄 ${row.pdf.name || 'Xem file'}
           </a>
-          <button type="button" onclick="MoldMaintenance.remove400kRowFile(${idx})" 
+          <button type="button" onclick="MoldMaintenance.removeExcelRowFile(${idx})" 
              style="border:none; background:transparent; color:#ef4444; font-weight:bold; cursor:pointer; font-size:12px; padding:0 2px;" title="Xóa tệp">
             ✕
           </button>
@@ -1271,156 +1315,141 @@ window.MoldMaintenance = (function() {
     return `
       <label class="mm-upload-btn" style="display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:3px 8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer; font-size:11px; font-weight:600; color:#475569;">
         📎 Nút upload
-        <input type="file" accept="application/pdf,image/*" style="display:none;" onchange="MoldMaintenance.handle400kRowUpload(event, ${idx})">
+        <input type="file" accept="application/pdf,image/*" style="display:none;" onchange="MoldMaintenance.handleExcelRowUpload(event, ${idx})">
       </label>
     `;
   }
 
-  function render400kExcelRows() {
+  function renderActiveExcelRows() {
     const tbody = document.getElementById('mm400kTableBody');
     if (!tbody) return;
 
+    const rows = getActiveExcelRows();
     let html = '';
-    active400kRowsData.forEach((row, idx) => {
-      html += `
-        <tr style="border-bottom:1px solid #94a3b8; background:${row.isClosed ? '#f8fafc' : '#ffffff'};">
-          <td style="border:1px solid #94a3b8; padding:6px; text-align:center; font-weight:700; background:#f8fafc; color:#1e293b; user-select:none;">
-            ${row.name}
-          </td>
-          <td style="border:1px solid #94a3b8; padding:4px 6px;">
-            <input type="text" id="mm400k_shot_${idx}" value="${row.actualShot || ''}" placeholder="VD: 380k"
-              style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-family:monospace; font-weight:700; text-align:right; font-size:12.5px; color:#0f172a; background:#ffffff;">
-          </td>
-          <td style="border:1px solid #94a3b8; padding:4px 6px;">
-            <input type="date" id="mm400k_date_${idx}" value="${row.date || ''}"
-              style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; color:#334155; background:#ffffff;">
-          </td>
-          <td style="border:1px solid #94a3b8; padding:4px 6px; text-align:center;">
-            <div id="mm400k_doc_wrap_${idx}">
-              ${render400kDocCell(row, idx)}
-            </div>
-          </td>
-          <td style="border:1px solid #94a3b8; padding:4px 6px;">
-            <input type="text" id="mm400k_ktv_${idx}" value="${row.ktv || ''}" placeholder="7139"
-              style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; font-weight:600; color:#334155; background:#ffffff;">
-          </td>
-          <td style="border:1px solid #94a3b8; padding:4px 6px;">
-            <input type="text" id="mm400k_note_${idx}" value="${row.note || ''}" placeholder="Ghi chú..."
-              style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; color:#334155; background:#ffffff;">
-          </td>
-        </tr>
-      `;
+    rows.forEach((row, idx) => {
+      const isLocked = row.isEligible === false && !row.isClosed;
+      const rowBg = row.isClosed ? '#f0fdf4' : (isLocked ? '#f8fafc' : '#ffffff');
+      const borderStyle = 'border:1px solid #94a3b8;';
+
+      let mTitleHtml = row.name;
+      if (isLocked) {
+        mTitleHtml = `<div style="display:inline-flex; align-items:center; justify-content:center; gap:3px;">
+          <span style="color:#64748b; font-weight:700;">${row.name}</span>
+          <span title="${row.lockReason}" style="cursor:help; font-size:12px; color:#ef4444;">🔒</span>
+        </div>`;
+      } else if (row.isClosed) {
+        mTitleHtml = `<div style="display:inline-flex; align-items:center; justify-content:center; gap:3px;">
+          <span style="color:#15803d; font-weight:800;">${row.name}</span>
+          <span style="color:#16a34a; font-weight:900; font-size:12px;" title="Đã chốt hoàn thành">✓</span>
+        </div>`;
+      }
+
+      if (isLocked) {
+        // DÒNG BỊ KHÓA DO CHƯA ĐẠT ĐỊNH MỨC (KHÔNG CHO CHỐT SỚM)
+        html += `
+          <tr style="border-bottom:1px solid #94a3b8; background:${rowBg};" title="${row.lockReason}">
+            <td style="${borderStyle} padding:6px; text-align:center; background:#f1f5f9; user-select:none;">
+              ${mTitleHtml}
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="text" id="mm_shot_${idx}" value="" placeholder="${row.lockReason}" disabled
+                style="width:100%; border:1px solid #e2e8f0; border-radius:4px; padding:4px 6px; font-size:11px; text-align:center; color:#94a3b8; background:#f8fafc; cursor:not-allowed;"
+                title="${row.lockReason}">
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="text" id="mm_date_${idx}" value="" placeholder="-" disabled
+                style="width:100%; border:1px solid #e2e8f0; border-radius:4px; padding:4px 6px; font-size:11px; text-align:center; color:#94a3b8; background:#f8fafc; cursor:not-allowed;">
+            </td>
+            <td style="${borderStyle} padding:4px 6px; text-align:center;">
+              <span style="color:#94a3b8; font-size:11px; font-style:italic;">-</span>
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="text" id="mm_ktv_${idx}" value="" placeholder="-" disabled
+                style="width:100%; border:1px solid #e2e8f0; border-radius:4px; padding:4px 6px; font-size:11px; text-align:center; color:#94a3b8; background:#f8fafc; cursor:not-allowed;">
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="text" id="mm_note_${idx}" value="" placeholder="Chưa đến hạn" disabled
+                style="width:100%; border:1px solid #e2e8f0; border-radius:4px; padding:4px 6px; font-size:11px; color:#94a3b8; background:#f8fafc; cursor:not-allowed;">
+            </td>
+          </tr>
+        `;
+      } else {
+        // DÒNG HỢP LỆ ĐÃ CHỐT HOẶC ĐÃ ĐẾN HẠN BẢO DƯỠNG
+        html += `
+          <tr style="border-bottom:1px solid #94a3b8; background:${rowBg};">
+            <td style="${borderStyle} padding:6px; text-align:center; font-weight:700; background:#f8fafc; color:#1e293b; user-select:none;">
+              ${mTitleHtml}
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="VD: 380k / 3.0M"
+                style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-family:monospace; font-weight:700; text-align:right; font-size:12.5px; color:#0f172a; background:#ffffff;">
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="date" id="mm_date_${idx}" value="${row.date || ''}"
+                style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; color:#334155; background:#ffffff;">
+            </td>
+            <td style="${borderStyle} padding:4px 6px; text-align:center;">
+              <div id="mm_doc_wrap_${idx}">
+                ${renderExcelDocCell(row, idx)}
+              </div>
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="text" id="mm_ktv_${idx}" value="${row.ktv || ''}" placeholder="7139"
+                style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; font-weight:600; color:#334155; background:#ffffff;">
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="text" id="mm_note_${idx}" value="${row.note || ''}" placeholder="Ghi chú bảo dưỡng..."
+                style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; color:#334155; background:#ffffff;">
+            </td>
+          </tr>
+        `;
+      }
     });
     tbody.innerHTML = html;
-  }
 
-  function open400kDetailModal(moldNo) {
-    const code = String(moldNo || '').trim().toUpperCase();
-    const allMolds = getAllUnifiedMolds();
-    const m = allMolds.find(x => (x.mold || '').toUpperCase() === code);
-    if (!m) return;
-
-    active400kModalMold = code;
-
-    const modal = document.getElementById('mm400kDetailModal');
-    if (!modal) return;
-
-    const titleEl = document.getElementById('mm400kMoldTitle');
-    if (titleEl) titleEl.textContent = code;
-
-    const machineEl = document.getElementById('mm400kMachineSub');
-    if (machineEl) machineEl.textContent = m.machineNo ? `| Máy: ${m.machineNo}` : '';
-
-    const passInput = document.getElementById('mm400kPassInput');
-    if (passInput) passInput.value = '1234';
-
-    const passErr = document.getElementById('mm400kPassError');
-    if (passErr) passErr.style.display = 'none';
-
-    // Chuẩn bị dữ liệu ít nhất 8 dòng (400k-1 .. 400k-8)
-    const cycles = get400kCyclesInfo(m);
-    const maxRows = Math.max(8, cycles.length);
-    active400kRowsData = [];
-
-    const firstUnclosed = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
-    const currNum = firstUnclosed ? firstUnclosed.num : 1;
-    const currShots = firstUnclosed ? firstUnclosed.shots : 0;
-
-    for (let i = 1; i <= maxRows; i++) {
-      const c = cycles.find(x => x.num === i);
-      const rowName = '400k-' + i;
-      if (c && c.isClosed) {
-        let shotDisplay = '';
-        if (c.closedShots > 0) {
-          shotDisplay = (c.closedShots >= 1000 && c.closedShots % 1000 === 0) 
-            ? (c.closedShots / 1000) + 'k' 
-            : formatNum(c.closedShots);
-        }
-        active400kRowsData.push({
-          num: i,
-          name: rowName,
-          actualShot: shotDisplay,
-          date: c.date || '',
-          ktv: c.tech || '7139',
-          note: c.note || '',
-          pdf: c.pdf || null,
-          isClosed: true
-        });
-      } else if (i === currNum) {
-        // Cữ đang chạy: gợi ý số shot hiện tại & ngày hôm nay
-        let shotDisplay = '';
-        if (currShots > 0) {
-          shotDisplay = (currShots >= 1000 && currShots % 1000 === 0)
-            ? (currShots / 1000) + 'k'
-            : formatNum(currShots);
-        }
-        active400kRowsData.push({
-          num: i,
-          name: rowName,
-          actualShot: shotDisplay,
-          date: new Date().toISOString().slice(0, 10),
-          ktv: '7139',
-          note: '',
-          pdf: null,
-          isClosed: false
-        });
+    const notice = document.getElementById('mmModalNotice');
+    if (notice) {
+      if (activeShotModalTab === '400k') {
+        notice.textContent = '💡 Chu kỳ 400K: Bảo dưỡng dự phòng cho khuôn High-Impact theo từng cữ 400.000 shots.';
       } else {
-        // Cữ chờ tương lai: để trống
-        active400kRowsData.push({
-          num: i,
-          name: rowName,
-          actualShot: '',
-          date: '',
-          ktv: '',
-          note: '',
-          pdf: null,
-          isClosed: false
-        });
+        notice.textContent = '🔒 Quy chuẩn SOP: Chỉ được chốt khi khuôn đạt ngưỡng cảnh báo/định mức (Không cho chốt sớm).';
       }
     }
-
-    render400kExcelRows();
-
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
   }
 
   function add400kRow() {
-    const nextNum = active400kRowsData.length + 1;
-    active400kRowsData.push({
-      num: nextNum,
-      name: '400k-' + nextNum,
-      actualShot: '',
-      date: '',
-      ktv: '',
-      note: '',
-      pdf: null,
-      isClosed: false
-    });
-    render400kExcelRows();
+    if (activeShotModalTab === '400k') {
+      const nextNum = active400kRowsData.length + 1;
+      active400kRowsData.push({
+        num: nextNum,
+        name: '400k-' + nextNum,
+        actualShot: '',
+        date: '',
+        ktv: '',
+        note: '',
+        pdf: null,
+        isClosed: false,
+        isEligible: true
+      });
+    } else {
+      const baseNum = activeMajorRowsData.length + 4;
+      const targetM = (3.0 + (activeMajorRowsData.length * 0.5)).toFixed(1) + 'M';
+      activeMajorRowsData.push({
+        num: baseNum,
+        name: targetM,
+        actualShot: '',
+        date: '',
+        ktv: '',
+        note: '',
+        pdf: null,
+        isClosed: false,
+        isEligible: true
+      });
+    }
+    renderActiveExcelRows();
   }
 
-  async function handle400kRowUpload(event, idx) {
+  async function handleExcelRowUpload(event, idx) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
     try {
@@ -1430,31 +1459,34 @@ window.MoldMaintenance = (function() {
         reader.onerror = err => reject(err);
         reader.readAsDataURL(file);
       });
-      if (active400kRowsData[idx]) {
-        active400kRowsData[idx].pdf = {
+      const rows = getActiveExcelRows();
+      if (rows[idx]) {
+        rows[idx].pdf = {
           name: file.name,
           size: file.size,
           dataUrl,
           date: new Date().toLocaleDateString('vi-VN')
         };
-        const wrap = document.getElementById('mm400k_doc_wrap_' + idx);
-        if (wrap) wrap.innerHTML = render400kDocCell(active400kRowsData[idx], idx);
+        const wrap = document.getElementById('mm_doc_wrap_' + idx);
+        if (wrap) wrap.innerHTML = renderExcelDocCell(rows[idx], idx);
       }
     } catch (err) {
       console.warn('Lỗi khi đọc file upload:', err);
     }
   }
 
-  function remove400kRowFile(idx) {
-    if (active400kRowsData[idx]) {
-      active400kRowsData[idx].pdf = null;
-      const wrap = document.getElementById('mm400k_doc_wrap_' + idx);
-      if (wrap) wrap.innerHTML = render400kDocCell(active400kRowsData[idx], idx);
+  function removeExcelRowFile(idx) {
+    const rows = getActiveExcelRows();
+    if (rows[idx]) {
+      rows[idx].pdf = null;
+      const wrap = document.getElementById('mm_doc_wrap_' + idx);
+      if (wrap) wrap.innerHTML = renderExcelDocCell(rows[idx], idx);
     }
   }
 
-  function view400kRowFile(idx) {
-    const row = active400kRowsData[idx];
+  function viewExcelRowFile(idx) {
+    const rows = getActiveExcelRows();
+    const row = rows[idx];
     if (!row || !row.pdf) return;
     if (row.pdf.dataUrl) {
       try {
@@ -1473,35 +1505,262 @@ window.MoldMaintenance = (function() {
         return;
       }
     }
-    viewMilestonePdf(active400kModalMold, row.name);
+    viewMilestonePdf(activeShotModalMold, row.num || row.name);
   }
 
-  function unlock400kEdit() {
-    const passInput = document.getElementById('mm400kPassInput');
-    const passErr = document.getElementById('mm400kPassError');
-    const pass = (passInput ? passInput.value : '').trim();
-    if (pass !== '1234') {
-      if (passErr) {
-        passErr.textContent = 'Mật khẩu không đúng! Vui lòng nhập 1234.';
-        passErr.style.display = 'inline-block';
+  function openShotEntryModal(moldNo, targetTabOrMilestone) {
+    const code = String(moldNo || '').trim().toUpperCase();
+    const allMolds = getAllUnifiedMolds();
+    const m = allMolds.find(x => 
+      (x.mold || '').toUpperCase() === code ||
+      (x.newMold || '').toUpperCase() === code ||
+      (x.oldMold || '').toUpperCase() === code
+    );
+    if (!m) return;
+
+    activeShotModalMold = code;
+
+    const modal = document.getElementById('mm400kDetailModal');
+    if (!modal) return;
+
+    const titleEl = document.getElementById('mm400kMoldTitle');
+    if (titleEl) titleEl.textContent = code;
+
+    const machineEl = document.getElementById('mm400kMachineSub');
+    if (machineEl) machineEl.textContent = m.machineNo ? `| Máy: ${m.machineNo}` : '';
+
+    const sumEl = document.getElementById('mmModalSumShotSub');
+    const totalShots = Math.round(Number(m.totalAccumulatedYear || m.totalYear || m.totalLife || 0));
+    if (sumEl) sumEl.textContent = `Sum shot: ${formatNum(totalShots)}`;
+
+    const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
+
+    // 1. CHUẨN BỊ DỮ LIỆU TAB 400K
+    active400kRowsData = [];
+    if (isHigh) {
+      const cycles = get400kCyclesInfo(m);
+      const maxRows = Math.max(8, cycles.length);
+      const firstUnclosed = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
+      const currNum = firstUnclosed ? firstUnclosed.num : 1;
+      const currShots = firstUnclosed ? firstUnclosed.shots : 0;
+
+      for (let i = 1; i <= maxRows; i++) {
+        const c = cycles.find(x => x.num === i);
+        const rowName = '400k-' + i;
+        if (c && c.isClosed) {
+          let shotDisplay = '';
+          if (c.closedShots > 0) {
+            shotDisplay = (c.closedShots >= 1000 && c.closedShots % 1000 === 0) 
+              ? (c.closedShots / 1000) + 'k' 
+              : formatNum(c.closedShots);
+          }
+          active400kRowsData.push({
+            num: i,
+            name: rowName,
+            actualShot: shotDisplay,
+            date: c.date || '',
+            ktv: c.tech || '7139',
+            note: c.note || '',
+            pdf: c.pdf || null,
+            isClosed: true,
+            isEligible: true
+          });
+        } else if (i === currNum) {
+          let shotDisplay = '';
+          if (currShots > 0) {
+            shotDisplay = (currShots >= 1000 && currShots % 1000 === 0)
+              ? (currShots / 1000) + 'k'
+              : formatNum(currShots);
+          }
+          active400kRowsData.push({
+            num: i,
+            name: rowName,
+            actualShot: shotDisplay,
+            date: new Date().toISOString().slice(0, 10),
+            ktv: '7139',
+            note: '',
+            pdf: null,
+            isClosed: false,
+            isEligible: true
+          });
+        } else {
+          // Các cữ sau cữ hiện tại: chỉ cho phép khi cữ trước đã hoàn thành
+          const prevClosed = i === 1 || Boolean(cycles.find(x => x.num === i - 1 && x.isClosed));
+          active400kRowsData.push({
+            num: i,
+            name: rowName,
+            actualShot: '',
+            date: '',
+            ktv: '',
+            note: '',
+            pdf: null,
+            isClosed: false,
+            isEligible: prevClosed,
+            lockReason: `Chờ cữ 400k-${i - 1} hoàn thành trước`
+          });
+        }
       }
-      if (passInput) { passInput.focus(); passInput.select(); }
-      return;
     }
-    if (passErr) passErr.style.display = 'none';
-    const firstInput = document.getElementById('mm400k_shot_0');
-    if (firstInput) {
-      firstInput.focus();
-      firstInput.select();
+
+    // 2. CHUẨN BỊ DỮ LIỆU TAB CÁC MỐC LỚN (3.0M - 5.0M)
+    activeMajorRowsData = [];
+    const closedList = m.closedMilestones || [];
+    const majorDefs = [
+      { num: 4, name: '3.0M', target: 3000000, warn: 2800000 },
+      { num: 5, name: '3.5M', target: 3500000, delta: 500000, warnDelta: 470000 },
+      { num: 6, name: '4.0M', target: 4000000, delta: 500000, warnDelta: 470000 },
+      { num: 7, name: '4.5M', target: 4500000, delta: 500000, warnDelta: 470000 },
+      { num: 8, name: '5.0M', target: 5000000, warn: 4800000 }
+    ];
+
+    const detail4 = getMilestoneDetail(code, 4);
+    const detail5 = getMilestoneDetail(code, 5);
+    const detail6 = getMilestoneDetail(code, 6);
+    const detail7 = getMilestoneDetail(code, 7);
+    const detail8 = getMilestoneDetail(code, 8);
+
+    const isDone4 = closedList.includes(4);
+    const isDone5 = closedList.includes(5);
+    const isDone6 = closedList.includes(6);
+    const isDone7 = closedList.includes(7);
+    const isDone8 = closedList.includes(8);
+
+    majorDefs.forEach(def => {
+      const isClosed = closedList.includes(def.num);
+      const detail = def.num === 4 ? detail4 : (def.num === 5 ? detail5 : (def.num === 6 ? detail6 : (def.num === 7 ? detail7 : detail8)));
+      const pdf = detail?.pdf || getMilestonePdf(code, def.num);
+
+      let isEligible = false;
+      let lockReason = '';
+      let actualShot = '';
+
+      if (def.num === 4) {
+        // Mốc 3.0M: Cảnh báo từ 2.8M, định mức 3.0M
+        isEligible = isClosed || totalShots >= def.warn;
+        if (!isEligible) {
+          lockReason = `Chưa đạt định mức (${formatNum(totalShots)} / 3.000.000) - Không cho chốt sớm`;
+        }
+        if (isClosed) {
+          actualShot = detail?.closedShots ? formatNum(detail.closedShots) : formatNum(totalShots);
+        } else if (isEligible) {
+          actualShot = formatNum(totalShots);
+        }
+      } else if (def.num === 5) {
+        // Mốc 3.5M: Phải chốt 3.0M trước & đạt +500k
+        const shotsSince4 = isDone4 ? Math.max(0, totalShots - (detail4?.closedShots || 3000000)) : 0;
+        isEligible = isClosed || (isDone4 && (shotsSince4 >= def.warnDelta || totalShots >= 3470000));
+        if (!isDone4) {
+          lockReason = 'Phải chốt mốc 3.0M trước';
+        } else if (!isEligible) {
+          lockReason = `Chưa đạt định mức (+${formatNum(shotsSince4)} / 500.000 sau 3.0M) - Không cho chốt sớm`;
+        }
+        if (isClosed) {
+          actualShot = detail?.closedShots ? formatNum(detail.closedShots) : '';
+        } else if (isEligible) {
+          actualShot = formatNum(totalShots);
+        }
+      } else if (def.num === 6) {
+        // Mốc 4.0M: Phải chốt 3.5M trước
+        const shotsSince5 = isDone5 ? Math.max(0, totalShots - (detail5?.closedShots || 3500000)) : 0;
+        isEligible = isClosed || (isDone5 && (shotsSince5 >= def.warnDelta || totalShots >= 3970000));
+        if (!isDone5) {
+          lockReason = 'Phải chốt mốc 3.5M trước';
+        } else if (!isEligible) {
+          lockReason = `Chưa đạt định mức (+${formatNum(shotsSince5)} / 500.000 sau 3.5M) - Không cho chốt sớm`;
+        }
+        if (isClosed) {
+          actualShot = detail?.closedShots ? formatNum(detail.closedShots) : '';
+        } else if (isEligible) {
+          actualShot = formatNum(totalShots);
+        }
+      } else if (def.num === 7) {
+        // Mốc 4.5M: Phải chốt 4.0M trước
+        const shotsSince6 = isDone6 ? Math.max(0, totalShots - (detail6?.closedShots || 4000000)) : 0;
+        isEligible = isClosed || (isDone6 && (shotsSince6 >= def.warnDelta || totalShots >= 4470000));
+        if (!isDone6) {
+          lockReason = 'Phải chốt mốc 4.0M trước';
+        } else if (!isEligible) {
+          lockReason = `Chưa đạt định mức (+${formatNum(shotsSince6)} / 500.000 sau 4.0M) - Không cho chốt sớm`;
+        }
+        if (isClosed) {
+          actualShot = detail?.closedShots ? formatNum(detail.closedShots) : '';
+        } else if (isEligible) {
+          actualShot = formatNum(totalShots);
+        }
+      } else if (def.num === 8) {
+        // Mốc 5.0M: Phải chốt 4.5M trước & đạt ngưỡng trần >= 4.8M
+        isEligible = isClosed || (isDone7 && totalShots >= def.warn);
+        if (!isDone7) {
+          lockReason = 'Phải chốt mốc 4.5M trước';
+        } else if (!isEligible) {
+          lockReason = `Chưa đạt định mức (ngưỡng trần 5.0M, hiện tại: ${formatNum(totalShots)}) - Không cho chốt sớm`;
+        }
+        if (isClosed) {
+          actualShot = detail?.closedShots ? formatNum(detail.closedShots) : '';
+        } else if (isEligible) {
+          actualShot = formatNum(totalShots);
+        }
+      }
+
+      activeMajorRowsData.push({
+        num: def.num,
+        name: def.name,
+        actualShot,
+        date: detail?.date || (isEligible && !isClosed ? new Date().toISOString().slice(0, 10) : ''),
+        ktv: detail?.tech || (isEligible && !isClosed ? '7139' : ''),
+        note: detail?.note || '',
+        pdf,
+        isClosed,
+        isEligible,
+        lockReason
+      });
+    });
+
+    // 3. XÁC ĐỊNH TAB MẶC ĐỊNH
+    const btn400k = document.getElementById('mmTabBtn400k');
+    const btnMajor = document.getElementById('mmTabBtnMajor');
+
+    if (!isHigh) {
+      if (btn400k) btn400k.style.display = 'none';
+      if (btnMajor) {
+        btnMajor.style.display = 'inline-block';
+        btnMajor.textContent = 'Các mốc bảo dưỡng (3.0M - 5.0M)';
+      }
+      activeShotModalTab = 'major';
+    } else {
+      if (btn400k) btn400k.style.display = 'inline-block';
+      if (btnMajor) {
+        btnMajor.style.display = 'inline-block';
+        btnMajor.textContent = 'Các mốc lớn (3.0M - 5.0M)';
+      }
+      const sTarget = String(targetTabOrMilestone || '').toLowerCase();
+      if (sTarget === '400k' || sTarget.startsWith('400k')) {
+        activeShotModalTab = '400k';
+      } else if (sTarget === 'major' || ['4', '5', '6', '7', '8', '3.0m', '3.5m', '4.0m', '4.5m', '5.0m'].includes(sTarget)) {
+        activeShotModalTab = 'major';
+      } else {
+        activeShotModalTab = '400k';
+      }
     }
-    alert('Đã xác thực mật khẩu 1234 thành công! Bạn có thể chỉnh sửa mọi ô trên bảng.');
+
+    switchShotModalTab(activeShotModalTab);
+
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
+
+  function open400kDetailModal(moldNo) {
+    openShotEntryModal(moldNo, '400k');
+  }
+
+  function openMilestoneModal(moldNo, milestoneNum) {
+    openShotEntryModal(moldNo, milestoneNum || 'major');
   }
 
   async function save400kExcelTable() {
-    if (!active400kModalMold) return;
-    const moldNo = active400kModalMold;
-
-
+    if (!activeShotModalMold) return;
+    const moldNo = activeShotModalMold;
+    const rows = getActiveExcelRows();
 
     const confirmBtn = document.getElementById('mm400kConfirmBtn');
     if (confirmBtn) {
@@ -1510,22 +1769,34 @@ window.MoldMaintenance = (function() {
     }
 
     try {
-      // Đọc từng dòng và lưu dữ liệu
-      for (let idx = 0; idx < active400kRowsData.length; idx++) {
-        const row = active400kRowsData[idx];
-        const cycleNum = idx + 1;
-        const cycleKey = cycleNum <= 3 ? cycleNum : row.name;
+      // 1. VALIDATION: KHÔNG CHO CHỐT SỚM
+      for (let idx = 0; idx < rows.length; idx++) {
+        const row = rows[idx];
+        const shotEl = document.getElementById('mm_shot_' + idx);
+        const shotStr = (shotEl ? shotEl.value : '').trim();
 
-        const shotEl = document.getElementById('mm400k_shot_' + idx);
-        const dateEl = document.getElementById('mm400k_date_' + idx);
-        const ktvEl = document.getElementById('mm400k_ktv_' + idx);
-        const noteEl = document.getElementById('mm400k_note_' + idx);
+        if (shotStr && row.isEligible === false && !row.isClosed) {
+          alert(`LỖI: Mốc ${row.name} chưa đến hạn bảo dưỡng!\n${row.lockReason}\n\nQuy chuẩn SOP nghiêm cấm chốt sớm trước hạn!`);
+          if (shotEl && typeof shotEl.focus === 'function') shotEl.focus();
+          return;
+        }
+      }
+
+      // 2. LƯU TỪNG DÒNG
+      for (let idx = 0; idx < rows.length; idx++) {
+        const row = rows[idx];
+        const shotEl = document.getElementById('mm_shot_' + idx);
+        const dateEl = document.getElementById('mm_date_' + idx);
+        const ktvEl = document.getElementById('mm_ktv_' + idx);
+        const noteEl = document.getElementById('mm_note_' + idx);
 
         const shotStr = (shotEl ? shotEl.value : '').trim();
         const dateVal = (dateEl ? dateEl.value : '').trim();
         const ktvVal = (ktvEl ? ktvEl.value : '').trim();
         const noteVal = (noteEl ? noteEl.value : '').trim();
         const pdfObj = row.pdf || null;
+
+        const key = row.num;
 
         if (shotStr) {
           const numShots = parseShotInput(shotStr);
@@ -1538,23 +1809,23 @@ window.MoldMaintenance = (function() {
               pdf: pdfObj,
               closedAt: new Date().toISOString()
             };
-            saveMilestoneDetail(moldNo, cycleKey, detailObj);
-            if (cycleNum <= 3) saveMilestoneDetail(moldNo, cycleNum, detailObj);
-            if (pdfObj) {
-              saveMilestonePdf(moldNo, cycleKey, pdfObj);
-              if (cycleNum <= 3) saveMilestonePdf(moldNo, cycleNum, pdfObj);
+            saveMilestoneDetail(moldNo, key, detailObj);
+            if (activeShotModalTab === '400k') {
+              saveMilestoneDetail(moldNo, row.name, detailObj);
             }
-            await toggleMilestoneCheck(moldNo, cycleKey, true, detailObj);
-            if (cycleNum <= 3) await toggleMilestoneCheck(moldNo, cycleNum, true, detailObj);
+            if (pdfObj) {
+              saveMilestonePdf(moldNo, key, pdfObj);
+              if (activeShotModalTab === '400k') saveMilestonePdf(moldNo, row.name, pdfObj);
+            }
+            await toggleMilestoneCheck(moldNo, key, true, detailObj);
           }
-        } else {
-          // Ô shot để trống: xóa cữ này nếu trước đó đã có
-          saveMilestoneDetail(moldNo, cycleKey, null);
-          if (cycleNum <= 3) saveMilestoneDetail(moldNo, cycleNum, null);
-          saveMilestonePdf(moldNo, cycleKey, null);
-          if (cycleNum <= 3) saveMilestonePdf(moldNo, cycleNum, null);
-          await toggleMilestoneCheck(moldNo, cycleKey, false);
-          if (cycleNum <= 3) await toggleMilestoneCheck(moldNo, cycleNum, false);
+        } else if (row.isClosed) {
+          // Người dùng xóa số shot: mở lại / hủy chốt
+          saveMilestoneDetail(moldNo, key, null);
+          if (activeShotModalTab === '400k') saveMilestoneDetail(moldNo, row.name, null);
+          saveMilestonePdf(moldNo, key, null);
+          if (activeShotModalTab === '400k') saveMilestonePdf(moldNo, row.name, null);
+          await toggleMilestoneCheck(moldNo, key, false);
         }
       }
 
@@ -1565,7 +1836,7 @@ window.MoldMaintenance = (function() {
       if (typeof renderDailySheet === 'function') renderDailySheet();
       if (typeof renderKPIs === 'function') renderKPIs();
     } catch (err) {
-      console.error('Lỗi lưu bảng 400k:', err);
+      console.error('Lỗi lưu bảng shot:', err);
       alert('Không thể lưu bảng: ' + (err?.message || err));
     } finally {
       if (confirmBtn) {
@@ -1576,13 +1847,18 @@ window.MoldMaintenance = (function() {
   }
 
   function close400kDetailModal() {
-    active400kModalMold = null;
+    activeShotModalMold = null;
     active400kRowsData = [];
+    activeMajorRowsData = [];
     const modal = document.getElementById('mm400kDetailModal');
     if (modal) {
       modal.classList.add('hidden');
       modal.style.display = 'none';
     }
+  }
+
+  function closeMilestoneModal() {
+    close400kDetailModal();
   }
 
   function getMilestonePdfsMap() {
@@ -1664,410 +1940,6 @@ window.MoldMaintenance = (function() {
     }
   }
 
-  // Mini Window: Mở hộp thoại xác thực chốt mốc bảo dưỡng (MK: 1234 + Upload/Xóa PDF + Nhập số shot chốt mốc)
-  let activeMilestoneAuth = null; // { moldNo, milestoneNum, isClosing }
-
-  function openMilestoneModal(moldNo, milestoneNum, isClosing) {
-    activeMilestoneAuth = { moldNo: String(moldNo).trim(), milestoneNum, isClosing: Boolean(isClosing) };
-    const modal = document.getElementById('mmMilestoneAuthModal');
-    if (!modal) return;
-
-    const allMolds = getAllUnifiedMolds();
-    const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
-    const isHigh = currentMold?.isHighImpact || false;
-    const moldLife = Number(currentMold?.totalLife) || 0;
-    const isHighBefore3M = isHigh && moldLife < 3000000;
-
-    let mTitle = `Mốc ${milestoneNum}`;
-    let cycleLimit = 400000;
-    let curVal = 0;
-
-    const is400kCycle = String(milestoneNum).toLowerCase().startsWith('400k-') || (Number(milestoneNum) <= 3 && isHigh);
-    let cycleIdx = 1;
-    if (is400kCycle) {
-      cycleIdx = String(milestoneNum).toLowerCase().startsWith('400k-')
-        ? parseInt(milestoneNum.split('-')[1], 10)
-        : Number(milestoneNum);
-      mTitle = '400K-' + cycleIdx;
-      cycleLimit = 400000;
-      const cyclesInfo = get400kCyclesInfo(currentMold || { mold: moldNo, isHighImpact: true });
-      const thisCycle = cyclesInfo.find(c => c.num === cycleIdx);
-      curVal = thisCycle ? (thisCycle.isClosed ? thisCycle.closedShots : thisCycle.shots) : 400000;
-    } else {
-      const num = Number(milestoneNum);
-      if (num === 4 || milestoneNum === '3.0M') { mTitle = '3.0M'; cycleLimit = 3000000; curVal = currentMold?.m4 || currentMold?.totalAccumulatedYear || 0; }
-      else if (num === 5 || milestoneNum === '3.5M') { mTitle = '3.5M'; cycleLimit = 3500000; curVal = currentMold?.m5 || 500000; }
-      else if (num === 6 || milestoneNum === '4.0M') { mTitle = '4.0M'; cycleLimit = 4000000; curVal = currentMold?.m6 || 500000; }
-      else if (num === 7 || milestoneNum === '4.5M') { mTitle = '4.5M'; cycleLimit = 4500000; curVal = currentMold?.m7 || 500000; }
-      else if (num === 8 || milestoneNum === '5.0M') { mTitle = '5.0M'; cycleLimit = 5000000; curVal = currentMold?.m8 || 500000; }
-      else { curVal = currentMold ? (currentMold['m' + num] || 0) : 0; }
-    }
-
-    const num = is400kCycle ? cycleIdx : Number(milestoneNum);
-    const targetLimit = cycleLimit;
-    const isOver = curVal > targetLimit && is400kCycle;
-    const excess = curVal - targetLimit;
-
-    const icon = document.getElementById('mmAuthModalIcon');
-    const title = document.getElementById('mmAuthModalTitle');
-    const subtitle = document.getElementById('mmAuthModalSubtitle');
-    const desc = document.getElementById('mmAuthModalDesc');
-    const passInput = document.getElementById('mmAuthPasswordInput');
-    const passErr = document.getElementById('mmAuthPassError');
-    const existingPdfBox = document.getElementById('mmAuthExistingPdfInfo');
-    const existingPdfName = document.getElementById('mmAuthExistingPdfName');
-    const existingPdfLink = document.getElementById('mmAuthExistingPdfLink');
-    const pdfFileInput = document.getElementById('mmAuthPdfFileInput');
-    const clearNewPdfBtn = document.getElementById('mmAuthClearNewPdfBtn');
-    const noteInput = document.getElementById('mmAuthNoteInput');
-    const confirmBtn = document.getElementById('mmAuthConfirmBtn');
-
-    const shotsGroup = document.getElementById('mmAuthClosedShotsGroup');
-    const shotsInput = document.getElementById('mmAuthClosedShotsInput');
-    const tierBadge = document.getElementById('mmAuthTierBadge');
-
-    if (icon) icon.textContent = isClosing ? '🔒' : '🔓';
-    if (title) title.textContent = isClosing ? 'Xác Nhận Chốt Bảo Dưỡng Mốc' : 'Xác Nhận Mở Lại Mốc Bảo Dưỡng';
-    if (subtitle) {
-      let mLabel = `Mốc ${mTitle} (${formatNum(cycleLimit)} shots${num <= 3 ? ' - High-Impact' : ''})`;
-      if (num === 4) mLabel = `Mốc 3.0M (Bảo dưỡng tổng thể & Full bản vẽ)`;
-      else if (num === 7) mLabel = `Mốc 4.5M (Báo cáo Japan HQ xin hướng xử lý)`;
-      else if (num === 8) mLabel = `Mốc 5.0M (Ngưỡng trần tuổi thọ 5M)`;
-      subtitle.innerHTML = `Khuôn: <b style="color:#0284c7;">${moldNo}</b> | <span style="color:#1d4ed8; font-weight:700;">${mLabel}</span>`;
-    }
-    if (desc) {
-      let mText = `Mốc ${mTitle}`;
-      if (num === 4) mText = `Mốc 3.0M (Bảo dưỡng tổng thể & Đánh giá full bản vẽ)`;
-      else if (num === 7) mText = `Mốc 4.5M (Báo cáo Japan HQ xin hướng xử lý)`;
-      else if (num === 8) mText = `Mốc 5.0M (Ngưỡng trần tuổi thọ 5M)`;
-
-      if (isClosing) {
-        if (isOver) {
-          desc.innerHTML = `
-            <div style="font-weight:700; color:#0f172a; margin-bottom:4px;">Xác nhận hoàn tất bảo dưỡng định kỳ <b>${mText}</b> cho khuôn <b>${moldNo}</b>.</div>
-            <div style="background:#fff7ed; border:1px solid #fed7aa; padding:8px 10px; border-radius:6px; color:#9a3412; font-size:12px; line-height:1.45;">
-              ⚠️ <b>Số shot hiện tại (${formatNum(curVal)}) đã vượt mốc định mức (${formatNum(targetLimit)}):</b><br>
-              • Bạn có thể chốt tại mức định mức <b>${formatNum(targetLimit)}</b> hoặc tùy chỉnh số shot chốt bên dưới.<br>
-              • Phần shot dôi dư sẽ tự động chuyển tiếp sang <b>Mốc ${num + 1}</b> để tiếp tục tích lũy!
-            </div>
-          `;
-        } else {
-          desc.innerHTML = `Xác nhận khuôn <b>${moldNo}</b> đã hoàn tất kiểm tra và bảo dưỡng định kỳ <b>${mText}</b> (${formatNum(curVal > 0 ? curVal : targetLimit)} shots). Trạng thái sẽ được tích xanh hoàn thành.`;
-        }
-      } else {
-        desc.innerHTML = `Xác nhận <b>Mở lại ${mText}</b> của khuôn <b>${moldNo}</b> (Hủy trạng thái đã chốt để bảo dưỡng hoặc đếm lại shot).`;
-      }
-    }
-
-    // Thiết lập ô nhập số shot chốt mốc bảo dưỡng
-    if (shotsGroup && shotsInput) {
-      if (isClosing) {
-        shotsGroup.style.display = 'block';
-        if (tierBadge) {
-          if (num <= 3) {
-            tierBadge.textContent = 'High-Impact Item: 350K~400K (Cảnh báo tại 380K)';
-            tierBadge.style.background = '#ffedd5';
-            tierBadge.style.color = '#c2410c';
-            tierBadge.style.border = '1px solid #fb923c';
-          } else if (num === 4) {
-            tierBadge.textContent = 'Mốc Đại Tu 3.0M SOP (Bảo dưỡng tổng thể & Đánh giá full bản vẽ)';
-            tierBadge.style.background = '#fae8ff';
-            tierBadge.style.color = '#86198f';
-            tierBadge.style.border = '1px solid #e879f9';
-          } else if (num === 5 || num === 6) {
-            tierBadge.textContent = `Mốc ${mTitle} SOP: Chu kỳ 500K sau 3M & Critical Dimensions`;
-            tierBadge.style.background = '#dcfce7';
-            tierBadge.style.color = '#15803d';
-            tierBadge.style.border = '1px solid #86efac';
-          } else if (num === 7) {
-            tierBadge.textContent = 'Mốc 4.5M: Báo cáo Japan HQ xin hướng xử lý trước 5M';
-            tierBadge.style.background = '#fffbeb';
-            tierBadge.style.color = '#b45309';
-            tierBadge.style.border = '1px solid #fcd34d';
-          } else {
-            tierBadge.textContent = 'Mốc trần 5.0M SOP (Duy trì chu kỳ 500K & Critical Dimensions)';
-            tierBadge.style.background = '#fee2e2';
-            tierBadge.style.color = '#991b1b';
-            tierBadge.style.border = '1px solid #f87171';
-          }
-        }
-        const existingDetail = getMilestoneDetail(moldNo, milestoneNum);
-        let defaultClosedVal = existingDetail?.closedShots;
-        if (!defaultClosedVal) {
-          if (num <= 3) {
-            defaultClosedVal = curVal >= cycleLimit ? cycleLimit : (curVal > 0 ? curVal : cycleLimit);
-          } else {
-            defaultClosedVal = curVal > 0 ? curVal : cycleLimit;
-          }
-        }
-        shotsInput.value = defaultClosedVal;
-        onClosedShotsChange();
-      } else {
-        shotsGroup.style.display = 'none';
-      }
-    }
-
-    if (confirmBtn) {
-      confirmBtn.textContent = isClosing ? 'Chốt Hoàn Thành' : 'Mở Lại Mốc';
-      confirmBtn.style.background = isClosing ? '#16a34a' : '#ea580c';
-    }
-
-    if (passInput) passInput.value = '1234';
-    if (passErr) passErr.style.display = 'none';
-
-    // File PDF đính kèm nếu đã có
-    const existingPdf = getMilestonePdf(moldNo, milestoneNum);
-    if (existingPdfBox) {
-      if (existingPdf) {
-        existingPdfBox.style.display = 'flex';
-        if (existingPdfName) existingPdfName.textContent = `Tệp đã lưu: ${existingPdf.name} (${Math.round((existingPdf.size || 0) / 1024)} KB)`;
-        if (existingPdfLink) {
-          existingPdfLink.onclick = () => viewMilestonePdf(moldNo, milestoneNum);
-        }
-      } else {
-        existingPdfBox.style.display = 'none';
-      }
-    }
-    if (pdfFileInput) pdfFileInput.value = '';
-    if (clearNewPdfBtn) clearNewPdfBtn.style.display = 'none';
-
-    if (noteInput) {
-      const notesMap = getMoldNotesMap();
-      noteInput.value = notesMap[moldNo.toUpperCase()] || '';
-    }
-
-    // Điền ngày bảo dưỡng và ai bảo dưỡng
-    const dateInput = document.getElementById('mmAuthDateInput');
-    const techInput = document.getElementById('mmAuthTechInput');
-    const existingDetail = getMilestoneDetail(moldNo, milestoneNum);
-    if (dateInput) {
-      dateInput.value = existingDetail?.date || new Date().toISOString().slice(0, 10);
-    }
-    if (techInput) {
-      techInput.value = existingDetail?.tech || (window.ComponentAuth?.user?.fullName || window.ComponentAuth?.user?.username || '');
-    }
-
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-    setTimeout(() => {
-      if (passInput) passInput.focus();
-    }, 80);
-  }
-
-  function onClosedShotsChange() {
-    const input = document.getElementById('mmAuthClosedShotsInput');
-    const notice = document.getElementById('mmAuthRolloverNotice');
-    if (!input || !notice || !activeMilestoneAuth) return;
-
-    const entered = Math.round(Number(input.value) || 0);
-    const { moldNo, milestoneNum } = activeMilestoneAuth;
-    const num = Number(milestoneNum);
-    const allMolds = getAllUnifiedMolds();
-    const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
-    const isHigh = currentMold?.isHighImpact || false;
-    const moldLife = Number(currentMold?.totalLife) || 0;
-    const isHighBefore3M = isHigh && moldLife < 3000000;
-    const cycleLimit = (num <= 5) ? (isHighBefore3M ? 400000 : 500000) : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
-    const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
-
-    if (num <= 5) {
-      if (entered <= 0) {
-        notice.innerHTML = `<span style="color:#b91c1c;">⚠️ Vui lòng nhập số shot chốt mốc (> 0).</span>`;
-      } else if (curVal > entered) {
-        const diff = curVal - entered;
-        notice.innerHTML = `
-          <span>✅ Chốt mốc tại: <b>${formatNum(entered)}</b> shots.</span><br>
-          <span style="color:#c2410c; font-weight:700;">➡️ Phần dôi dư (+<b>${formatNum(diff)}</b> shots) sẽ tự động chuyển tiếp sang Mốc ${num + 1}!</span>
-        `;
-      } else {
-        notice.innerHTML = `
-          <span>✅ Chốt toàn bộ <b>${formatNum(entered)}</b> shots cho Mốc ${num}.</span>
-        `;
-      }
-    } else {
-      notice.innerHTML = `
-        <span>✅ Xác nhận mốc vòng đời tại: <b>${formatNum(entered || cycleLimit)}</b> shots.</span>
-      `;
-    }
-  }
-
-  function resetClosedShotsToDefault() {
-    if (!activeMilestoneAuth) return;
-    const { moldNo, milestoneNum } = activeMilestoneAuth;
-    const num = Number(milestoneNum);
-    const allMolds = getAllUnifiedMolds();
-    const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
-    const isHigh = currentMold?.isHighImpact || false;
-    const moldLife = Number(currentMold?.totalLife) || 0;
-    const isHighBefore3M = isHigh && moldLife < 3000000;
-    const cycleLimit = (num <= 5) ? (isHighBefore3M ? 400000 : 500000) : (num === 6 ? 3000000 : (num === 7 ? 4500000 : 5000000));
-    const curVal = currentMold ? (currentMold['m' + num] || currentMold.curShots || 0) : 0;
-    const defaultVal = (num <= 5 && curVal >= cycleLimit) ? cycleLimit : (curVal > 0 ? curVal : cycleLimit);
-
-    const input = document.getElementById('mmAuthClosedShotsInput');
-    if (input) {
-      input.value = defaultVal;
-      onClosedShotsChange();
-    }
-  }
-
-  function deleteCurrentMilestonePdf() {
-    if (!activeMilestoneAuth) return;
-    const { moldNo, milestoneNum } = activeMilestoneAuth;
-    if (!confirm(`Bạn có chắc chắn muốn xóa tệp PDF báo cáo đính kèm của mốc ${milestoneNum} khuôn ${moldNo}?`)) {
-      return;
-    }
-    saveMilestonePdf(moldNo, milestoneNum, null);
-    const detail = getMilestoneDetail(moldNo, milestoneNum);
-    if (detail) {
-      detail.pdf = null;
-      saveMilestoneDetail(moldNo, milestoneNum, detail);
-    }
-    const existingPdfBox = document.getElementById('mmAuthExistingPdfInfo');
-    if (existingPdfBox) existingPdfBox.style.display = 'none';
-
-    renderAll();
-    if (typeof renderOverviewTab === 'function') {
-      try { renderOverviewTab(); } catch (e) {}
-    }
-  }
-
-  function clearSelectedPdfFile() {
-    const input = document.getElementById('mmAuthPdfFileInput');
-    const clearBtn = document.getElementById('mmAuthClearNewPdfBtn');
-    if (input) input.value = '';
-    if (clearBtn) clearBtn.style.display = 'none';
-  }
-
-  function onNewPdfSelected() {
-    const input = document.getElementById('mmAuthPdfFileInput');
-    const clearBtn = document.getElementById('mmAuthClearNewPdfBtn');
-    if (clearBtn) {
-      clearBtn.style.display = (input && input.files && input.files[0]) ? 'inline-flex' : 'none';
-    }
-  }
-
-  function closeMilestoneModal() {
-    activeMilestoneAuth = null;
-    const modal = document.getElementById('mmMilestoneAuthModal');
-    if (modal) {
-      modal.classList.add('hidden');
-      modal.style.display = 'none';
-    }
-  }
-
-  async function confirmMilestoneAuth() {
-    if (!activeMilestoneAuth) return;
-    const { moldNo, milestoneNum, isClosing } = activeMilestoneAuth;
-
-    const passInput = document.getElementById('mmAuthPasswordInput');
-    const passErr = document.getElementById('mmAuthPassError');
-    const confirmBtn = document.getElementById('mmAuthConfirmBtn');
-    const pass = (passInput ? passInput.value : '').trim();
-
-    // Mật khẩu xác thực: chấp nhận nếu là tài khoản Staff/Admin, hoặc người dùng nhập/dùng mật khẩu mặc định 1234
-    const isStaffOrAdmin = typeof ComponentAuth !== 'undefined' && ComponentAuth.canConfirmMilestone();
-    const isPassOk = pass === '1234' || (isStaffOrAdmin && !pass) || pass === '';
-
-    if (!isPassOk && !isStaffOrAdmin) {
-      if (passErr) {
-        passErr.textContent = 'Mật khẩu xác thực không đúng (mặc định: 1234).';
-        passErr.style.display = 'block';
-      }
-      if (passInput) {
-        passInput.focus();
-        passInput.select();
-      }
-      return;
-    }
-
-    if (confirmBtn) {
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Đang xử lý...';
-    }
-
-    try {
-      // Đọc file PDF đính kèm nếu người dùng có chọn
-      const pdfFileInput = document.getElementById('mmAuthPdfFileInput');
-      let newPdfObj = null;
-      if (pdfFileInput && pdfFileInput.files && pdfFileInput.files[0]) {
-        const file = pdfFileInput.files[0];
-        try {
-          const dataUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = e => resolve(e.target.result);
-            reader.onerror = err => reject(err);
-            reader.readAsDataURL(file);
-          });
-          newPdfObj = {
-            name: file.name,
-            size: file.size,
-            dataUrl,
-            date: new Date().toLocaleDateString('vi-VN')
-          };
-          saveMilestonePdf(moldNo, milestoneNum, newPdfObj);
-        } catch (err) {
-          console.warn('Error reading PDF file:', err);
-        }
-      }
-
-      // Ghi chú đính kèm nếu có
-      const noteInput = document.getElementById('mmAuthNoteInput');
-      if (noteInput && noteInput.value.trim()) {
-        try { await updateMoldNote(moldNo, noteInput.value.trim()); } catch (e) {}
-      }
-
-      const dateInput = document.getElementById('mmAuthDateInput');
-      const techInput = document.getElementById('mmAuthTechInput');
-      const dateVal = dateInput?.value || new Date().toISOString().slice(0, 10);
-      const techVal = (techInput?.value || '').trim() || 'KTV Bảo Dưỡng';
-      const noteVal = (noteInput ? noteInput.value : '').trim();
-      const existingPdf = getMilestonePdf(moldNo, milestoneNum);
-
-      // Tìm số shot hiện tại và định mức của mốc để lưu closedShots
-      const allMolds = getAllUnifiedMolds();
-      const currentMold = allMolds.find(x => (x.mold || '').toUpperCase() === String(moldNo).trim().toUpperCase());
-      const isHigh = currentMold?.isHighImpact || false;
-      const moldLife = Number(currentMold?.totalLife) || 0;
-      const isHighBefore3M = isHigh && moldLife < 3000000;
-      const targetLimit = (milestoneNum <= 5) ? (isHighBefore3M ? 400000 : 500000) : (milestoneNum === 6 ? 3000000 : (milestoneNum === 7 ? 4500000 : 5000000));
-      const curVal = currentMold ? (currentMold['m' + milestoneNum] || currentMold.curShots || 0) : 0;
-
-      // Lấy số shot chốt do người dùng nhập vào (hoặc mặc định targetLimit / curVal)
-      let closedShots = Number(document.getElementById('mmAuthClosedShotsInput')?.value);
-      if (!closedShots || isNaN(closedShots) || closedShots <= 0) {
-        closedShots = (milestoneNum <= 5 && curVal >= targetLimit) ? targetLimit : curVal;
-      }
-      closedShots = Math.round(closedShots);
-
-      const detailObj = {
-        date: dateVal,
-        tech: techVal,
-        note: noteVal,
-        closedShots: closedShots,
-        pdf: newPdfObj || existingPdf || null,
-        closedAt: new Date().toISOString()
-      };
-      if (isClosing) {
-        saveMilestoneDetail(moldNo, milestoneNum, detailObj);
-      } else {
-        saveMilestoneDetail(moldNo, milestoneNum, null);
-      }
-
-      // Thực hiện chốt / mở chốt mốc
-      await toggleMilestoneCheck(moldNo, milestoneNum, isClosing, detailObj);
-
-      closeMilestoneModal();
-    } catch (err) {
-      console.error('Lỗi khi chốt mốc:', err);
-      alert('Không thể hoàn tất chốt mốc: ' + (err?.message || err));
-    } finally {
-      if (confirmBtn) {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = isClosing ? 'Chốt Hoàn Thành' : 'Mở Lại Mốc';
-      }
-    }
-  }
 
   async function toggleMilestoneCheck(moldNo, milestoneNum, isChecked, optionalDetail) {
     const moldCode = String(moldNo).trim().toUpperCase();
@@ -2793,13 +2665,13 @@ window.MoldMaintenance = (function() {
             cellBg = '#ffffff';
             boxBorder = '1.5px solid #cbd5e1';
             boxBg = '#ffffff';
-            cellTitle = `Mốc ${mTitle} (Chưa đến hạn - Bấm để chốt trước nếu cần)`;
+            cellTitle = `Mốc ${mTitle} (Chưa đến hạn - Hiện tại: ${formatNum(val)} shots - Không được chốt sớm)`;
             subInfoHtml = '';
           }
 
           return `
             <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:6px 4px; cursor:pointer; user-select:none; border-left:1px solid #f1f5f9;"
-                onclick="MoldMaintenance.openMilestoneModal('${m.mold}', ${num}, ${!isDone})"
+                onclick="MoldMaintenance.openMilestoneModal('${m.mold}', ${num})"
                 title="${cellTitle}">
               <div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;">
                 <div class="mm-excel-tickbox" style="width:20px; height:20px; border-radius:4px; border:${boxBorder}; background:${boxBg}; color:${boxColor}; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; transition:all 0.15s ease;">
@@ -3183,13 +3055,13 @@ window.MoldMaintenance = (function() {
             cellBg = '#ffffff';
             boxBorder = '1.5px solid #cbd5e1';
             boxBg = '#ffffff';
-            cellTitle = `Mốc ${mTitle} (Chưa đến hạn - Bấm để chốt trước nếu cần)`;
+            cellTitle = `Mốc ${mTitle} (Chưa đến hạn - Hiện tại: ${formatNum(val)} shots - Không được chốt sớm)`;
             subInfoHtml = '';
           }
 
           return `
             <td class="text-center font-mono" style="background:${cellBg}; vertical-align:middle; padding:6px 4px; cursor:pointer; user-select:none; border-left:1px solid #f1f5f9;"
-                onclick="MoldMaintenance.openMilestoneModal('${r.moldNo}', ${num}, ${!isDone})"
+                onclick="MoldMaintenance.openMilestoneModal('${r.moldNo}', ${num})"
                 title="${cellTitle}">
               <div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;">
                 <div class="mm-excel-tickbox" style="width:20px; height:20px; border-radius:4px; border:${boxBorder}; background:${boxBg}; color:${boxColor}; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; transition:all 0.15s ease;">
@@ -4503,9 +4375,9 @@ window.MoldMaintenance = (function() {
         if (modal && modal.style.display !== 'none' && !modal.classList.contains('hidden')) {
           closeAddMoldModal();
         }
-        const authModal = document.getElementById('mmMilestoneAuthModal');
-        if (authModal && authModal.style.display !== 'none' && !authModal.classList.contains('hidden')) {
-          closeMilestoneModal();
+        const detailModal = document.getElementById('mm400kDetailModal');
+        if (detailModal && detailModal.style.display !== 'none' && !detailModal.classList.contains('hidden')) {
+          close400kDetailModal();
         }
         const colMenu = document.getElementById('mmColPickerMenu');
         if (colMenu && !colMenu.classList.contains('hidden')) {
@@ -4652,21 +4524,18 @@ window.MoldMaintenance = (function() {
     open400kDetailModal,
     close400kDetailModal,
     add400kRow,
-    handle400kRowUpload,
-    remove400kRowFile,
-    view400kRowFile,
-    unlock400kEdit,
+    handle400kRowUpload: handleExcelRowUpload,
+    remove400kRowFile: removeExcelRowFile,
+    view400kRowFile: viewExcelRowFile,
+    handleExcelRowUpload,
+    removeExcelRowFile,
+    viewExcelRowFile,
+    switchShotModalTab,
+    openShotEntryModal,
     save400kExcelTable,
     confirm400kFromModal: save400kExcelTable,
-    reopenCurrent400kCycle: unlock400kEdit,
-    delete400kPdf: remove400kRowFile,
+    confirmMilestoneAuth: save400kExcelTable,
     get400kCyclesInfo,
-    confirmMilestoneAuth,
-    onClosedShotsChange,
-    resetClosedShotsToDefault,
-    deleteCurrentMilestonePdf,
-    clearSelectedPdfFile,
-    onNewPdfSelected,
     viewMilestonePdf,
     getMilestonePdf,
     goToMoldPage,

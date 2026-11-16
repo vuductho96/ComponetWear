@@ -722,132 +722,30 @@
   <script src="js/mold-maintenance.js?v=20261105_v1"></script>
   <script src="js/app.js?v=20261104_v7"></script>
 
-    <!-- MINI WINDOW: XÁC THỰC CHỐT / MỞ MỐC BẢO DƯỠNG (MK: 1234 + UPLOAD PDF OPTION) -->
-    <div id="mmMilestoneAuthModal" class="hidden" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.65); align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) MoldMaintenance.closeMilestoneModal()">
-      <div style="background:#ffffff; border-radius:12px; width:100%; max-width:460px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
-        <!-- Header -->
-        <div style="padding:14px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span id="mmAuthModalIcon" style="font-size:20px;">🔒</span>
-            <div>
-              <div id="mmAuthModalTitle" style="font-size:14.5px; font-weight:800; color:#0f172a;">Xác Nhận Chốt Bảo Dưỡng Mốc</div>
-              <div id="mmAuthModalSubtitle" style="font-size:11.5px; color:#64748b;">Khuôn: <b id="mmAuthMoldName" style="color:#0284c7;">-</b> | <span id="mmAuthMilestoneTitle">Mốc 1</span></div>
-            </div>
-          </div>
-          <button type="button" style="background:transparent; border:none; font-size:18px; color:#64748b; cursor:pointer;" onclick="MoldMaintenance.closeMilestoneModal()">✕</button>
-        </div>
-
-        <!-- Body -->
-        <div style="padding:18px 20px; display:flex; flex-direction:column; gap:12px;">
-          <!-- Description message -->
-          <div id="mmAuthModalDesc" style="font-size:12.5px; color:#334155; line-height:1.5; background:#f1f5f9; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0;">
-            Xác nhận khuôn đã hoàn tất bảo dưỡng định kỳ mốc này.
-          </div>
-
-          <!-- Password input (1234) -->
-          <div>
-            <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
-              Mật khẩu xác thực * <span style="font-weight:normal; color:#64748b;">(Mặc định: <b>1234</b>)</span>
-            </label>
-            <input type="text" inputmode="numeric" id="mmAuthPasswordInput" placeholder="Nhập mã xác thực (1234)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="mm-input" style="width:100%; font-size:14px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; -webkit-text-security: disc; text-security: disc;" onkeydown="if(event.key==='Enter') MoldMaintenance.confirmMilestoneAuth()">
-            <div id="mmAuthPassError" style="color:#e11d48; font-size:11.5px; font-weight:600; margin-top:4px; display:none;">⚠️ Mật khẩu không đúng! Vui lòng nhập 1234.</div>
-          </div>
-
-          <!-- Nhập số shot chốt mốc bảo dưỡng (Tùy chỉnh, không bắt buộc tròn 800k hay 400k) -->
-          <div id="mmAuthClosedShotsGroup" style="background:#f8fafc; border:1px solid #cbd5e1; padding:10px 12px; border-radius:8px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
-              <label style="font-size:12px; font-weight:700; color:#0f172a; display:inline-flex; align-items:center; gap:4px;">
-                🎯 Số shot chốt mốc bảo dưỡng *
-              </label>
-              <span id="mmAuthTierBadge" style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px; background:#dcfce7; color:#15803d; border:1px solid #86efac;">
-                Định mức: 800.000
-              </span>
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <input type="number" id="mmAuthClosedShotsInput" min="0" step="1" placeholder="Nhập số shot chốt mốc..." 
-                class="mm-input" style="flex:1; font-size:14.5px; font-weight:800; font-family:monospace; padding:7px 12px; border:1px solid #94a3b8; border-radius:6px; background:#ffffff; color:#0f172a;"
-                oninput="MoldMaintenance.onClosedShotsChange()">
-              <button type="button" id="mmAuthResetShotsBtn" onclick="MoldMaintenance.resetClosedShotsToDefault()"
-                style="border:1px solid #cbd5e1; background:#ffffff; color:#475569; border-radius:6px; padding:7px 10px; font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap;"
-                title="Đặt lại về định mức hoặc số shot thực tế">
-                Đặt lại
-              </button>
-            </div>
-            <div id="mmAuthRolloverNotice" style="font-size:11.5px; color:#15803d; line-height:1.45; margin-top:5px;">
-              <!-- Thông tin chuyển tiếp shot live -->
-            </div>
-          </div>
-
-          <!-- Thông tin bảo dưỡng: Ngày bảo dưỡng & Ai bảo dưỡng -->
-          <div id="mmAuthMaintenanceFields" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; background:#f8fafc; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
-            <div>
-              <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
-                📅 Ngày bảo dưỡng *
-              </label>
-              <input type="date" id="mmAuthDateInput" class="mm-input" style="width:100%; font-size:13px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;">
-            </div>
-            <div>
-              <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
-                👤 Ai bảo dưỡng (KTV) *
-              </label>
-              <input type="text" id="mmAuthTechInput" placeholder="Tên kỹ thuật viên..." class="mm-input" style="width:100%; font-size:13px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;">
-            </div>
-          </div>
-
-          <!-- PDF Upload Section (Option + Nút xóa PDF ✕) -->
-          <div id="mmAuthPdfSection">
-            <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
-              📄 Biên bản / Báo cáo bảo dưỡng PDF <span style="font-weight:normal; color:#64748b;">(Tùy chọn)</span>
-            </label>
-            <div id="mmAuthExistingPdfInfo" style="display:none; font-size:11.5px; margin-bottom:6px; color:#15803d; background:#f0fdf4; padding:6px 10px; border-radius:4px; border:1px solid #bbf7d0; align-items:center; justify-content:space-between; gap:6px;">
-              <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
-                <span style="font-size:13px;">📎</span>
-                <span id="mmAuthExistingPdfName" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:230px;">Tệp đính kèm: report.pdf</span>
-                <a id="mmAuthExistingPdfLink" href="javascript:void(0)" style="color:#0284c7; font-weight:700; text-decoration:underline;">[Xem PDF]</a>
-              </div>
-              <button type="button" id="mmAuthDeletePdfBtn" onclick="MoldMaintenance.deleteCurrentMilestonePdf()" 
-                style="cursor:pointer; border:1px solid #fca5a5; background:#fee2e2; color:#b91c1c; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:3px; white-space:nowrap;"
-                title="Xóa tệp PDF đã lưu này">
-                ✕ Xóa PDF
-              </button>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <input type="file" id="mmAuthPdfFileInput" accept="application/pdf,.pdf" class="mm-input" style="flex:1; font-size:12px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc;" onchange="MoldMaintenance.onNewPdfSelected()">
-              <button type="button" id="mmAuthClearNewPdfBtn" onclick="MoldMaintenance.clearSelectedPdfFile()" style="display:none; cursor:pointer; border:1px solid #cbd5e1; background:#ffffff; color:#64748b; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:700;" title="Hủy chọn file PDF này">
-                ✕
-              </button>
-            </div>
-            <div style="font-size:11px; color:#64748b; margin-top:3px;">Đính kèm file PDF phiếu kiểm tra, biên bản hoàn thành bảo dưỡng khuôn.</div>
-          </div>
-
-          <!-- Note (Option) -->
-          <div>
-            <label style="display:block; font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
-              Ghi chú bảo dưỡng <span style="font-weight:normal; color:#64748b;">(Tùy chọn)</span>
-            </label>
-            <textarea id="mmAuthNoteInput" rows="2" placeholder="Ghi chú linh kiện thay thế, kỹ thuật viên phụ trách..." class="mm-input" style="width:100%; font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; resize:vertical;"></textarea>
-          </div>
-        </div>
-
-        <!-- Footer Buttons -->
-        <div style="padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; align-items:center; justify-content:flex-end; gap:8px;">
-          <button type="button" class="mm-btn" onclick="MoldMaintenance.closeMilestoneModal()" style="padding:6px 14px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; border-radius:6px; font-size:12.5px; font-weight:600; cursor:pointer;">Hủy</button>
-          <button type="button" id="mmAuthConfirmBtn" class="mm-btn mm-btn-primary" onclick="MoldMaintenance.confirmMilestoneAuth()" style="padding:6px 18px; background:#0284c7; color:#ffffff; border:none; border-radius:6px; font-size:12.5px; font-weight:700; cursor:pointer;">Xác Nhận</button>
-        </div>
-      </div>
-    </div>
-
     <!-- MODAL BẢNG NHẬP SHOT 400K (HIGH-IMPACT) CHUẨN EXCEL -->
     <div id="mm400kDetailModal" class="hidden" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.65); align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) MoldMaintenance.close400kDetailModal()">
       <div style="background:#ffffff; border-radius:10px; width:100%; max-width:860px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; max-height:92vh;" onclick="event.stopPropagation()">
         <!-- Header -->
         <div style="padding:12px 18px; background:#f8fafc; border-bottom:1px solid #cbd5e1; display:flex; align-items:center; justify-content:space-between;">
           <div style="display:flex; align-items:baseline; gap:10px;">
-            <span style="font-size:16px; font-weight:800; color:#0f172a;">Bảng nhập shot (High Impact - 400k)</span>
+            <span id="mmModalTitle" style="font-size:16px; font-weight:800; color:#0f172a;">Bảng nhập shot</span>
             <span style="font-size:13px; color:#475569;">Khuôn: <b id="mm400kMoldTitle" style="color:#0284c7; font-size:14px;">-</b></span>
             <span id="mm400kMachineSub" style="font-size:12px; color:#64748b;"></span>
+            <span id="mmModalSumShotSub" style="font-size:12px; font-weight:700; color:#0369a1; background:#e0f2fe; padding:2px 8px; border-radius:12px;"></span>
           </div>
           <button type="button" style="background:transparent; border:none; font-size:18px; color:#64748b; cursor:pointer;" onclick="MoldMaintenance.close400kDetailModal()">✕</button>
+        </div>
+
+        <!-- Tabs: Chu kỳ 400K (High-Impact) & Các mốc lớn (3.0M - 5.0M) -->
+        <div id="mmModalTabsWrap" style="padding:8px 18px 0 18px; background:#f8fafc; border-bottom:1px solid #cbd5e1; display:flex; gap:6px;">
+          <button type="button" id="mmTabBtn400k" onclick="MoldMaintenance.switchShotModalTab('400k')"
+                  style="padding:7px 16px; font-size:12.5px; font-weight:700; border:1px solid #cbd5e1; border-bottom:none; border-radius:6px 6px 0 0; background:#ffffff; color:#0284c7; cursor:pointer; transition:all 0.15s ease;">
+            Chu kỳ 400K (High-Impact)
+          </button>
+          <button type="button" id="mmTabBtnMajor" onclick="MoldMaintenance.switchShotModalTab('major')"
+                  style="padding:7px 16px; font-size:12.5px; font-weight:700; border:1px solid #cbd5e1; border-bottom:none; border-radius:6px 6px 0 0; background:#f1f5f9; color:#64748b; cursor:pointer; transition:all 0.15s ease;">
+            Các mốc lớn (3.0M - 5.0M)
+          </button>
         </div>
 
         <!-- Bảng Excel nhập shot -->
@@ -856,7 +754,7 @@
             <table style="width:100%; border-collapse:collapse; font-size:12.5px; background:#ffffff;">
               <thead>
                 <tr style="background:#f1f5f9; color:#1e293b; border-bottom:1px solid #94a3b8; text-align:center;">
-                  <th style="border:1px solid #94a3b8; padding:8px 6px; width:80px; font-weight:700;"></th>
+                  <th style="border:1px solid #94a3b8; padding:8px 6px; width:85px; font-weight:700;">Mốc</th>
                   <th style="border:1px solid #94a3b8; padding:8px 8px; width:130px; font-weight:700;">Actual shot</th>
                   <th style="border:1px solid #94a3b8; padding:8px 8px; width:140px; font-weight:700;">Ngày</th>
                   <th style="border:1px solid #94a3b8; padding:8px 8px; width:140px; font-weight:700;">Tài liệu</th>
@@ -878,7 +776,8 @@
           </div>
 
           <!-- Bottom Action Bar -->
-          <div style="display:flex; align-items:center; justify-content:flex-end; margin-top:14px; gap:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; gap:10px;">
+            <div id="mmModalNotice" style="font-size:12px; color:#64748b; font-style:italic;"></div>
             
             <div style="display:flex; align-items:center; gap:8px;">
               <button type="button" onclick="MoldMaintenance.close400kDetailModal()" 
