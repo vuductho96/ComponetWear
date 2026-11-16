@@ -1260,7 +1260,7 @@ window.MoldMaintenance = (function() {
     `;
   }
 
-  // Thông tin các cữ 400K của khuôn High-Impact (cữ 1 đến 7)
+  // Thông tin các cữ 400K của khuôn High-Impact (cữ 1 đến 8)
   function get400kCyclesInfo(m) {
     const code = String(m?.mold || '').trim().toUpperCase();
     const closedMap = getClosedMilestonesMap();
@@ -1270,7 +1270,7 @@ window.MoldMaintenance = (function() {
     const cycles = [];
     let remainingShots = totalYear;
 
-    for (let i = 1; i <= 7; i++) {
+    for (let i = 1; i <= 8; i++) {
       const cycleKey = i <= 3 ? i : ('400k-' + i);
       const isClosed = closedList.includes(i) || closedList.includes('400k-' + i) || closedList.includes(String(i));
       const detail = getMilestoneDetail(code, cycleKey) || getMilestoneDetail(code, i);
@@ -1280,7 +1280,7 @@ window.MoldMaintenance = (function() {
       let cycleShots = 0;
 
       if (isClosed) {
-        closedShots = Number(detail?.closedShots) || (i === 1 ? (m?.m1 || 400000) : (i === 2 ? (m?.m2 || 400000) : 400000));
+        closedShots = Number(detail?.closedShots) || (i === 1 ? (m?.m1 || 400000) : (i === 2 ? (m?.m2 || 400000) : (i === 3 ? (m?.m3 || 400000) : 400000)));
         cycleShots = closedShots;
         remainingShots = Math.max(0, remainingShots - closedShots);
       } else {
@@ -3664,7 +3664,7 @@ window.MoldMaintenance = (function() {
         });
       } catch (e) {}
 
-      function buildUnifiedSheet(ws, sheetTitle, isHighImpact, moldsList) {
+      function buildUnifiedSheet(ws, sheetTitle, sheetTierOrIsHighImpact, moldsList) {
         ws.views = [{ showGridLines: true }];
         ws.pageSetup = {
           orientation: 'landscape',
@@ -3675,9 +3675,38 @@ window.MoldMaintenance = (function() {
           margins: { left: 0.4, right: 0.4, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
           horizontalCentered: true
         };
-        const maxShot = isHighImpact ? '400K' : '500K';
 
-        // Độ rộng cột chuẩn 100% theo template gốc MMFD-I-F-022.01
+        function getColLetter(colIdx) {
+          let temp = '';
+          let letter = '';
+          while (colIdx > 0) {
+            temp = (colIdx - 1) % 26;
+            letter = String.fromCharCode(temp + 65) + letter;
+            colIdx = Math.floor((colIdx - temp - 1) / 26);
+          }
+          return letter;
+        }
+
+        const isHighImpactSheet = (sheetTierOrIsHighImpact === true || sheetTierOrIsHighImpact === 'high_impact');
+        const isStandardSheet = (sheetTierOrIsHighImpact === false || sheetTierOrIsHighImpact === 'standard');
+        const isOverviewSheet = (sheetTierOrIsHighImpact === 'overview');
+
+        let milestoneHeaders = [];
+        if (isHighImpactSheet) {
+          milestoneHeaders = ['400K-1', '400K-2', '400K-3', '400K-4', '400K-5', '400K-6', '400K-7', '400K-8', '2.5M', '3.0M', '3.5M'];
+        } else if (isStandardSheet) {
+          milestoneHeaders = ['2.5M', '3.0M', '3.5M', '4.0M', '4.5M', '5.0M'];
+        } else {
+          // overview / combined: đầy đủ các mốc
+          milestoneHeaders = ['400K-1', '400K-2', '400K-3', '400K-4', '400K-5', '400K-6', '400K-7', '400K-8', '2.5M', '3.0M', '3.5M', '4.0M', '4.5M', '5.0M'];
+        }
+
+        const maxShot = isHighImpactSheet ? '400K' : (isStandardSheet ? '500K' : '400K / 500K');
+        const numMilestones = milestoneHeaders.length;
+        const totalCols = 16 + numMilestones + 1; // 1..16 (A..P) + milestones + 1 (Total Shot Monitor)
+        const lastColLetter = getColLetter(totalCols);
+
+        // Độ rộng cột chuẩn theo template MMFD-I-F-022.01
         ws.getColumn(1).width = 30; // Col A: Mold Name/Series
         ws.getColumn(2).width = 18; // Col B: Mold Name
         ws.getColumn(3).width = 16; // Col C: Total Shot Last Year (Hiển thị)
@@ -3688,25 +3717,25 @@ window.MoldMaintenance = (function() {
         for (let col = 5; col <= 16; col++) {
           ws.getColumn(col).width = 13.5; // Col E-P: Jan to Dec
         }
-        for (let col = 17; col <= 21; col++) {
-          ws.getColumn(col).width = 15; // Col Q-U: Milestones (Vàng chanh)
+        for (let col = 17; col <= 16 + numMilestones; col++) {
+          ws.getColumn(col).width = 14; // Milestones
         }
-        ws.getColumn(22).width = 18; // Col V: Total Shot Monitor (Xanh dương nhạt)
+        ws.getColumn(totalCols).width = 18; // Total Shot Monitor (Xanh dương nhạt)
 
         // Nhúng Logo IRISO góc phải trên cùng
         if (logoImageId !== null) {
           try {
             ws.addImage(logoImageId, {
-              tl: { col: 17.5, row: 0.15 },
+              tl: { col: Math.max(16.5, totalCols - 5.5), row: 0.15 },
               ext: { width: 230, height: 42 }
             });
           } catch (e) {}
         }
 
-        // 1. Tiêu đề Form ISO (A1:P1 cho Tiêu đề, Q1:V1 cho Tên Công Ty & Logo)
+        // 1. Tiêu đề Form ISO (A1:P1 cho Tiêu đề, Q1:lastColLetter + 1 cho Tên Công Ty & Logo)
         ws.mergeCells('A1:P1');
         const t1 = ws.getCell('A1');
-        const isoTitle = isHighImpact ? 'HIGH IMPACT MOLD DIE NUMBER OF SHOTS RECORD\n' : 'MOLD DIE NUMBER OF SHOTS RECORD\n';
+        const isoTitle = isHighImpactSheet ? 'HIGH IMPACT MOLD DIE NUMBER OF SHOTS RECORD\n' : 'MOLD DIE NUMBER OF SHOTS RECORD\n';
         t1.value = {
           richText: [
             { font: { bold: true, size: 15, name: 'Arial', color: { argb: 'FF000000' } }, text: isoTitle },
@@ -3717,7 +3746,7 @@ window.MoldMaintenance = (function() {
         t1.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         t1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
 
-        ws.mergeCells('Q1:V1');
+        ws.mergeCells(`Q1:${lastColLetter}1`);
         const cLogoCell = ws.getCell('Q1');
         cLogoCell.value = 'IRISO ELECTRONICS VIETNAM CO., LTD\n';
         cLogoCell.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
@@ -3725,8 +3754,8 @@ window.MoldMaintenance = (function() {
         cLogoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
         ws.getRow(1).height = 68;
 
-        // 2. Banner "Total Shot Count Management" (A2:V3 gộp 2 dòng với nền xanh lá nhạt #C6EFCE và chữ đỏ tươi đậm)
-        ws.mergeCells('A2:V3');
+        // 2. Banner "Total Shot Count Management" (A2:lastColLetter + 3 gộp 2 dòng với nền xanh lá nhạt #C6EFCE và chữ đỏ tươi đậm)
+        ws.mergeCells(`A2:${lastColLetter}3`);
         const t2 = ws.getCell('A2');
         t2.value = ` Total Shot Count Management ( Maximum of  ${maxShot} shot ) / Tổng số shot cần kiểm tra ( Nhiều nhất của ${maxShot}  shot ) `;
         t2.font = { name: 'Arial', size: 11.5, bold: true, color: { argb: 'FFC00000' } };
@@ -3765,7 +3794,7 @@ window.MoldMaintenance = (function() {
         hD4.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hD4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
 
-        // D5: 500K (hoặc 400K) chữ ĐỎ TƯƠI ĐẬM
+        // D5: maxShot chữ ĐỎ TƯƠI ĐẬM
         const hD5 = ws.getCell('D5');
         hD5.value = maxShot;
         hD5.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FFFF0000' } };
@@ -3782,7 +3811,7 @@ window.MoldMaintenance = (function() {
 
         const monthNames = ['Jan-26', 'Feb-26', 'Mar-26', 'Apr-26', 'May-26', 'Jun-26', 'Jul-26', 'Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'];
         for (let m = 1; m <= 12; m++) {
-          const colLetter = String.fromCharCode(68 + m);
+          const colLetter = getColLetter(4 + m);
           const c = ws.getCell(colLetter + '5');
           c.value = monthNames[m - 1];
           c.font = { name: 'Arial', size: 10, bold: true };
@@ -3790,28 +3819,25 @@ window.MoldMaintenance = (function() {
           c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
         }
 
-        // Cột Mốc Q to U (NỀN VÀNG CHUẨN #FFFF00, CHỮ ĐEN ĐẬM CHUẨN MẪU)
-        const milestoneHeaders = isHighImpact
-          ? ['(400K)-1', '(400K)-2', '(400K)-3', '3.0M', '3.5M']
-          : ['3.0M', '3.5M', '4.0M', '4.5M', '5.0M'];
-
-        ['Q', 'R', 'S', 'T', 'U'].forEach((col, idx) => {
-          const c4 = ws.getCell(col + '4');
+        // Cột Mốc (NỀN VÀNG CHUẨN #FFFF00, CHỮ ĐEN ĐẬM CHUẨN MẪU)
+        milestoneHeaders.forEach((mTitle, idx) => {
+          const colLetter = getColLetter(17 + idx);
+          const c4 = ws.getCell(colLetter + '4');
           c4.value = 'Shot Monitor\r\nSố lượng shot';
           c4.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF000000' } };
           c4.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
           c4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
 
-          const c5 = ws.getCell(col + '5');
-          c5.value = milestoneHeaders[idx];
+          const c5 = ws.getCell(colLetter + '5');
+          c5.value = mTitle;
           c5.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF000000' } };
           c5.alignment = { horizontal: 'center', vertical: 'middle' };
           c5.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
         });
 
-        // Cột Tổng V4:V5 (NỀN XANH DƯƠNG NHẠT #BDD7EE)
-        ws.mergeCells('V4:V5');
-        const hV = ws.getCell('V4');
+        // Cột Tổng (NỀN XANH DƯƠNG NHẠT #BDD7EE)
+        ws.mergeCells(`${lastColLetter}4:${lastColLetter}5`);
+        const hV = ws.getCell(`${lastColLetter}4`);
         hV.value = 'Total Shot  Monitor\r\nTổng số shot ';
         hV.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FF1E3A8A' } };
         hV.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -3823,7 +3849,7 @@ window.MoldMaintenance = (function() {
         // Kẻ viền cho tiêu đề Bảng 1
         for (let r = 4; r <= 5; r++) {
           const row = ws.getRow(r);
-          for (let c = 1; c <= 22; c++) {
+          for (let c = 1; c <= totalCols; c++) {
             row.getCell(c).border = {
               top: { style: 'thin' },
               bottom: { style: 'thin' },
@@ -3887,80 +3913,143 @@ window.MoldMaintenance = (function() {
           row.getCell('O').value = m11Val;
           row.getCell('P').value = Math.round(hist.M12 || 0);
 
-          // 5 Cột Mốc Q đến U
-          const mValues = isHighImpact
-            ? [
-                Math.round(m.m1 || 0),
-                Math.round(m.m2 || 0),
-                Math.round(m.m3 || 0),
-                Math.round(m.m4 || 0),
-                Math.round(m.m5 || 0)
-              ]
-            : [
-                Math.round(m.m4 || 0),
-                Math.round(m.m5 || 0),
-                Math.round(m.m6 || 0),
-                Math.round(m.m7 || 0),
-                Math.round(m.m8 || 0)
-              ];
+          const moldCode = String(m.mold || '').trim().toUpperCase();
+          const closed = m.closedMilestones || getClosedMilestonesMap()[moldCode] || [];
 
-          const closed = m.closedMilestones || [];
-          ['Q', 'R', 'S', 'T', 'U'].forEach((col, idx) => {
-            const val = mValues[idx];
-            const cell = row.getCell(col);
-            const mNum = isHighImpact ? (idx + 1) : (idx + 4);
-            const isDone = closed.includes(mNum);
+          milestoneHeaders.forEach((mH, idx) => {
+            const colIdx = 17 + idx;
+            const cell = row.getCell(colIdx);
+            let val = null;
+            let isDone = false;
+            let mTarget = 0;
+            let noteText = '';
 
-            if (val > 0) {
-              cell.value = val;
-              // Highlight màu chuẩn theo SOP mới:
-              // High-Impact < 3M: Cam/Vàng 380K-400K, Đỏ >= 400K
-              // Mốc 3.0M: Tím 2.8M-3.05M
-              // Mốc 4.5M: Cam 4.3M-4.55M
-              // Mốc 5.0M: Đỏ 4.8M-5.05M
-              let cellFill = null;
-              let fontColor = 'FF000000';
-              if (mNum === 8 && val >= 4800000) {
-                cellFill = 'FFFEE2E2'; // Đỏ nhạt cảnh báo trần 5M
-                fontColor = 'FF991B1B';
-              } else if (mNum === 7 && val >= 4300000) {
-                cellFill = 'FFFFFBEB'; // Cam mốc 4.5M
-                fontColor = 'FFB45309';
-              } else if (mNum === 4) {
-                if (val >= 3000000) {
-                  cellFill = 'FFFF0000'; // Đỏ OVER 3M
-                  fontColor = 'FFFFFFFF';
-                } else if (val >= 2800000) {
-                  cellFill = 'FFD8B4FE'; // Tím cảnh báo mốc 3M
-                  fontColor = 'FF701A75';
-                }
-              } else if (isHighImpact && mNum <= 3) {
-                if (val >= 400000) {
-                  cellFill = 'FFFF0000'; // Đỏ OVER 400K
-                  fontColor = 'FFFFFFFF';
-                } else if (val >= 380000) {
-                  cellFill = 'FFFFC000'; // Cam cảnh báo 380K~400K
+            if (mH.startsWith('400K-')) {
+              if (m.isHighImpact) {
+                const cycleNum = parseInt(mH.replace('400K-', ''), 10);
+                const cycles = get400kCyclesInfo(m);
+                const cInfo = cycles[cycleNum - 1];
+                if (cInfo) {
+                  mTarget = 400000;
+                  if (cInfo.isClosed) {
+                    isDone = true;
+                    val = cInfo.closedShots || 400000;
+                    const d = getMilestoneDetail(moldCode, cInfo.key) || getMilestoneDetail(moldCode, cycleNum);
+                    noteText = `${mH} - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${cInfo.date || d?.date || ''}\nKTV: ${cInfo.tech || d?.tech || ''}\n${cInfo.note || d?.note || ''}`.trim();
+                  } else if (cInfo.shots > 0) {
+                    val = Math.round(cInfo.shots);
+                  }
                 }
               }
+            } else if (mH === '2.5M') {
+              mTarget = 2500000;
+              isDone = closed.includes(25) || closed.includes('25') || closed.includes('2.5m') || closed.includes('2.5M');
+              const d25 = getMilestoneDetail(moldCode, 25) || getMilestoneDetail(moldCode, '2.5m');
+              if (isDone) {
+                val = Math.round(d25?.closedShots || m.m25 || (m.totalYear || 0) || 2500000);
+                noteText = `MỐC 2.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d25?.date || ''}\nKTV: ${d25?.tech || ''}\n${d25?.note || ''}`.trim();
+              } else {
+                if (!m.isHighImpact) {
+                  val = m.m25 !== null && m.m25 !== undefined ? Math.round(m.m25) : Math.round(m.totalYear || 0);
+                } else {
+                  val = (m.m25 !== null && m.m25 !== undefined && m.m25 > 0) ? Math.round(m.m25) : null;
+                }
+              }
+            } else if (mH === '3.0M') {
+              mTarget = 3000000;
+              isDone = closed.includes(4);
+              const d4 = getMilestoneDetail(moldCode, 4);
+              if (isDone) {
+                val = Math.round(d4?.closedShots || m.m4 || 3000000);
+                noteText = `MỐC 3.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d4?.date || ''}\nKTV: ${d4?.tech || ''}\n${d4?.note || ''}`.trim();
+              } else {
+                if (!m.isHighImpact) {
+                  val = m.m4 !== null && m.m4 !== undefined ? Math.round(m.m4) : Math.round(m.totalYear || 0);
+                } else {
+                  val = (m.m4 !== null && m.m4 !== undefined && m.m4 > 0) ? Math.round(m.m4) : null;
+                }
+              }
+            } else if (mH === '3.5M') {
+              mTarget = 3500000;
+              isDone = closed.includes(5);
+              const d5 = getMilestoneDetail(moldCode, 5);
+              if (isDone) {
+                val = Math.round(d5?.closedShots || m.m5 || 3500000);
+                noteText = `MỐC 3.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d5?.date || ''}\nKTV: ${d5?.tech || ''}\n${d5?.note || ''}`.trim();
+              } else {
+                val = (m.m5 !== null && m.m5 !== undefined && m.m5 > 0) ? Math.round(m.m5) : null;
+              }
+            } else if (mH === '4.0M') {
+              mTarget = 4000000;
+              isDone = closed.includes(6);
+              const d6 = getMilestoneDetail(moldCode, 6);
+              if (isDone) {
+                val = Math.round(d6?.closedShots || m.m6 || 4000000);
+                noteText = `MỐC 4.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d6?.date || ''}\nKTV: ${d6?.tech || ''}\n${d6?.note || ''}`.trim();
+              } else {
+                val = (m.m6 !== null && m.m6 !== undefined && m.m6 > 0) ? Math.round(m.m6) : null;
+              }
+            } else if (mH === '4.5M') {
+              mTarget = 4500000;
+              isDone = closed.includes(7);
+              const d7 = getMilestoneDetail(moldCode, 7);
+              if (isDone) {
+                val = Math.round(d7?.closedShots || m.m7 || 4500000);
+                noteText = `MỐC 4.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d7?.date || ''}\nKTV: ${d7?.tech || ''}\n${d7?.note || ''}`.trim();
+              } else {
+                val = (m.m7 !== null && m.m7 !== undefined && m.m7 > 0) ? Math.round(m.m7) : null;
+              }
+            } else if (mH === '5.0M') {
+              mTarget = 5000000;
+              isDone = closed.includes(8);
+              const d8 = getMilestoneDetail(moldCode, 8);
+              if (isDone) {
+                val = Math.round(d8?.closedShots || m.m8 || 5000000);
+                noteText = `MỐC 5.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d8?.date || ''}\nKTV: ${d8?.tech || ''}\n${d8?.note || ''}`.trim();
+              } else {
+                val = (m.m8 !== null && m.m8 !== undefined && m.m8 > 0) ? Math.round(m.m8) : null;
+              }
+            }
+
+            if (val !== null && val !== undefined && val > 0) {
+              cell.value = val;
+              cell.numFmt = numAccountingFmt;
+              let cellFill = null;
+              let fontColor = 'FF000000';
+
+              if (isDone) {
+                cellFill = 'FFDCFCE7'; // Xanh lá đã chốt bảo dưỡng
+                fontColor = 'FF166534';
+                if (noteText) {
+                  cell.note = {
+                    texts: [{ font: { bold: true, size: 9.5, name: 'Arial' }, text: noteText }]
+                  };
+                }
+              } else if (mTarget > 0) {
+                // Tiêu chuẩn giám sát và plan mới, màu mới (Tím, Vàng, Đỏ)
+                if (val >= mTarget) {
+                  cellFill = 'FFFF0000'; // Đỏ Vượt mốc tiêu chuẩn
+                  fontColor = 'FFFFFFFF';
+                } else if (val >= mTarget - 10000) {
+                  cellFill = 'FFFFF08A'; // Vàng Báo bảo dưỡng (trước 10K)
+                  fontColor = 'FF854D0E';
+                } else if (val >= mTarget - 20000) {
+                  cellFill = 'FFD8B4FE'; // Tím Mức Plan (trước 20K)
+                  fontColor = 'FF701A75';
+                }
+              }
+
               if (cellFill) {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: cellFill } };
               }
               cell.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: fontColor } };
-
-              if (isDone) {
-                const detail = getMilestoneDetail(m.mold, mNum);
-                const noteText = detail ? `${maxShot}\n${detail.date || ''}\nKTV: ${detail.tech || ''}\n${detail.note || ''}` : `${maxShot}\nĐã bảo dưỡng`;
-                cell.note = {
-                  texts: [{ font: { bold: true, size: 10, name: 'Calibri' }, text: noteText }]
-                };
-              }
             } else {
-              cell.value = null; // để trống cho sạch như template
+              cell.value = null; // để trống cho sạch
             }
           });
 
-          // Total Shot Monitor (V) - Tổng vòng đời khuôn các năm
-          row.getCell('V').value = { formula: `SUM(E${curRow}:P${curRow})+C${curRow}`, result: totalLifeAccum };
+          // Total Shot Monitor ở cột cuối cùng
+          row.getCell(totalCols).value = { formula: `SUM(E${curRow}:P${curRow})+C${curRow}`, result: totalLifeAccum };
 
           row.eachCell({ includeEmpty: true }, (cell, colNum) => {
             cell.border = {
@@ -3984,7 +4073,7 @@ window.MoldMaintenance = (function() {
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
               cell.font = { name: 'Arial', size: 9.5, color: { argb: 'FF0F172A' } };
               cell.numFmt = numAccountingFmt;
-            } else if (colNum === 22) {
+            } else if (colNum === totalCols) {
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
               cell.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
               cell.numFmt = numAccountingFmt;
@@ -3999,7 +4088,7 @@ window.MoldMaintenance = (function() {
         });
 
         // Bật AutoFilter trên toàn bộ bảng 1 (từ dòng 5 đến dòng cuối của bảng 1)
-        ws.autoFilter = `A5:V${curRow - 1}`;
+        ws.autoFilter = `A5:${lastColLetter}${curRow - 1}`;
 
         // Chừa 1 dòng trống trước dòng Legend (giống hệt template)
         curRow += 1;
@@ -4007,12 +4096,12 @@ window.MoldMaintenance = (function() {
         ws.getRow(legRow).height = 26;
 
         // Thiết lập viền chuẩn cho toàn bộ dòng Legend
-        for (let c = 1; c <= 22; c++) {
+        for (let c = 1; c <= totalCols; c++) {
           ws.getRow(legRow).getCell(c).border = {
             top: { style: 'thin', color: { argb: 'FF000000' } },
             bottom: { style: 'medium', color: { argb: 'FF000000' } },
             left: c === 1 ? { style: 'medium', color: { argb: 'FF000000' } } : undefined,
-            right: c === 22 ? { style: 'medium', color: { argb: 'FF000000' } } : undefined
+            right: c === totalCols ? { style: 'medium', color: { argb: 'FF000000' } } : undefined
           };
         }
 
@@ -4023,16 +4112,16 @@ window.MoldMaintenance = (function() {
         noteCell.font = { name: 'Arial', size: 9.5, italic: true, bold: true, color: { argb: 'FF000000' } };
         noteCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
 
-        // Nhúng ảnh Legend dạng PNG nổi chuẩn 100% khớp ảnh người dùng cung cấp (Cột J đến S)
+        // Nhúng ảnh Legend dạng PNG nổi chuẩn 100% khớp ảnh người dùng cung cấp
         try {
-          const legImgBase64 = isHighImpact ? LEGEND_PNG_BASE64 : STD_LEGEND_PNG_BASE64;
+          const legImgBase64 = isHighImpactSheet ? LEGEND_PNG_BASE64 : STD_LEGEND_PNG_BASE64;
           const legendImgId = wb.addImage({
             base64: legImgBase64,
             extension: 'png'
           });
           ws.addImage(legendImgId, {
             tl: { col: 9.1, row: (legRow - 1) + 0.15 },
-            br: { col: 19.0, row: (legRow - 1) + 0.85 },
+            br: { col: Math.min(21.0, totalCols - 1), row: (legRow - 1) + 0.85 },
             editAs: 'oneCell'
           });
         } catch (imgErr) {
@@ -4066,8 +4155,8 @@ window.MoldMaintenance = (function() {
         hT2Mold.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hT2Mold.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF00FFFF' } };
 
-        // Cột E đến V: Tiêu đề bảng kế hoạch bảo dưỡng (hàng trên)
-        ws.mergeCells(`E${curRow}:V${curRow}`);
+        // Cột E đến lastColLetter: Tiêu đề bảng kế hoạch bảo dưỡng (hàng trên)
+        ws.mergeCells(`E${curRow}:${lastColLetter}${curRow}`);
         const hT2Plan = ws.getCell(`E${curRow}`);
         hT2Plan.value = 'MAINTENANCE PLAN PER MOLD / Kế Hoạch Bảo Dưỡng';
         hT2Plan.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF0F172A' } };
@@ -4079,7 +4168,7 @@ window.MoldMaintenance = (function() {
 
         // 12 Tháng: từ Cột E đến P (thẳng hàng chuẩn 100% với 12 tháng của Bảng 1 ở trên!)
         for (let m = 1; m <= 12; m++) {
-          const colL = String.fromCharCode(68 + m); // E to P
+          const colL = getColLetter(4 + m); // E to P
           const c = ws.getCell(`${colL}${curRow + 1}`);
           c.value = monthNames[m - 1];
           c.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF1E40AF' } };
@@ -4087,8 +4176,8 @@ window.MoldMaintenance = (function() {
           c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: m % 2 === 1 ? 'FFE0F2FE' : 'FFCCFFFF' } };
         }
 
-        // Cột Q đến V: Remark (hàng 2)
-        ws.mergeCells(`Q${curRow + 1}:V${curRow + 1}`);
+        // Cột Q đến lastColLetter: Remark (hàng 2)
+        ws.mergeCells(`Q${curRow + 1}:${lastColLetter}${curRow + 1}`);
         const hT2Remark = ws.getCell(`Q${curRow + 1}`);
         hT2Remark.value = 'Remark';
         hT2Remark.font = { name: 'Arial', size: 10, bold: true };
@@ -4097,7 +4186,7 @@ window.MoldMaintenance = (function() {
 
         // Đóng viền mỏng toàn bộ ô header Bảng 2
         for (let r = curRow; r <= curRow + 1; r++) {
-          for (let c = 1; c <= 22; c++) {
+          for (let c = 1; c <= totalCols; c++) {
             ws.getRow(r).getCell(c).border = {
               top: { style: 'thin', color: { argb: 'FF94A3B8' } },
               bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
@@ -4284,15 +4373,15 @@ window.MoldMaintenance = (function() {
             }
           }
 
-          // Cột Q đến V: Remark (gộp 2 dòng)
-          ws.mergeCells(`Q${curRow}:V${curRow + 1}`);
+          // Cột Q đến lastColLetter: Remark (gộp 2 dòng)
+          ws.mergeCells(`Q${curRow}:${lastColLetter}${curRow + 1}`);
           const cRemark = ws.getCell(`Q${curRow}`);
           cRemark.value = m.note || planItem?.note || '';
           cRemark.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
           cRemark.font = { name: 'Arial', size: 9 };
 
           // Border: Đường nét đứt (dotted) ở giữa dòng 1 và dòng 2, viền nét liền mỏng bao quanh
-          for (let c = 1; c <= 22; c++) {
+          for (let c = 1; c <= totalCols; c++) {
             r1.getCell(c).border = {
               top: { style: 'thin', color: { argb: 'FF94A3B8' } },
               left: { style: 'thin', color: { argb: 'FF94A3B8' } },
@@ -4356,20 +4445,30 @@ window.MoldMaintenance = (function() {
         // ============================================================================
         // BẢNG REVISION & CHỮ KÝ PHÊ DUYỆT (REV BOX & SIGNATURES CHUẨN 100% PDF)
         // ============================================================================
+        const opStartCol = totalCols - 3;
+        const opEndCol = totalCols - 2;
+        const chkStartCol = totalCols - 1;
+        const chkEndCol = totalCols;
+        const opStart = getColLetter(opStartCol);
+        const opEnd = getColLetter(opEndCol);
+        const chkStart = getColLetter(chkStartCol);
+        const chkEnd = lastColLetter;
+        const detailsEnd = getColLetter(totalCols - 4);
+
         ws.mergeCells(`A${curRow}:C${curRow}`);
         ws.getCell(`A${curRow}`).value = 'Rev.No';
         ws.mergeCells(`D${curRow}:G${curRow}`);
         ws.getCell(`D${curRow}`).value = 'Issue Date';
-        ws.mergeCells(`H${curRow}:R${curRow}`);
+        ws.mergeCells(`H${curRow}:${detailsEnd}${curRow}`);
         ws.getCell(`H${curRow}`).value = 'Details';
-        ws.mergeCells(`S${curRow}:T${curRow}`);
-        ws.getCell(`S${curRow}`).value = 'Operator by';
-        ws.mergeCells(`U${curRow}:V${curRow}`);
-        ws.getCell(`U${curRow}`).value = 'Check by';
+        ws.mergeCells(`${opStart}${curRow}:${opEnd}${curRow}`);
+        ws.getCell(`${opStart}${curRow}`).value = 'Operator by';
+        ws.mergeCells(`${chkStart}${curRow}:${chkEnd}${curRow}`);
+        ws.getCell(`${chkStart}${curRow}`).value = 'Check by';
 
         const revHRow = ws.getRow(curRow);
         revHRow.height = 20;
-        ['A', 'D', 'H', 'S', 'U'].forEach(col => {
+        ['A', 'D', 'H', opStart, chkStart].forEach(col => {
           const c = revHRow.getCell(col);
           c.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
           c.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -4381,25 +4480,25 @@ window.MoldMaintenance = (function() {
         ws.getCell(`A${curRow + 1}`).value = '0';
         ws.mergeCells(`D${curRow + 1}:G${curRow + 1}`);
         ws.getCell(`D${curRow + 1}`).value = '9-Jun-18';
-        ws.mergeCells(`H${curRow + 1}:R${curRow + 1}`);
+        ws.mergeCells(`H${curRow + 1}:${detailsEnd}${curRow + 1}`);
         ws.getCell(`H${curRow + 1}`).value = 'Initital';
 
         // 3 hàng revision trống
         for (let r = curRow + 2; r <= curRow + 4; r++) {
           ws.mergeCells(`A${r}:C${r}`);
           ws.mergeCells(`D${r}:G${r}`);
-          ws.mergeCells(`H${r}:R${r}`);
+          ws.mergeCells(`H${r}:${detailsEnd}${r}`);
         }
 
         // Chữ ký Người thao tác & Người kiểm tra (gộp 4 hàng chuẩn PDF)
-        ws.mergeCells(`S${curRow + 1}:T${curRow + 4}`);
-        const cOp = ws.getCell(`S${curRow + 1}`);
+        ws.mergeCells(`${opStart}${curRow + 1}:${opEnd}${curRow + 4}`);
+        const cOp = ws.getCell(`${opStart}${curRow + 1}`);
         cOp.value = 'Mr. Thao\r\nEng.Technicial\r\n(Vũ Đức Thọ)';
         cOp.font = { name: 'Arial', size: 9.5, bold: true };
         cOp.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
-        ws.mergeCells(`U${curRow + 1}:V${curRow + 4}`);
-        const cChk = ws.getCell(`U${curRow + 1}`);
+        ws.mergeCells(`${chkStart}${curRow + 1}:${chkEnd}${curRow + 4}`);
+        const cChk = ws.getCell(`${chkStart}${curRow + 1}`);
         cChk.value = 'Mr. Toan\r\nSectional Chief\r\n(Nguyễn Văn Toàn)';
         cChk.font = { name: 'Arial', size: 9.5, bold: true };
         cChk.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -4415,7 +4514,7 @@ window.MoldMaintenance = (function() {
 
         // Đóng viền mỏng toàn bộ bảng Revision & Chữ ký
         for (let r = curRow; r <= curRow + 4; r++) {
-          for (let c = 1; c <= 22; c++) {
+          for (let c = 1; c <= totalCols; c++) {
             ws.getRow(r).getCell(c).border = {
               top: { style: 'thin', color: { argb: 'FF94A3B8' } },
               bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
@@ -4429,24 +4528,24 @@ window.MoldMaintenance = (function() {
       // TẠO SHEET THEO ĐÚNG TÙY CHỌN TIÊU CHUẨN (filterTier):
       if (filterTier === 'standard') {
         const wsStandard = wb.addWorksheet('Khuôn Tiêu Chuẩn');
-        buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn (Đã Lọc)', false, standardMolds);
+        buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn (Đã Lọc)', 'standard', standardMolds);
       } else if (filterTier === 'high_impact') {
         const wsHighImpact = wb.addWorksheet('Khuôn High Impact');
-        buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact (Đã Lọc)', true, highImpactMolds);
+        buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact (Đã Lọc)', 'high_impact', highImpactMolds);
       } else {
         // filterTier === 'all'
         if (standardMolds.length > 0) {
           const wsStandard = wb.addWorksheet('Khuôn Tiêu Chuẩn');
-          buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn', false, standardMolds);
+          buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn', 'standard', standardMolds);
         }
         if (highImpactMolds.length > 0) {
           const wsHighImpact = wb.addWorksheet('Khuôn High Impact');
-          buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact', true, highImpactMolds);
+          buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact', 'high_impact', highImpactMolds);
         }
         // Thêm sheet Tổng hợp nếu có cả 2 loại
         if (standardMolds.length > 0 && highImpactMolds.length > 0) {
           const wsOverview = wb.addWorksheet('Toàn Bộ Khuôn');
-          buildUnifiedSheet(wsOverview, 'Toàn Bộ Khuôn (Bộ Lọc)', false, filteredMolds);
+          buildUnifiedSheet(wsOverview, 'Toàn Bộ Khuôn (Bộ Lọc)', 'overview', filteredMolds);
         }
       }
 
