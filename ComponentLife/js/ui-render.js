@@ -1229,7 +1229,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
               </div>
             </td>
             <td style="padding:8px 8px; text-align:center;">
-              <button type="button" class="btn-expand-detail" style="cursor:pointer; font-size:11.5px; padding:4px 9px; font-weight:600; background:#fff; border:1px solid #cbd5e1; border-radius:5px;" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance){ MoldMaintenance.onSearchInput('${m.mold}'); }">
+              <button type="button" class="btn-expand-detail" style="cursor:pointer; font-size:11.5px; padding:4px 9px; font-weight:600; background:#fff; border:1px solid #cbd5e1; border-radius:5px;" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance){ MoldMaintenance.onSearchInput('${m.mold}', true); const si = document.getElementById('mmSearchInput'); if(si){ si.value = '${m.mold}'; si.removeAttribute('readonly'); } const btn = document.getElementById('mmClearSearchBtn'); if(btn) btn.style.display = 'block'; }">
                 Xem Khuôn
               </button>
             </td>
@@ -1257,12 +1257,15 @@ window.goToMoldMaintenanceMachine = function(machineNo) {
     switchTab('moldmaintenance');
     setTimeout(() => {
       if (window.MoldMaintenance) {
-        MoldMaintenance.onSearchInput(machineNo);
+        MoldMaintenance.onSearchInput(machineNo, true);
         const searchInput = document.querySelector('#moldMaintenanceTab input[type="search"]');
         if (searchInput) {
           searchInput.value = machineNo;
+          searchInput.removeAttribute('readonly');
           searchInput.focus();
         }
+        const clearBtn = document.getElementById('mmClearSearchBtn');
+        if (clearBtn) clearBtn.style.display = 'block';
       }
     }, 150);
   }

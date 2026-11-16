@@ -331,18 +331,28 @@ window.MoldMaintenance = (function() {
       }
       populateDateFilters();
       updateToolbarVisibility();
-      // Xóa triệt để mọi autofill email do trình duyệt tự ý điền vào ô tìm kiếm
+      // Xóa triệt để mọi autofill (email, mã 0501, username/password) do trình duyệt tự ý điền vào ô tìm kiếm
       const clearSearchAutofill = () => {
         const s = document.getElementById('mmSearchInput');
-        if (s && (s.value.includes('@') || s.value.includes('.com') || !filterText)) {
-          s.value = '';
-          filterText = '';
+        const clearBtn = document.getElementById('mmClearSearchBtn');
+        if (s) {
+          // Nếu người dùng chưa chủ động click/focus vào gõ, luôn giữ ô tìm kiếm trống khi khởi tạo
+          if (document.activeElement !== s) {
+            if (s.value) {
+              s.value = '';
+              filterText = '';
+              renderTable();
+            }
+          }
+          if (clearBtn) clearBtn.style.display = (s.value && s.value.trim().length > 0) ? 'block' : 'none';
         }
       };
       clearSearchAutofill();
-      setTimeout(clearSearchAutofill, 200);
+      setTimeout(clearSearchAutofill, 100);
+      setTimeout(clearSearchAutofill, 300);
       setTimeout(clearSearchAutofill, 600);
       setTimeout(clearSearchAutofill, 1200);
+      setTimeout(clearSearchAutofill, 2500);
       renderAll();
       startAutoSync();
     } catch (err) {
@@ -360,9 +370,13 @@ window.MoldMaintenance = (function() {
     if (btnMolds) btnMolds.classList.toggle('active', tabName === 'molds');
     if (btnMach) btnMach.classList.toggle('active', tabName === 'machines');
     const s = document.getElementById('mmSearchInput');
-    if (s && (s.value.includes('@') || s.value.includes('.com'))) {
-      s.value = '';
-      filterText = '';
+    const clearBtn = document.getElementById('mmClearSearchBtn');
+    if (s && document.activeElement !== s) {
+      if (!filterText || s.value === '0501' || s.value.includes('@') || s.value.includes('.com')) {
+        s.value = '';
+        filterText = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+      }
     }
     updateToolbarVisibility();
     renderKPIs();
@@ -4391,18 +4405,48 @@ window.MoldMaintenance = (function() {
     renderTable();
   }
 
-  // Xử lý bộ lọc (Chặn triệt để autofill email từ trình duyệt)
-  function onSearchInput(val) {
+  // Xử lý xóa tìm kiếm chủ động
+  function clearSearch() {
+    const s = document.getElementById('mmSearchInput');
+    const clearBtn = document.getElementById('mmClearSearchBtn');
+    if (s) {
+      s.value = '';
+      s.setAttribute('readonly', 'readonly');
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+    filterText = '';
     moldCurrentPage = 1;
     machineCurrentPage = 1;
-    if (val && (val.includes('@') || val.includes('.com'))) {
-      const s = document.getElementById('mmSearchInput');
-      if (s) s.value = '';
+    renderTable();
+  }
+
+  // Xử lý bộ lọc (Chặn triệt để autofill email, mã 0501, password từ trình duyệt)
+  function onSearchInput(val, forceProgrammatic) {
+    moldCurrentPage = 1;
+    machineCurrentPage = 1;
+    const s = document.getElementById('mmSearchInput');
+    const clearBtn = document.getElementById('mmClearSearchBtn');
+
+    // Nếu trình duyệt tự ý autofill (user chưa focus vào ô tìm kiếm và không phải gọi từ code)
+    const isBrowserAutofill = s && document.activeElement !== s && !forceProgrammatic;
+    if (isBrowserAutofill && (val === '0501' || (val && (val.includes('@') || val.includes('.com'))))) {
+      s.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
       filterText = '';
       renderTable();
       return;
     }
+
+    if (val && (val.includes('@') || val.includes('.com'))) {
+      if (s) s.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      filterText = '';
+      renderTable();
+      return;
+    }
+
     filterText = (val || '').trim();
+    if (clearBtn) clearBtn.style.display = filterText ? 'block' : 'none';
     renderTable();
   }
 
@@ -4591,6 +4635,7 @@ window.MoldMaintenance = (function() {
     setSubTab: switchTab,
     onStatusFilterChange,
     onSearchInput,
+    clearSearch,
     onDateFilterChange,
     onTierFilterChange,
     toggleColPicker,
