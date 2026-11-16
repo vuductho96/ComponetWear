@@ -990,24 +990,44 @@ window.MoldMaintenance = (function() {
         statusClass = 'running';
       }
     } else {
-      // RULE MÀU CẢNH BÁO CHO KHUÔN TIÊU CHUẨN (MỐC 3.0M):
-      // - 2.8M ~ 2.9M: Màu TÍM (Lên plan bảo dưỡng / đo bước 3M)
-      // - 2.9M ~ 3.0M: Màu CAM (Sắp đạt ngưỡng cảnh báo)
-      // - >= 3.0M: Màu ĐỎ (Vượt mốc / Cần bảo dưỡng)
-      // - < 2.8M: Màu XANH (An toàn)
+      // RULE MÀU CẢNH BÁO CHO KHUÔN TIÊU CHUẨN:
+      // Các mốc bảo dưỡng định kỳ: 2.5M, 3.0M, 3.5M, 4.0M, 4.5M, 5.0M
+      // - Trước 20k shot (M - 20.000 <= curShots < M - 10.000): Màu TÍM (Lên plan)
+      // - Trước 10k shot (M - 10.000 <= curShots < M): Màu CAM (Cảnh báo sắp bảo dưỡng)
+      // - >= M: Màu ĐỎ (Vượt mốc / Cần bảo dưỡng)
+      // - < M - 20.000: Màu XANH (An toàn)
+      const stdMilestones = [2500000, 3000000, 3500000, 4000000, 4500000, 5000000];
       const closedList = Array.isArray(closedMilestones) ? closedMilestones : [];
-      let nextMilestone = 3000000;
-      if (closedList.includes(4)) nextMilestone = 3500000;
-      if (closedList.includes(5)) nextMilestone = 4000000;
-      if (closedList.includes(6)) nextMilestone = 4500000;
-      if (closedList.includes(7)) nextMilestone = 5000000;
 
-      plan = nextMilestone;
+      let selectedPlan = 2500000;
+      for (const mVal of stdMilestones) {
+        selectedPlan = mVal;
+        const isClosed = closedList.includes(mVal) || 
+                         closedList.includes((mVal / 1000000).toFixed(1) + 'M') ||
+                         closedList.includes((mVal / 1000000).toFixed(1) + 'm') ||
+                         (mVal === 3000000 && closedList.includes(4)) ||
+                         (mVal === 3500000 && closedList.includes(5)) ||
+                         (mVal === 4000000 && closedList.includes(6)) ||
+                         (mVal === 4500000 && closedList.includes(7)) ||
+                         (mVal === 5000000 && closedList.includes(8));
+        
+        if (!isClosed) {
+          break;
+        }
+      }
+
+      if (curShots > selectedPlan + 100000) {
+        const found = stdMilestones.find(mVal => curShots < mVal + 50000);
+        if (found) selectedPlan = found;
+        else selectedPlan = stdMilestones[stdMilestones.length - 1];
+      }
+
+      plan = selectedPlan;
       percent = Math.min(100, Math.round((curShots / plan) * 100));
       remaining = Math.max(0, plan - curShots);
 
-      const planThreshold = plan - 200000; // 2.8M
-      const warnThreshold = plan - 100000; // 2.9M
+      const planThreshold = plan - 20000; // Trước 20k shot: Lên plan (Tím)
+      const warnThreshold = plan - 10000; // Trước 10k shot: Cảnh báo sắp bảo dưỡng (Cam)
 
       if (curShots >= plan) {
         status = 'due';
@@ -1020,22 +1040,22 @@ window.MoldMaintenance = (function() {
         status = 'warning';
         statusLevel = 'warning';
         statusColor = 'orange';
-        planDisplay = `🟠 Sắp Chạm Mốc (${(warnThreshold / 1000000).toFixed(1)}M ~ ${(plan / 1000000).toFixed(1)}M)`;
-        statusText = 'SẮP ĐẠT NGƯỠNG CẢNH BÁO';
+        planDisplay = `🟠 Cảnh Báo Mốc (${(plan / 1000000).toFixed(1)}M)`;
+        statusText = `CẢNH BÁO SẮP BẢO DƯỠNG (Trước 10K shot)`;
         statusClass = 'warning';
       } else if (curShots >= planThreshold) {
         status = 'plan';
         statusLevel = 'plan';
         statusColor = 'purple';
         planDisplay = `🟣 Lên Plan Mốc ${(plan / 1000000).toFixed(1)}M`;
-        statusText = `LÊN PLAN BẢO DƯỠNG MỐC ${(plan / 1000000).toFixed(1)}M`;
+        statusText = `LÊN PLAN BẢO DƯỠNG (Trước 20K shot)`;
         statusClass = 'purple';
       } else {
         status = 'safe';
         statusLevel = 'safe';
         statusColor = 'green';
-        planDisplay = `🟢 An Toàn (< ${(planThreshold / 1000000).toFixed(1)}M)`;
-        statusText = `An Toàn (< ${(planThreshold / 1000000).toFixed(1)}M)`;
+        planDisplay = `🟢 An Toàn (< ${(planThreshold / 1000000).toFixed(2)}M)`;
+        statusText = 'An Toàn';
         statusClass = 'running';
       }
     }
@@ -1235,9 +1255,9 @@ window.MoldMaintenance = (function() {
           <span style="width:10px; height:10px; border-radius:2px; background:#ef4444; display:inline-block;"></span>
           CẦN BẢO DƯỠNG (≥400K / ≥3.0M)
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="Mốc đại tu 3.0M: Cảnh báo từ 2.8M (Màu tím), tại 3M Bảo dưỡng tổng thể & Đánh giá full kích thước bản vẽ">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="Khuôn tiêu chuẩn: Lên plan trước 20K shot (màu tím), Cảnh báo trước 10K shot (màu cam) theo các mốc 2.5M, 3M, 3.5M, 4M, 4.5M, 5M">
           <span style="width:10px; height:10px; border-radius:2px; background:#d946ef; display:inline-block;"></span>
-          2.8M ~ 3.0M (Plan mốc 3M)
+          Khuôn Chuẩn: Trước 20K (Plan) • Trước 10K (Cảnh báo)
         </span>
         <span style="display:inline-flex; align-items:center; gap:5px; color:#15803d; font-weight:700; background:#f0fdf4; padding:3px 10px; border-radius:5px; border:1px solid #bbf7d0;" title="Dưới 340K hoặc đã hoàn thành bảo dưỡng">
           <span style="width:9px; height:9px; border-radius:50%; background:#22c55e; display:inline-block;"></span>
@@ -2514,42 +2534,23 @@ window.MoldMaintenance = (function() {
       }
     }
 
-    // 2. Cột 3.0M (m4) nếu khuôn chưa chốt mốc 4
-    const closed = Array.isArray(m.closedMilestones) ? m.closedMilestones : [];
-    if (!closed.includes(4) && m.m4 != null) {
-      const val4 = Number(m.m4) || 0;
-      if (val4 >= 3000000) {
+    // 2. Với khuôn tiêu chuẩn: Kiểm tra sum shot năm so với các mốc chuẩn (2.5M, 3.0M, 3.5M, 4.0M, 4.5M, 5.0M)
+    // Quy tắc: Trước 20k shot (Tím), Trước 10k shot (Cam), >= Mốc (Đỏ)
+    if (!m.isHighImpact) {
+      const cur = Number(m.curShots || m.totalYear || 0);
+      const evalStd = computeMoldPlanAndStatus(false, cur, m.totalLife, m.closedMilestones);
+      if (evalStd.status === 'due') {
         hasRed = true;
-        if (val4 > highestRedShots) {
-          highestRedShots = val4;
-          redCol = `3.0M (${formatNum(val4)})`;
+        if (cur > highestRedShots) {
+          highestRedShots = cur;
+          redCol = `Mốc ${(evalStd.plan / 1000000).toFixed(1)}M (${formatNum(cur)})`;
         }
-      } else if (val4 >= 2900000) {
+      } else if (evalStd.status === 'warning') {
         hasOrange = true;
-        if (val4 > highestOrangeShots) highestOrangeShots = val4;
-      } else if (val4 >= 2800000) {
+        if (cur > highestOrangeShots) highestOrangeShots = cur;
+      } else if (evalStd.status === 'plan') {
         hasPurple = true;
-        if (val4 > highestPurpleShots) highestPurpleShots = val4;
-      }
-    }
-
-    // 3. Các cột 3.5M, 4.0M, 4.5M, 5.0M (m5, m6, m7, m8)
-    for (let c = 5; c <= 8; c++) {
-      if (!closed.includes(c) && m['m' + c] != null) {
-        const val = Number(m['m' + c]) || 0;
-        if (val >= 500000) {
-          hasRed = true;
-          if (val > highestRedShots) {
-            highestRedShots = val;
-            redCol = `Mốc ${c === 5 ? '3.5M' : c === 6 ? '4.0M' : c === 7 ? '4.5M' : '5.0M'} (${formatNum(val)})`;
-          }
-        } else if (val >= 480000) {
-          hasOrange = true;
-          if (val > highestOrangeShots) highestOrangeShots = val;
-        } else if (val >= 460000) {
-          hasPurple = true;
-          if (val > highestPurpleShots) highestPurpleShots = val;
-        }
+        if (cur > highestPurpleShots) highestPurpleShots = cur;
       }
     }
 

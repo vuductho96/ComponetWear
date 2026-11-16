@@ -1147,7 +1147,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
       <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:16px;">🎯</span>
-          <span style="font-size:13px; font-weight:700; color:#1e293b;">QUY CHUẨN MÀU SOP: 🟣 340K-350K LÊN PLAN • 🟠 350K-400K CẢNH BÁO • 🔴 ≥400K BẢO DƯỠNG</span>
+          <span style="font-size:13px; font-weight:700; color:#1e293b;">QUY CHUẨN MÀU SOP: 🟣 TRƯỚC 20K (PLAN) • 🟠 TRƯỚC 10K (CẢNH BÁO) • 🔴 CHẠM/VƯỢT MỐC (BẢO DƯỠNG)</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700;">
           ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} vượt mốc</span>` : ''}
@@ -1178,9 +1178,10 @@ async function renderMoldMaintenanceAlertsInOverview() {
               <tr style="border-bottom:2px solid #e2e8f0; text-align:left; color:#475569; font-size:11.5px; text-transform:uppercase; background:#f8fafc;">
                 <th style="padding:8px 8px; text-align:center; width:50px;">Mức Độ</th>
                 <th style="padding:8px 10px;">Mã Khuôn &amp; Sản Phẩm</th>
-                <th style="padding:8px 8px; text-align:center; width:100px;">Máy Ép</th>
+                <th style="padding:8px 8px; text-align:center; width:90px;">Máy Ép</th>
                 <th style="padding:8px 10px; width:130px;">Tiêu Chuẩn (SOP)</th>
-                <th style="padding:8px 10px; text-align:right;" title="High-Impact: Số shot cữ 400K • Tiêu chuẩn: Sum shot năm so với 3.0M">Số Shot / Mốc</th>
+                <th style="padding:8px 10px; width:140px; text-align:center;">Trạng Thái (Status)</th>
+                <th style="padding:8px 10px; text-align:right;" title="High-Impact: Số shot cữ 400K • Tiêu chuẩn: Sum shot năm so với các mốc 2.5M - 5.0M">Số Shot / Mốc</th>
                 <th style="padding:8px 10px; width:180px;">Tiến Độ &amp; Dự Báo</th>
                 <th style="padding:8px 8px; text-align:center; width:110px;">Thao Tác</th>
               </tr>
@@ -1206,23 +1207,32 @@ async function renderMoldMaintenanceAlertsInOverview() {
         const pct = m.percent !== undefined ? m.percent : Math.min(100, Math.round((curShotVal / (nextMilestoneVal || 1)) * 100));
         let daysText = '';
 
+        let statusBadgeStyle = 'background:#dcfce7; color:#15803d; border:1px solid #86efac;';
+        let statusBadgeText = '🟢 An Toàn';
+
         if (isDue) {
           icon = '🔴';
           barColor = '#dc2626';
           rowBg = 'background:#fff1f2;';
           sopBadgeBg = 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;';
+          statusBadgeStyle = 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800;';
+          statusBadgeText = '🔴 Cần Bảo Dưỡng';
           daysText = 'Vượt mốc bảo dưỡng';
         } else if (isWarn) {
           icon = '🟠';
           barColor = '#ea580c';
           rowBg = 'background:#fff7ed;';
           sopBadgeBg = 'background:#ffedd5; color:#c2410c; border:1px solid #fdba74;';
+          statusBadgeStyle = 'background:#ffedd5; color:#c2410c; border:1px solid #fdba74; font-weight:800;';
+          statusBadgeText = '🟠 Sắp Đạt Ngưỡng';
           daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot (sắp chạm)` : 'Sắp đạt ngưỡng';
         } else if (isPlan) {
           icon = '🟣';
           barColor = '#701a75';
           rowBg = 'background:#faf5ff;';
           sopBadgeBg = 'background:#fae8ff; color:#701a75; border:1px solid #f0abfc;';
+          statusBadgeStyle = 'background:#fae8ff; color:#701a75; border:1px solid #f0abfc; font-weight:800;';
+          statusBadgeText = '🟣 Lên Plan';
           daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot (lên plan)` : 'Cần lên plan';
         } else {
           daysText = 'An toàn';
@@ -1244,6 +1254,11 @@ async function renderMoldMaintenanceAlertsInOverview() {
             <td style="padding:8px 10px;">
               <span style="display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; ${sopBadgeBg}">
                 ${sopBadgeText}
+              </span>
+            </td>
+            <td style="padding:8px 10px; text-align:center;">
+              <span style="display:inline-block; padding:3px 9px; border-radius:12px; font-size:11px; ${statusBadgeStyle}">
+                ${statusBadgeText}
               </span>
             </td>
             <td style="padding:8px 10px; text-align:right;">
@@ -1271,6 +1286,10 @@ async function renderMoldMaintenanceAlertsInOverview() {
       html += `
             </tbody>
           </table>
+          <div style="padding:10px 14px; background:#f8fafc; border-top:1px solid #e2e8f0; font-size:12px; color:#475569; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;">
+            <span>📋 Đang hiển thị toàn bộ <b>${needMaintenanceMolds.length}</b> khuôn cần chú ý bảo dưỡng (báo hết toàn bộ, không giới hạn).</span>
+            <span style="font-size:11.5px; color:#64748b;">Phân cấp: 🔴 Vượt mốc (${dueCount}) ➔ 🟠 Sắp chạm (${orangeCount}) ➔ 🟣 Lên plan (${planCount})</span>
+          </div>
         </div>
       `;
     }
