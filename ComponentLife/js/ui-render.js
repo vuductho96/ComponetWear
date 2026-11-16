@@ -1184,18 +1184,17 @@ async function renderMoldMaintenanceAlertsInOverview() {
         const isDue = m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0);
         const icon = isDue ? '🔴' : '🟡';
         const isRunning = Boolean(m.machineNo && m.machineNo !== '-');
-        const curShotVal = Number(m.curShots || m.currentCycleShots || 0);
-        const nextMilestoneVal = Number(m.planMilestone || (m.isHighImpact ? 400000 : 500000));
+        const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
+        const curShotVal = isHigh ? Number(m.curShots || 0) : Number(m.totalLife || m.total_life || m.curShots || 0);
+        const nextMilestoneVal = Number(m.planMilestone || (isHigh ? 400000 : 3000000));
         const remShots = Math.max(0, nextMilestoneVal - curShotVal);
         const pct = m.percent !== undefined ? m.percent : Math.min(100, Math.round((curShotVal / (nextMilestoneVal || 1)) * 100));
         const barColor = isDue ? '#dc2626' : '#d97706';
         const rowBg = isDue ? 'background:#fff1f2;' : 'background:#fffbeb;';
         const daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot` : 'Đã chạm mốc';
 
-        const isHighPre3M = m.isHighImpact && (m.totalLife || 0) < 3000000;
-        const isOver3M = (m.totalLife || 0) >= 3000000;
-        const sopBadgeBg = isHighPre3M ? 'background:#fef3c7; color:#b45309;' : (isOver3M ? 'background:#eff6ff; color:#1d4ed8;' : 'background:#f1f5f9; color:#475569;');
-        const sopBadgeText = isHighPre3M ? '🔥 High-Impact 400K' : (isOver3M ? 'Sau 3M (Định kỳ 500K)' : 'Tiêu Chuẩn (Mốc 3.0M)');
+        const sopBadgeBg = isHigh ? 'background:#fef3c7; color:#b45309;' : 'background:#eff6ff; color:#1d4ed8;';
+        const sopBadgeText = isHigh ? '🔥 High-Impact 400K' : (m.planDisplay || `Tiêu Chuẩn (Mốc ${nextMilestoneVal >= 1000000 ? (nextMilestoneVal/1000000).toFixed(1) + 'M' : nextMilestoneVal})`);
 
         html += `
           <tr style="border-bottom:1px solid #f1f5f9; ${rowBg}">
