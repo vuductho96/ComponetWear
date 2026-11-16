@@ -1140,11 +1140,11 @@ async function renderMoldMaintenanceAlertsInOverview() {
       <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:16px;">🎯</span>
-          <span style="font-size:13px; font-weight:700; color:#1e293b;">MỐC QUY ĐỊNH (SOP): TIÊU CHUẨN 800K • DỰ PHÒNG 350K~400K</span>
+          <span style="font-size:13px; font-weight:700; color:#1e293b;">MỐC QUY ĐỊNH (SOP): HIGH-IMPACT 400K • MỐC LỚN 3.0M - 5.0M (CHU KỲ 500K)</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700;">
           ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} chạm mốc</span>` : ''}
-          ${warningCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fef3c7; color:#b45309;">🟡 ${warningCount} cảnh báo sớm (&lt;10%)</span>` : ''}
+          ${warningCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fef3c7; color:#b45309;">🟡 ${warningCount} cảnh báo sớm</span>` : ''}
           <span style="padding:4px 10px; border-radius:12px; background:#dcfce7; color:#15803d;">🟢 ${safeCount} an toàn</span>
           <button type="button" onclick="switchTab('moldmaintenance');" style="background:#2563eb; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:11.5px; font-weight:600; margin-left:4px;">
             Xem Bảng Chi Tiết →
@@ -1185,12 +1185,17 @@ async function renderMoldMaintenanceAlertsInOverview() {
         const icon = isDue ? '🔴' : '🟡';
         const isRunning = Boolean(m.machineNo && m.machineNo !== '-');
         const curShotVal = Number(m.curShots || m.currentCycleShots || 0);
-        const nextMilestoneVal = Number(m.isHighImpact ? 400000 : 800000);
+        const nextMilestoneVal = Number(m.planMilestone || (m.isHighImpact ? 400000 : 500000));
         const remShots = Math.max(0, nextMilestoneVal - curShotVal);
         const pct = m.percent !== undefined ? m.percent : Math.min(100, Math.round((curShotVal / (nextMilestoneVal || 1)) * 100));
         const barColor = isDue ? '#dc2626' : '#d97706';
         const rowBg = isDue ? 'background:#fff1f2;' : 'background:#fffbeb;';
-        const daysText = `Còn ${remShots.toLocaleString('vi-VN')} shot`;
+        const daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot` : 'Đã chạm mốc';
+
+        const isHighPre3M = m.isHighImpact && (m.totalLife || 0) < 3000000;
+        const isOver3M = (m.totalLife || 0) >= 3000000;
+        const sopBadgeBg = isHighPre3M ? 'background:#fef3c7; color:#b45309;' : (isOver3M ? 'background:#eff6ff; color:#1d4ed8;' : 'background:#f1f5f9; color:#475569;');
+        const sopBadgeText = isHighPre3M ? '🔥 High-Impact 400K' : (isOver3M ? 'Sau 3M (Định kỳ 500K)' : 'Tiêu Chuẩn (Mốc 3.0M)');
 
         html += `
           <tr style="border-bottom:1px solid #f1f5f9; ${rowBg}">
@@ -1205,8 +1210,8 @@ async function renderMoldMaintenanceAlertsInOverview() {
                 : `<span style="color:#94a3b8; font-size:11.5px;">Trong kho</span>`}
             </td>
             <td style="padding:8px 10px;">
-              <span style="display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; ${m.isHighImpact ? 'background:#fef3c7; color:#b45309;' : 'background:#eff6ff; color:#1d4ed8;'}">
-                ${m.isHighImpact ? '🔥 Dự Phòng 400K' : 'Chuẩn 800K'}
+              <span style="display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; ${sopBadgeBg}">
+                ${sopBadgeText}
               </span>
             </td>
             <td style="padding:8px 10px; text-align:right;">
