@@ -1388,31 +1388,105 @@ window.MoldMaintenance = (function() {
     return activeShotModalTab === '400k' ? active400kRowsData : activeMajorRowsData;
   }
 
+  function isRowUploadAllowed(rows, idx) {
+    if (!rows || !rows[idx]) return false;
+    if (activeShotModalTab === 'milestone') {
+      const row = rows[idx];
+      return row && (row.isEligible !== false || row.isClosed);
+    }
+    // Chế độ 400K (High-Impact):
+    const row = rows[idx];
+
+    // 1. Nếu dòng đã có PDF: luôn cho phép hiển thị và xóa/thay thế
+    if (row.pdf) return true;
+
+    // 2. Nếu dòng đã từng chốt: cho phép upload bổ sung/thay thế
+    if (row.isClosed) return true;
+
+    // 3. Nếu người dùng đã gõ hoặc có số actual shot trong dòng này: cho phép upload
+    const shotEl = document.getElementById('mm_shot_' + idx);
+    const currentShotVal = shotEl ? shotEl.value.trim() : String(row.actualShot || '').trim();
+    if (currentShotVal) return true;
+
+    // 4. Tìm cữ đầu tiên chưa chốt (cữ kế tiếp cần làm)
+    let firstUnclosedIdx = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (!rows[i].isClosed) {
+        firstUnclosedIdx = i;
+        break;
+      }
+    }
+
+    // Chỉ duy nhất cữ kế tiếp này được phép upload
+    if (idx === firstUnclosedIdx) return true;
+
+    // Tất cả các dòng tương lai chưa tới cữ: tuyệt đối KHÔNG hiện nút upload để tránh bấm nhầm dòng
+    return false;
+  }
+
   function renderExcelDocCell(row, idx) {
     if (row.isEligible === false && !row.isClosed) {
       return `<span style="color:#94a3b8; font-size:11px; font-style:italic;">-</span>`;
     }
-    if (row.pdf && row.pdf.name) {
+    const rows = getActiveExcelRows();
+    const canUpload = isRowUploadAllowed(rows, idx);
+
+    // Kiểm tra nếu đã upload PDF
+    const pdf = row.pdf;
+    if (pdf) {
+      let fileName = 'Tệp PDF';
+      if (typeof pdf === 'string') {
+        const parts = pdf.split(/[/\\]/);
+        fileName = parts[parts.length - 1] || 'Tệp PDF';
+      } else if (pdf.name) {
+        fileName = pdf.name;
+      } else if (pdf.url) {
+        const parts = pdf.url.split(/[/\\]/);
+        fileName = parts[parts.length - 1] || 'Tệp PDF';
+      }
+
       return `
-        <div style="display:inline-flex; align-items:center; gap:4px; justify-content:center; max-width:130px;">
+        <div style="display:inline-flex; align-items:center; gap:5px; justify-content:center; max-width:140px; background:#eff6ff; padding:2px 6px; border-radius:4px; border:1px solid #bfdbfe;">
           <a href="javascript:void(0)" onclick="MoldMaintenance.viewExcelRowFile(${idx})" 
-             style="color:#0284c7; font-weight:700; text-decoration:underline; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
-             title="${row.pdf.name || 'Xem file'}">
-            📄 ${row.pdf.name || 'Xem file'}
+             style="color:#0284c7; font-weight:700; text-decoration:none; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:96px;"
+             title="${fileName} (Bấm để xem file)">
+            📄 ${fileName}
           </a>
           <button type="button" onclick="MoldMaintenance.removeExcelRowFile(${idx})" 
-             style="border:none; background:transparent; color:#ef4444; font-weight:bold; cursor:pointer; font-size:12px; padding:0 2px;" title="Xóa tệp">
+             style="border:none; background:#fee2e2; color:#ef4444; border-radius:3px; font-weight:bold; cursor:pointer; font-size:11px; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; line-height:1; transition:all 0.15s ease;"
+             onmouseover="this.style.background='#fca5a5'; this.style.color='#b91c1c'" 
+             onmouseout="this.style.background='#fee2e2'; this.style.color='#ef4444'" 
+             title="Xóa tệp PDF cũ hoặc sai để upload lại">
             ✕
           </button>
         </div>
       `;
     }
+
+    if (!canUpload) {
+      return `<span style="color:#cbd5e1; font-size:12px; font-weight:500;" title="Chưa đến cữ này hoặc chưa nhập số shot">-</span>`;
+    }
+
     return `
-      <label class="mm-upload-btn" style="display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:3px 8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer; font-size:11px; font-weight:600; color:#475569;">
+      <label class="mm-upload-btn" style="display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:3px 8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer; font-size:11px; font-weight:600; color:#475569; transition:background 0.15s ease;"
+             onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
         📎 Nút upload
         <input type="file" accept="application/pdf,image/*" style="display:none;" onchange="MoldMaintenance.handleExcelRowUpload(event, ${idx})">
       </label>
     `;
+  }
+
+  function handleShotInputChanged(idx) {
+    const rows = getActiveExcelRows();
+    const shotEl = document.getElementById('mm_shot_' + idx);
+    if (!shotEl || !rows[idx]) return;
+    rows[idx].actualShot = shotEl.value.trim();
+
+    // Cập nhật lại trạng thái nút upload của toàn bộ các dòng theo thời gian thực
+    rows.forEach((r, i) => {
+      const wrap = document.getElementById('mm_doc_wrap_' + i);
+      if (wrap) wrap.innerHTML = renderExcelDocCell(r, i);
+    });
   }
 
   function renderActiveExcelRows() {
@@ -1477,6 +1551,7 @@ window.MoldMaintenance = (function() {
             </td>
             <td style="${borderStyle} padding:4px 6px;">
               <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="VD: 380k / 3.0M"
+                oninput="MoldMaintenance.handleShotInputChanged(${idx})"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-family:monospace; font-weight:700; text-align:right; font-size:12.5px; color:#0f172a; background:#ffffff;">
             </td>
             <td style="${borderStyle} padding:4px 6px;">
@@ -1505,7 +1580,7 @@ window.MoldMaintenance = (function() {
     const notice = document.getElementById('mmModalNotice');
     if (notice) {
       if (activeShotModalTab === '400k') {
-        notice.textContent = '💡 Chu kỳ 400K: Bảo dưỡng dự phòng cho khuôn High-Impact theo từng cữ 400.000 shots (Đã mở khóa các cữ).';
+        notice.textContent = '💡 Chu kỳ 400K: Bảo dưỡng dự phòng cho khuôn High-Impact theo từng cữ 400.000 shots.';
       } else {
         const firstRow = rows[0];
         notice.textContent = firstRow ? `🔒 Mốc ${firstRow.name}: Chốt 1 phát kèm giấy tờ liên quan (Không cho chốt trước hạn).` : '';
@@ -1559,31 +1634,61 @@ window.MoldMaintenance = (function() {
 
   function removeExcelRowFile(idx) {
     const rows = getActiveExcelRows();
-    if (rows[idx]) {
-      rows[idx].pdf = null;
-      const wrap = document.getElementById('mm_doc_wrap_' + idx);
-      if (wrap) wrap.innerHTML = renderExcelDocCell(rows[idx], idx);
+    const row = rows[idx];
+    if (!row) return;
+
+    if (!confirm('Bạn có chắc chắn muốn xóa file PDF này để upload lại không?')) {
+      return;
     }
+
+    const moldNo = activeShotModalMold;
+    row.pdf = null;
+
+    if (moldNo) {
+      saveMilestonePdf(moldNo, row.num, null);
+      if (activeShotModalTab === '400k') {
+        saveMilestonePdf(moldNo, row.name, null);
+      }
+      const detail = getMilestoneDetail(moldNo, row.num);
+      if (detail && detail.pdf) {
+        detail.pdf = null;
+        saveMilestoneDetail(moldNo, row.num, detail);
+        if (activeShotModalTab === '400k') {
+          saveMilestoneDetail(moldNo, row.name, detail);
+        }
+      }
+    }
+
+    const wrap = document.getElementById('mm_doc_wrap_' + idx);
+    if (wrap) wrap.innerHTML = renderExcelDocCell(row, idx);
   }
 
   function viewExcelRowFile(idx) {
     const rows = getActiveExcelRows();
     const row = rows[idx];
     if (!row || !row.pdf) return;
-    if (row.pdf.dataUrl) {
-      try {
-        const arr = row.pdf.dataUrl.split(',');
-        const mime = (arr[0].match(/:(.*?);/) || [])[1] || 'application/pdf';
-        const bstr = atob(arr[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while (n--) u8arr[n] = bstr.charCodeAt(n);
-        const blob = new Blob([u8arr], { type: mime });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        return;
-      } catch (e) {
-        window.open(row.pdf.dataUrl, '_blank');
+    const pdf = row.pdf;
+    let dataUrl = typeof pdf === 'string' ? pdf : (pdf.dataUrl || pdf.url);
+
+    if (dataUrl) {
+      if (dataUrl.startsWith('data:')) {
+        try {
+          const arr = dataUrl.split(',');
+          const mime = (arr[0].match(/:(.*?);/) || [])[1] || 'application/pdf';
+          const bstr = atob(arr[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) u8arr[n] = bstr.charCodeAt(n);
+          const blob = new Blob([u8arr], { type: mime });
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          return;
+        } catch (e) {
+          window.open(dataUrl, '_blank');
+          return;
+        }
+      } else {
+        window.open(dataUrl, '_blank');
         return;
       }
     }
@@ -1591,9 +1696,6 @@ window.MoldMaintenance = (function() {
   }
 
   function openShotEntryModal(moldNo, targetTabOrMilestone) {
-    isExcelEditUnlocked = false;
-    const _pInput = document.getElementById("mmExcelPassword"); if (_pInput) _pInput.value = "";
-    const _uBtn = document.getElementById("mmExcelUnlockBtn"); if (_uBtn) { _uBtn.innerHTML = "🔒 Mở lại edit"; _uBtn.style.color = "#334155"; _uBtn.style.borderColor = "#cbd5e1"; _uBtn.style.background = "#ffffff"; }
     const code = String(moldNo || '').trim().toUpperCase();
     const allMolds = getAllUnifiedMolds();
     const m = allMolds.find(x => 
@@ -1828,72 +1930,14 @@ window.MoldMaintenance = (function() {
     openShotEntryModal(moldNo, milestoneNum || 4);
   }
 
-  let isExcelEditUnlocked = false;
+  let isExcelEditUnlocked = true;
 
-  function unlockExcelEdit() {
-    const pwdInput = document.getElementById('mmExcelPassword');
-    const pwd = (pwdInput?.value || '').trim();
-    if (!pwd) {
-      const promptPwd = prompt('Vui lòng nhập mật khẩu (mặc định: 1234) để mở lại chỉnh sửa:');
-      if (promptPwd === null) return;
-      if (promptPwd.trim() === '1234') {
-        isExcelEditUnlocked = true;
-        applyExcelUnlockState();
-        alert('Đã mở khóa chỉnh sửa dữ liệu thành công!');
-        return;
-      } else {
-        alert('Mật khẩu không chính xác!');
-        return;
-      }
-    }
-
-    if (pwd === '1234') {
-      isExcelEditUnlocked = true;
-      applyExcelUnlockState();
-      if (pwdInput) pwdInput.value = '';
-      alert('Đã mở khóa chỉnh sửa dữ liệu thành công!');
-    } else {
-      alert('Mật khẩu không chính xác (mặc định: 1234)!');
-    }
-  }
-
-  function applyExcelUnlockState() {
-    const rows = getActiveExcelRows();
-    rows.forEach((row, idx) => {
-      // Enable all editable fields
-      const shotEl = document.getElementById('mm_shot_' + idx);
-      const dateEl = document.getElementById('mm_date_' + idx);
-      const ktvEl = document.getElementById('mm_ktv_' + idx);
-      const noteEl = document.getElementById('mm_note_' + idx);
-      if (shotEl) { shotEl.disabled = false; shotEl.style.cursor = 'text'; shotEl.style.background = '#ffffff'; }
-      if (dateEl) { dateEl.disabled = false; dateEl.style.cursor = 'text'; dateEl.style.background = '#ffffff'; }
-      if (ktvEl) { ktvEl.disabled = false; ktvEl.style.cursor = 'text'; ktvEl.style.background = '#ffffff'; }
-      if (noteEl) { noteEl.disabled = false; noteEl.style.cursor = 'text'; noteEl.style.background = '#ffffff'; }
-    });
-    const btn = document.getElementById('mmExcelUnlockBtn');
-    if (btn) {
-      btn.innerHTML = '🔓 Đã mở khóa';
-      btn.style.color = '#15803d';
-      btn.style.borderColor = '#86efac';
-      btn.style.background = '#f0fdf4';
-    }
-  }
+  function unlockExcelEdit() {}
+  function applyExcelUnlockState() {}
 
   async function save400kExcelTable() {
     if (!activeShotModalMold) return;
     const moldNo = activeShotModalMold;
-
-    const pwdInput = document.getElementById('mmExcelPassword');
-    const enteredPwd = (pwdInput?.value || '').trim();
-    if (!isExcelEditUnlocked && enteredPwd !== '1234') {
-      const promptPwd = prompt('Vui lòng nhập mật khẩu (1234) để xác nhận Hoàn thành:');
-      if (promptPwd === null) return;
-      if (promptPwd.trim() !== '1234') {
-        alert('Mật khẩu không chính xác (mặc định: 1234)! Không thể lưu.');
-        return;
-      }
-      isExcelEditUnlocked = true;
-    }
     const rows = getActiveExcelRows();
 
     const confirmBtn = document.getElementById('mm400kConfirmBtn');
@@ -4775,6 +4819,7 @@ window.MoldMaintenance = (function() {
     handleExcelRowUpload,
     removeExcelRowFile,
     viewExcelRowFile,
+    handleShotInputChanged,
     openShotEntryModal,
     save400kExcelTable,
     confirm400kFromModal: save400kExcelTable,
