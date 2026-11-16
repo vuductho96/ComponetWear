@@ -715,7 +715,7 @@
   <script src="js/language.js?v=20261020-iqc"></script>
   <script src="js/auth.js?v=20261104_rbac"></script>
   <script src="js/account-permissions.js?v=20261023-per-account"></script>
-  <script src="js/mold-maintenance.js?v=20261105_v1"></script>
+  <script src="js/mold-maintenance.js?v=20261116_v4"></script>
   <script src="js/app.js?v=20261104_v7"></script>
 
     <!-- MODAL BẢNG NHẬP SHOT 400K (HIGH-IMPACT) CHUẨN EXCEL -->
@@ -732,17 +732,7 @@
           <button type="button" style="background:transparent; border:none; font-size:18px; color:#64748b; cursor:pointer;" onclick="MoldMaintenance.close400kDetailModal()">✕</button>
         </div>
 
-        <!-- Tabs: Chu kỳ 400K (High-Impact) & Các mốc lớn (3.0M - 5.0M) -->
-        <div id="mmModalTabsWrap" style="display:none; padding:8px 18px 0 18px; background:#f8fafc; border-bottom:1px solid #cbd5e1; display:flex; gap:6px;">
-          <button type="button" id="mmTabBtn400k" onclick="MoldMaintenance.switchShotModalTab('400k')"
-                  style="padding:7px 16px; font-size:12.5px; font-weight:700; border:1px solid #cbd5e1; border-bottom:none; border-radius:6px 6px 0 0; background:#ffffff; color:#0284c7; cursor:pointer; transition:all 0.15s ease;">
-            Chu kỳ 400K (High-Impact)
-          </button>
-          <button type="button" id="mmTabBtnMajor" onclick="MoldMaintenance.switchShotModalTab('major')"
-                  style="padding:7px 16px; font-size:12.5px; font-weight:700; border:1px solid #cbd5e1; border-bottom:none; border-radius:6px 6px 0 0; background:#f1f5f9; color:#64748b; cursor:pointer; transition:all 0.15s ease;">
-            Các mốc lớn (3.0M - 5.0M)
-          </button>
-        </div>
+
 
         <!-- Bảng Excel nhập shot -->
         <div style="padding:16px 18px; overflow-y:auto; flex:1;">
