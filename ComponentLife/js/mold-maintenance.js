@@ -2252,23 +2252,13 @@ window.MoldMaintenance = (function() {
         totalYearFromMonths += Math.round(Number(monthlyHistory['M' + i]) || 0);
       }
 
-      // Xác định các mốc đã chốt trong quá khứ (Mốc 1, 2 từ file excel nếu m2 > 0 hoặc m3 > 0)
-      // Tuyệt đối KHÔNG tự ý chốt Mốc 6, 7, 8 (chỉ chốt khi KTV/Staff chủ động thao tác)
-      let closedMilestones = closedMap[code];
-      if (Array.isArray(closedMilestones)) {
-        closedMilestones = closedMilestones.filter(n => {
-          if (n >= 6 && n <= 8) return !!getMilestoneDetail(code, n);
-          return true;
-        });
-      }
-      if (!closedMilestones || closedMilestones.length === 0) {
-        closedMilestones = [];
-        if (rawM3 > 0) {
-          closedMilestones.push(1, 2);
-        } else if (rawM2 > 0) {
-          closedMilestones.push(1);
-        }
-      }
+      // Chỉ tính mốc đã chốt nếu người dùng / KTV đã thực sự bấm chốt và lưu lại (closedMap)
+      // TUYỆT ĐỐI KHÔNG tự ý chốt bất kỳ mốc nào (kể cả cữ 400k-1, 400k-2) nếu chưa có thao tác chốt thực tế từ người dùng!
+      let closedMilestones = Array.isArray(closedMap[code]) ? [...closedMap[code]] : [];
+      closedMilestones = closedMilestones.filter(n => {
+        if (n >= 6 && n <= 8) return !!getMilestoneDetail(code, n);
+        return true;
+      });
 
       // Tự động xác định mốc hiện tại không giới hạn
       let currentCycleNum = 1;
