@@ -859,7 +859,7 @@ window.MoldMaintenance = (function() {
         const isHigh = r.isHighImpact || masterMold?.is_high_impact || false;
         const totalLife = Math.max(Number(r.totalLifeShots) || 0, Number(masterMold?.total_life) || 0);
         let curShots = Number(r.currentCycleShots || r.m1_800k || 0);
-        if (!isHigh && curShots > 5000000) curShots = curShots % 500000;
+        if (!isHigh) curShots = Number(r.totalAccumulatedYear || r.totalYear || masterMold?.totalYear || curShots);
         const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, []);
         if (filterStatus === 'due') matchStatus = evalData.status === 'due';
         else if (filterStatus === 'warning') matchStatus = evalData.status === 'warning';
@@ -955,23 +955,32 @@ window.MoldMaintenance = (function() {
         statusClass = 'running';
       }
     } else {
-      // Khuôn Tiêu Chuẩn: Chu kỳ bảo dưỡng theo năm là 500K (Quick view dashboard theo dõi theo năm, không tính gộp vòng đời)
-      plan = 500000;
-      planDisplay = 'Tiêu Chuẩn 500K';
+      // Khuôn Tiêu Chuẩn: Đánh giá theo SUM SHOT YEAR (tổng số shot tích lũy trong năm) so với mốc lớn 3.0M
+      // Tuyệt đối không dùng tổng vòng đời để tính chạm mốc!
+      const closedList = Array.isArray(closedMilestones) ? closedMilestones : [];
+      let nextMilestone = 3000000;
+      if (closedList.includes(4)) nextMilestone = 3500000;
+      if (closedList.includes(5)) nextMilestone = 4000000;
+      if (closedList.includes(6)) nextMilestone = 4500000;
+      if (closedList.includes(7)) nextMilestone = 5000000;
+
+      plan = nextMilestone;
+      planDisplay = `Tiêu Chuẩn (Mốc ${(plan / 1000000).toFixed(1)}M)`;
       percent = Math.min(100, Math.round((curShots / plan) * 100));
       remaining = Math.max(0, plan - curShots);
 
-      if (curShots >= 500000) {
+      const warnThreshold = plan - 200000;
+      if (curShots >= plan) {
         status = 'due';
-        statusText = 'CẦN BẢO DƯỠNG (≥500K)';
+        statusText = `CẦN BẢO DƯỠNG MỐC ${(plan / 1000000).toFixed(1)}M`;
         statusClass = 'danger';
-      } else if (curShots >= 470000) {
+      } else if (curShots >= warnThreshold) {
         status = 'warning';
-        statusText = 'SẮP ĐẾN CHU KỲ (470K ~ 500K)';
+        statusText = `SẮP CHẠM MỐC ${(warnThreshold / 1000000).toFixed(1)}M ~ ${(plan / 1000000).toFixed(1)}M`;
         statusClass = 'warning';
       } else {
         status = 'safe';
-        statusText = 'An Toàn (< 470K)';
+        statusText = `An Toàn (< ${(warnThreshold / 1000000).toFixed(1)}M)`;
         statusClass = 'running';
       }
     }
@@ -2308,20 +2317,8 @@ window.MoldMaintenance = (function() {
           curShots = Math.max(curShots, Math.round(Number(live.currentCycleShots)));
         }
       } else {
-        // Khuôn tiêu chuẩn: chu kỳ 500K theo năm (theo năm thôi, không tính tổng vòng đời khuôn)
-        if (rawM2 > 0) curShots = rawM3 > 0 ? rawM3 : Math.max(0, totalAccumulatedYear - rawM1 - rawM2);
-        else if (rawM1 > 0 && rawM1 >= 470000) curShots = Math.max(0, totalAccumulatedYear - rawM1);
-        else curShots = rawM1 > 0 ? rawM1 : totalAccumulatedYear;
-
-        if (curShots === 0 && totalAccumulatedYear > 0) {
-          curShots = (totalAccumulatedYear % 500000) || 500000;
-        }
-        if (live && Number.isFinite(Number(live.currentCycleShots)) && !live.isHighImpact) {
-          const liveCycle = Math.round(Number(live.currentCycleShots));
-          if (liveCycle > 0 && liveCycle <= 5000000) {
-            curShots = Math.max(curShots, liveCycle % 500000 || liveCycle);
-          }
-        }
+        // Khuôn tiêu chuẩn: dùng SUM SHOT YEAR (tổng số shot tích lũy trong năm), KHÔNG dùng tổng vòng đời!
+        curShots = Math.round(totalAccumulatedYear);
       }
 
       const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones);
@@ -2399,7 +2396,7 @@ window.MoldMaintenance = (function() {
           curShots = m2;
         }
 
-        if (!isHigh && curShots > 5000000) curShots = curShots % 500000;
+        if (!isHigh) curShots = Number(r.totalAccumulatedYear || r.totalYear || curShots);
         const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, []);
 
         allMoldsMap[code] = {
@@ -3000,7 +2997,7 @@ window.MoldMaintenance = (function() {
           else curShots = totalLife > 0 ? (totalLife % 500000) : 0;
         }
 
-        if (!isHigh && curShots > 5000000) curShots = curShots % 500000;
+        if (!isHigh) curShots = uMold ? uMold.curShots : Number(r.totalAccumulatedYear || r.totalYear || curShots);
         const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones);
         
         let dayShots = 0;
