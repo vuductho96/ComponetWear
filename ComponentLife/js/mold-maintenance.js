@@ -1249,48 +1249,18 @@ window.MoldMaintenance = (function() {
   }
 
   // =========================================================================
-  // BẢNG NHẬP SHOT BẢO DƯỠNG (EXCEL GRID UI) - ÁP DỤNG CHO TẤT CẢ CÁC MỐC
-  // Tích hợp: Chu kỳ 400K (High-Impact) & Các mốc lớn (3.0M - 5.0M)
-  // Quy chuẩn SOP: Tuyệt đối KHÔNG CHO CHỐT SỚM trước định mức!
+  // BẢNG NHẬP SHOT BẢO DƯỠNG (EXCEL GRID UI)
+  // - 400K: Mở khóa hoàn toàn các cữ 400k-1, 400k-2... nhập tự do
+  // - Mốc lớn (3.0M, 3.5M, 4.0M, 4.5M, 5.0M): Mở riêng từng mốc để chốt kèm
+  //   giấy tờ liên quan, tuyệt đối KHÔNG CHO CHỐT SỚM trước định mức!
   // =========================================================================
   let activeShotModalMold = null;
-  let activeShotModalTab = '400k'; // '400k' hoặc 'major'
+  let activeShotModalTab = '400k'; // '400k' hoặc 'milestone'
   let active400kRowsData = [];
   let activeMajorRowsData = [];
 
   function getActiveExcelRows() {
     return activeShotModalTab === '400k' ? active400kRowsData : activeMajorRowsData;
-  }
-
-  function switchShotModalTab(tab) {
-    activeShotModalTab = tab === 'major' ? 'major' : '400k';
-    const btn400k = document.getElementById('mmTabBtn400k');
-    const btnMajor = document.getElementById('mmTabBtnMajor');
-
-    if (btn400k) {
-      if (activeShotModalTab === '400k') {
-        btn400k.style.background = '#ffffff';
-        btn400k.style.color = '#0284c7';
-        btn400k.style.borderBottom = '2px solid #0284c7';
-      } else {
-        btn400k.style.background = '#f1f5f9';
-        btn400k.style.color = '#64748b';
-        btn400k.style.borderBottom = 'none';
-      }
-    }
-    if (btnMajor) {
-      if (activeShotModalTab === 'major') {
-        btnMajor.style.background = '#ffffff';
-        btnMajor.style.color = '#0284c7';
-        btnMajor.style.borderBottom = '2px solid #0284c7';
-      } else {
-        btnMajor.style.background = '#f1f5f9';
-        btnMajor.style.color = '#64748b';
-        btnMajor.style.borderBottom = 'none';
-      }
-    }
-
-    renderActiveExcelRows();
   }
 
   function renderExcelDocCell(row, idx) {
@@ -1374,7 +1344,7 @@ window.MoldMaintenance = (function() {
           </tr>
         `;
       } else {
-        // DÒNG HỢP LỆ ĐÃ CHỐT HOẶC ĐÃ ĐẾN HẠN BẢO DƯỠNG
+        // DÒNG HỢP LỆ (MỞ KHÓA HOÀN TOÀN)
         html += `
           <tr style="border-bottom:1px solid #94a3b8; background:${rowBg};">
             <td style="${borderStyle} padding:6px; text-align:center; font-weight:700; background:#f8fafc; color:#1e293b; user-select:none;">
@@ -1410,9 +1380,10 @@ window.MoldMaintenance = (function() {
     const notice = document.getElementById('mmModalNotice');
     if (notice) {
       if (activeShotModalTab === '400k') {
-        notice.textContent = '💡 Chu kỳ 400K: Bảo dưỡng dự phòng cho khuôn High-Impact theo từng cữ 400.000 shots.';
+        notice.textContent = '💡 Chu kỳ 400K: Bảo dưỡng dự phòng cho khuôn High-Impact theo từng cữ 400.000 shots (Đã mở khóa các cữ).';
       } else {
-        notice.textContent = '🔒 Quy chuẩn SOP: Chỉ được chốt khi khuôn đạt ngưỡng cảnh báo/định mức (Không cho chốt sớm).';
+        const firstRow = rows[0];
+        notice.textContent = firstRow ? `🔒 Mốc ${firstRow.name}: Chốt 1 phát kèm giấy tờ liên quan (Không cho chốt trước hạn).` : '';
       }
     }
   }
@@ -1431,22 +1402,8 @@ window.MoldMaintenance = (function() {
         isClosed: false,
         isEligible: true
       });
-    } else {
-      const baseNum = activeMajorRowsData.length + 4;
-      const targetM = (3.0 + (activeMajorRowsData.length * 0.5)).toFixed(1) + 'M';
-      activeMajorRowsData.push({
-        num: baseNum,
-        name: targetM,
-        actualShot: '',
-        date: '',
-        ktv: '',
-        note: '',
-        pdf: null,
-        isClosed: false,
-        isEligible: true
-      });
+      renderActiveExcelRows();
     }
-    renderActiveExcelRows();
   }
 
   async function handleExcelRowUpload(event, idx) {
@@ -1523,8 +1480,8 @@ window.MoldMaintenance = (function() {
     const modal = document.getElementById('mm400kDetailModal');
     if (!modal) return;
 
-    const titleEl = document.getElementById('mm400kMoldTitle');
-    if (titleEl) titleEl.textContent = code;
+    const moldTitleEl = document.getElementById('mm400kMoldTitle');
+    if (moldTitleEl) moldTitleEl.textContent = code;
 
     const machineEl = document.getElementById('mm400kMachineSub');
     if (machineEl) machineEl.textContent = m.machineNo ? `| Máy: ${m.machineNo}` : '';
@@ -1535,14 +1492,24 @@ window.MoldMaintenance = (function() {
 
     const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
 
-    // 1. CHUẨN BỊ DỮ LIỆU TAB 400K
-    active400kRowsData = [];
-    if (isHigh) {
+    const sTarget = String(targetTabOrMilestone || '').trim().toLowerCase();
+    const is400k = sTarget === '400k' || sTarget.startsWith('400k');
+
+    const mainTitleEl = document.getElementById('mmModalTitle');
+    const addRowTr = document.getElementById('mmExcelAddRowTr');
+
+    if (is400k) {
+      // =======================================================
+      // CHẾ ĐỘ 1: BẢNG NHẬP SHOT 400K (HIGH-IMPACT)
+      // Mở khóa hoàn toàn các cữ 400k-1..8 để nhập liệu tự do!
+      // =======================================================
+      activeShotModalTab = '400k';
+      if (mainTitleEl) mainTitleEl.textContent = 'Bảng nhập shot (High Impact - 400k)';
+      if (addRowTr) addRowTr.style.display = '';
+
       const cycles = get400kCyclesInfo(m);
       const maxRows = Math.max(8, cycles.length);
-      const firstUnclosed = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
-      const currNum = firstUnclosed ? firstUnclosed.num : 1;
-      const currShots = firstUnclosed ? firstUnclosed.shots : 0;
+      active400kRowsData = [];
 
       for (let i = 1; i <= maxRows; i++) {
         const c = cycles.find(x => x.num === i);
@@ -1563,80 +1530,70 @@ window.MoldMaintenance = (function() {
             note: c.note || '',
             pdf: c.pdf || null,
             isClosed: true,
-            isEligible: true
+            isEligible: true // Mở khóa hoàn toàn
           });
-        } else if (i === currNum) {
+        } else {
+          // Các cữ chưa chốt (400k-1, 400k-2, 400k-3, 400k-4...): Đều MỞ KHÓA tự do!
           let shotDisplay = '';
-          if (currShots > 0) {
-            shotDisplay = (currShots >= 1000 && currShots % 1000 === 0)
-              ? (currShots / 1000) + 'k'
-              : formatNum(currShots);
+          if (c && c.shots > 0) {
+            shotDisplay = (c.shots >= 1000 && c.shots % 1000 === 0)
+              ? (c.shots / 1000) + 'k'
+              : formatNum(c.shots);
           }
           active400kRowsData.push({
             num: i,
             name: rowName,
             actualShot: shotDisplay,
-            date: new Date().toISOString().slice(0, 10),
-            ktv: '7139',
-            note: '',
-            pdf: null,
+            date: c?.date || '',
+            ktv: c?.tech || '7139',
+            note: c?.note || '',
+            pdf: c?.pdf || null,
             isClosed: false,
-            isEligible: true
-          });
-        } else {
-          // Các cữ sau cữ hiện tại: chỉ cho phép khi cữ trước đã hoàn thành
-          const prevClosed = i === 1 || Boolean(cycles.find(x => x.num === i - 1 && x.isClosed));
-          active400kRowsData.push({
-            num: i,
-            name: rowName,
-            actualShot: '',
-            date: '',
-            ktv: '',
-            note: '',
-            pdf: null,
-            isClosed: false,
-            isEligible: prevClosed,
-            lockReason: `Chờ cữ 400k-${i - 1} hoàn thành trước`
+            isEligible: true // Mở khóa hoàn toàn theo yêu cầu!
           });
         }
       }
-    }
+    } else {
+      // =======================================================
+      // CHẾ ĐỘ 2: BẢNG NHẬP SHOT CHO TỪNG MỐC RIÊNG BIỆT
+      // Bấm mốc nào chỉ hiện 1 dòng mốc đó (Không kèm 3.5m, 5m vào đây)
+      // Tuyệt đối KHÔNG CHO CHỐT SỚM trước định mức!
+      // =======================================================
+      activeShotModalTab = 'milestone';
+      if (addRowTr) addRowTr.style.display = 'none';
 
-    // 2. CHUẨN BỊ DỮ LIỆU TAB CÁC MỐC LỚN (3.0M - 5.0M)
-    activeMajorRowsData = [];
-    const closedList = m.closedMilestones || [];
-    const majorDefs = [
-      { num: 4, name: '3.0M', target: 3000000, warn: 2800000 },
-      { num: 5, name: '3.5M', target: 3500000, delta: 500000, warnDelta: 470000 },
-      { num: 6, name: '4.0M', target: 4000000, delta: 500000, warnDelta: 470000 },
-      { num: 7, name: '4.5M', target: 4500000, delta: 500000, warnDelta: 470000 },
-      { num: 8, name: '5.0M', target: 5000000, warn: 4800000 }
-    ];
+      // Xác định số mốc
+      let mNum = 4;
+      if (sTarget === '5' || sTarget === '3.5m') mNum = 5;
+      else if (sTarget === '6' || sTarget === '4.0m') mNum = 6;
+      else if (sTarget === '7' || sTarget === '4.5m') mNum = 7;
+      else if (sTarget === '8' || sTarget === '5.0m') mNum = 8;
+      else if (!isNaN(parseInt(sTarget, 10)) && parseInt(sTarget, 10) >= 4) mNum = parseInt(sTarget, 10);
 
-    const detail4 = getMilestoneDetail(code, 4);
-    const detail5 = getMilestoneDetail(code, 5);
-    const detail6 = getMilestoneDetail(code, 6);
-    const detail7 = getMilestoneDetail(code, 7);
-    const detail8 = getMilestoneDetail(code, 8);
+      const mTitle = mNum === 4 ? '3.0M' : (mNum === 5 ? '3.5M' : (mNum === 6 ? '4.0M' : (mNum === 7 ? '4.5M' : (mNum === 8 ? '5.0M' : `${mNum}M`))));
+      if (mainTitleEl) mainTitleEl.textContent = `Bảng nhập shot (Mốc ${mTitle})`;
 
-    const isDone4 = closedList.includes(4);
-    const isDone5 = closedList.includes(5);
-    const isDone6 = closedList.includes(6);
-    const isDone7 = closedList.includes(7);
-    const isDone8 = closedList.includes(8);
+      const closedList = m.closedMilestones || [];
+      const isClosed = closedList.includes(mNum);
+      const detail = getMilestoneDetail(code, mNum);
+      const pdf = detail?.pdf || getMilestonePdf(code, mNum);
 
-    majorDefs.forEach(def => {
-      const isClosed = closedList.includes(def.num);
-      const detail = def.num === 4 ? detail4 : (def.num === 5 ? detail5 : (def.num === 6 ? detail6 : (def.num === 7 ? detail7 : detail8)));
-      const pdf = detail?.pdf || getMilestonePdf(code, def.num);
+      const isDone4 = closedList.includes(4);
+      const isDone5 = closedList.includes(5);
+      const isDone6 = closedList.includes(6);
+      const isDone7 = closedList.includes(7);
+
+      const detail4 = getMilestoneDetail(code, 4);
+      const detail5 = getMilestoneDetail(code, 5);
+      const detail6 = getMilestoneDetail(code, 6);
 
       let isEligible = false;
       let lockReason = '';
       let actualShot = '';
 
-      if (def.num === 4) {
-        // Mốc 3.0M: Cảnh báo từ 2.8M, định mức 3.0M
-        isEligible = isClosed || totalShots >= def.warn;
+      if (mNum === 4) {
+        // Mốc 3.0M: Cảnh báo từ 2.8M, định mức 3.0M. Không cho chốt sớm!
+        isEligible = isClosed || totalShots >= 2800000;
         if (!isEligible) {
           lockReason = `Chưa đạt định mức (${formatNum(totalShots)} / 3.000.000) - Không cho chốt sớm`;
         }
@@ -1645,10 +1602,10 @@ window.MoldMaintenance = (function() {
         } else if (isEligible) {
           actualShot = formatNum(totalShots);
         }
-      } else if (def.num === 5) {
-        // Mốc 3.5M: Phải chốt 3.0M trước & đạt +500k
+      } else if (mNum === 5) {
+        // Mốc 3.5M: Phải chốt 3.0M trước & đạt +500k. Không cho chốt sớm!
         const shotsSince4 = isDone4 ? Math.max(0, totalShots - (detail4?.closedShots || 3000000)) : 0;
-        isEligible = isClosed || (isDone4 && (shotsSince4 >= def.warnDelta || totalShots >= 3470000));
+        isEligible = isClosed || (isDone4 && (shotsSince4 >= 470000 || totalShots >= 3470000));
         if (!isDone4) {
           lockReason = 'Phải chốt mốc 3.0M trước';
         } else if (!isEligible) {
@@ -1659,10 +1616,10 @@ window.MoldMaintenance = (function() {
         } else if (isEligible) {
           actualShot = formatNum(totalShots);
         }
-      } else if (def.num === 6) {
+      } else if (mNum === 6) {
         // Mốc 4.0M: Phải chốt 3.5M trước
         const shotsSince5 = isDone5 ? Math.max(0, totalShots - (detail5?.closedShots || 3500000)) : 0;
-        isEligible = isClosed || (isDone5 && (shotsSince5 >= def.warnDelta || totalShots >= 3970000));
+        isEligible = isClosed || (isDone5 && (shotsSince5 >= 470000 || totalShots >= 3970000));
         if (!isDone5) {
           lockReason = 'Phải chốt mốc 3.5M trước';
         } else if (!isEligible) {
@@ -1673,10 +1630,10 @@ window.MoldMaintenance = (function() {
         } else if (isEligible) {
           actualShot = formatNum(totalShots);
         }
-      } else if (def.num === 7) {
+      } else if (mNum === 7) {
         // Mốc 4.5M: Phải chốt 4.0M trước
         const shotsSince6 = isDone6 ? Math.max(0, totalShots - (detail6?.closedShots || 4000000)) : 0;
-        isEligible = isClosed || (isDone6 && (shotsSince6 >= def.warnDelta || totalShots >= 4470000));
+        isEligible = isClosed || (isDone6 && (shotsSince6 >= 470000 || totalShots >= 4470000));
         if (!isDone6) {
           lockReason = 'Phải chốt mốc 4.0M trước';
         } else if (!isEligible) {
@@ -1687,9 +1644,9 @@ window.MoldMaintenance = (function() {
         } else if (isEligible) {
           actualShot = formatNum(totalShots);
         }
-      } else if (def.num === 8) {
-        // Mốc 5.0M: Phải chốt 4.5M trước & đạt ngưỡng trần >= 4.8M
-        isEligible = isClosed || (isDone7 && totalShots >= def.warn);
+      } else if (mNum === 8) {
+        // Mốc 5.0M: Phải chốt 4.5M trước & đạt ngưỡng trần 5.0M (>= 4.8M)
+        isEligible = isClosed || (isDone7 && totalShots >= 4800000);
         if (!isDone7) {
           lockReason = 'Phải chốt mốc 4.5M trước';
         } else if (!isEligible) {
@@ -1702,9 +1659,10 @@ window.MoldMaintenance = (function() {
         }
       }
 
-      activeMajorRowsData.push({
-        num: def.num,
-        name: def.name,
+      // Chỉ tạo ĐÚNG 1 DÒNG cho mốc này
+      activeMajorRowsData = [{
+        num: mNum,
+        name: mTitle,
         actualShot,
         date: detail?.date || (isEligible && !isClosed ? new Date().toISOString().slice(0, 10) : ''),
         ktv: detail?.tech || (isEligible && !isClosed ? '7139' : ''),
@@ -1713,37 +1671,10 @@ window.MoldMaintenance = (function() {
         isClosed,
         isEligible,
         lockReason
-      });
-    });
-
-    // 3. XÁC ĐỊNH TAB MẶC ĐỊNH
-    const btn400k = document.getElementById('mmTabBtn400k');
-    const btnMajor = document.getElementById('mmTabBtnMajor');
-
-    if (!isHigh) {
-      if (btn400k) btn400k.style.display = 'none';
-      if (btnMajor) {
-        btnMajor.style.display = 'inline-block';
-        btnMajor.textContent = 'Các mốc bảo dưỡng (3.0M - 5.0M)';
-      }
-      activeShotModalTab = 'major';
-    } else {
-      if (btn400k) btn400k.style.display = 'inline-block';
-      if (btnMajor) {
-        btnMajor.style.display = 'inline-block';
-        btnMajor.textContent = 'Các mốc lớn (3.0M - 5.0M)';
-      }
-      const sTarget = String(targetTabOrMilestone || '').toLowerCase();
-      if (sTarget === '400k' || sTarget.startsWith('400k')) {
-        activeShotModalTab = '400k';
-      } else if (sTarget === 'major' || ['4', '5', '6', '7', '8', '3.0m', '3.5m', '4.0m', '4.5m', '5.0m'].includes(sTarget)) {
-        activeShotModalTab = 'major';
-      } else {
-        activeShotModalTab = '400k';
-      }
+      }];
     }
 
-    switchShotModalTab(activeShotModalTab);
+    renderActiveExcelRows();
 
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
@@ -1754,7 +1685,7 @@ window.MoldMaintenance = (function() {
   }
 
   function openMilestoneModal(moldNo, milestoneNum) {
-    openShotEntryModal(moldNo, milestoneNum || 'major');
+    openShotEntryModal(moldNo, milestoneNum || 4);
   }
 
   async function save400kExcelTable() {
@@ -1769,20 +1700,22 @@ window.MoldMaintenance = (function() {
     }
 
     try {
-      // 1. VALIDATION: KHÔNG CHO CHỐT SỚM
-      for (let idx = 0; idx < rows.length; idx++) {
-        const row = rows[idx];
-        const shotEl = document.getElementById('mm_shot_' + idx);
-        const shotStr = (shotEl ? shotEl.value : '').trim();
+      // 1. VALIDATION: CHỈ CHẶN CHỐT SỚM VỚI CÁC MỐC 3M, 4M, 5M (Không chặn 400K)
+      if (activeShotModalTab === 'milestone') {
+        for (let idx = 0; idx < rows.length; idx++) {
+          const row = rows[idx];
+          const shotEl = document.getElementById('mm_shot_' + idx);
+          const shotStr = (shotEl ? shotEl.value : '').trim();
 
-        if (shotStr && row.isEligible === false && !row.isClosed) {
-          alert(`LỖI: Mốc ${row.name} chưa đến hạn bảo dưỡng!\n${row.lockReason}\n\nQuy chuẩn SOP nghiêm cấm chốt sớm trước hạn!`);
-          if (shotEl && typeof shotEl.focus === 'function') shotEl.focus();
-          return;
+          if (shotStr && row.isEligible === false && !row.isClosed) {
+            alert(`LỖI: Mốc ${row.name} chưa đến hạn bảo dưỡng!\n${row.lockReason}\n\nQuy chuẩn SOP nghiêm cấm chốt sớm trước hạn!`);
+            if (shotEl && typeof shotEl.focus === 'function') shotEl.focus();
+            return;
+          }
         }
       }
 
-      // 2. LƯU TỪNG DÒNG
+      // 2. LƯU DỮ LIỆU
       for (let idx = 0; idx < rows.length; idx++) {
         const row = rows[idx];
         const shotEl = document.getElementById('mm_shot_' + idx);
@@ -4530,7 +4463,6 @@ window.MoldMaintenance = (function() {
     handleExcelRowUpload,
     removeExcelRowFile,
     viewExcelRowFile,
-    switchShotModalTab,
     openShotEntryModal,
     save400kExcelTable,
     confirm400kFromModal: save400kExcelTable,
