@@ -312,9 +312,8 @@ window.MoldMaintenance = (function() {
 
   // Chuyển đổi giữa 2 Bảng: Bảng 1 (Toàn bộ khuôn & Mốc plan) vs Bảng 2 (Live 44 máy)
   function switchTab(tabName) {
-    currentSubTab = tabName;
+    currentSubTab = 'molds';
     moldCurrentPage = 1;
-    machineCurrentPage = 1;
     const btnMolds = document.getElementById('btnTabMolds');
     const btnMach = document.getElementById('btnTabMachines');
     if (btnMolds) btnMolds.classList.toggle('active', tabName === 'molds');
@@ -2506,7 +2505,7 @@ window.MoldMaintenance = (function() {
               <th class="mm-sticky-col-header" style="min-width:130px; position:sticky; left:0; z-index:15; background:#f8fafc;">Tên Khuôn</th>
               ${moldColPrefs.series ? '<th>Dòng Sản Phẩm (Series)</th>' : ''}
               ${moldColPrefs.tier ? '<th class="text-center">Tiêu Chuẩn</th>' : ''}
-              ${moldColPrefs.machine ? '<th class="text-center">Máy Đang Ép</th>' : ''}
+              <th class="text-center" style="min-width:95px;" title="Máy đang gá chạy ép">Máy Đang Ép</th>
               ${moldColPrefs.cycle ? '<th class="text-center">Chu Kỳ</th>' : ''}
               ${moldColPrefs.curShots ? '<th class="text-right" style="background:#f0fdf4; color:#15803d;">Số Shot Chu Kỳ</th>' : ''}
               ${moldColPrefs.plan ? '<th class="text-right">Mốc Plan</th>' : ''}
@@ -2686,13 +2685,11 @@ window.MoldMaintenance = (function() {
                 </span>
               </td>
             ` : ''}
-            ${moldColPrefs.machine ? `
-              <td class="text-center font-bold font-mono">
-                ${isRunning 
-                  ? `<span style="display:inline-block; padding:3px 9px; border-radius:5px; background:#dcfce7; color:#15803d; font-size:13px; font-weight:700;">⚡ ${m.machineNo}</span>` 
-                  : `<span style="color:#94a3b8; font-size:13px;">Trong kho</span>`}
-              </td>
-            ` : ''}
+            <td class="text-center font-bold font-mono">
+              ${isRunning 
+                ? `<span style="display:inline-block; padding:3px 9px; border-radius:5px; background:#dcfce7; color:#15803d; font-size:13px; font-weight:700;">⚡ ${m.machineNo}</span>` 
+                : `<span style="color:#94a3b8; font-size:13px;">Trong kho</span>`}
+            </td>
             ${moldColPrefs.cycle ? `<td class="text-center font-mono font-bold" style="color:#4338ca; font-size:13.5px;">${m.cycleName}</td>` : ''}
             ${moldColPrefs.curShots ? `
               <td class="text-right font-mono" style="background:#f0fdf4; font-weight:700; color:#15803d; font-size:14.5px;">
@@ -2760,11 +2757,7 @@ window.MoldMaintenance = (function() {
   function renderTable() {
     const container = document.getElementById('mmTableContainer');
     if (!container) return;
-    if (currentSubTab === 'molds') {
-      renderMoldsOverviewSheet(container);
-    } else {
-      renderDailySheet(container);
-    }
+    renderMoldsOverviewSheet(container);
     setupLazyObserver();
   }
 
