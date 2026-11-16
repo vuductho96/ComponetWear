@@ -1005,6 +1005,7 @@ window.MoldMaintenance = (function() {
         const isClosed = closedList.includes(mVal) || 
                          closedList.includes((mVal / 1000000).toFixed(1) + 'M') ||
                          closedList.includes((mVal / 1000000).toFixed(1) + 'm') ||
+                         (mVal === 2500000 && (closedList.includes(25) || closedList.includes('25') || closedList.includes('2.5m') || closedList.includes('2.5M'))) ||
                          (mVal === 3000000 && closedList.includes(4)) ||
                          (mVal === 3500000 && closedList.includes(5)) ||
                          (mVal === 4000000 && closedList.includes(6)) ||
@@ -1699,13 +1700,14 @@ window.MoldMaintenance = (function() {
 
       // Xác định số mốc
       let mNum = 4;
-      if (sTarget === '5' || sTarget === '3.5m') mNum = 5;
+      if (sTarget === '2.5' || sTarget === '2.5m' || sTarget === '25' || sTarget === 25) mNum = 25;
+      else if (sTarget === '5' || sTarget === '3.5m') mNum = 5;
       else if (sTarget === '6' || sTarget === '4.0m') mNum = 6;
       else if (sTarget === '7' || sTarget === '4.5m') mNum = 7;
       else if (sTarget === '8' || sTarget === '5.0m') mNum = 8;
       else if (!isNaN(parseInt(sTarget, 10)) && parseInt(sTarget, 10) >= 4) mNum = parseInt(sTarget, 10);
 
-      const mTitle = mNum === 4 ? '3.0M' : (mNum === 5 ? '3.5M' : (mNum === 6 ? '4.0M' : (mNum === 7 ? '4.5M' : (mNum === 8 ? '5.0M' : `${mNum}M`))));
+      const mTitle = mNum === 25 ? '2.5M' : (mNum === 4 ? '3.0M' : (mNum === 5 ? '3.5M' : (mNum === 6 ? '4.0M' : (mNum === 7 ? '4.5M' : (mNum === 8 ? '5.0M' : `${mNum}M`)))));
       if (mainTitleEl) mainTitleEl.textContent = `Bảng nhập shot (Mốc ${mTitle})`;
 
       const closedList = m.closedMilestones || [];
@@ -1726,7 +1728,18 @@ window.MoldMaintenance = (function() {
       let lockReason = '';
       let actualShot = '';
 
-      if (mNum === 4) {
+      if (mNum === 25) {
+        // Mốc 2.5M: Cảnh báo từ 2.48M (Plan), 2.49M (Bảo dưỡng), định mức 2.5M. Không cho chốt sớm!
+        isEligible = isClosed || totalShots >= 2480000;
+        if (!isEligible) {
+          lockReason = `Chưa đạt định mức (${formatNum(totalShots)} / 2.500.000) - Không cho chốt sớm`;
+        }
+        if (isClosed) {
+          actualShot = detail?.closedShots ? formatNum(detail.closedShots) : formatNum(totalShots);
+        } else if (isEligible) {
+          actualShot = formatNum(totalShots);
+        }
+      } else if (mNum === 4) {
         // Mốc 3.0M: Cảnh báo từ 2.8M, định mức 3.0M. Không cho chốt sớm!
         isEligible = isClosed || totalShots >= 2800000;
         if (!isEligible) {
@@ -2319,6 +2332,18 @@ window.MoldMaintenance = (function() {
         cycleName = (totalLife < 3000000) ? 'Chuẩn < 3M' : ('Sau 3M (500K-' + currentCycleNum + ')');
       }
 
+      // CỘT 2.5M: VỚI KHUÔN TIÊU CHUẨN -> GHI TỔNG SỐ SHOT TÍCH LŨY THỰC TẾ CỦA CÁC THÁNG TRONG NĂM!
+      const isDone25 = closedMilestones.includes(25) || closedMilestones.includes('25') || closedMilestones.includes('2.5m') || closedMilestones.includes('2.5M');
+      const d25 = getMilestoneDetail(code, 25) || getMilestoneDetail(code, '2.5m');
+      let m25 = null;
+      if (!isHigh) {
+        if (isDone25) {
+          m25 = Math.round(d25?.closedShots || totalAccumulatedYear);
+        } else {
+          m25 = totalAccumulatedYear > 0 ? totalAccumulatedYear : 0;
+        }
+      }
+
       // CỘT 4 (3.0M): VỚI KHUÔN TIÊU CHUẨN -> GHI TỔNG SỐ SHOT TÍCH LŨY THỰC TẾ CỦA CÁC THÁNG TRONG NĂM!
       const isDone4 = closedMilestones.includes(4);
       let m4 = null;
@@ -2413,6 +2438,7 @@ window.MoldMaintenance = (function() {
         m1,
         m2,
         m3,
+        m25,
         m4,
         m5,
         totalYear,
@@ -2670,6 +2696,7 @@ window.MoldMaintenance = (function() {
 
     const milestoneDefs = [
       { id: '400k', title: '400K', minWidth: '125px', tooltip: '400K - Chu kỳ bảo dưỡng dự phòng cho khuôn High-Impact (Bấm để xem chi tiết từng cữ 400k-1..7)' },
+      { id: 25, title: '2.5M', minWidth: '65px', tooltip: '2.5M - Mốc Bảo Dưỡng Khuôn Tiêu Chuẩn 2.5M (Mức Plan 2.480k, Báo Bảo Dưỡng 2.490k)' },
       { id: 4, title: '3.0M', minWidth: '65px', tooltip: '3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)' },
       { id: 5, title: '3.5M', minWidth: '65px', tooltip: '3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
       { id: 6, title: '4.0M', minWidth: '65px', tooltip: '4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions' },
@@ -2852,6 +2879,15 @@ window.MoldMaintenance = (function() {
 
         // Cột 400K duy nhất
         milestoneCells += render400kCell(m);
+        // Cột 2.5M (Khuôn tiêu chuẩn)
+        let val25 = 0;
+        if (!m.isHighImpact) {
+          val25 = m.m25 !== null && m.m25 !== undefined ? m.m25 : (m.totalYear || 0);
+        } else if ((m.closedMilestones || []).includes(25) || (m.closedMilestones || []).includes('2.5m')) {
+          val25 = m.m25 || 0;
+        }
+        milestoneCells += renderMilestoneCell(25, val25);
+
 
         // Các mốc 3.0M, 3.5M, 4.0M, 4.5M, 5.0M
         for (let c = 4; c <= 8; c++) {
@@ -3014,6 +3050,7 @@ window.MoldMaintenance = (function() {
               ${colPrefs.status ? '<th class="text-center">Trạng Thái</th>' : ''}
               ${colPrefs.totalYear !== false ? '<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px; border-left:2px solid #cbd5e1;" title="Tổng số shot của các tháng trong năm (Sum shot)">Sum shot</th>' : ''}
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:125px;" title="400K - Chu kỳ bảo dưỡng dự phòng cho khuôn High-Impact (Bấm để xem chi tiết từng cữ 400k-1..7)">400K</th>
+              <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="2.5M - Mốc Bảo Dưỡng Khuôn Tiêu Chuẩn 2.5M (Mức Plan 2.480k, Báo Bảo Dưỡng 2.490k)">2.5M</th>
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="3.0M - Mốc Bảo Dưỡng Tổng Thể & Full Kích Thước Bản Vẽ (Cảnh báo từ 2.8M)">3.0M</th>
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="3.5M - Chu kỳ 500K sau 3M & Đo Critical Dimensions">3.5M</th>
               <th class="text-center" style="background:#eff6ff; color:#1d4ed8; min-width:65px;" title="4.0M - Chu kỳ 500K sau 3M & Đo Critical Dimensions">4.0M</th>
@@ -3230,6 +3267,15 @@ window.MoldMaintenance = (function() {
         // Cột 400K
         const targetMoldFor400k = uMold || { mold: r.moldNo, isHighImpact: isHigh, totalYear: uMold?.totalYear || 0 };
         milestoneCells += render400kCell(targetMoldFor400k);
+        // Cột 2.5M (Khuôn tiêu chuẩn)
+        let val25Daily = 0;
+        if (!isHigh) {
+          val25Daily = uMold?.m25 !== null && uMold?.m25 !== undefined ? uMold.m25 : (uMold?.totalYear || 0);
+        } else if (closedMilestones.includes(25) || closedMilestones.includes('2.5m')) {
+          val25Daily = uMold?.m25 || 0;
+        }
+        milestoneCells += renderMilestoneCell(25, val25Daily);
+
 
         // Các mốc 3.0M đến 5.0M
         for (let c = 4; c <= 8; c++) {
