@@ -1246,15 +1246,15 @@ window.MoldMaintenance = (function() {
         </span>
         <span style="display:inline-flex; align-items:center; gap:5px; color:#701a75; font-weight:800; background:#fae8ff; padding:2px 8px; border-radius:4px; border:1px solid #e879f9;" title="Mức Plan (Trước 20K shot): 380K đối với High-Impact / Trước 20K các mốc 2.5M - 5M">
           <span style="width:9px; height:9px; border-radius:2px; background:#a855f7; display:inline-block;"></span>
-          🟣 Mức Plan (Trước 20K)
+          🟣 Plan (Trước 20K)
         </span>
         <span style="display:inline-flex; align-items:center; gap:5px; color:#854d0e; font-weight:800; background:#fef9c3; padding:2px 8px; border-radius:4px; border:1px solid #fde047;" title="Báo Bảo Dưỡng (Trước 10K shot): 390K đối với High-Impact / Trước 10K các mốc 2.5M - 5M">
           <span style="width:9px; height:9px; border-radius:2px; background:#eab308; display:inline-block;"></span>
-          🟡 Báo Bảo Dưỡng (Trước 10K)
+          🟡 Bảo Dưỡng (Trước 10K)
         </span>
         <span style="display:inline-flex; align-items:center; gap:5px; color:#991b1b; font-weight:800; background:#fee2e2; padding:2px 8px; border-radius:4px; border:1px solid #f87171;" title="Vượt Mốc Tiêu Chuẩn (>= Mốc): 400K đối với High-Impact / >= các mốc 2.5M - 5M">
           <span style="width:9px; height:9px; border-radius:2px; background:#ef4444; display:inline-block;"></span>
-          🔴 Vượt Mốc Tiêu Chuẩn (≥ Mốc)
+          🔴 Vượt Mốc (≥ Mốc)
         </span>
       </div>
     `;
@@ -2712,7 +2712,7 @@ window.MoldMaintenance = (function() {
 
     let lastYearHeader = '';
     if (moldColPrefs.lastYear !== false) {
-      lastYearHeader = `<th class="text-right" style="background:#fef2f2; color:#b91c1c; min-width:105px; font-size:12.5px; border-left:1px solid #fee2e2;" title="Số shot dở dang của chu kỳ cuối năm ngoái chuyển sang (Last Year Carryover)">Last Year (Còn lại)</th>`;
+      lastYearHeader = `<th class="text-right" style="background:#fef2f2; color:#b91c1c; min-width:85px; font-size:12.5px; border-left:1px solid #fee2e2;" title="Số shot dở dang của chu kỳ cuối năm ngoái chuyển sang (Last Year Carryover)">Last Year</th>`;
     }
 
     let sumShotHeader = '';
