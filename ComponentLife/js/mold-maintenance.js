@@ -2994,7 +2994,7 @@ window.MoldMaintenance = (function() {
           else if (currentCycleNum === 3) curShots = m3;
           else if (currentCycleNum === 4) curShots = m4;
           else if (currentCycleNum === 5) curShots = m5;
-          else curShots = totalLife > 0 ? (totalLife % 500000) : 0;
+          else curShots = Number(r.totalAccumulatedYear || r.totalYear || 0);
         }
 
         if (!isHigh) curShots = uMold ? uMold.curShots : Number(r.totalAccumulatedYear || r.totalYear || curShots);
