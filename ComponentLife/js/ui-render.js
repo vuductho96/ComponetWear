@@ -1147,7 +1147,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
       <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:16px;">🎯</span>
-          <span style="font-size:13px; font-weight:700; color:#1e293b;">QUY CHUẨN MÀU SOP: 🟣 TRƯỚC 20K (PLAN) • 🟠 TRƯỚC 10K (CẢNH BÁO) • 🔴 CHẠM/VƯỢT MỐC (BẢO DƯỠNG)</span>
+          <span style="font-size:13px; font-weight:700; color:#1e293b;">QUY CHUẨN MÀU SOP: 🟣 TRƯỚC 20K (MỨC PLAN) • 🟠 TRƯỚC 10K (BÁO BẢO DƯỠNG) • 🔴 CHẠM/VƯỢT MỐC TIÊU CHUẨN</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700;">
           ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} vượt mốc</span>` : ''}
@@ -1215,7 +1215,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
           rowBg = 'background:#fff1f2;';
           sopBadgeBg = 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;';
           statusBadgeStyle = 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800;';
-          statusBadgeText = '🔴 Cần Bảo Dưỡng';
+          statusBadgeText = '🔴 Vượt Mốc Tiêu Chuẩn';
           daysText = 'Vượt mốc bảo dưỡng';
         } else if (isWarn) {
           icon = '🟠';
@@ -1223,7 +1223,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
           rowBg = 'background:#fff7ed;';
           sopBadgeBg = 'background:#ffedd5; color:#c2410c; border:1px solid #fdba74;';
           statusBadgeStyle = 'background:#ffedd5; color:#c2410c; border:1px solid #fdba74; font-weight:800;';
-          statusBadgeText = '🟠 Sắp Đạt Ngưỡng';
+          statusBadgeText = '🟠 Báo Bảo Dưỡng';
           daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot (sắp chạm)` : 'Sắp đạt ngưỡng';
         } else if (isPlan) {
           icon = '🟣';
@@ -1231,7 +1231,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
           rowBg = 'background:#faf5ff;';
           sopBadgeBg = 'background:#fae8ff; color:#701a75; border:1px solid #f0abfc;';
           statusBadgeStyle = 'background:#fae8ff; color:#701a75; border:1px solid #f0abfc; font-weight:800;';
-          statusBadgeText = '🟣 Lên Plan';
+          statusBadgeText = '🟣 Mức Plan';
           daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot (lên plan)` : 'Cần lên plan';
         } else {
           daysText = 'An toàn';

@@ -1033,7 +1033,7 @@ window.MoldMaintenance = (function() {
         status = 'due';
         statusLevel = 'urgent';
         statusColor = 'red';
-        planDisplay = `🔴 Cần Bảo Dưỡng (${(plan / 1000000).toFixed(1)}M)`;
+        planDisplay = `🔴 Vượt Mốc (${(plan / 1000000).toFixed(1)}M)`;
         statusText = `CẦN BẢO DƯỠNG MỐC ${(plan / 1000000).toFixed(1)}M`;
         statusClass = 'danger';
       } else if (curShots >= warnThreshold) {
@@ -1243,17 +1243,17 @@ window.MoldMaintenance = (function() {
         <span style="font-weight:800; color:#0f172a; display:inline-flex; align-items:center; gap:5px;">
           <span>🎯</span> Quy Chuẩn Màu SOP:
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="Trước 20K shot: Lên plan cảnh báo (380K đối với High-Impact / M-20K đối với khuôn chuẩn)">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="Mức Plan (Trước 20K shot): 380K đối với High-Impact / 2.48M, 2.98M, 3.48M, 3.98M, 4.48M, 4.98M đối với khuôn chuẩn">
           <span style="width:10px; height:10px; border-radius:2px; background:#a855f7; display:inline-block;"></span>
-          380k ~ 390K (Lên plan cảnh báo)
+          🟣 Mức Plan (Trước 20K)
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#c2410c; font-weight:800; background:#ffedd5; padding:3px 10px; border-radius:5px; border:1px solid #fb923c;" title="Trước 10K shot: Báo bảo dưỡng (390K đối với High-Impact / M-10K đối với khuôn chuẩn)">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#c2410c; font-weight:800; background:#ffedd5; padding:3px 10px; border-radius:5px; border:1px solid #fb923c;" title="Báo Bảo Dưỡng (Trước 10K shot): 390K đối với High-Impact / 2.49M, 2.99M, 3.49M, 3.99M, 4.49M, 4.99M đối với khuôn chuẩn">
           <span style="width:10px; height:10px; border-radius:2px; background:#f97316; display:inline-block;"></span>
-          390k ~ 400K (Báo bảo dưỡng)
+          🟠 Báo Bảo Dưỡng (Trước 10K)
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#991b1b; font-weight:800; background:#fee2e2; padding:3px 10px; border-radius:5px; border:1px solid #f87171;" title=">= 400K: Vượt mốc tiêu chuẩn / Cần bảo dưỡng (Màu đỏ)">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#991b1b; font-weight:800; background:#fee2e2; padding:3px 10px; border-radius:5px; border:1px solid #f87171;" title="Vượt Mốc Tiêu Chuẩn (>= Mốc): 400K đối với High-Impact / 2.5M, 3M, 3.5M, 4M, 4.5M, 5M đối với khuôn chuẩn">
           <span style="width:10px; height:10px; border-radius:2px; background:#ef4444; display:inline-block;"></span>
-          CẦN BẢO DƯỠNG (≥400K / ≥ Mốc)
+          🔴 Vượt Mốc Tiêu Chuẩn (≥ Mốc)
         </span>
         <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="Khuôn tiêu chuẩn: Lên plan trước 20K shot (màu tím), Cảnh báo trước 10K shot (màu cam) theo các mốc 2.5M, 3M, 3.5M, 4M, 4.5M, 5M">
           <span style="width:10px; height:10px; border-radius:2px; background:#d946ef; display:inline-block;"></span>
@@ -2724,20 +2724,28 @@ window.MoldMaintenance = (function() {
           const isDone = (m.closedMilestones || []).includes(num);
           const detail = getMilestoneDetail(m.mold, num);
           const pdfData = detail?.pdf || getMilestonePdf(m.mold, num);
-          const mTitle = num === 4 ? '3.0M' : (num === 5 ? '3.5M' : (num === 6 ? '4.0M' : (num === 7 ? '4.5M' : (num === 8 ? '5.0M' : `Mốc ${num}`))));
+          // removed duplicate mTitle
 
           const val = Number(shotVal) || 0;
           let isDue = false;
           let isWarn = false;
 
-          if (num === 4) {
-            // MỐC 3.0M: Cảnh báo vàng khi >= 2.8M, đỏ khi >= 3.0M
-            if (val >= 3000000) isDue = true;
-            else if (val >= 2800000) isWarn = true;
-          } else if (num >= 5) {
-            // CÁC MỐC 3.5M, 4.0M, 4.5M, 5.0M (Chu kỳ 500K)
-            if (val >= 500000) isDue = true;
-            else if (val >= 470000) isWarn = true;
+          let mTarget = 3000000;
+          let mTitle = '3.0M';
+          if (num === '2.5m' || num === '2.5' || num === 25) { mTarget = 2500000; mTitle = '2.5M'; }
+          else if (num === 4) { mTarget = 3000000; mTitle = '3.0M'; }
+          else if (num === 5) { mTarget = 3500000; mTitle = '3.5M'; }
+          else if (num === 6) { mTarget = 4000000; mTitle = '4.0M'; }
+          else if (num === 7) { mTarget = 4500000; mTitle = '4.5M'; }
+          else if (num === 8) { mTarget = 5000000; mTitle = '5.0M'; }
+
+          let isPlan = false;
+          if (val >= mTarget) {
+            isDue = true;
+          } else if (val >= mTarget - 10000) {
+            isWarn = true;
+          } else if (val >= mTarget - 20000) {
+            isPlan = true;
           }
 
           let cellBg = '#ffffff';
@@ -2771,14 +2779,20 @@ window.MoldMaintenance = (function() {
             cellBg = '#fee2e2';
             boxBorder = '2px solid #ef4444';
             boxBg = '#ffffff';
-            cellTitle = `⛔ Mốc ${mTitle}: Đã chạm hạn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
-            subInfoHtml = `<span style="font-size:10px; font-weight:700; color:#b91c1c; line-height:1; margin-top:2px;">Cần chốt</span>`;
+            cellTitle = `⛔ Mốc ${mTitle}: Vượt mốc tiêu chuẩn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:800; color:#b91c1c; line-height:1; margin-top:2px;">Vượt mốc</span>`;
           } else if (isWarn) {
-            cellBg = '#fffbeb';
-            boxBorder = '2px solid #f59e0b';
+            cellBg = '#ffedd5';
+            boxBorder = '2px solid #f97316';
             boxBg = '#ffffff';
-            cellTitle = `⚠️ Mốc ${mTitle}: Sắp đến hạn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
-            subInfoHtml = `<span style="font-size:10px; font-weight:600; color:#b45309; line-height:1; margin-top:2px;">Sắp đến</span>`;
+            cellTitle = `⚠️ Mốc ${mTitle}: Báo bảo dưỡng (${formatNum(val)} shots, trước 10K) - Bấm để chốt bảo dưỡng`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:800; color:#c2410c; line-height:1; margin-top:2px;">Bảo dưỡng</span>`;
+          } else if (isPlan) {
+            cellBg = '#fae8ff';
+            boxBorder = '2px solid #a855f7';
+            boxBg = '#ffffff';
+            cellTitle = `🟣 Mốc ${mTitle}: Mức plan (${formatNum(val)} shots, trước 20K) - Bấm để lên plan`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:800; color:#701a75; line-height:1; margin-top:2px;">Mức plan</span>`;
           } else {
             cellBg = '#ffffff';
             boxBorder = '1.5px solid #cbd5e1';
@@ -3111,18 +3125,28 @@ window.MoldMaintenance = (function() {
           const isDone = closedMilestones.includes(num);
           const detail = getMilestoneDetail(r.moldNo, num);
           const pdfData = detail?.pdf || getMilestonePdf(r.moldNo, num);
-          const mTitle = num === 4 ? '3.0M' : (num === 5 ? '3.5M' : (num === 6 ? '4.0M' : (num === 7 ? '4.5M' : (num === 8 ? '5.0M' : `Mốc ${num}`))));
+          // removed duplicate mTitle
 
           const val = Number(shotVal) || 0;
           let isDue = false;
           let isWarn = false;
 
-          if (num === 4) {
-            if (val >= 3000000) isDue = true;
-            else if (val >= 2800000) isWarn = true;
-          } else if (num >= 5) {
-            if (val >= 500000) isDue = true;
-            else if (val >= 470000) isWarn = true;
+          let mTarget = 3000000;
+          let mTitle = '3.0M';
+          if (num === '2.5m' || num === '2.5' || num === 25) { mTarget = 2500000; mTitle = '2.5M'; }
+          else if (num === 4) { mTarget = 3000000; mTitle = '3.0M'; }
+          else if (num === 5) { mTarget = 3500000; mTitle = '3.5M'; }
+          else if (num === 6) { mTarget = 4000000; mTitle = '4.0M'; }
+          else if (num === 7) { mTarget = 4500000; mTitle = '4.5M'; }
+          else if (num === 8) { mTarget = 5000000; mTitle = '5.0M'; }
+
+          let isPlan = false;
+          if (val >= mTarget) {
+            isDue = true;
+          } else if (val >= mTarget - 10000) {
+            isWarn = true;
+          } else if (val >= mTarget - 20000) {
+            isPlan = true;
           }
 
           let cellBg = '#ffffff';
@@ -3156,14 +3180,20 @@ window.MoldMaintenance = (function() {
             cellBg = '#fee2e2';
             boxBorder = '2px solid #ef4444';
             boxBg = '#ffffff';
-            cellTitle = `⛔ Mốc ${mTitle}: Đã chạm hạn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
-            subInfoHtml = `<span style="font-size:10px; font-weight:700; color:#b91c1c; line-height:1; margin-top:2px;">Cần chốt</span>`;
+            cellTitle = `⛔ Mốc ${mTitle}: Vượt mốc tiêu chuẩn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:800; color:#b91c1c; line-height:1; margin-top:2px;">Vượt mốc</span>`;
           } else if (isWarn) {
-            cellBg = '#fffbeb';
-            boxBorder = '2px solid #f59e0b';
+            cellBg = '#ffedd5';
+            boxBorder = '2px solid #f97316';
             boxBg = '#ffffff';
-            cellTitle = `⚠️ Mốc ${mTitle}: Sắp đến hạn (${formatNum(val)} shots) - Bấm để chốt bảo dưỡng`;
-            subInfoHtml = `<span style="font-size:10px; font-weight:600; color:#b45309; line-height:1; margin-top:2px;">Sắp đến</span>`;
+            cellTitle = `⚠️ Mốc ${mTitle}: Báo bảo dưỡng (${formatNum(val)} shots, trước 10K) - Bấm để chốt bảo dưỡng`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:800; color:#c2410c; line-height:1; margin-top:2px;">Bảo dưỡng</span>`;
+          } else if (isPlan) {
+            cellBg = '#fae8ff';
+            boxBorder = '2px solid #a855f7';
+            boxBg = '#ffffff';
+            cellTitle = `🟣 Mốc ${mTitle}: Mức plan (${formatNum(val)} shots, trước 20K) - Bấm để lên plan`;
+            subInfoHtml = `<span style="font-size:10px; font-weight:800; color:#701a75; line-height:1; margin-top:2px;">Mức plan</span>`;
           } else {
             cellBg = '#ffffff';
             boxBorder = '1.5px solid #cbd5e1';
