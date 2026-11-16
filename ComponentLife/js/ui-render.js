@@ -1179,7 +1179,6 @@ async function renderMoldMaintenanceAlertsInOverview() {
                 <th style="padding:8px 8px; text-align:center; width:50px;">Mức Độ</th>
                 <th style="padding:8px 10px;">Mã Khuôn &amp; Sản Phẩm</th>
                 <th style="padding:8px 8px; text-align:center; width:90px;">Máy Ép</th>
-                <th style="padding:8px 10px; width:130px;">Tiêu Chuẩn (SOP)</th>
                 <th style="padding:8px 10px; width:140px; text-align:center;">Trạng Thái (Status)</th>
                 <th style="padding:8px 10px; text-align:right;" title="High-Impact: Số shot cữ 400K • Tiêu chuẩn: Sum shot năm so với các mốc 2.5M - 5.0M">Số Shot / Mốc</th>
                 <th style="padding:8px 10px; width:180px;">Tiến Độ &amp; Dự Báo</th>
@@ -1251,13 +1250,8 @@ async function renderMoldMaintenanceAlertsInOverview() {
                 ? `<span style="display:inline-block; padding:2px 8px; border-radius:4px; background:#dcfce7; color:#15803d; font-weight:700; font-family:monospace; font-size:11.5px;">⚡ ${m.machineNo}</span>` 
                 : `<span style="color:#94a3b8; font-size:11.5px;">Trong kho</span>`}
             </td>
-            <td style="padding:8px 10px;">
-              <span style="display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; ${sopBadgeBg}">
-                ${sopBadgeText}
-              </span>
-            </td>
             <td style="padding:8px 10px; text-align:center;">
-              <span style="display:inline-block; padding:3px 9px; border-radius:12px; font-size:11px; ${statusBadgeStyle}">
+              <span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; ${statusBadgeStyle}">
                 ${statusBadgeText}
               </span>
             </td>
