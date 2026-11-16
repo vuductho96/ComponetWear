@@ -945,32 +945,56 @@ window.MoldMaintenance = (function() {
     let percent = 0;
     let remaining = 0;
     let status = 'safe';
+    let statusLevel = 'safe';
+    let statusColor = 'green';
     let statusText = 'An Toàn';
     let statusClass = 'running';
 
     if (isHigh) {
-      // Khuôn High-Impact: Chu kỳ cữ 400K, cảnh báo sớm tại 380K - 400K
+      // RULE MÀU CẢNH BÁO CHO MỐC HIGH-IMPACT 400K:
+      // - 340K ~ 350K: Màu TÍM (Cảnh báo lên plan bảo dưỡng)
+      // - 350K ~ 400K: Màu CAM (Sắp đạt ngưỡng cảnh báo)
+      // - >= 400K: Màu ĐỎ (Vượt và cảnh báo / Cần bảo dưỡng)
+      // - < 340K: Màu XANH (An toàn)
       plan = 400000;
-      planDisplay = '🔥 High-Impact 400K';
       percent = Math.min(100, Math.round((curShots / plan) * 100));
       remaining = Math.max(0, plan - curShots);
 
       if (curShots >= 400000) {
         status = 'due';
-        statusText = 'BẢO DƯỠNG DỰ PHÒNG HIGH-IMPACT (≥400K)';
+        statusLevel = 'urgent';
+        statusColor = 'red';
+        planDisplay = '🔥 Cần Bảo Dưỡng (≥400K)';
+        statusText = 'VƯỢT VÀ CẢNH BÁO (≥400K)';
         statusClass = 'danger';
-      } else if (curShots >= 380000) {
+      } else if (curShots >= 350000) {
         status = 'warning';
-        statusText = 'SẮP ĐẾN CỮ DỰ PHÒNG (380K ~ 400K)';
+        statusLevel = 'warning';
+        statusColor = 'orange';
+        planDisplay = '🟠 Sắp Đến Cữ (350K~400K)';
+        statusText = 'SẮP ĐẠT NGƯỠNG CẢNH BÁO (350K ~ 400K)';
         statusClass = 'warning';
+      } else if (curShots >= 340000) {
+        status = 'plan';
+        statusLevel = 'plan';
+        statusColor = 'purple';
+        planDisplay = '🟣 Lên Plan Bảo Dưỡng (340K~350K)';
+        statusText = 'LÊN PLAN BẢO DƯỠNG (340K ~ 350K)';
+        statusClass = 'purple';
       } else {
         status = 'safe';
-        statusText = 'An Toàn (< 380K)';
+        statusLevel = 'safe';
+        statusColor = 'green';
+        planDisplay = '🟢 An Toàn (< 340K)';
+        statusText = 'An Toàn (< 340K)';
         statusClass = 'running';
       }
     } else {
-      // Khuôn Tiêu Chuẩn: Đánh giá theo SUM SHOT YEAR (tổng số shot tích lũy trong năm) so với mốc lớn 3.0M
-      // Tuyệt đối không dùng tổng vòng đời để tính chạm mốc!
+      // RULE MÀU CẢNH BÁO CHO KHUÔN TIÊU CHUẨN (MỐC 3.0M):
+      // - 2.8M ~ 2.9M: Màu TÍM (Lên plan bảo dưỡng / đo bước 3M)
+      // - 2.9M ~ 3.0M: Màu CAM (Sắp đạt ngưỡng cảnh báo)
+      // - >= 3.0M: Màu ĐỎ (Vượt mốc / Cần bảo dưỡng)
+      // - < 2.8M: Màu XANH (An toàn)
       const closedList = Array.isArray(closedMilestones) ? closedMilestones : [];
       let nextMilestone = 3000000;
       if (closedList.includes(4)) nextMilestone = 3500000;
@@ -979,22 +1003,39 @@ window.MoldMaintenance = (function() {
       if (closedList.includes(7)) nextMilestone = 5000000;
 
       plan = nextMilestone;
-      planDisplay = `Tiêu Chuẩn (Mốc ${(plan / 1000000).toFixed(1)}M)`;
       percent = Math.min(100, Math.round((curShots / plan) * 100));
       remaining = Math.max(0, plan - curShots);
 
-      const warnThreshold = plan - 200000;
+      const planThreshold = plan - 200000; // 2.8M
+      const warnThreshold = plan - 100000; // 2.9M
+
       if (curShots >= plan) {
         status = 'due';
+        statusLevel = 'urgent';
+        statusColor = 'red';
+        planDisplay = `🔴 Cần Bảo Dưỡng (${(plan / 1000000).toFixed(1)}M)`;
         statusText = `CẦN BẢO DƯỠNG MỐC ${(plan / 1000000).toFixed(1)}M`;
         statusClass = 'danger';
       } else if (curShots >= warnThreshold) {
         status = 'warning';
-        statusText = `SẮP CHẠM MỐC ${(warnThreshold / 1000000).toFixed(1)}M ~ ${(plan / 1000000).toFixed(1)}M`;
+        statusLevel = 'warning';
+        statusColor = 'orange';
+        planDisplay = `🟠 Sắp Chạm Mốc (${(warnThreshold / 1000000).toFixed(1)}M ~ ${(plan / 1000000).toFixed(1)}M)`;
+        statusText = 'SẮP ĐẠT NGƯỠNG CẢNH BÁO';
         statusClass = 'warning';
+      } else if (curShots >= planThreshold) {
+        status = 'plan';
+        statusLevel = 'plan';
+        statusColor = 'purple';
+        planDisplay = `🟣 Lên Plan Mốc ${(plan / 1000000).toFixed(1)}M`;
+        statusText = `LÊN PLAN BẢO DƯỠNG MỐC ${(plan / 1000000).toFixed(1)}M`;
+        statusClass = 'purple';
       } else {
         status = 'safe';
-        statusText = `An Toàn (< ${(warnThreshold / 1000000).toFixed(1)}M)`;
+        statusLevel = 'safe';
+        statusColor = 'green';
+        planDisplay = `🟢 An Toàn (< ${(planThreshold / 1000000).toFixed(1)}M)`;
+        statusText = `An Toàn (< ${(planThreshold / 1000000).toFixed(1)}M)`;
         statusClass = 'running';
       }
     }
@@ -1182,29 +1223,25 @@ window.MoldMaintenance = (function() {
         <span style="font-weight:800; color:#0f172a; display:inline-flex; align-items:center; gap:5px;">
           <span>🎯</span> Quy Chuẩn Màu SOP:
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#c2410c; font-weight:800; background:#ffedd5; padding:3px 10px; border-radius:5px; border:1px solid #fb923c;" title="Khuôn High-Impact (<3M) sắp đến cữ bảo dưỡng dự phòng 400K (380K ~ 400K)">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="340K ~ 350K: Cảnh báo lên plan bảo dưỡng (Màu tím)">
+          <span style="width:10px; height:10px; border-radius:2px; background:#a855f7; display:inline-block;"></span>
+          340k ~ 350K (Lên plan bảo dưỡng)
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#c2410c; font-weight:800; background:#ffedd5; padding:3px 10px; border-radius:5px; border:1px solid #fb923c;" title="350K ~ 400K: Sắp đạt ngưỡng cảnh báo (Màu cam)">
           <span style="width:10px; height:10px; border-radius:2px; background:#f97316; display:inline-block;"></span>
-          380k ~ 400K (High-Impact)
+          350k ~ 400K (Sắp đạt ngưỡng)
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#991b1b; font-weight:800; background:#fee2e2; padding:3px 10px; border-radius:5px; border:1px solid #f87171;" title="Cần bảo dưỡng (≥ 400K High-Impact hoặc cữ sau 3M)">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#991b1b; font-weight:800; background:#fee2e2; padding:3px 10px; border-radius:5px; border:1px solid #f87171;" title=">= 400K: Vượt và cảnh báo / Cần bảo dưỡng (Màu đỏ)">
           <span style="width:10px; height:10px; border-radius:2px; background:#ef4444; display:inline-block;"></span>
-          CẦN BẢO DƯỠNG (≥400K / ≥500K)
+          CẦN BẢO DƯỠNG (≥400K / ≥3.0M)
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="Mốc đại tu 3.0M: Cảnh báo từ 2.8M, tại 3M Bảo dưỡng tổng thể & Đánh giá full kích thước bản vẽ">
+        <span style="display:inline-flex; align-items:center; gap:6px; color:#701a75; font-weight:800; background:#fae8ff; padding:3px 10px; border-radius:5px; border:1px solid #e879f9;" title="Mốc đại tu 3.0M: Cảnh báo từ 2.8M (Màu tím), tại 3M Bảo dưỡng tổng thể & Đánh giá full kích thước bản vẽ">
           <span style="width:10px; height:10px; border-radius:2px; background:#d946ef; display:inline-block;"></span>
-          2.8M ~ 3.0M (Đo bước 3M)
+          2.8M ~ 3.0M (Plan mốc 3M)
         </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#b45309; font-weight:800; background:#fef3c7; padding:3px 10px; border-radius:5px; border:1px solid #fcd34d;" title="Mốc 4.5M: Báo cáo Japan HQ xin hướng xử lý trước 5M">
-          <span style="width:10px; height:10px; border-radius:2px; background:#f59e0b; display:inline-block;"></span>
-          4.3M ~ 4.5M (Báo cáo HQ)
-        </span>
-        <span style="display:inline-flex; align-items:center; gap:6px; color:#991b1b; font-weight:800; background:#fee2e2; padding:3px 10px; border-radius:5px; border:1px solid #fca5a5;" title="Mốc vòng đời 5.0M: Cảnh báo từ 4.8M, duy trì 500K & Critical Dimensions">
-          <span style="width:10px; height:10px; border-radius:2px; background:#dc2626; display:inline-block;"></span>
-          4.8M ~ 5.0M (Ngưỡng trần 5M)
-        </span>
-        <span style="display:inline-flex; align-items:center; gap:5px; color:#15803d; font-weight:700; background:#f0fdf4; padding:3px 10px; border-radius:5px; border:1px solid #bbf7d0;">
+        <span style="display:inline-flex; align-items:center; gap:5px; color:#15803d; font-weight:700; background:#f0fdf4; padding:3px 10px; border-radius:5px; border:1px solid #bbf7d0;" title="Dưới 340K hoặc đã hoàn thành bảo dưỡng">
           <span style="width:9px; height:9px; border-radius:50%; background:#22c55e; display:inline-block;"></span>
-          Đã chốt
+          Đã chốt / An toàn
         </span>
       </div>
     `;
@@ -1282,25 +1319,37 @@ window.MoldMaintenance = (function() {
     const current = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
     const currNum = current ? current.num : 1;
     const currShots = current ? current.shots : 0;
-    const isDue = currShots >= 400000;
-    const isWarn = currShots >= 380000 && !isDue;
 
-    // Quy chuẩn màu: Vùng an toàn (< 380k) là màu XANH LÁ, Cảnh báo (380k-400k) VÀNG, Quá hạn (>= 400k) ĐỎ
+    // RULE 4 MÀU:
+    // - ĐỎ: >= 400K (Vượt và cảnh báo)
+    // - CAM: >= 350K (Sắp đạt ngưỡng cảnh báo)
+    // - TÍM: >= 340K (Mốc plan / Cảnh báo lên plan bảo dưỡng)
+    // - XANH: < 340K (An toàn)
     let cellBg = '#dcfce7';
     let textColor = '#15803d';
     let fontWeight = '700';
+    let stateLabel = '';
 
-    if (isDue) {
+    if (currShots >= 400000) {
       cellBg = '#fee2e2';
       textColor = '#b91c1c';
       fontWeight = '800';
-    } else if (isWarn) {
-      cellBg = '#fef3c7';
-      textColor = '#b45309';
-      fontWeight = '700';
+      stateLabel = '[🔴 CẦN BẢO DƯỠNG ≥400K]';
+    } else if (currShots >= 350000) {
+      cellBg = '#ffedd5';
+      textColor = '#c2410c';
+      fontWeight = '800';
+      stateLabel = '[🟠 SẮP ĐẠT NGƯỠNG CẢNH BÁO 350K~400K]';
+    } else if (currShots >= 340000) {
+      cellBg = '#fae8ff';
+      textColor = '#701a75';
+      fontWeight = '800';
+      stateLabel = '[🟣 LÊN PLAN BẢO DƯỠNG 340K~350K]';
+    } else {
+      stateLabel = '[🟢 An toàn <340K]';
     }
 
-    const cellTitle = `400K (Cữ ${currNum}): ${formatNum(currShots)} / 400.000 shots${isDue ? ' [CẦN BẢO DƯỠNG]' : ''} - Bấm để mở bảng nhập shot`;
+    const cellTitle = `400K (Cữ ${currNum}): ${formatNum(currShots)} / 400.000 shots ${stateLabel} - Bấm để mở bảng nhập shot`;
 
     return `
       <td class="text-center font-mono" style="background:${cellBg}; color:${textColor}; font-weight:${fontWeight}; font-size:12px; vertical-align:middle; padding:6px 6px; border-left:1px solid #f1f5f9; cursor:pointer; user-select:none; transition:background 0.15s ease;"
@@ -2433,15 +2482,18 @@ window.MoldMaintenance = (function() {
   // Tier 2: SẮP CHỐT / CẢNH BÁO (VÀNG)
   // Tier 3: AN TOÀN / BÌNH THƯỜNG / ĐÃ CHỐT
   function getMoldVisualStatus(m) {
-    if (!m) return { tier: 3, hasRed: false, hasYellow: false, highestRedShots: 0, highestYellowShots: 0, redCol: '' };
+    if (!m) return { tier: 4, hasRed: false, hasOrange: false, hasPurple: false, highestRedShots: 0, highestOrangeShots: 0, highestPurpleShots: 0, redCol: '' };
 
     let hasRed = false;
-    let hasYellow = false;
+    let hasOrange = false;
+    let hasPurple = false;
     let highestRedShots = 0;
-    let highestYellowShots = 0;
+    let highestOrangeShots = 0;
+    let highestPurpleShots = 0;
     let redCol = '';
 
-    // 1. Cột 400K (chỉ High-Impact mới áp dụng mốc 400K)
+    // 1. Cột 400K (High-Impact):
+    // >= 400K: ĐỎ | >= 350K: CAM | >= 340K: TÍM
     if (m.isHighImpact) {
       const cycles = get400kCyclesInfo(m);
       const curr = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
@@ -2452,9 +2504,12 @@ window.MoldMaintenance = (function() {
             highestRedShots = curr.shots;
             redCol = `400K (${formatNum(curr.shots)})`;
           }
-        } else if (curr.shots >= 380000) {
-          hasYellow = true;
-          if (curr.shots > highestYellowShots) highestYellowShots = curr.shots;
+        } else if (curr.shots >= 350000) {
+          hasOrange = true;
+          if (curr.shots > highestOrangeShots) highestOrangeShots = curr.shots;
+        } else if (curr.shots >= 340000) {
+          hasPurple = true;
+          if (curr.shots > highestPurpleShots) highestPurpleShots = curr.shots;
         }
       }
     }
@@ -2469,9 +2524,12 @@ window.MoldMaintenance = (function() {
           highestRedShots = val4;
           redCol = `3.0M (${formatNum(val4)})`;
         }
+      } else if (val4 >= 2900000) {
+        hasOrange = true;
+        if (val4 > highestOrangeShots) highestOrangeShots = val4;
       } else if (val4 >= 2800000) {
-        hasYellow = true;
-        if (val4 > highestYellowShots) highestYellowShots = val4;
+        hasPurple = true;
+        if (val4 > highestPurpleShots) highestPurpleShots = val4;
       }
     }
 
@@ -2485,15 +2543,19 @@ window.MoldMaintenance = (function() {
             highestRedShots = val;
             redCol = `Mốc ${c === 5 ? '3.5M' : c === 6 ? '4.0M' : c === 7 ? '4.5M' : '5.0M'} (${formatNum(val)})`;
           }
-        } else if (val >= 470000) {
-          hasYellow = true;
-          if (val > highestYellowShots) highestYellowShots = val;
+        } else if (val >= 480000) {
+          hasOrange = true;
+          if (val > highestOrangeShots) highestOrangeShots = val;
+        } else if (val >= 460000) {
+          hasPurple = true;
+          if (val > highestPurpleShots) highestPurpleShots = val;
         }
       }
     }
 
-    const tier = hasRed ? 1 : (hasYellow ? 2 : 3);
-    return { tier, hasRed, hasYellow, highestRedShots, highestYellowShots, redCol };
+    // Tier 1: Đỏ (>=400K) -> Tier 2: Cam (350K-400K) -> Tier 3: Tím (340K-350K) -> Tier 4: An toàn
+    const tier = hasRed ? 1 : (hasOrange ? 2 : (hasPurple ? 3 : 4));
+    return { tier, hasRed, hasOrange, hasPurple, highestRedShots, highestOrangeShots, highestPurpleShots, redCol };
   }
 
   function getFilteredMolds() {
@@ -2521,32 +2583,38 @@ window.MoldMaintenance = (function() {
       return matchText && matchTier && matchStatus;
     });
 
-    // Xếp theo khuôn, không theo máy: Cứ ĐỎ là lên trước (Tier 1: Đỏ -> Tier 2: Vàng -> Tier 3: Trắng)
+    // Xếp theo khuôn: Đỏ (Tier 1: >=400K) -> Cam (Tier 2: 350K~400K) -> Tím (Tier 3: 340K~350K) -> An toàn (Tier 4)
     filtered.sort((a, b) => {
       const vA = getMoldVisualStatus(a);
       const vB = getMoldVisualStatus(b);
 
-      // 1. Phân cấp mức độ: Đỏ (Tier 1) -> Vàng (Tier 2) -> Trắng (Tier 3)
+      // 1. Phân cấp mức độ: Đỏ -> Cam -> Tím -> Trắng
       if (vA.tier !== vB.tier) {
         return vA.tier - vB.tier;
       }
 
-      // 2. Trong nhóm ĐỎ: Xếp giảm dần theo số shot mốc đỏ (không phân biệt máy)
+      // 2. Trong nhóm ĐỎ: Xếp giảm dần theo số shot mốc đỏ
       if (vA.tier === 1) {
         if (vB.highestRedShots !== vA.highestRedShots) {
           return vB.highestRedShots - vA.highestRedShots;
         }
       }
 
-      // 3. Trong nhóm VÀNG: Xếp giảm dần theo số shot tiệm cận
+      // 3. Trong nhóm CAM: Xếp giảm dần theo số shot sắp đạt ngưỡng
       if (vA.tier === 2) {
-        if (vB.highestYellowShots !== vA.highestYellowShots) {
-          return vB.highestYellowShots - vA.highestYellowShots;
+        if (vB.highestOrangeShots !== vA.highestOrangeShots) {
+          return vB.highestOrangeShots - vA.highestOrangeShots;
         }
       }
 
-      // 4. Nhóm Trắng / An toàn: Xếp theo khuôn, không theo máy!
-      // Ưu tiên khuôn có sản lượng thực tế trong năm (totalYear)
+      // 4. Trong nhóm TÍM: Xếp giảm dần theo số shot lên plan
+      if (vA.tier === 3) {
+        if (vB.highestPurpleShots !== vA.highestPurpleShots) {
+          return vB.highestPurpleShots - vA.highestPurpleShots;
+        }
+      }
+
+      // 5. Nhóm Trắng / An toàn: Xếp theo khuôn, ưu tiên sản lượng trong năm
       const totA = Number(a.totalYear) || Number(a.totalAccumulatedYear) || (Number(a.curShots) || 0);
       const totB = Number(b.totalYear) || Number(b.totalAccumulatedYear) || (Number(b.curShots) || 0);
       if (totA !== totB) return totB - totA;
@@ -2784,8 +2852,8 @@ window.MoldMaintenance = (function() {
 
         const displayMoldName = (m.newMold && m.newMold !== '-' && m.newMold !== 'null') ? m.newMold : (m.oldMold && m.oldMold !== '-' ? m.oldMold : m.mold);
         const vStatus = getMoldVisualStatus(m);
-        const rowBg = vStatus.hasRed ? 'background:#fff1f2;' : (vStatus.hasYellow ? 'background:#fffbeb;' : '');
-        const stickyBg = vStatus.hasRed ? '#fff1f2' : (vStatus.hasYellow ? '#fffbeb' : '#ffffff');
+        const rowBg = vStatus.hasRed ? 'background:#fff1f2;' : (vStatus.hasOrange ? 'background:#fff7ed;' : (vStatus.hasPurple ? 'background:#faf5ff;' : ''));
+        const stickyBg = vStatus.hasRed ? '#fff1f2' : (vStatus.hasOrange ? '#fff7ed' : (vStatus.hasPurple ? '#faf5ff' : '#ffffff'));
 
         html += `
           <tr style="${rowBg}">

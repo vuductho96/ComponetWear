@@ -243,31 +243,31 @@ function renderMetrics() {
   if ($("totalReplacementsVal")) $("totalReplacementsVal").textContent = totalRepsInYear.toLocaleString();
   if ($("overviewDueMoldsVal")) {
     let dueCount = 0;
-    let warningCount = 0;
+    let orangeCount = 0;
+    let planCount = 0;
     let safeCount = 0;
     if (window.MoldMaintenance && typeof window.MoldMaintenance.getAllUnifiedMolds === 'function') {
       const unified = window.MoldMaintenance.getAllUnifiedMolds();
       if (unified && unified.length > 0) {
-        dueCount = unified.filter(m => m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0)).length;
-        warningCount = unified.filter(m => (m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90)) && !(m.status === 'due' || m.statusLevel === 'urgent')).length;
-        safeCount = Math.max(0, unified.length - dueCount - warningCount);
+        dueCount = unified.filter(m => m.status === 'due' || m.statusLevel === 'urgent').length;
+        orangeCount = unified.filter(m => m.status === 'warning' || m.statusLevel === 'warning').length;
+        planCount = unified.filter(m => m.status === 'plan' || m.statusLevel === 'plan').length;
+        safeCount = Math.max(0, unified.length - dueCount - orangeCount - planCount);
       }
     }
-    if (dueCount === 0 && warningCount === 0) {
+    if (dueCount === 0 && orangeCount === 0 && planCount === 0) {
       const mmData = window._moldMaintenanceData || window._cachedMaintenanceData;
       if (mmData) {
         dueCount = mmData.urgentCount || 0;
-        warningCount = mmData.warningCount || 0;
+        orangeCount = mmData.warningCount || 0;
         safeCount = mmData.safeCount || 0;
       }
     }
     $("overviewDueMoldsVal").innerHTML = dueCount > 0 
-      ? `<span style="color:#dc2626;">${dueCount} khẩn cấp</span>` 
-      : (warningCount > 0 ? `<span style="color:#d97706;">${warningCount} cảnh báo</span>` : `<span style="color:#16a34a;">0</span>`);
+      ? `<span style="color:#dc2626;">${dueCount} vượt mốc</span>` 
+      : (orangeCount > 0 ? `<span style="color:#ea580c;">${orangeCount} sắp chạm</span>` : (planCount > 0 ? `<span style="color:#701a75;">${planCount} lên plan</span>` : `<span style="color:#16a34a;">0</span>`));
     if ($("overviewDueMoldsSub")) {
-      $("overviewDueMoldsSub").textContent = dueCount > 0 
-        ? `${dueCount} chạm mốc • ${warningCount} cảnh báo sớm (${safeCount} an toàn)`
-        : (warningCount > 0 ? `${warningCount} khuôn sắp chạm mốc (<10%)` : 'Tất cả khuôn an toàn');
+      $("overviewDueMoldsSub").textContent = `${dueCount} vượt mốc • ${orangeCount} sắp chạm • ${planCount} lên plan (${safeCount} an toàn)`;
     }
   }
   if ($("avgLifeVal")) $("avgLifeVal").textContent = avgLifeVal > 0 ? (avgLifeVal >= 1000 ? Math.round(avgLifeVal / 1000) + "k" : avgLifeVal) : "-";
@@ -1096,34 +1096,40 @@ async function renderMoldMaintenanceAlertsInOverview() {
       return;
     }
 
-    // Đếm số lượng theo trạng thái bảo dưỡng (chuẩn SOP cũ)
-    const dueCount = allMolds.filter(m => m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0)).length;
-    const warningCount = allMolds.filter(m => (m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90)) && !(m.status === 'due' || m.statusLevel === 'urgent')).length;
-    const safeCount = Math.max(0, allMolds.length - dueCount - warningCount);
+    // Đếm số lượng theo rule 4 màu SOP: Đỏ (≥400K), Cam (350K~400K), Tím (340K~350K), Xanh (<340K)
+    const dueCount = allMolds.filter(m => m.status === 'due' || m.statusLevel === 'urgent').length;
+    const orangeCount = allMolds.filter(m => m.status === 'warning' || m.statusLevel === 'warning').length;
+    const planCount = allMolds.filter(m => m.status === 'plan' || m.statusLevel === 'plan').length;
+    const safeCount = Math.max(0, allMolds.length - dueCount - orangeCount - planCount);
 
     // Cập nhật card KPI trên hàng đầu trang (287 khuôn)
     if ($("overviewDueMoldsVal")) {
       $("overviewDueMoldsVal").innerHTML = dueCount > 0 
-        ? `<span style="color:#dc2626;">${dueCount} khẩn cấp</span>` 
-        : (warningCount > 0 ? `<span style="color:#d97706;">${warningCount} cảnh báo</span>` : `<span style="color:#16a34a;">0</span>`);
+        ? `<span style="color:#dc2626;">${dueCount} vượt mốc</span>` 
+        : (orangeCount > 0 ? `<span style="color:#ea580c;">${orangeCount} sắp chạm</span>` : (planCount > 0 ? `<span style="color:#701a75;">${planCount} lên plan</span>` : `<span style="color:#16a34a;">0</span>`));
     }
     if ($("overviewDueMoldsSub")) {
-      $("overviewDueMoldsSub").textContent = `${dueCount} chạm mốc • ${warningCount} cảnh báo sớm (${safeCount} an toàn)`;
+      $("overviewDueMoldsSub").textContent = `${dueCount} vượt mốc • ${orangeCount} sắp chạm • ${planCount} lên plan (${safeCount} an toàn)`;
     }
 
-    // LỌC CHỈ CÁC KHUÔN CẦN BẢO DƯỠNG (KHẨN CẤP HOẶC CẢNH BÁO)
-    // Ưu tiên: Chạm mốc (due) trước -> Đang chạy trên máy trước -> Ngày còn lại ít hơn -> % cao hơn
+    // LỌC CÁC KHUÔN CẦN CHÚ Ý THEO 3 MỨC CẢNH BÁO: ĐỎ (≥400K) -> CAM (350K~400K) -> TÍM (340K~350K)
     const needMaintenanceMolds = allMolds.filter(m => {
-      const isDue = m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0);
-      const isWarn = m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90);
-      return isDue || isWarn;
+      return m.status === 'due' || m.statusLevel === 'urgent' ||
+             m.status === 'warning' || m.statusLevel === 'warning' ||
+             m.status === 'plan' || m.statusLevel === 'plan';
     }).sort((a, b) => {
-      const aDue = a.status === 'due' || a.statusLevel === 'urgent';
-      const bDue = b.status === 'due' || b.statusLevel === 'urgent';
-      if (aDue && !bDue) return -1;
-      if (!aDue && bDue) return 1;
+      // Phân cấp mức độ: Đỏ (tier 1: >=400k) -> Cam (tier 2: 350k~400k) -> Tím (tier 3: 340k~350k) -> Khác (tier 4)
+      const tierOf = x => {
+        if (x.status === 'due' || x.statusLevel === 'urgent') return 1;
+        if (x.status === 'warning' || x.statusLevel === 'warning') return 2;
+        if (x.status === 'plan' || x.statusLevel === 'plan') return 3;
+        return 4;
+      };
+      const tA = tierOf(a);
+      const tB = tierOf(b);
+      if (tA !== tB) return tA - tB;
 
-      // Xếp giảm dần theo số shot mốc đang cảnh báo (khớp 100% thứ tự với bảng Bảo Dưỡng Khuôn)
+      // Trong cùng nhóm: Xếp giảm dần theo số shot
       const aShots = Number(a.curShots || 0);
       const bShots = Number(b.curShots || 0);
       if (bShots !== aShots) return bShots - aShots;
@@ -1141,11 +1147,12 @@ async function renderMoldMaintenanceAlertsInOverview() {
       <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:16px;">🎯</span>
-          <span style="font-size:13px; font-weight:700; color:#1e293b;">MỐC QUY ĐỊNH (SOP): TIÊU CHUẨN 2.8M - 3.0M • HIGH-IMPACT 400K</span>
+          <span style="font-size:13px; font-weight:700; color:#1e293b;">QUY CHUẨN MÀU SOP: 🟣 340K-350K LÊN PLAN • 🟠 350K-400K CẢNH BÁO • 🔴 ≥400K BẢO DƯỠNG</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700;">
-          ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} chạm mốc</span>` : ''}
-          ${warningCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fef3c7; color:#b45309;">🟡 ${warningCount} cảnh báo sớm</span>` : ''}
+          ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} vượt mốc</span>` : ''}
+          ${orangeCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#ffedd5; color:#c2410c;">🟠 ${orangeCount} sắp chạm</span>` : ''}
+          ${planCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fae8ff; color:#701a75;">🟣 ${planCount} lên plan</span>` : ''}
           <span style="padding:4px 10px; border-radius:12px; background:#dcfce7; color:#15803d;">🟢 ${safeCount} an toàn</span>
           <button type="button" onclick="switchTab('moldmaintenance');" style="background:#2563eb; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:11.5px; font-weight:600; margin-left:4px;">
             Xem Bảng Chi Tiết →
@@ -1182,21 +1189,46 @@ async function renderMoldMaintenanceAlertsInOverview() {
       `;
 
       needMaintenanceMolds.forEach(m => {
-        const isDue = m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0);
-        const icon = isDue ? '🔴' : '🟡';
+        const isDue = m.status === 'due' || m.statusLevel === 'urgent';
+        const isWarn = m.status === 'warning' || m.statusLevel === 'warning';
+        const isPlan = m.status === 'plan' || m.statusLevel === 'plan';
+
+        let icon = '🟢';
+        let barColor = '#16a34a';
+        let rowBg = '';
+        let sopBadgeBg = 'background:#eff6ff; color:#1d4ed8;';
+
         const isRunning = Boolean(m.machineNo && m.machineNo !== '-');
         const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
         const curShotVal = Math.round(Number(m.curShots || 0));
         const nextMilestoneVal = Number(m.planMilestone || (isHigh ? 400000 : 3000000));
         const remShots = Math.max(0, nextMilestoneVal - curShotVal);
         const pct = m.percent !== undefined ? m.percent : Math.min(100, Math.round((curShotVal / (nextMilestoneVal || 1)) * 100));
-        const barColor = isDue ? '#dc2626' : '#d97706';
-        const rowBg = isDue ? 'background:#fff1f2;' : 'background:#fffbeb;';
-        const daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot` : 'Đã chạm mốc';
+        let daysText = '';
 
-        const sopBadgeBg = isHigh ? 'background:#fef3c7; color:#b45309;' : 'background:#eff6ff; color:#1d4ed8;';
-        const sopBadgeText = isHigh ? (m.planDisplay || `🔥 High-Impact (${m.cycleName || '400K'})`) : (m.planDisplay || `Tiêu Chuẩn (Mốc ${(nextMilestoneVal / 1000000).toFixed(1)}M)`);
+        if (isDue) {
+          icon = '🔴';
+          barColor = '#dc2626';
+          rowBg = 'background:#fff1f2;';
+          sopBadgeBg = 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;';
+          daysText = 'Vượt mốc bảo dưỡng';
+        } else if (isWarn) {
+          icon = '🟠';
+          barColor = '#ea580c';
+          rowBg = 'background:#fff7ed;';
+          sopBadgeBg = 'background:#ffedd5; color:#c2410c; border:1px solid #fdba74;';
+          daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot (sắp chạm)` : 'Sắp đạt ngưỡng';
+        } else if (isPlan) {
+          icon = '🟣';
+          barColor = '#701a75';
+          rowBg = 'background:#faf5ff;';
+          sopBadgeBg = 'background:#fae8ff; color:#701a75; border:1px solid #f0abfc;';
+          daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot (lên plan)` : 'Cần lên plan';
+        } else {
+          daysText = 'An toàn';
+        }
 
+        const sopBadgeText = m.planDisplay || (isHigh ? `High-Impact (${m.cycleName || '400K'})` : `Tiêu Chuẩn (Mốc ${(nextMilestoneVal / 1000000).toFixed(1)}M)`);
         html += `
           <tr style="border-bottom:1px solid #f1f5f9; ${rowBg}">
             <td style="padding:8px 8px; text-align:center; font-size:15px;">${icon}</td>
