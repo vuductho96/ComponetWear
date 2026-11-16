@@ -1465,6 +1465,9 @@ window.MoldMaintenance = (function() {
   }
 
   function openShotEntryModal(moldNo, targetTabOrMilestone) {
+    isExcelEditUnlocked = false;
+    const _pInput = document.getElementById("mmExcelPassword"); if (_pInput) _pInput.value = "";
+    const _uBtn = document.getElementById("mmExcelUnlockBtn"); if (_uBtn) { _uBtn.innerHTML = "🔒 Mở lại edit"; _uBtn.style.color = "#334155"; _uBtn.style.borderColor = "#cbd5e1"; _uBtn.style.background = "#ffffff"; }
     const code = String(moldNo || '').trim().toUpperCase();
     const allMolds = getAllUnifiedMolds();
     const m = allMolds.find(x => 
@@ -1687,9 +1690,72 @@ window.MoldMaintenance = (function() {
     openShotEntryModal(moldNo, milestoneNum || 4);
   }
 
+  let isExcelEditUnlocked = false;
+
+  function unlockExcelEdit() {
+    const pwdInput = document.getElementById('mmExcelPassword');
+    const pwd = (pwdInput?.value || '').trim();
+    if (!pwd) {
+      const promptPwd = prompt('Vui lòng nhập mật khẩu (mặc định: 1234) để mở lại chỉnh sửa:');
+      if (promptPwd === null) return;
+      if (promptPwd.trim() === '1234') {
+        isExcelEditUnlocked = true;
+        applyExcelUnlockState();
+        alert('Đã mở khóa chỉnh sửa dữ liệu thành công!');
+        return;
+      } else {
+        alert('Mật khẩu không chính xác!');
+        return;
+      }
+    }
+
+    if (pwd === '1234') {
+      isExcelEditUnlocked = true;
+      applyExcelUnlockState();
+      if (pwdInput) pwdInput.value = '';
+      alert('Đã mở khóa chỉnh sửa dữ liệu thành công!');
+    } else {
+      alert('Mật khẩu không chính xác (mặc định: 1234)!');
+    }
+  }
+
+  function applyExcelUnlockState() {
+    const rows = getActiveExcelRows();
+    rows.forEach((row, idx) => {
+      // Enable all editable fields
+      const shotEl = document.getElementById('mm_shot_' + idx);
+      const dateEl = document.getElementById('mm_date_' + idx);
+      const ktvEl = document.getElementById('mm_ktv_' + idx);
+      const noteEl = document.getElementById('mm_note_' + idx);
+      if (shotEl) { shotEl.disabled = false; shotEl.style.cursor = 'text'; shotEl.style.background = '#ffffff'; }
+      if (dateEl) { dateEl.disabled = false; dateEl.style.cursor = 'text'; dateEl.style.background = '#ffffff'; }
+      if (ktvEl) { ktvEl.disabled = false; ktvEl.style.cursor = 'text'; ktvEl.style.background = '#ffffff'; }
+      if (noteEl) { noteEl.disabled = false; noteEl.style.cursor = 'text'; noteEl.style.background = '#ffffff'; }
+    });
+    const btn = document.getElementById('mmExcelUnlockBtn');
+    if (btn) {
+      btn.innerHTML = '🔓 Đã mở khóa';
+      btn.style.color = '#15803d';
+      btn.style.borderColor = '#86efac';
+      btn.style.background = '#f0fdf4';
+    }
+  }
+
   async function save400kExcelTable() {
     if (!activeShotModalMold) return;
     const moldNo = activeShotModalMold;
+
+    const pwdInput = document.getElementById('mmExcelPassword');
+    const enteredPwd = (pwdInput?.value || '').trim();
+    if (!isExcelEditUnlocked && enteredPwd !== '1234') {
+      const promptPwd = prompt('Vui lòng nhập mật khẩu (1234) để xác nhận Hoàn thành:');
+      if (promptPwd === null) return;
+      if (promptPwd.trim() !== '1234') {
+        alert('Mật khẩu không chính xác (mặc định: 1234)! Không thể lưu.');
+        return;
+      }
+      isExcelEditUnlocked = true;
+    }
     const rows = getActiveExcelRows();
 
     const confirmBtn = document.getElementById('mm400kConfirmBtn');
@@ -4449,6 +4515,8 @@ window.MoldMaintenance = (function() {
     closeMilestoneModal,
     open400kDetailModal,
     close400kDetailModal,
+    unlockExcelEdit,
+    applyExcelUnlockState,
     add400kRow,
     handle400kRowUpload: handleExcelRowUpload,
     remove400kRowFile: removeExcelRowFile,

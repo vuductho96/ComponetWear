@@ -715,7 +715,7 @@
   <script src="js/language.js?v=20261020-iqc"></script>
   <script src="js/auth.js?v=20261104_rbac"></script>
   <script src="js/account-permissions.js?v=20261023-per-account"></script>
-  <script src="js/mold-maintenance.js?v=20261116_v4"></script>
+  <script src="js/mold-maintenance.js?v=20261116_v5"></script>
   <script src="js/app.js?v=20261104_v7"></script>
 
     <!-- MODAL BẢNG NHẬP SHOT 400K (HIGH-IMPACT) CHUẨN EXCEL -->
@@ -763,7 +763,15 @@
 
           <!-- Bottom Action Bar -->
           <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; gap:10px;">
-            <div id="mmModalNotice" style="font-size:12px; color:#64748b; font-style:italic;"></div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:12.5px; font-weight:600; color:#334155;">Mật khẩu:</span>
+              <input type="password" id="mmExcelPassword" placeholder="••••" style="width:85px; padding:5px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; text-align:center;">
+              <button type="button" id="mmExcelUnlockBtn" onclick="MoldMaintenance.unlockExcelEdit()" 
+                      style="display:inline-flex; align-items:center; gap:4px; padding:5px 12px; border:1px solid #cbd5e1; background:#ffffff; color:#334155; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.15s ease;">
+                🔒 Mở lại edit
+              </button>
+              <span id="mmModalNotice" style="font-size:12px; color:#64748b; font-style:italic; margin-left:6px;"></span>
+            </div>
             
             <div style="display:flex; align-items:center; gap:8px;">
               <button type="button" onclick="MoldMaintenance.close400kDetailModal()" 
