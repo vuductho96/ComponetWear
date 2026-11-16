@@ -233,6 +233,12 @@ window.MoldMaintenance = (function() {
           window._moldMaintenanceData = rawData;
           renderKPIs();
           renderTable();
+          if (typeof renderMoldMaintenanceAlertsInOverview === 'function') {
+            try { renderMoldMaintenanceAlertsInOverview(); } catch (e) {}
+          }
+          if (typeof renderOverviewTab === 'function') {
+            try { renderOverviewTab(); } catch (e) {}
+          }
         }
       } catch (e) {}
     }, 60000);
@@ -252,6 +258,12 @@ window.MoldMaintenance = (function() {
         window._moldMaintenanceData = rawData;
         renderKPIs();
         renderTable();
+        if (typeof renderMoldMaintenanceAlertsInOverview === 'function') {
+          try { renderMoldMaintenanceAlertsInOverview(); } catch (e) {}
+        }
+        if (typeof renderOverviewTab === 'function') {
+          try { renderOverviewTab(); } catch (e) {}
+        }
         if (txt) txt.textContent = 'Đã cập nhật!';
         setTimeout(() => { if (txt) txt.textContent = 'Đồng bộ TMS'; }, 2000);
       }
@@ -263,8 +275,35 @@ window.MoldMaintenance = (function() {
     }
   }
 
+  let dataLoadingPromise = null;
+  async function ensureDataLoaded() {
+    if (rawData && Array.isArray(rawData.records) && Array.isArray(rawData.excelMasterMolds) && rawData.excelMasterMolds.length > 0) {
+      return rawData;
+    }
+    if (dataLoadingPromise) return dataLoadingPromise;
+    dataLoadingPromise = (async () => {
+      try {
+        let res = await fetch('/api/tms/data?v=' + Date.now());
+        if (!res.ok || res.status === 404) {
+          res = await fetch('data/mold-maintenance-data.json?v=' + Date.now());
+        }
+        if (!res.ok) throw new Error('Không thể tải dữ liệu bảo dưỡng khuôn');
+        rawData = await res.json();
+        window._moldMaintenanceData = rawData;
+        return rawData;
+      } catch (err) {
+        console.warn('[MOLD MAINTENANCE] ensureDataLoaded error:', err);
+        return null;
+      } finally {
+        dataLoadingPromise = null;
+      }
+    })();
+    return dataLoadingPromise;
+  }
+
   async function init() {
     console.log('[MOLD MAINTENANCE] Initializing module...');
+    await ensureDataLoaded();
     const container = document.getElementById('moldMaintenanceWorkspace');
     if (!container) return;
 
@@ -281,13 +320,15 @@ window.MoldMaintenance = (function() {
     initialized = true;
 
     try {
-      let res = await fetch('/api/tms/data?v=' + Date.now());
-      if (!res.ok || res.status === 404) {
-        res = await fetch('data/mold-maintenance-data.json?v=' + Date.now());
+      if (!rawData) {
+        let res = await fetch('/api/tms/data?v=' + Date.now());
+        if (!res.ok || res.status === 404) {
+          res = await fetch('data/mold-maintenance-data.json?v=' + Date.now());
+        }
+        if (!res.ok) throw new Error('Không thể tải dữ liệu bảo dưỡng khuôn');
+        rawData = await res.json();
+        window._moldMaintenanceData = rawData;
       }
-      if (!res.ok) throw new Error('Không thể tải dữ liệu bảo dưỡng khuôn');
-      rawData = await res.json();
-      window._moldMaintenanceData = rawData;
       populateDateFilters();
       updateToolbarVisibility();
       // Xóa triệt để mọi autofill email do trình duyệt tự ý điền vào ô tìm kiếm
@@ -525,6 +566,9 @@ window.MoldMaintenance = (function() {
         rawData = await res.json();
         window._moldMaintenanceData = rawData;
         renderAll();
+        if (typeof renderMoldMaintenanceAlertsInOverview === 'function') {
+          try { renderMoldMaintenanceAlertsInOverview(); } catch (e) {}
+        }
         if (typeof renderOverviewTab === 'function') {
           try { renderOverviewTab(); } catch (e) {}
         }
@@ -1848,6 +1892,12 @@ window.MoldMaintenance = (function() {
       if (typeof renderMoldsOverviewSheet === 'function') renderMoldsOverviewSheet();
       if (typeof renderDailySheet === 'function') renderDailySheet();
       if (typeof renderKPIs === 'function') renderKPIs();
+      if (typeof renderMoldMaintenanceAlertsInOverview === 'function') {
+        try { renderMoldMaintenanceAlertsInOverview(); } catch (e) {}
+      }
+      if (typeof renderOverviewTab === 'function') {
+        try { renderOverviewTab(); } catch (e) {}
+      }
     } catch (err) {
       console.error('Lỗi lưu bảng shot:', err);
       alert('Không thể lưu bảng: ' + (err?.message || err));
@@ -4596,6 +4646,7 @@ window.MoldMaintenance = (function() {
     showAllMachines,
     renderKPIs,
     renderKpis: renderKPIs,
-    refreshData
+    refreshData,
+    ensureDataLoaded
   };
 })();

@@ -744,7 +744,12 @@ function switchTab(name) {
   }
 
   renderMetrics();
-  if (isOverview) { if (typeof renderOverviewTab === 'function') renderOverviewTab(); }
+  if (isOverview) {
+    if (typeof renderOverviewTab === 'function') renderOverviewTab();
+    if (typeof renderMoldMaintenanceAlertsInOverview === 'function') {
+      try { renderMoldMaintenanceAlertsInOverview(); } catch (e) {}
+    }
+  }
   else if (name === "month") renderMonth();
   else if (isDashboard) renderStockTable();
   else if (name === "chart") renderChartsTab();
@@ -1006,6 +1011,14 @@ async function initApp() {
   // Start polling after the initial load, so an older startup request cannot overwrite a new snapshot.
   switchTab(new URLSearchParams(location.search).get('tab') || ComponentAuth.tabs[0] || 'noaccess');
   if (ComponentAuth.tabs.some(tab=>['overview','month','stock','chart'].includes(tab))) loadAllDataFromSource().finally(initHeartbeat);
+  if (window.MoldMaintenance && typeof window.MoldMaintenance.ensureDataLoaded === 'function') {
+    window.MoldMaintenance.ensureDataLoaded().then(() => {
+      if (typeof renderMetrics === 'function') renderMetrics();
+      if (typeof renderMoldMaintenanceAlertsInOverview === 'function') {
+        renderMoldMaintenanceAlertsInOverview();
+      }
+    }).catch(() => {});
+  }
   console.log("%c[BOOT] ========== initApp DONE ==========", "color:#7c3aed; font-weight:bold; font-size:15px;");
 }
 

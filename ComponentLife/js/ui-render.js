@@ -242,12 +242,32 @@ function renderMetrics() {
   if ($("totalPartsVal")) $("totalPartsVal").textContent = totalPartsCount.toLocaleString();
   if ($("totalReplacementsVal")) $("totalReplacementsVal").textContent = totalRepsInYear.toLocaleString();
   if ($("overviewDueMoldsVal")) {
-    const mmData = window._moldMaintenanceData || window._cachedMaintenanceData;
-    if (mmData) {
-      const urgent = mmData.urgentCount || 0;
-      const warning = mmData.warningCount || 0;
-      $("overviewDueMoldsVal").innerHTML = urgent > 0 ? `<span style="color:#dc2626;">${urgent} khẩn</span>` : (warning > 0 ? `<span style="color:#d97706;">${warning} cảnh báo</span>` : `<span style="color:#16a34a;">0</span>`);
-      if ($("overviewDueMoldsSub")) $("overviewDueMoldsSub").textContent = urgent > 0 ? `${urgent} chạm mốc • ${warning} cảnh báo sớm` : (warning > 0 ? `${warning} khuôn sắp chạm mốc (<10%)` : 'Tất cả khuôn an toàn');
+    let dueCount = 0;
+    let warningCount = 0;
+    let safeCount = 0;
+    if (window.MoldMaintenance && typeof window.MoldMaintenance.getAllUnifiedMolds === 'function') {
+      const unified = window.MoldMaintenance.getAllUnifiedMolds();
+      if (unified && unified.length > 0) {
+        dueCount = unified.filter(m => m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0)).length;
+        warningCount = unified.filter(m => (m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90)) && !(m.status === 'due' || m.statusLevel === 'urgent')).length;
+        safeCount = Math.max(0, unified.length - dueCount - warningCount);
+      }
+    }
+    if (dueCount === 0 && warningCount === 0) {
+      const mmData = window._moldMaintenanceData || window._cachedMaintenanceData;
+      if (mmData) {
+        dueCount = mmData.urgentCount || 0;
+        warningCount = mmData.warningCount || 0;
+        safeCount = mmData.safeCount || 0;
+      }
+    }
+    $("overviewDueMoldsVal").innerHTML = dueCount > 0 
+      ? `<span style="color:#dc2626;">${dueCount} khẩn cấp</span>` 
+      : (warningCount > 0 ? `<span style="color:#d97706;">${warningCount} cảnh báo</span>` : `<span style="color:#16a34a;">0</span>`);
+    if ($("overviewDueMoldsSub")) {
+      $("overviewDueMoldsSub").textContent = dueCount > 0 
+        ? `${dueCount} chạm mốc • ${warningCount} cảnh báo sớm (${safeCount} an toàn)`
+        : (warningCount > 0 ? `${warningCount} khuôn sắp chạm mốc (<10%)` : 'Tất cả khuôn an toàn');
     }
   }
   if ($("avgLifeVal")) $("avgLifeVal").textContent = avgLifeVal > 0 ? (avgLifeVal >= 1000 ? Math.round(avgLifeVal / 1000) + "k" : avgLifeVal) : "-";
@@ -1053,20 +1073,22 @@ async function renderMoldMaintenanceAlertsInOverview() {
   if (!moldAlertsEl) return;
 
   try {
-    let moldData = window._moldMaintenanceData;
-    if (!moldData) {
-      const res = await fetch("data/mold-maintenance-data.json?v=" + Date.now());
-      if (res.ok) {
-        moldData = await res.json();
-        window._moldMaintenanceData = moldData;
-      }
+    if (window.MoldMaintenance && typeof window.MoldMaintenance.ensureDataLoaded === 'function') {
+      await window.MoldMaintenance.ensureDataLoaded();
+    } else if (!window._moldMaintenanceData) {
+      try {
+        const res = await fetch("data/mold-maintenance-data.json?v=" + Date.now());
+        if (res.ok) {
+          window._moldMaintenanceData = await res.json();
+        }
+      } catch (e) {}
     }
 
     let allMolds = [];
     if (window.MoldMaintenance && typeof window.MoldMaintenance.getAllUnifiedMolds === 'function') {
       allMolds = window.MoldMaintenance.getAllUnifiedMolds();
-    } else if (moldData && moldData.records) {
-      allMolds = moldData.records;
+    } else if (window._moldMaintenanceData && window._moldMaintenanceData.records) {
+      allMolds = window._moldMaintenanceData.records;
     }
 
     if (!allMolds || allMolds.length === 0) {
@@ -1074,36 +1096,42 @@ async function renderMoldMaintenanceAlertsInOverview() {
       return;
     }
 
-    // Đếm số lượng theo trạng thái bảo dưỡng
+    // Đếm số lượng theo trạng thái bảo dưỡng (chuẩn SOP cũ)
     const dueCount = allMolds.filter(m => m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0)).length;
     const warningCount = allMolds.filter(m => (m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90)) && !(m.status === 'due' || m.statusLevel === 'urgent')).length;
     const safeCount = Math.max(0, allMolds.length - dueCount - warningCount);
 
-    // Cập nhật card KPI trên hàng đầu trang nếu có
+    // Cập nhật card KPI trên hàng đầu trang (287 khuôn)
     if ($("overviewDueMoldsVal")) {
       $("overviewDueMoldsVal").innerHTML = dueCount > 0 
-        ? `<span style="color:#dc2626;">${dueCount} khẩn</span>` 
+        ? `<span style="color:#dc2626;">${dueCount} khẩn cấp</span>` 
         : (warningCount > 0 ? `<span style="color:#d97706;">${warningCount} cảnh báo</span>` : `<span style="color:#16a34a;">0</span>`);
     }
     if ($("overviewDueMoldsSub")) {
-      $("overviewDueMoldsSub").textContent = dueCount > 0 
-        ? `${dueCount} chạm mốc • ${warningCount} cảnh báo sớm`
-        : (warningCount > 0 ? `${warningCount} khuôn sắp chạm mốc (<10%)` : `Tất cả ${allMolds.length} khuôn an toàn`);
+      $("overviewDueMoldsSub").textContent = `${dueCount} chạm mốc • ${warningCount} cảnh báo sớm (${safeCount} an toàn)`;
     }
 
     // LỌC CHỈ CÁC KHUÔN CẦN BẢO DƯỠNG (KHẨN CẤP HOẶC CẢNH BÁO)
+    // Ưu tiên: Chạm mốc (due) trước -> Đang chạy trên máy trước -> Ngày còn lại ít hơn -> % cao hơn
     const needMaintenanceMolds = allMolds.filter(m => {
       const isDue = m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0 && (m.curShots || m.currentCycleShots || 0) > 0);
       const isWarn = m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90);
       return isDue || isWarn;
     }).sort((a, b) => {
-      const aDue = a.status === 'due' || a.statusLevel === 'urgent' || (a.shotsRemaining !== undefined && a.shotsRemaining <= 0);
-      const bDue = b.status === 'due' || b.statusLevel === 'urgent' || (b.shotsRemaining !== undefined && b.shotsRemaining <= 0);
+      const aDue = a.status === 'due' || a.statusLevel === 'urgent' || (a.shotsRemaining !== undefined && a.shotsRemaining <= 0 && (a.curShots || a.currentCycleShots || 0) > 0);
+      const bDue = b.status === 'due' || b.statusLevel === 'urgent' || (b.shotsRemaining !== undefined && b.shotsRemaining <= 0 && (b.curShots || b.currentCycleShots || 0) > 0);
       if (aDue && !bDue) return -1;
       if (!aDue && bDue) return 1;
+
+      const aRunning = Boolean(a.machineNo && a.machineNo !== '-');
+      const bRunning = Boolean(b.machineNo && b.machineNo !== '-');
+      if (aRunning && !bRunning) return -1;
+      if (!aRunning && bRunning) return 1;
+
       const aDays = (a.daysRemaining !== undefined && a.daysRemaining !== null) ? Number(a.daysRemaining) : 999;
       const bDays = (b.daysRemaining !== undefined && b.daysRemaining !== null) ? Number(b.daysRemaining) : 999;
       if (aDays !== bDays) return aDays - bDays;
+
       return (b.percent || 0) - (a.percent || 0);
     });
 
@@ -1118,7 +1146,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
           ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} chạm mốc</span>` : ''}
           ${warningCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fef3c7; color:#b45309;">🟡 ${warningCount} cảnh báo sớm (&lt;10%)</span>` : ''}
           <span style="padding:4px 10px; border-radius:12px; background:#dcfce7; color:#15803d;">🟢 ${safeCount} an toàn</span>
-          <button type="button" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance) MoldMaintenance.switchTab('molds');" style="background:#2563eb; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:11.5px; font-weight:600; margin-left:4px;">
+          <button type="button" onclick="switchTab('moldmaintenance');" style="background:#2563eb; color:#fff; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:11.5px; font-weight:600; margin-left:4px;">
             Xem Bảng Chi Tiết →
           </button>
         </div>
@@ -1155,13 +1183,14 @@ async function renderMoldMaintenanceAlertsInOverview() {
       needMaintenanceMolds.forEach(m => {
         const isDue = m.status === 'due' || m.statusLevel === 'urgent' || (m.shotsRemaining !== undefined && m.shotsRemaining <= 0);
         const icon = isDue ? '🔴' : '🟡';
-        const isRunning = m.machineNo && m.machineNo !== '-';
+        const isRunning = Boolean(m.machineNo && m.machineNo !== '-');
         const curShotVal = Number(m.curShots || m.currentCycleShots || 0);
-        const nextMilestoneVal = Number(m.nextMilestone || (m.isHighImpact ? 400000 : 800000));
+        const nextMilestoneVal = Number(m.isHighImpact ? 400000 : 800000);
+        const remShots = Math.max(0, nextMilestoneVal - curShotVal);
         const pct = m.percent !== undefined ? m.percent : Math.min(100, Math.round((curShotVal / (nextMilestoneVal || 1)) * 100));
         const barColor = isDue ? '#dc2626' : '#d97706';
         const rowBg = isDue ? 'background:#fff1f2;' : 'background:#fffbeb;';
-        const daysText = m.forecastText || (m.daysRemaining !== undefined ? `Còn ~${Number(m.daysRemaining).toFixed(1)} ngày` : `Còn ${Math.max(0, nextMilestoneVal - curShotVal).toLocaleString('vi-VN')} shot`);
+        const daysText = `Còn ${remShots.toLocaleString('vi-VN')} shot`;
 
         html += `
           <tr style="border-bottom:1px solid #f1f5f9; ${rowBg}">
@@ -1194,7 +1223,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
               </div>
             </td>
             <td style="padding:8px 8px; text-align:center;">
-              <button type="button" class="btn-expand-detail" style="cursor:pointer; font-size:11.5px; padding:4px 9px; font-weight:600; background:#fff; border:1px solid #cbd5e1; border-radius:5px;" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance){ MoldMaintenance.switchTab('molds'); MoldMaintenance.onSearchInput('${m.mold}'); }">
+              <button type="button" class="btn-expand-detail" style="cursor:pointer; font-size:11.5px; padding:4px 9px; font-weight:600; background:#fff; border:1px solid #cbd5e1; border-radius:5px;" onclick="switchTab('moldmaintenance'); if(window.MoldMaintenance){ MoldMaintenance.onSearchInput('${m.mold}'); }">
                 Xem Khuôn
               </button>
             </td>
@@ -1215,6 +1244,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
     moldAlertsEl.innerHTML = '<div style="padding:14px; color:#b91c1c;">Lỗi nạp cảnh báo: ' + err.message + '</div>';
   }
 }
+window.renderMoldMaintenanceAlertsInOverview = renderMoldMaintenanceAlertsInOverview;
 
 window.goToMoldMaintenanceMachine = function(machineNo) {
   if (typeof switchTab === 'function') {
