@@ -2210,8 +2210,6 @@ window.MoldMaintenance = (function() {
       const novLiveShotsToAdd = isNovAlreadySynced ? 0 : novLiveShots;
       const totalLife = Math.round(baseLife + (baseLife > 0 ? novLiveShotsToAdd : 0));
 
-      const isHighBefore3M = isHigh && totalLife < 3000000;
-      const isStandardBefore3M = !isHigh && totalLife < 3000000;
       const totalAccumulatedYear = (Number(lastYearRemaining) || 0) + totalYearFromMonths;
 
       const d1 = getMilestoneDetail(code, 1);
@@ -2223,40 +2221,39 @@ window.MoldMaintenance = (function() {
       const d7 = getMilestoneDetail(code, 7);
       const d8 = getMilestoneDetail(code, 8);
 
-      // CỘT 1, 2, 3 (400K-1, 400K-2, 400K-3): CHỈ ÁP DỤNG CHO HIGH-IMPACT < 3M
+      // XÁC ĐỊNH M1, M2, M3, CỮ 400K VÀ SỐ SHOT CHU KỲ (CURSHOTS)
+      // Đồng bộ 100% với get400kCyclesInfo và cột 400K trên bảng Bảo Dưỡng Khuôn
       let m1 = null;
       let m2 = null;
       let m3 = null;
+      let curShots = 0;
+      let cycleName = '';
 
-      if (isHighBefore3M) {
-        const cycleLimit = 400000;
-        if (closedMilestones.includes(1)) {
-          m1 = Math.round(d1?.closedShots || (m.m1_800k >= 360000 ? m.m1_800k : (totalAccumulatedYear >= cycleLimit ? cycleLimit : m.m1_800k || totalAccumulatedYear)));
-        } else {
-          m1 = Math.max(m1 || 0, totalAccumulatedYear);
-        }
+      if (isHigh) {
+        const dummyMoldObj = {
+          mold: m.mold,
+          closedMilestones,
+          totalYear: totalAccumulatedYear,
+          totalAccumulatedYear
+        };
+        const cycles400k = get400kCyclesInfo(dummyMoldObj);
+        if (cycles400k[0]) m1 = cycles400k[0].shots;
+        if (cycles400k[1]) m2 = cycles400k[1].shots;
+        if (cycles400k[2]) m3 = cycles400k[2].shots;
 
-        if (closedMilestones.includes(1)) {
-          if (closedMilestones.includes(2)) {
-            m2 = Math.round(d2?.closedShots || (m.m2_800k > 0 ? m.m2_800k : cycleLimit));
-          } else {
-            m2 = Math.max(0, totalAccumulatedYear - m1);
-          }
-        }
-
-        if (closedMilestones.includes(2)) {
-          if (closedMilestones.includes(3)) {
-            m3 = Math.round(d3?.closedShots || (m.m3_800k > 0 ? m.m3_800k : cycleLimit));
-          } else {
-            m3 = Math.max(0, totalAccumulatedYear - (m1 || 0) - (m2 || 0));
-          }
-        }
+        const activeCycle = cycles400k.find(c => !c.isClosed) || cycles400k[cycles400k.length - 1];
+        curShots = activeCycle ? Math.round(activeCycle.shots) : 0;
+        cycleName = activeCycle ? activeCycle.name : '400k-1';
+      } else {
+        // Khuôn tiêu chuẩn: dùng SUM SHOT YEAR (tổng số shot tích lũy trong năm), KHÔNG dùng tổng vòng đời!
+        curShots = Math.round(totalAccumulatedYear);
+        cycleName = (totalLife < 3000000) ? 'Chuẩn < 3M' : ('Sau 3M (500K-' + currentCycleNum + ')');
       }
 
       // CỘT 4 (3.0M): VỚI KHUÔN TIÊU CHUẨN -> GHI TỔNG SỐ SHOT TÍCH LŨY THỰC TẾ CỦA CÁC THÁNG TRONG NĂM!
       const isDone4 = closedMilestones.includes(4);
       let m4 = null;
-      if (!isHighBefore3M) {
+      if (!isHigh) {
         // Khuôn tiêu chuẩn: Ghi nhận tổng số shot tích lũy thực tế của các tháng trong năm
         if (isDone4) {
           m4 = Math.round(d4?.closedShots || totalAccumulatedYear);
@@ -2317,23 +2314,7 @@ window.MoldMaintenance = (function() {
       }
 
       const totalYear = totalAccumulatedYear;
-      const cycleName = isHighBefore3M 
-        ? ('400K-' + Math.min(3, currentCycleNum)) 
-        : (isStandardBefore3M ? 'Chuẩn < 3M' : ('Sau 3M (500K-' + currentCycleNum + ')'));
       const moldNote = notesMap[code] || m.note || (live ? live.note : '') || '';
-
-      let curShots = 0;
-      if (isHigh) {
-        if (!closedMilestones.includes(1)) curShots = m1 || 0;
-        else if (!closedMilestones.includes(2)) curShots = m2 || 0;
-        else curShots = m3 || 0;
-        if (live && Number.isFinite(Number(live.currentCycleShots)) && live.isHighImpact) {
-          curShots = Math.max(curShots, Math.round(Number(live.currentCycleShots)));
-        }
-      } else {
-        // Khuôn tiêu chuẩn: dùng SUM SHOT YEAR (tổng số shot tích lũy trong năm), KHÔNG dùng tổng vòng đời!
-        curShots = Math.round(totalAccumulatedYear);
-      }
 
       const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones);
 
@@ -2471,7 +2452,7 @@ window.MoldMaintenance = (function() {
             highestRedShots = curr.shots;
             redCol = `400K (${formatNum(curr.shots)})`;
           }
-        } else if (curr.shots >= 350000) {
+        } else if (curr.shots >= 380000) {
           hasYellow = true;
           if (curr.shots > highestYellowShots) highestYellowShots = curr.shots;
         }
@@ -2845,9 +2826,9 @@ window.MoldMaintenance = (function() {
                   ${m.isHighImpact 
                     ? (m.curShots >= 400000 
                         ? `<span style="color:#e11d48; font-weight:600;">Vượt ${formatNum(m.curShots - 400000)} shot</span>` 
-                        : (m.curShots >= 350000 
-                            ? `<span style="color:#d97706; font-weight:600;">Trong hạn dự phòng (350K-400K)</span>` 
-                            : `Còn ${formatNum(350000 - m.curShots)} shot`))
+                        : (m.curShots >= 380000 
+                            ? `<span style="color:#d97706; font-weight:600;">Sắp đến cữ (380K-400K)</span>` 
+                            : `Còn ${formatNum(400000 - m.curShots)} shot`))
                     : (m.remaining > 0 
                         ? `Còn ${formatNum(m.remaining)} shot` 
                         : `<span style="color:#e11d48; font-weight:600;">Vượt ${formatNum(Math.abs(m.remaining))} shot</span>`)

@@ -1118,19 +1118,20 @@ async function renderMoldMaintenanceAlertsInOverview() {
       const isWarn = m.status === 'warning' || m.statusLevel === 'warning' || (m.percent && m.percent >= 90);
       return isDue || isWarn;
     }).sort((a, b) => {
-      const aDue = a.status === 'due' || a.statusLevel === 'urgent' || (a.shotsRemaining !== undefined && a.shotsRemaining <= 0 && (a.curShots || a.currentCycleShots || 0) > 0);
-      const bDue = b.status === 'due' || b.statusLevel === 'urgent' || (b.shotsRemaining !== undefined && b.shotsRemaining <= 0 && (b.curShots || b.currentCycleShots || 0) > 0);
+      const aDue = a.status === 'due' || a.statusLevel === 'urgent';
+      const bDue = b.status === 'due' || b.statusLevel === 'urgent';
       if (aDue && !bDue) return -1;
       if (!aDue && bDue) return 1;
+
+      // Xếp giảm dần theo số shot mốc đang cảnh báo (khớp 100% thứ tự với bảng Bảo Dưỡng Khuôn)
+      const aShots = Number(a.curShots || 0);
+      const bShots = Number(b.curShots || 0);
+      if (bShots !== aShots) return bShots - aShots;
 
       const aRunning = Boolean(a.machineNo && a.machineNo !== '-');
       const bRunning = Boolean(b.machineNo && b.machineNo !== '-');
       if (aRunning && !bRunning) return -1;
       if (!aRunning && bRunning) return 1;
-
-      const aDays = (a.daysRemaining !== undefined && a.daysRemaining !== null) ? Number(a.daysRemaining) : 999;
-      const bDays = (b.daysRemaining !== undefined && b.daysRemaining !== null) ? Number(b.daysRemaining) : 999;
-      if (aDays !== bDays) return aDays - bDays;
 
       return (b.percent || 0) - (a.percent || 0);
     });
@@ -1172,7 +1173,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
                 <th style="padding:8px 10px;">Mã Khuôn &amp; Sản Phẩm</th>
                 <th style="padding:8px 8px; text-align:center; width:100px;">Máy Ép</th>
                 <th style="padding:8px 10px; width:130px;">Tiêu Chuẩn (SOP)</th>
-                <th style="padding:8px 10px; text-align:right;">Sum Shot Năm / Mốc</th>
+                <th style="padding:8px 10px; text-align:right;" title="High-Impact: Số shot cữ 400K • Tiêu chuẩn: Sum shot năm so với 3.0M">Số Shot / Mốc</th>
                 <th style="padding:8px 10px; width:180px;">Tiến Độ &amp; Dự Báo</th>
                 <th style="padding:8px 8px; text-align:center; width:110px;">Thao Tác</th>
               </tr>
@@ -1185,9 +1186,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
         const icon = isDue ? '🔴' : '🟡';
         const isRunning = Boolean(m.machineNo && m.machineNo !== '-');
         const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
-        const curShotVal = isHigh 
-          ? Math.round(Number(m.curShots !== undefined ? m.curShots : (m.currentCycleShots || 0)))
-          : Math.round(Number(m.totalAccumulatedYear || m.totalYear || m.curShots || 0));
+        const curShotVal = Math.round(Number(m.curShots || 0));
         const nextMilestoneVal = Number(m.planMilestone || (isHigh ? 400000 : 3000000));
         const remShots = Math.max(0, nextMilestoneVal - curShotVal);
         const pct = m.percent !== undefined ? m.percent : Math.min(100, Math.round((curShotVal / (nextMilestoneVal || 1)) * 100));
@@ -1196,7 +1195,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
         const daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot` : 'Đã chạm mốc';
 
         const sopBadgeBg = isHigh ? 'background:#fef3c7; color:#b45309;' : 'background:#eff6ff; color:#1d4ed8;';
-        const sopBadgeText = isHigh ? '🔥 High-Impact 400K' : (m.planDisplay || `Tiêu Chuẩn (Mốc ${(nextMilestoneVal / 1000000).toFixed(1)}M)`);
+        const sopBadgeText = isHigh ? (m.planDisplay || `🔥 High-Impact (${m.cycleName || '400K'})`) : (m.planDisplay || `Tiêu Chuẩn (Mốc ${(nextMilestoneVal / 1000000).toFixed(1)}M)`);
 
         html += `
           <tr style="border-bottom:1px solid #f1f5f9; ${rowBg}">
