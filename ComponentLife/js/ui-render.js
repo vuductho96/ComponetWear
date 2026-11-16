@@ -1140,7 +1140,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
       <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:16px;">🎯</span>
-          <span style="font-size:13px; font-weight:700; color:#1e293b;">MỐC QUY ĐỊNH (SOP): HIGH-IMPACT 400K • MỐC LỚN 3.0M - 5.0M (CHU KỲ 500K)</span>
+          <span style="font-size:13px; font-weight:700; color:#1e293b;">MỐC QUY ĐỊNH (SOP): TIÊU CHUẨN 500K • HIGH-IMPACT 400K</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700;">
           ${dueCount > 0 ? `<span style="padding:4px 10px; border-radius:12px; background:#fee2e2; color:#b91c1c;">🔴 ${dueCount} chạm mốc</span>` : ''}
@@ -1185,8 +1185,8 @@ async function renderMoldMaintenanceAlertsInOverview() {
         const icon = isDue ? '🔴' : '🟡';
         const isRunning = Boolean(m.machineNo && m.machineNo !== '-');
         const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
-        const curShotVal = isHigh ? Number(m.curShots || 0) : Number(m.totalLife || m.total_life || m.curShots || 0);
-        const nextMilestoneVal = Number(m.planMilestone || (isHigh ? 400000 : 3000000));
+        const curShotVal = Math.round(Number(m.curShots !== undefined ? m.curShots : (m.currentCycleShots || 0)));
+        const nextMilestoneVal = Number(m.planMilestone || (isHigh ? 400000 : 500000));
         const remShots = Math.max(0, nextMilestoneVal - curShotVal);
         const pct = m.percent !== undefined ? m.percent : Math.min(100, Math.round((curShotVal / (nextMilestoneVal || 1)) * 100));
         const barColor = isDue ? '#dc2626' : '#d97706';
@@ -1194,7 +1194,7 @@ async function renderMoldMaintenanceAlertsInOverview() {
         const daysText = remShots > 0 ? `Còn ${remShots.toLocaleString('vi-VN')} shot` : 'Đã chạm mốc';
 
         const sopBadgeBg = isHigh ? 'background:#fef3c7; color:#b45309;' : 'background:#eff6ff; color:#1d4ed8;';
-        const sopBadgeText = isHigh ? '🔥 High-Impact 400K' : (m.planDisplay || `Tiêu Chuẩn (Mốc ${nextMilestoneVal >= 1000000 ? (nextMilestoneVal/1000000).toFixed(1) + 'M' : nextMilestoneVal})`);
+        const sopBadgeText = isHigh ? '🔥 High-Impact 400K' : (m.planDisplay || 'Tiêu Chuẩn 500K');
 
         html += `
           <tr style="border-bottom:1px solid #f1f5f9; ${rowBg}">

@@ -859,7 +859,7 @@ window.MoldMaintenance = (function() {
         const isHigh = r.isHighImpact || masterMold?.is_high_impact || false;
         const totalLife = Math.max(Number(r.totalLifeShots) || 0, Number(masterMold?.total_life) || 0);
         let curShots = Number(r.currentCycleShots || r.m1_800k || 0);
-        if (!isHigh) curShots = totalLife;
+        if (!isHigh && curShots > 5000000) curShots = curShots % 500000;
         const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, []);
         if (filterStatus === 'due') matchStatus = evalData.status === 'due';
         else if (filterStatus === 'warning') matchStatus = evalData.status === 'warning';
@@ -955,109 +955,24 @@ window.MoldMaintenance = (function() {
         statusClass = 'running';
       }
     } else {
-      // Khuôn Tiêu Chuẩn: CHỈ TỪ 2.8M - 3M TRỞ LÊN MỚI BẢO DƯỠNG!
-      // Dưới 2.8M: Tuyệt đối An Toàn, không bảo dưỡng định kỳ theo năm!
-      const closedList = Array.isArray(closedMilestones) ? closedMilestones : [];
-      const isDone3M = closedList.includes(4);
-      const isDone35M = closedList.includes(5);
-      const isDone4M = closedList.includes(6);
-      const isDone45M = closedList.includes(7);
-      const isDone5M = closedList.includes(8);
+      // Khuôn Tiêu Chuẩn: Chu kỳ bảo dưỡng theo năm là 500K (Quick view dashboard theo dõi theo năm, không tính gộp vòng đời)
+      plan = 500000;
+      planDisplay = 'Tiêu Chuẩn 500K';
+      percent = Math.min(100, Math.round((curShots / plan) * 100));
+      remaining = Math.max(0, plan - curShots);
 
-      if (totalLife < 2800000) {
-        plan = 3000000;
-        planDisplay = 'Tiêu Chuẩn (Mốc 3.0M)';
-        status = 'safe';
-        statusText = 'An Toàn (< 2.8M)';
-        statusClass = 'running';
-        percent = Math.min(100, Math.round((totalLife / plan) * 100));
-        remaining = Math.max(0, plan - totalLife);
-      } else if (!isDone3M) {
-        plan = 3000000;
-        planDisplay = 'Tiêu Chuẩn (Mốc 3.0M)';
-        percent = Math.min(100, Math.round((totalLife / plan) * 100));
-        remaining = Math.max(0, plan - totalLife);
-        if (totalLife >= 3000000) {
-          status = 'due';
-          statusText = 'CẦN BẢO DƯỠNG MỐC 3.0M';
-          statusClass = 'danger';
-        } else {
-          status = 'warning';
-          statusText = 'SẮP CHẠM MỐC 3.0M (2.8M ~ 3.0M)';
-          statusClass = 'warning';
-        }
-      } else if (!isDone35M) {
-        plan = 3500000;
-        planDisplay = 'Tiêu Chuẩn (Mốc 3.5M)';
-        percent = Math.min(100, Math.round((totalLife / plan) * 100));
-        remaining = Math.max(0, plan - totalLife);
-        if (totalLife >= 3500000) {
-          status = 'due';
-          statusText = 'CẦN BẢO DƯỠNG MỐC 3.5M';
-          statusClass = 'danger';
-        } else if (totalLife >= 3300000) {
-          status = 'warning';
-          statusText = 'SẮP CHẠM MỐC 3.5M (3.3M ~ 3.5M)';
-          statusClass = 'warning';
-        } else {
-          status = 'safe';
-          statusText = 'An Toàn';
-          statusClass = 'running';
-        }
-      } else if (!isDone4M) {
-        plan = 4000000;
-        planDisplay = 'Tiêu Chuẩn (Mốc 4.0M)';
-        percent = Math.min(100, Math.round((totalLife / plan) * 100));
-        remaining = Math.max(0, plan - totalLife);
-        if (totalLife >= 4000000) {
-          status = 'due';
-          statusText = 'CẦN BẢO DƯỠNG MỐC 4.0M';
-          statusClass = 'danger';
-        } else if (totalLife >= 3800000) {
-          status = 'warning';
-          statusText = 'SẮP CHẠM MỐC 4.0M (3.8M ~ 4.0M)';
-          statusClass = 'warning';
-        } else {
-          status = 'safe';
-          statusText = 'An Toàn';
-          statusClass = 'running';
-        }
-      } else if (!isDone45M) {
-        plan = 4500000;
-        planDisplay = 'Tiêu Chuẩn (Mốc 4.5M)';
-        percent = Math.min(100, Math.round((totalLife / plan) * 100));
-        remaining = Math.max(0, plan - totalLife);
-        if (totalLife >= 4500000) {
-          status = 'due';
-          statusText = 'CẦN BẢO DƯỠNG MỐC 4.5M (BÁO CÁO HQ)';
-          statusClass = 'danger';
-        } else if (totalLife >= 4300000) {
-          status = 'warning';
-          statusText = 'SẮP CHẠM MỐC 4.5M (4.3M ~ 4.5M)';
-          statusClass = 'warning';
-        } else {
-          status = 'safe';
-          statusText = 'An Toàn';
-          statusClass = 'running';
-        }
+      if (curShots >= 500000) {
+        status = 'due';
+        statusText = 'CẦN BẢO DƯỠNG (≥500K)';
+        statusClass = 'danger';
+      } else if (curShots >= 470000) {
+        status = 'warning';
+        statusText = 'SẮP ĐẾN CHU KỲ (470K ~ 500K)';
+        statusClass = 'warning';
       } else {
-        plan = 5000000;
-        planDisplay = 'Tiêu Chuẩn (Mốc 5.0M)';
-        percent = Math.min(100, Math.round((totalLife / plan) * 100));
-        remaining = Math.max(0, plan - totalLife);
-        if (totalLife >= 5000000) {
-          status = isDone5M ? 'safe' : 'due';
-          statusText = isDone5M ? 'ĐÃ HOÀN THÀNH MỐC TRẦN 5.0M' : 'NGƯỠNG TRẦN 5.0M (BÁO CÁO HQ)';
-          statusClass = isDone5M ? 'running' : 'danger';
-        } else if (totalLife >= 4800000) {
-          status = 'warning';
-          statusText = 'SẮP CHẠM TRẦN 5.0M (4.8M ~ 5.0M)';
-          statusClass = 'warning';
-        } else {
-          status = 'safe';
-          statusText = 'An Toàn';
-          statusClass = 'running';
-        }
+        status = 'safe';
+        statusText = 'An Toàn (< 470K)';
+        statusClass = 'running';
       }
     }
 
@@ -2393,8 +2308,20 @@ window.MoldMaintenance = (function() {
           curShots = Math.max(curShots, Math.round(Number(live.currentCycleShots)));
         }
       } else {
-        // Khuôn tiêu chuẩn: chỉ từ 2.8M - 3M trở lên mới bảo dưỡng, tiến độ theo dõi là totalLife
-        curShots = totalLife;
+        // Khuôn tiêu chuẩn: chu kỳ 500K theo năm (theo năm thôi, không tính tổng vòng đời khuôn)
+        if (rawM2 > 0) curShots = rawM3 > 0 ? rawM3 : Math.max(0, totalAccumulatedYear - rawM1 - rawM2);
+        else if (rawM1 > 0 && rawM1 >= 470000) curShots = Math.max(0, totalAccumulatedYear - rawM1);
+        else curShots = rawM1 > 0 ? rawM1 : totalAccumulatedYear;
+
+        if (curShots === 0 && totalAccumulatedYear > 0) {
+          curShots = (totalAccumulatedYear % 500000) || 500000;
+        }
+        if (live && Number.isFinite(Number(live.currentCycleShots)) && !live.isHighImpact) {
+          const liveCycle = Math.round(Number(live.currentCycleShots));
+          if (liveCycle > 0 && liveCycle <= 5000000) {
+            curShots = Math.max(curShots, liveCycle % 500000 || liveCycle);
+          }
+        }
       }
 
       const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones);
@@ -2472,7 +2399,7 @@ window.MoldMaintenance = (function() {
           curShots = m2;
         }
 
-        if (!isHigh) curShots = totalLife;
+        if (!isHigh && curShots > 5000000) curShots = curShots % 500000;
         const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, []);
 
         allMoldsMap[code] = {
@@ -3073,7 +3000,7 @@ window.MoldMaintenance = (function() {
           else curShots = totalLife;
         }
 
-        if (!isHigh) curShots = totalLife;
+        if (!isHigh && curShots > 5000000) curShots = curShots % 500000;
         const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones);
         
         let dayShots = 0;
