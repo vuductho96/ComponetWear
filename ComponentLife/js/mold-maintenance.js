@@ -4134,28 +4134,67 @@ window.MoldMaintenance = (function() {
           };
         }
 
-        // Chữ chú thích bên trái (Cột A đến I)
-        ws.mergeCells(`A${legRow}:I${legRow}`);
+        // Chữ chú thích bên trái (Cột A đến G)
+        ws.mergeCells(`A${legRow}:G${legRow}`);
         const noteCell = ws.getCell(`A${legRow}`);
         noteCell.value = 'Note : Safety limits to automatic machines will alarm .\r\nChú Ý : Giới hạn an toàn để máy tự động thông tin .';
         noteCell.font = { name: 'Arial', size: 9.5, italic: true, bold: true, color: { argb: 'FF000000' } };
         noteCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
 
-        // Nhúng ảnh Legend dạng PNG nổi chuẩn 100% khớp ảnh người dùng cung cấp
-        try {
-          const legImgBase64 = isHighImpactSheet ? LEGEND_PNG_BASE64 : STD_LEGEND_PNG_BASE64;
-          const legendImgId = wb.addImage({
-            base64: legImgBase64,
-            extension: 'png'
-          });
-          ws.addImage(legendImgId, {
-            tl: { col: 9.1, row: (legRow - 1) + 0.15 },
-            br: { col: Math.min(21.0, totalCols - 1), row: (legRow - 1) + 0.85 },
-            editAs: 'oneCell'
-          });
-        } catch (imgErr) {
-          console.warn('Lỗi chèn ảnh Legend PNG:', imgErr);
-        }
+        // BẢNG MÀU CHÚ GIẢI (LEGEND) CHUẨN SOP MỚI (TÍM, VÀNG, ĐỎ, XANH)
+        const startLegCol = 8; // Từ cột H trở đi
+        const legColsCount = totalCols - startLegCol + 1;
+        const w = Math.floor(legColsCount / 4);
+
+        const legItems = [
+          {
+            title: isHighImpactSheet ? '■ 380K : Mức Plan (Trước 20K)' : '■ Plan: Trước 20K',
+            bg: 'FFD8B4FE',
+            fg: 'FF701A75',
+            border: 'FFC084FC'
+          },
+          {
+            title: isHighImpactSheet ? '■ 390K : Báo BD (Trước 10K)' : '■ Báo BD: Trước 10K',
+            bg: 'FFFFF08A',
+            fg: 'FF854D0E',
+            border: 'FFFDE047'
+          },
+          {
+            title: isHighImpactSheet ? '■ ≥ 400K : Vượt Mốc' : '■ Vượt Mốc Tiêu Chuẩn',
+            bg: 'FFFF0000',
+            fg: 'FFFFFFFF',
+            border: 'FFDC2626'
+          },
+          {
+            title: '■ Đã Chốt / An Toàn',
+            bg: 'FFDCFCE7',
+            fg: 'FF166534',
+            border: 'FF86EFAC'
+          }
+        ];
+
+        let curC = startLegCol;
+        legItems.forEach((item, i) => {
+          const endC = (i === legItems.length - 1) ? totalCols : (curC + w - 1);
+          const startLetter = getColLetter(curC);
+          const endLetter = getColLetter(endC);
+          ws.mergeCells(`${startLetter}${legRow}:${endLetter}${legRow}`);
+          const cell = ws.getCell(`${startLetter}${legRow}`);
+          cell.value = item.title;
+          cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: item.fg } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: item.bg } };
+
+          for (let c = curC; c <= endC; c++) {
+            ws.getRow(legRow).getCell(c).border = {
+              top: { style: 'thin', color: { argb: item.border } },
+              bottom: { style: 'medium', color: { argb: 'FF000000' } },
+              left: { style: 'thin', color: { argb: item.border } },
+              right: { style: 'thin', color: { argb: item.border } }
+            };
+          }
+          curC = endC + 1;
+        });
 
         curRow = legRow + 2;
 
@@ -4340,13 +4379,8 @@ window.MoldMaintenance = (function() {
             let milestoneVal = '';
             let dateVal = '';
 
-            // 1. Dữ liệu lịch sử từ file Excel gốc (những lần đã bảo dưỡng trong file gốc)
-            if (planItem && planItem.months && planItem.months[mKey]) {
-              milestoneVal = planItem.months[mKey].milestone || '';
-              dateVal = planItem.months[mKey].date || '';
-            }
-
-            // 2. Dữ liệu chốt mốc bảo dưỡng THỰC TẾ trên Web (CHỈ lấy khi KTV thực sự chốt trên web có ngày cụ thể)
+            // Dữ liệu chốt mốc bảo dưỡng THỰC TẾ trên Web (CHỈ lấy khi KTV thực sự chốt trên web có ngày cụ thể)
+            // Tuyệt đối không lấy dữ liệu 800K cũ: nếu hệ thống chưa chốt thì để trống sạch sẽ
             const detailsMap = getMilestoneDetailsMap();
             const moldDetails = (oldCode && detailsMap[oldCode]) ? detailsMap[oldCode] : detailsMap[moldCode];
             if (moldDetails) {
@@ -4364,7 +4398,15 @@ window.MoldMaintenance = (function() {
                   }
                   if (mMonth === mIdx) {
                     const mNum = parseInt(mNumStr, 10);
-                    milestoneVal = mNum >= 6 ? '3000K' : (isHighImpact ? '400K' : '500K');
+                    if (mNum === 25 || mNumStr === '25' || mNumStr === '2.5m') milestoneVal = '2.5M';
+                    else if (mNum === 4) milestoneVal = '3.0M';
+                    else if (mNum === 5) milestoneVal = '3.5M';
+                    else if (mNum === 6) milestoneVal = '4.0M';
+                    else if (mNum === 7) milestoneVal = '4.5M';
+                    else if (mNum === 8) milestoneVal = '5.0M';
+                    else if (mNumStr.startsWith('400k-')) milestoneVal = mNumStr.toUpperCase();
+                    else if (isHighImpact && mNum >= 1 && mNum <= 8) milestoneVal = `400K-${mNum}`;
+                    else milestoneVal = isHighImpact ? '400K' : '2.5M';
                     dateVal = dStr;
                   }
                 }
@@ -4377,28 +4419,15 @@ window.MoldMaintenance = (function() {
             if (milestoneVal) {
               cellShot.value = milestoneVal;
               cellShot.alignment = { horizontal: 'center', vertical: 'middle' };
-              cellShot.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF000000' } };
-
-              // Tô màu nền hoàn thành khớp 100% Chú giải (Legend) ở cuối trang
-              let fillColor = 'FFFFFF00'; // Vàng FINISH 500K
-              if (milestoneVal.includes('400K')) fillColor = 'FFFFC000'; // Cam vàng FINISH 400K
-              else if (milestoneVal.includes('3000K')) fillColor = 'FFD8B4FE'; // Tím FINISH 3000K
-              else if (milestoneVal.includes('PLAN')) fillColor = 'FFFFE699'; // Cam nhạt PLAN
-
-              cellShot.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+              cellShot.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF166534' } };
+              cellShot.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
             }
 
             if (dispDate) {
               cellDate.value = dispDate;
               cellDate.alignment = { horizontal: 'center', vertical: 'middle' };
-              cellDate.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF000000' } };
-
-              let fillColor = 'FFFFFF00';
-              if (milestoneVal.includes('400K')) fillColor = 'FFFFC000';
-              else if (milestoneVal.includes('3000K')) fillColor = 'FFD8B4FE';
-              else if (milestoneVal.includes('PLAN')) fillColor = 'FFFFE699';
-
-              cellDate.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+              cellDate.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF166534' } };
+              cellDate.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
             }
           }
 
@@ -4442,9 +4471,66 @@ window.MoldMaintenance = (function() {
         ws.getRow(noteRow).height = 20;
         ws.getRow(noteRow + 1).height = 20;
 
-// Đóng viền khối chú giải và chèn ảnh Legend PNG nổi cạnh Note (Cột G đến R)
+        // BẢNG CHÚ GIẢI BẢNG 2 CHUẨN SOP MỚI (Cột G đến totalCols)
+        const t2StartCol = 7; // Cột G
+        const t2ColsCount = totalCols - t2StartCol + 1;
+        const w2 = Math.floor(t2ColsCount / 4);
+
+        const t2LegItems = [
+          {
+            title: isHighImpactSheet ? '■ Plan (380K)\r\nTrước 20K shot' : '■ Mức Plan\r\nTrước 20K shot',
+            bg: 'FFD8B4FE',
+            fg: 'FF701A75',
+            border: 'FFC084FC'
+          },
+          {
+            title: isHighImpactSheet ? '■ Báo BD (390K)\r\nTrước 10K shot' : '■ Báo Bảo Dưỡng\r\nTrước 10K shot',
+            bg: 'FFFFF08A',
+            fg: 'FF854D0E',
+            border: 'FFFDE047'
+          },
+          {
+            title: isHighImpactSheet ? '■ Vượt Mốc (≥ 400K)\r\nCần bảo dưỡng' : '■ Vượt Mốc Chuẩn\r\nCần bảo dưỡng',
+            bg: 'FFFF0000',
+            fg: 'FFFFFFFF',
+            border: 'FFDC2626'
+          },
+          {
+            title: '■ Đã Hoàn Thành BD\r\n(Kèm ngày chốt)',
+            bg: 'FFDCFCE7',
+            fg: 'FF166534',
+            border: 'FF86EFAC'
+          }
+        ];
+
+        let curC2 = t2StartCol;
+        t2LegItems.forEach((item, i) => {
+          const endC2 = (i === t2LegItems.length - 1) ? totalCols : (curC2 + w2 - 1);
+          const startLetter = getColLetter(curC2);
+          const endLetter = getColLetter(endC2);
+          ws.mergeCells(`${startLetter}${noteRow}:${endLetter}${noteRow + 1}`);
+          const cell = ws.getCell(`${startLetter}${noteRow}`);
+          cell.value = item.title;
+          cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: item.fg } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: item.bg } };
+
+          for (let r = noteRow; r <= noteRow + 1; r++) {
+            for (let c = curC2; c <= endC2; c++) {
+              ws.getRow(r).getCell(c).border = {
+                top: { style: 'thin', color: { argb: item.border } },
+                bottom: { style: 'thin', color: { argb: item.border } },
+                left: { style: 'thin', color: { argb: item.border } },
+                right: { style: 'thin', color: { argb: item.border } }
+              };
+            }
+          }
+          curC2 = endC2 + 1;
+        });
+
+        // Đóng viền cho ô Note bên trái
         for (let r = noteRow; r <= noteRow + 1; r++) {
-          for (let c = 1; c <= 18; c++) {
+          for (let c = 1; c <= 6; c++) {
             ws.getRow(r).getCell(c).border = {
               top: { style: 'thin', color: { argb: 'FF94A3B8' } },
               bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
@@ -4452,21 +4538,6 @@ window.MoldMaintenance = (function() {
               right: { style: 'thin', color: { argb: 'FF94A3B8' } }
             };
           }
-        }
-
-        // Nhúng ảnh Legend Bảng 2 dạng PNG nổi cạnh mục Note
-        try {
-          const t2LegImgId = wb.addImage({
-            base64: T2_LEGEND_PNG_BASE64,
-            extension: 'png'
-          });
-          ws.addImage(t2LegImgId, {
-            tl: { col: 6.2, row: (noteRow - 1) + 0.3 },
-            br: { col: 18.0, row: (noteRow - 1) + 1.7 },
-            editAs: 'oneCell'
-          });
-        } catch (imgErr) {
-          console.warn('Lỗi chèn ảnh Legend Table 2:', imgErr);
         }
 
         curRow = noteRow + 3;
