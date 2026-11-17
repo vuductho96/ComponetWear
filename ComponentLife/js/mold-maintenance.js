@@ -3927,6 +3927,7 @@ window.MoldMaintenance = (function() {
             const colIdx = 17 + idx;
             const cell = row.getCell(colIdx);
             let val = null;
+            let cellFormula = '';
             let isDone = false;
             let mTarget = 0;
             let noteText = '';
@@ -3941,10 +3942,12 @@ window.MoldMaintenance = (function() {
                   if (cInfo.isClosed) {
                     isDone = true;
                     val = cInfo.closedShots || 400000;
+                    if (cycleNum === 1) cellFormula = `SUM(D${curRow}:P${curRow})`;
                     const d = getMilestoneDetail(moldCode, cInfo.key) || getMilestoneDetail(moldCode, cycleNum);
                     noteText = `${mH} - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${cInfo.date || d?.date || ''}\nKTV: ${cInfo.tech || d?.tech || ''}\n${cInfo.note || d?.note || ''}`.trim();
                   } else if (cInfo.shots > 0) {
                     val = Math.round(cInfo.shots);
+                    if (cycleNum === 1) cellFormula = `SUM(D${curRow}:P${curRow})`;
                   }
                 }
               }
@@ -3953,13 +3956,16 @@ window.MoldMaintenance = (function() {
               const d25 = getMilestoneDetail(moldCode, 25) || getMilestoneDetail(moldCode, '2.5m');
               if (isDone25) {
                 isDone = true;
-                val = Math.round(d25?.closedShots || 2500000);
+                val = Math.round(d25?.closedShots || totAccum || 2500000);
+                cellFormula = `SUM(D${curRow}:P${curRow})`;
                 noteText = `MỐC 2.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d25?.date || ''}\nKTV: ${d25?.tech || ''}\n${d25?.note || ''}`.trim();
               } else {
                 if (!m.isHighImpact) {
                   val = totAccum;
+                  cellFormula = `SUM(D${curRow}:P${curRow})`;
                 } else if (totAccum >= 2500000) {
                   val = totAccum;
+                  cellFormula = `SUM(D${curRow}:P${curRow})`;
                 }
               }
             } else if (mH === '3.0M') {
@@ -3967,18 +3973,21 @@ window.MoldMaintenance = (function() {
               const d4 = getMilestoneDetail(moldCode, 4);
               if (isDone30) {
                 isDone = true;
-                val = Math.round(d4?.closedShots || 3000000);
+                val = Math.round(d4?.closedShots || totAccum || 3000000);
+                cellFormula = `SUM(D${curRow}:P${curRow})`;
                 noteText = `MỐC 3.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d4?.date || ''}\nKTV: ${d4?.tech || ''}\n${d4?.note || ''}`.trim();
               } else {
                 // Chỉ nhảy sang mốc 3.0M khi đã đạt 2.5M (>= 2.500.000) HOẶC mốc 2.5M đã chốt!
                 if (!m.isHighImpact) {
                   if (isDone25 || totAccum >= 2500000) {
                     val = totAccum;
+                    cellFormula = `SUM(D${curRow}:P${curRow})`;
                   } else {
                     val = null;
                   }
                 } else if (isDone25 || totAccum >= 2500000) {
                   val = totAccum;
+                  cellFormula = `SUM(D${curRow}:P${curRow})`;
                 }
               }
             } else if (mH === '3.5M') {
@@ -3986,12 +3995,14 @@ window.MoldMaintenance = (function() {
               const d5 = getMilestoneDetail(moldCode, 5);
               if (isDone35) {
                 isDone = true;
-                val = Math.round(d5?.closedShots || 3500000);
+                val = Math.round(d5?.closedShots || totAccum || 3500000);
+                cellFormula = `SUM(D${curRow}:P${curRow})`;
                 noteText = `MỐC 3.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d5?.date || ''}\nKTV: ${d5?.tech || ''}\n${d5?.note || ''}`.trim();
               } else {
                 // Chỉ nhảy sang mốc 3.5M khi đã đạt 3.0M (>= 3.000.000) HOẶC mốc 3.0M đã chốt!
                 if (isDone30 || totAccum >= 3000000) {
                   val = totAccum;
+                  cellFormula = `SUM(D${curRow}:P${curRow})`;
                 } else {
                   val = null;
                 }
@@ -4001,11 +4012,13 @@ window.MoldMaintenance = (function() {
               const d6 = getMilestoneDetail(moldCode, 6);
               if (isDone40) {
                 isDone = true;
-                val = Math.round(d6?.closedShots || 4000000);
+                val = Math.round(d6?.closedShots || totAccum || 4000000);
+                cellFormula = `SUM(D${curRow}:P${curRow})`;
                 noteText = `MỐC 4.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d6?.date || ''}\nKTV: ${d6?.tech || ''}\n${d6?.note || ''}`.trim();
               } else {
                 if (isDone35 || totAccum >= 3500000) {
                   val = totAccum;
+                  cellFormula = `SUM(D${curRow}:P${curRow})`;
                 } else {
                   val = null;
                 }
@@ -4015,11 +4028,13 @@ window.MoldMaintenance = (function() {
               const d7 = getMilestoneDetail(moldCode, 7);
               if (isDone45) {
                 isDone = true;
-                val = Math.round(d7?.closedShots || 4500000);
+                val = Math.round(d7?.closedShots || totAccum || 4500000);
+                cellFormula = `SUM(D${curRow}:P${curRow})`;
                 noteText = `MỐC 4.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d7?.date || ''}\nKTV: ${d7?.tech || ''}\n${d7?.note || ''}`.trim();
               } else {
                 if (isDone40 || totAccum >= 4000000) {
                   val = totAccum;
+                  cellFormula = `SUM(D${curRow}:P${curRow})`;
                 } else {
                   val = null;
                 }
@@ -4029,11 +4044,13 @@ window.MoldMaintenance = (function() {
               const d8 = getMilestoneDetail(moldCode, 8);
               if (isDone50) {
                 isDone = true;
-                val = Math.round(d8?.closedShots || 5000000);
+                val = Math.round(d8?.closedShots || totAccum || 5000000);
+                cellFormula = `SUM(D${curRow}:P${curRow})`;
                 noteText = `MỐC 5.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d8?.date || ''}\nKTV: ${d8?.tech || ''}\n${d8?.note || ''}`.trim();
               } else {
                 if (isDone45 || totAccum >= 4500000) {
                   val = totAccum;
+                  cellFormula = `SUM(D${curRow}:P${curRow})`;
                 } else {
                   val = null;
                 }
@@ -4041,7 +4058,11 @@ window.MoldMaintenance = (function() {
             }
 
             if (val !== null && val !== undefined && val > 0) {
-              cell.value = val;
+              if (cellFormula) {
+                cell.value = { formula: cellFormula, result: val };
+              } else {
+                cell.value = val;
+              }
               cell.numFmt = numAccountingFmt;
               let cellFill = null;
               let fontColor = 'FF000000';
