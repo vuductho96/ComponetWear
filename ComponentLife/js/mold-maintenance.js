@@ -4178,7 +4178,7 @@ window.MoldMaintenance = (function() {
                 rules.push({
                   priority: 1,
                   type: 'expression',
-                  formulae: [`=AND(ISNUMBER(${nextColLetter}${dataStartRow}),${nextColLetter}${dataStartRow}>0)`],
+                  formulae: [`AND(ISNUMBER(${nextColLetter}${dataStartRow}),${nextColLetter}${dataStartRow}>0)`],
                   style: {
                     fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' }, bgColor: { argb: 'FFDCFCE7' } },
                     font: { color: { argb: 'FF166534' }, bold: true }
@@ -4187,11 +4187,11 @@ window.MoldMaintenance = (function() {
               }
 
               // Rule 2: Vượt mốc tiêu chuẩn (>= mTarget) -> Màu ĐỎ (#FFFF0000), chữ trắng
+              // BẮT BUỘC dùng ISNUMBER để chặn chuỗi rỗng "" từ công thức không bị Excel coi là lớn hơn số
               rules.push({
                 priority: nextColLetter ? 2 : 1,
-                type: 'cellIs',
-                operator: 'greaterThanOrEqual',
-                formulae: [String(mTarget)],
+                type: 'expression',
+                formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget})`],
                 style: {
                   fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' }, bgColor: { argb: 'FFFF0000' } },
                   font: { color: { argb: 'FFFFFFFF' }, bold: true }
@@ -4201,9 +4201,8 @@ window.MoldMaintenance = (function() {
               // Rule 3: Báo bảo dưỡng (>= mTarget - 10000) -> Màu VÀNG (#FFFFF08A), chữ nâu đậm
               rules.push({
                 priority: nextColLetter ? 3 : 2,
-                type: 'cellIs',
-                operator: 'between',
-                formulae: [String(mTarget - 10000), String(mTarget - 1)],
+                type: 'expression',
+                formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget - 10000},${colLetter}${dataStartRow}<${mTarget})`],
                 style: {
                   fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF08A' }, bgColor: { argb: 'FFFFF08A' } },
                   font: { color: { argb: 'FF854D0E' }, bold: true }
@@ -4213,9 +4212,8 @@ window.MoldMaintenance = (function() {
               // Rule 4: Mức Plan (>= mTarget - 20000) -> Màu TÍM (#FFD8B4FE), chữ tím đậm
               rules.push({
                 priority: nextColLetter ? 4 : 3,
-                type: 'cellIs',
-                operator: 'between',
-                formulae: [String(mTarget - 20000), String(mTarget - 10001)],
+                type: 'expression',
+                formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget - 20000},${colLetter}${dataStartRow}<${mTarget - 10000})`],
                 style: {
                   fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD8B4FE' }, bgColor: { argb: 'FFD8B4FE' } },
                   font: { color: { argb: 'FF701A75' }, bold: true }
