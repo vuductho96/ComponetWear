@@ -3608,12 +3608,8 @@ window.MoldMaintenance = (function() {
 
           const histA = a.monthlyHistory || {};
           const histB = b.monthlyHistory || {};
-          const liveA = recordsByMold[(a.mold || '').toUpperCase()];
-          const liveB = recordsByMold[(b.mold || '').toUpperCase()];
-          const liveShotsA = liveA ? (Number(liveA.todayShots || 0) + Number(liveA.yesterdayShots || 0)) : 0;
-          const liveShotsB = liveB ? (Number(liveB.todayShots || 0) + Number(liveB.yesterdayShots || 0)) : 0;
-          const m11A = Math.round((histA.M11 || 0) + liveShotsA);
-          const m11B = Math.round((histB.M11 || 0) + liveShotsB);
+          const m11A = Math.round(histA.M11 || 0);
+          const m11B = Math.round(histB.M11 || 0);
 
           let yearA = 0, yearB = 0;
           for (let i = 1; i <= 12; i++) {
@@ -3880,10 +3876,7 @@ window.MoldMaintenance = (function() {
           const row = ws.getRow(curRow);
           row.height = 20;
           const hist = m.monthlyHistory || {};
-
-          const liveRec = recordsByMold[(m.mold || '').toUpperCase()];
-          const liveShots = liveRec ? (Number(liveRec.todayShots || 0) + Number(liveRec.yesterdayShots || 0)) : 0;
-          const m11Val = Math.round((hist.M11 || 0) + (liveShots > 0 ? liveShots : 0));
+          const m11Val = Math.round(hist.M11 || 0);
 
           let colAVal = '';
           const cleanSeries = (m.series || '').replace(/-\*\*$/, '').trim();
