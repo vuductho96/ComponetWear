@@ -3786,18 +3786,22 @@ window.MoldMaintenance = (function() {
         hB.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hB.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
 
-        // C4:C5 gộp: Total Shot Last Year / Số shot còn lại
+        const currentYearNum = parseInt(selectedYear, 10) || (new Date()).getFullYear();
+        const lastYearNum = currentYearNum - 1;
+        const curYearShort = String(currentYearNum).slice(-2);
+
+        // C4:C5 gộp: Total Shot Last Year (ghi rõ năm trước) / Số shot cũ
         ws.mergeCells('C4:C5');
         const hC = ws.getCell('C4');
-        hC.value = 'Total Shot\r\nLast Year\r\n\r\nSố shot còn lại';
+        hC.value = `Total Shot\r\nLast Year (${lastYearNum})\r\n\r\nSố shot cũ`;
         hC.font = { name: 'Arial', size: 9.5, bold: true };
         hC.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hC.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
 
-        // D4:D5 gộp: Last Year / Năm trước (bỏ 500K)
+        // D4:D5 gộp: Last Year (ghi rõ năm trước) / Năm trước dở dang
         ws.mergeCells('D4:D5');
         const hD4 = ws.getCell('D4');
-        hD4.value = 'Last Year\r\n\r\nNăm trước';
+        hD4.value = `Last Year (${lastYearNum})\r\n\r\nNăm trước`;
         hD4.font = { name: 'Arial', size: 9.5, bold: true };
         hD4.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hD4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
@@ -3810,7 +3814,7 @@ window.MoldMaintenance = (function() {
         hM.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hM.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
 
-        const monthNames = ['Jan-26', 'Feb-26', 'Mar-26', 'Apr-26', 'May-26', 'Jun-26', 'Jul-26', 'Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => `${m}-${curYearShort}`);
         for (let m = 1; m <= 12; m++) {
           const colLetter = getColLetter(4 + m);
           const c = ws.getCell(colLetter + '5');
@@ -3836,15 +3840,15 @@ window.MoldMaintenance = (function() {
           c5.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
         });
 
-        // Cột Total Shot Year (Tổng shot trong năm - Cột W ở Tiêu Chuẩn)
+        // Cột Total Shot Year (Tổng shot trong năm: ghi rõ năm hiện tại, vd 2026)
         ws.mergeCells(`${yearColLetter}4:${yearColLetter}5`);
         const hYear = ws.getCell(`${yearColLetter}4`);
-        hYear.value = 'Total Shot Year\r\nTổng shot trong năm';
+        hYear.value = `Total Shot Year (${currentYearNum})\r\nTổng shot trong năm`;
         hYear.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
         hYear.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hYear.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; // Nền xám bạc chuyên nghiệp
 
-        // Cột Total Shot Monitor (Tổng số shot trọn đời - Cột X ở Tiêu Chuẩn - NỀN XANH DƯƠNG NHẠT #BDD7EE)
+        // Cột Total Shot Monitor (Tổng số shot trọn đời - Cột cuối cùng - NỀN XANH DƯƠNG NHẠT #BDD7EE)
         ws.mergeCells(`${lastColLetter}4:${lastColLetter}5`);
         const hV = ws.getCell(`${lastColLetter}4`);
         hV.value = 'Total Shot Monitor\r\nTổng số shot trọn đời';
@@ -3957,19 +3961,18 @@ window.MoldMaintenance = (function() {
                     cellFormula = ''; // Đã chốt: khóa giá trị tĩnh, không dùng công thức SUM để tránh bị thay đổi khi số liệu các tháng sau tăng
                     const d = getMilestoneDetail(moldCode, cInfo.key) || getMilestoneDetail(moldCode, cycleNum);
                     noteText = `${mH} - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${cInfo.date || d?.date || ''}\nKTV: ${cInfo.tech || d?.tech || ''}\n${cInfo.note || d?.note || ''}`.trim();
-                  } else if (cInfo.shots > 0) {
-                    val = Math.round(cInfo.shots);
-                    // Cữ đang chạy: công thức lũy tiến
+                  } else {
+                    val = (cInfo.shots > 0) ? Math.round(cInfo.shots) : null;
+                    // Cữ chưa chốt: gán công thức động cho mọi cữ để khi người dùng gõ số chốt vào cữ trước, cữ sau tự động nhận số dư lũy kế
                     if (cycleNum === 1) {
-                      cellFormula = `SUM(D${curRow}:P${curRow})`;
+                      cellFormula = `${yearColLetter}${curRow}`;
                     } else {
-                      // Cữ sau = Total Shot Year trừ đi các cữ trước đã chốt
                       const startMilestoneCol = getColLetter(17);
                       const prevMilestoneCol = getColLetter(16 + cycleNum - 1);
                       if (cycleNum === 2) {
-                        cellFormula = `${yearColLetter}${curRow}-${startMilestoneCol}${curRow}`;
+                        cellFormula = `IF(${yearColLetter}${curRow}="","",IF(${yearColLetter}${curRow}>${startMilestoneCol}${curRow},${yearColLetter}${curRow}-${startMilestoneCol}${curRow},""))`;
                       } else {
-                        cellFormula = `${yearColLetter}${curRow}-SUM(${startMilestoneCol}${curRow}:${prevMilestoneCol}${curRow})`;
+                        cellFormula = `IF(${yearColLetter}${curRow}="","",IF(${yearColLetter}${curRow}>SUM($${startMilestoneCol}${curRow}:${prevMilestoneCol}${curRow}),${yearColLetter}${curRow}-SUM($${startMilestoneCol}${curRow}:${prevMilestoneCol}${curRow}),""))`;
                       }
                     }
                   }
@@ -3986,10 +3989,10 @@ window.MoldMaintenance = (function() {
               } else {
                 if (!m.isHighImpact) {
                   val = totAccum;
-                  cellFormula = `SUM(D${curRow}:P${curRow})`;
-                } else if (totAccum >= 2500000) {
-                  val = totAccum;
-                  cellFormula = `SUM(D${curRow}:P${curRow})`;
+                  cellFormula = `${yearColLetter}${curRow}`;
+                } else {
+                  val = totAccum >= 2500000 ? totAccum : null;
+                  cellFormula = `IF(${yearColLetter}${curRow}>=2500000,${yearColLetter}${curRow},"")`;
                 }
               }
             } else if (mH === '3.0M') {
@@ -4001,18 +4004,8 @@ window.MoldMaintenance = (function() {
                 cellFormula = '';
                 noteText = `MỐC 3.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d4?.date || ''}\nKTV: ${d4?.tech || ''}\n${d4?.note || ''}`.trim();
               } else {
-                // Chỉ nhảy sang mốc 3.0M khi đã đạt 2.5M (>= 2.500.000) HOẶC mốc 2.5M đã chốt!
-                if (!m.isHighImpact) {
-                  if (isDone25 || totAccum >= 2500000) {
-                    val = totAccum;
-                    cellFormula = `SUM(D${curRow}:P${curRow})`;
-                  } else {
-                    val = null;
-                  }
-                } else if (isDone25 || totAccum >= 2500000) {
-                  val = totAccum;
-                  cellFormula = `SUM(D${curRow}:P${curRow})`;
-                }
+                val = (isDone25 || totAccum >= 2500000) ? totAccum : null;
+                cellFormula = isDone25 ? `${yearColLetter}${curRow}` : `IF(${yearColLetter}${curRow}>=2500000,${yearColLetter}${curRow},"")`;
               }
             } else if (mH === '3.5M') {
               mTarget = 3500000;
@@ -4023,13 +4016,8 @@ window.MoldMaintenance = (function() {
                 cellFormula = '';
                 noteText = `MỐC 3.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d5?.date || ''}\nKTV: ${d5?.tech || ''}\n${d5?.note || ''}`.trim();
               } else {
-                // Chỉ nhảy sang mốc 3.5M khi đã đạt 3.0M (>= 3.000.000) HOẶC mốc 3.0M đã chốt!
-                if (isDone30 || totAccum >= 3000000) {
-                  val = totAccum;
-                  cellFormula = `SUM(D${curRow}:P${curRow})`;
-                } else {
-                  val = null;
-                }
+                val = (isDone30 || totAccum >= 3000000) ? totAccum : null;
+                cellFormula = isDone30 ? `${yearColLetter}${curRow}` : `IF(${yearColLetter}${curRow}>=3000000,${yearColLetter}${curRow},"")`;
               }
             } else if (mH === '4.0M') {
               mTarget = 4000000;
@@ -4040,12 +4028,8 @@ window.MoldMaintenance = (function() {
                 cellFormula = '';
                 noteText = `MỐC 4.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d6?.date || ''}\nKTV: ${d6?.tech || ''}\n${d6?.note || ''}`.trim();
               } else {
-                if (isDone35 || totAccum >= 3500000) {
-                  val = totAccum;
-                  cellFormula = `SUM(D${curRow}:P${curRow})`;
-                } else {
-                  val = null;
-                }
+                val = (isDone35 || totAccum >= 3500000) ? totAccum : null;
+                cellFormula = isDone35 ? `${yearColLetter}${curRow}` : `IF(${yearColLetter}${curRow}>=3500000,${yearColLetter}${curRow},"")`;
               }
             } else if (mH === '4.5M') {
               mTarget = 4500000;
@@ -4056,12 +4040,8 @@ window.MoldMaintenance = (function() {
                 cellFormula = '';
                 noteText = `MỐC 4.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d7?.date || ''}\nKTV: ${d7?.tech || ''}\n${d7?.note || ''}`.trim();
               } else {
-                if (isDone40 || totAccum >= 4000000) {
-                  val = totAccum;
-                  cellFormula = `SUM(D${curRow}:P${curRow})`;
-                } else {
-                  val = null;
-                }
+                val = (isDone40 || totAccum >= 4000000) ? totAccum : null;
+                cellFormula = isDone40 ? `${yearColLetter}${curRow}` : `IF(${yearColLetter}${curRow}>=4000000,${yearColLetter}${curRow},"")`;
               }
             } else if (mH === '5.0M') {
               mTarget = 5000000;
@@ -4072,22 +4052,22 @@ window.MoldMaintenance = (function() {
                 cellFormula = '';
                 noteText = `MỐC 5.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d8?.date || ''}\nKTV: ${d8?.tech || ''}\n${d8?.note || ''}`.trim();
               } else {
-                if (isDone45 || totAccum >= 4500000) {
-                  val = totAccum;
-                  cellFormula = `SUM(D${curRow}:P${curRow})`;
-                } else {
-                  val = null;
-                }
+                val = (isDone45 || totAccum >= 4500000) ? totAccum : null;
+                cellFormula = isDone45 ? `${yearColLetter}${curRow}` : `IF(${yearColLetter}${curRow}>=4500000,${yearColLetter}${curRow},"")`;
               }
             }
 
-            if (val !== null && val !== undefined && val > 0) {
-              if (cellFormula) {
-                cell.value = { formula: cellFormula, result: val };
-              } else {
-                cell.value = val;
-              }
+            if (cellFormula) {
+              cell.value = { formula: cellFormula, result: (val !== null && val !== undefined && val > 0) ? val : '' };
               cell.numFmt = numAccountingFmt;
+            } else if (val !== null && val !== undefined && val > 0) {
+              cell.value = val;
+              cell.numFmt = numAccountingFmt;
+            } else {
+              cell.value = null;
+            }
+
+            if (val !== null && val !== undefined && val > 0) {
               let cellFill = null;
               let fontColor = 'FF000000';
 
@@ -4117,8 +4097,6 @@ window.MoldMaintenance = (function() {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: cellFill } };
               }
               cell.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: fontColor } };
-            } else {
-              cell.value = null; // để trống cho sạch
             }
           });
 
@@ -4171,6 +4149,87 @@ window.MoldMaintenance = (function() {
 
           curRow++;
         });
+
+        // THIẾT LẬP CONDITIONAL FORMATTING (ĐỊNH DẠNG CÓ ĐIỀU KIỆN) CHO CÁC MỐC TRONG EXCEL:
+        // Tự động cảnh báo nhảy màu Tím, Vàng, Đỏ, Xanh khi người dùng gõ số shot vào các tháng hoặc gõ số chốt vào các mốc
+        const dataStartRow = 6;
+        const dataEndRow = curRow - 1;
+        if (dataEndRow >= dataStartRow) {
+          milestoneHeaders.forEach((mH, idx) => {
+            const colIdx = 17 + idx;
+            const colLetter = getColLetter(colIdx);
+            const nextColLetter = (idx < milestoneHeaders.length - 1) ? getColLetter(colIdx + 1) : null;
+            const ref = `${colLetter}${dataStartRow}:${colLetter}${dataEndRow}`;
+
+            let mTarget = 0;
+            if (mH.startsWith('400K-')) mTarget = 400000;
+            else if (mH === '2.5M') mTarget = 2500000;
+            else if (mH === '3.0M') mTarget = 3000000;
+            else if (mH === '3.5M') mTarget = 3500000;
+            else if (mH === '4.0M') mTarget = 4000000;
+            else if (mH === '4.5M') mTarget = 4500000;
+            else if (mH === '5.0M') mTarget = 5000000;
+
+            if (mTarget > 0) {
+              const rules = [];
+
+              // Rule 1: Nếu cữ tiếp theo có giá trị > 0 -> Cữ này ĐÃ CHỐT / HOÀN THÀNH -> Xanh lá (#DCFCE7)
+              if (nextColLetter) {
+                rules.push({
+                  priority: 1,
+                  type: 'expression',
+                  formulae: [`AND(ISNUMBER(${nextColLetter}${dataStartRow}),${nextColLetter}${dataStartRow}>0)`],
+                  style: {
+                    fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFDCFCE7' }, fgColor: { argb: 'FFDCFCE7' } },
+                    font: { color: { argb: 'FF166534' }, bold: true }
+                  }
+                });
+              }
+
+              // Rule 2: Vượt mốc tiêu chuẩn (>= mTarget) -> Màu ĐỎ (#FFFF0000), chữ trắng
+              rules.push({
+                priority: nextColLetter ? 2 : 1,
+                type: 'expression',
+                formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget})`],
+                style: {
+                  fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFF0000' }, fgColor: { argb: 'FFFF0000' } },
+                  font: { color: { argb: 'FFFFFFFF' }, bold: true }
+                }
+              });
+
+              // Rule 3: Báo bảo dưỡng (>= mTarget - 10000) -> Màu VÀNG (#FFFFF08A), chữ nâu đậm
+              rules.push({
+                priority: nextColLetter ? 3 : 2,
+                type: 'expression',
+                formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget - 10000})`],
+                style: {
+                  fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFFF08A' }, fgColor: { argb: 'FFFFF08A' } },
+                  font: { color: { argb: 'FF854D0E' }, bold: true }
+                }
+              });
+
+              // Rule 4: Mức Plan (>= mTarget - 20000) -> Màu TÍM (#FFD8B4FE), chữ tím đậm
+              rules.push({
+                priority: nextColLetter ? 4 : 3,
+                type: 'expression',
+                formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget - 20000})`],
+                style: {
+                  fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFD8B4FE' }, fgColor: { argb: 'FFD8B4FE' } },
+                  font: { color: { argb: 'FF701A75' }, bold: true }
+                }
+              });
+
+              try {
+                ws.addConditionalFormatting({
+                  ref,
+                  rules
+                });
+              } catch (cfErr) {
+                console.warn('Lỗi thêm conditional formatting cho cột ' + colLetter + ':', cfErr);
+              }
+            }
+          });
+        }
 
         // Bật AutoFilter trên toàn bộ bảng 1 (từ dòng 5 đến dòng cuối của bảng 1)
         ws.autoFilter = `A5:${lastColLetter}${curRow - 1}`;
