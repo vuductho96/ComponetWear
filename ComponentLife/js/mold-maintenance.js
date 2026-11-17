@@ -2265,10 +2265,17 @@ window.MoldMaintenance = (function() {
       if (moldLiveShots) {
         Object.keys(moldLiveShots).forEach(mKey => {
           const mNum = parseInt(mKey.replace('M', ''), 10);
-          if (mNum >= 11 || !monthlyHistory[mKey] || Number(monthlyHistory[mKey]) === 0) {
+          if (mNum > 11 || !monthlyHistory[mKey] || Number(monthlyHistory[mKey]) === 0) {
             monthlyHistory[mKey] = moldLiveShots[mKey];
           }
         });
+      }
+
+      // Cập nhật số shot thời gian thực mới nhất từ máy ép đang chạy (today + yesterday) vào tháng hiện tại để Web và Excel luôn có số liệu mới nhất đồng nhất:
+      const liveShots = live ? (Number(live.todayShots || 0) + Number(live.yesterdayShots || 0)) : 0;
+      if (liveShots > 0) {
+        const baseCurMonth = Number(m.monthlyHistory?.[curMonthKey]) || 0;
+        monthlyHistory[curMonthKey] = Math.round(baseCurMonth + liveShots);
       }
 
       const novLiveShots = Math.round(Number(monthlyHistory.M11 || moldLiveShots?.M11 || 0));
