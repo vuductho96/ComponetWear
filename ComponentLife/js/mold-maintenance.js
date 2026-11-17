@@ -2364,72 +2364,75 @@ window.MoldMaintenance = (function() {
       let m25 = null;
       if (!isHigh) {
         if (isDone25) {
-          m25 = Math.round(d25?.closedShots || totalAccumulatedYear);
+          m25 = Math.round(d25?.closedShots || 2500000);
         } else {
           m25 = totalAccumulatedYear > 0 ? totalAccumulatedYear : 0;
         }
       }
 
-      // CỘT 4 (3.0M): VỚI KHUÔN TIÊU CHUẨN -> GHI TỔNG SỐ SHOT TÍCH LŨY THỰC TẾ CỦA CÁC THÁNG TRONG NĂM!
+      // CỘT 4 (3.0M): CHỈ XUẤT HIỆN KHI ĐÃ ĐẠT 2.5M (>= 2.500.000) HOẶC ĐÃ CHỐT 2.5M!
       const isDone4 = closedMilestones.includes(4);
       let m4 = null;
       if (!isHigh) {
-        // Khuôn tiêu chuẩn: Ghi nhận tổng số shot tích lũy thực tế của các tháng trong năm
         if (isDone4) {
-          m4 = Math.round(d4?.closedShots || totalAccumulatedYear);
-        } else {
+          m4 = Math.round(d4?.closedShots || 3000000);
+        } else if (isDone25 || totalAccumulatedYear >= 2500000) {
           m4 = totalAccumulatedYear > 0 ? totalAccumulatedYear : 0;
-        }
-      } else if (closedMilestones.includes(3)) {
-        // Khuôn High-Impact: đã chốt xong 3 cữ 400K
-        if (isDone4) {
-          m4 = Math.round(d4?.closedShots || Math.max(0, totalAccumulatedYear - (m1 || 0) - (m2 || 0) - (m3 || 0)));
         } else {
-          m4 = Math.max(0, totalAccumulatedYear - (m1 || 0) - (m2 || 0) - (m3 || 0));
+          m4 = null; // Chưa đạt 2.5M thì KHÔNG ghi vào 3.0M!
+        }
+      } else if (closedMilestones.includes(3) || totalAccumulatedYear >= 2500000) {
+        // Khuôn High-Impact: đã chốt xong 3 cữ 400K hoặc đạt 2.5M
+        if (isDone4) {
+          m4 = Math.round(d4?.closedShots || 3000000);
+        } else if (totalAccumulatedYear >= 3000000) {
+          m4 = totalAccumulatedYear;
+        } else {
+          m4 = null;
         }
       }
 
-      // CỘT 5 (3.5M): Bỏ số cứng 3.500.000 - chỉ xuất hiện khi Mốc 4 đã được chốt
+      // CỘT 5 (3.5M): Chỉ xuất hiện khi Mốc 4 đã được chốt HOẶC đạt >= 3.000.000
       let m5 = null;
-      if (isDone4) {
+      if (isDone4 || totalAccumulatedYear >= 3000000) {
         const isDone5 = closedMilestones.includes(5);
         if (isDone5) {
-          m5 = Math.round(d5?.closedShots || Math.max(0, totalAccumulatedYear - (m4 || 0)));
+          m5 = Math.round(d5?.closedShots || 3500000);
         } else {
-          m5 = Math.max(0, totalAccumulatedYear - (m4 || 0));
+          m5 = totalAccumulatedYear;
         }
       }
 
-      // CỘT 6 (4.0M): Bỏ số cứng 4.000.000 - chỉ xuất hiện khi Mốc 5 đã được chốt
+      // CỘT 6 (4.0M): Chỉ xuất hiện khi Mốc 5 đã được chốt HOẶC đạt >= 3.500.000
       let m6 = null;
-      if (closedMilestones.includes(5)) {
+      if (closedMilestones.includes(5) || totalAccumulatedYear >= 3500000) {
         const isDone6 = closedMilestones.includes(6);
         if (isDone6) {
-          m6 = Math.round(d6?.closedShots || Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0)));
+          m6 = Math.round(d6?.closedShots || 4000000);
         } else {
-          m6 = Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0));
+          m6 = totalAccumulatedYear;
         }
       }
 
-      // CỘT 7 (4.5M): Bỏ số cứng 4.500.000 - chỉ xuất hiện khi Mốc 6 đã được chốt
+      // CỘT 7 (4.5M): Chỉ xuất hiện khi Mốc 6 đã được chốt HOẶC đạt >= 4.000.000
       let m7 = null;
-      if (closedMilestones.includes(6)) {
+      if (closedMilestones.includes(6) || totalAccumulatedYear >= 4000000) {
         const isDone7 = closedMilestones.includes(7);
         if (isDone7) {
-          m7 = Math.round(d7?.closedShots || Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0) - (m6 || 0)));
+          m7 = Math.round(d7?.closedShots || 4500000);
         } else {
-          m7 = Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0) - (m6 || 0));
+          m7 = totalAccumulatedYear;
         }
       }
 
-      // CỘT 8 (5.0M): Bỏ số cứng 5.000.000 - chỉ xuất hiện khi Mốc 7 đã được chốt
+      // CỘT 8 (5.0M): Chỉ xuất hiện khi Mốc 7 đã được chốt HOẶC đạt >= 4.500.000
       let m8 = null;
-      if (closedMilestones.includes(7)) {
+      if (closedMilestones.includes(7) || totalAccumulatedYear >= 4500000) {
         const isDone8 = closedMilestones.includes(8);
         if (isDone8) {
-          m8 = Math.round(d8?.closedShots || Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0) - (m6 || 0) - (m7 || 0)));
+          m8 = Math.round(d8?.closedShots || 5000000);
         } else {
-          m8 = Math.max(0, totalAccumulatedYear - (m4 || 0) - (m5 || 0) - (m6 || 0) - (m7 || 0));
+          m8 = totalAccumulatedYear;
         }
       }
 
@@ -3787,19 +3790,13 @@ window.MoldMaintenance = (function() {
         hC.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hC.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
 
-        // D4: Last Year / Năm trước
+        // D4:D5 gộp: Last Year / Năm trước (bỏ 500K)
+        ws.mergeCells('D4:D5');
         const hD4 = ws.getCell('D4');
-        hD4.value = 'Last Year\r\nNăm trước';
+        hD4.value = 'Last Year\r\n\r\nNăm trước';
         hD4.font = { name: 'Arial', size: 9.5, bold: true };
         hD4.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hD4.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
-
-        // D5: maxShot chữ ĐỎ TƯƠI ĐẬM
-        const hD5 = ws.getCell('D5');
-        hD5.value = maxShot;
-        hD5.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FFFF0000' } };
-        hD5.alignment = { horizontal: 'center', vertical: 'middle' };
-        hD5.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
 
         // Nhóm 12 tháng E4:P4
         ws.mergeCells('E4:P4');
@@ -3915,6 +3912,16 @@ window.MoldMaintenance = (function() {
 
           const moldCode = String(m.mold || '').trim().toUpperCase();
           const closed = m.closedMilestones || getClosedMilestonesMap()[moldCode] || [];
+          const totAccum = Math.round((m.totalYear !== undefined && m.totalYear !== null && m.totalYear !== '')
+            ? Number(m.totalYear)
+            : (Number(m.lastYearRemaining || 0) + sumMonths));
+
+          const isDone25 = closed.includes(25) || closed.includes('25') || closed.includes('2.5m') || closed.includes('2.5M');
+          const isDone30 = closed.includes(4);
+          const isDone35 = closed.includes(5);
+          const isDone40 = closed.includes(6);
+          const isDone45 = closed.includes(7);
+          const isDone50 = closed.includes(8);
 
           milestoneHeaders.forEach((mH, idx) => {
             const colIdx = 17 + idx;
@@ -3943,71 +3950,93 @@ window.MoldMaintenance = (function() {
               }
             } else if (mH === '2.5M') {
               mTarget = 2500000;
-              isDone = closed.includes(25) || closed.includes('25') || closed.includes('2.5m') || closed.includes('2.5M');
               const d25 = getMilestoneDetail(moldCode, 25) || getMilestoneDetail(moldCode, '2.5m');
-              if (isDone) {
-                val = Math.round(d25?.closedShots || m.m25 || (m.totalYear || 0) || 2500000);
+              if (isDone25) {
+                isDone = true;
+                val = Math.round(d25?.closedShots || 2500000);
                 noteText = `MỐC 2.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d25?.date || ''}\nKTV: ${d25?.tech || ''}\n${d25?.note || ''}`.trim();
               } else {
                 if (!m.isHighImpact) {
-                  val = m.m25 !== null && m.m25 !== undefined ? Math.round(m.m25) : Math.round(m.totalYear || 0);
-                } else {
-                  val = (m.m25 !== null && m.m25 !== undefined && m.m25 > 0) ? Math.round(m.m25) : null;
+                  val = totAccum;
+                } else if (totAccum >= 2500000) {
+                  val = totAccum;
                 }
               }
             } else if (mH === '3.0M') {
               mTarget = 3000000;
-              isDone = closed.includes(4);
               const d4 = getMilestoneDetail(moldCode, 4);
-              if (isDone) {
-                val = Math.round(d4?.closedShots || m.m4 || 3000000);
+              if (isDone30) {
+                isDone = true;
+                val = Math.round(d4?.closedShots || 3000000);
                 noteText = `MỐC 3.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d4?.date || ''}\nKTV: ${d4?.tech || ''}\n${d4?.note || ''}`.trim();
               } else {
+                // Chỉ nhảy sang mốc 3.0M khi đã đạt 2.5M (>= 2.500.000) HOẶC mốc 2.5M đã chốt!
                 if (!m.isHighImpact) {
-                  val = m.m4 !== null && m.m4 !== undefined ? Math.round(m.m4) : Math.round(m.totalYear || 0);
-                } else {
-                  val = (m.m4 !== null && m.m4 !== undefined && m.m4 > 0) ? Math.round(m.m4) : null;
+                  if (isDone25 || totAccum >= 2500000) {
+                    val = totAccum;
+                  } else {
+                    val = null;
+                  }
+                } else if (isDone25 || totAccum >= 2500000) {
+                  val = totAccum;
                 }
               }
             } else if (mH === '3.5M') {
               mTarget = 3500000;
-              isDone = closed.includes(5);
               const d5 = getMilestoneDetail(moldCode, 5);
-              if (isDone) {
-                val = Math.round(d5?.closedShots || m.m5 || 3500000);
+              if (isDone35) {
+                isDone = true;
+                val = Math.round(d5?.closedShots || 3500000);
                 noteText = `MỐC 3.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d5?.date || ''}\nKTV: ${d5?.tech || ''}\n${d5?.note || ''}`.trim();
               } else {
-                val = (m.m5 !== null && m.m5 !== undefined && m.m5 > 0) ? Math.round(m.m5) : null;
+                // Chỉ nhảy sang mốc 3.5M khi đã đạt 3.0M (>= 3.000.000) HOẶC mốc 3.0M đã chốt!
+                if (isDone30 || totAccum >= 3000000) {
+                  val = totAccum;
+                } else {
+                  val = null;
+                }
               }
             } else if (mH === '4.0M') {
               mTarget = 4000000;
-              isDone = closed.includes(6);
               const d6 = getMilestoneDetail(moldCode, 6);
-              if (isDone) {
-                val = Math.round(d6?.closedShots || m.m6 || 4000000);
+              if (isDone40) {
+                isDone = true;
+                val = Math.round(d6?.closedShots || 4000000);
                 noteText = `MỐC 4.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d6?.date || ''}\nKTV: ${d6?.tech || ''}\n${d6?.note || ''}`.trim();
               } else {
-                val = (m.m6 !== null && m.m6 !== undefined && m.m6 > 0) ? Math.round(m.m6) : null;
+                if (isDone35 || totAccum >= 3500000) {
+                  val = totAccum;
+                } else {
+                  val = null;
+                }
               }
             } else if (mH === '4.5M') {
               mTarget = 4500000;
-              isDone = closed.includes(7);
               const d7 = getMilestoneDetail(moldCode, 7);
-              if (isDone) {
-                val = Math.round(d7?.closedShots || m.m7 || 4500000);
+              if (isDone45) {
+                isDone = true;
+                val = Math.round(d7?.closedShots || 4500000);
                 noteText = `MỐC 4.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d7?.date || ''}\nKTV: ${d7?.tech || ''}\n${d7?.note || ''}`.trim();
               } else {
-                val = (m.m7 !== null && m.m7 !== undefined && m.m7 > 0) ? Math.round(m.m7) : null;
+                if (isDone40 || totAccum >= 4000000) {
+                  val = totAccum;
+                } else {
+                  val = null;
+                }
               }
             } else if (mH === '5.0M') {
               mTarget = 5000000;
-              isDone = closed.includes(8);
               const d8 = getMilestoneDetail(moldCode, 8);
-              if (isDone) {
-                val = Math.round(d8?.closedShots || m.m8 || 5000000);
+              if (isDone50) {
+                isDone = true;
+                val = Math.round(d8?.closedShots || 5000000);
                 noteText = `MỐC 5.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d8?.date || ''}\nKTV: ${d8?.tech || ''}\n${d8?.note || ''}`.trim();
               } else {
-                val = (m.m8 !== null && m.m8 !== undefined && m.m8 > 0) ? Math.round(m.m8) : null;
+                if (isDone45 || totAccum >= 4500000) {
+                  val = totAccum;
+                } else {
+                  val = null;
+                }
               }
             }
 
