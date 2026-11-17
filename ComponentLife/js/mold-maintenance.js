@@ -3706,8 +3706,11 @@ window.MoldMaintenance = (function() {
 
         const maxShot = isHighImpactSheet ? '400K' : (isStandardSheet ? '500K' : '400K / 500K');
         const numMilestones = milestoneHeaders.length;
-        const totalCols = 16 + numMilestones + 1; // 1..16 (A..P) + milestones + 1 (Total Shot Monitor)
+        const totalShotYearCol = 16 + numMilestones + 1; // Cột Tổng shot trong năm (W ở sheet Tiêu Chuẩn)
+        const totalLifeCol = 16 + numMilestones + 2;     // Cột Tổng shot trọn đời (X ở sheet Tiêu Chuẩn)
+        const totalCols = totalLifeCol;
         const lastColLetter = getColLetter(totalCols);
+        const yearColLetter = getColLetter(totalShotYearCol);
 
         // Độ rộng cột chuẩn theo template MMFD-I-F-022.01
         ws.getColumn(1).width = 30; // Col A: Mold Name/Series
@@ -3723,7 +3726,8 @@ window.MoldMaintenance = (function() {
         for (let col = 17; col <= 16 + numMilestones; col++) {
           ws.getColumn(col).width = 14; // Milestones
         }
-        ws.getColumn(totalCols).width = 18; // Total Shot Monitor (Xanh dương nhạt)
+        ws.getColumn(totalShotYearCol).width = 18; // Total Shot Year (Xám bạc)
+        ws.getColumn(totalCols).width = 18;        // Total Shot Monitor (Xanh dương nhạt)
 
         // Nhúng Logo IRISO góc phải trên cùng
         if (logoImageId !== null) {
@@ -3832,11 +3836,19 @@ window.MoldMaintenance = (function() {
           c5.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
         });
 
-        // Cột Tổng (NỀN XANH DƯƠNG NHẠT #BDD7EE)
+        // Cột Total Shot Year (Tổng shot trong năm - Cột W ở Tiêu Chuẩn)
+        ws.mergeCells(`${yearColLetter}4:${yearColLetter}5`);
+        const hYear = ws.getCell(`${yearColLetter}4`);
+        hYear.value = 'Total Shot Year\r\nTổng shot trong năm';
+        hYear.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+        hYear.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        hYear.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; // Nền xám bạc chuyên nghiệp
+
+        // Cột Total Shot Monitor (Tổng số shot trọn đời - Cột X ở Tiêu Chuẩn - NỀN XANH DƯƠNG NHẠT #BDD7EE)
         ws.mergeCells(`${lastColLetter}4:${lastColLetter}5`);
         const hV = ws.getCell(`${lastColLetter}4`);
-        hV.value = 'Total Shot  Monitor\r\nTổng số shot ';
-        hV.font = { name: 'Arial', size: 10.5, bold: true, color: { argb: 'FF1E3A8A' } };
+        hV.value = 'Total Shot Monitor\r\nTổng số shot trọn đời';
+        hV.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF1E3A8A' } };
         hV.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         hV.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBDD7EE' } };
 
@@ -3942,12 +3954,24 @@ window.MoldMaintenance = (function() {
                   if (cInfo.isClosed) {
                     isDone = true;
                     val = cInfo.closedShots || 400000;
-                    if (cycleNum === 1) cellFormula = `SUM(D${curRow}:P${curRow})`;
+                    cellFormula = ''; // Đã chốt: khóa giá trị tĩnh, không dùng công thức SUM để tránh bị thay đổi khi số liệu các tháng sau tăng
                     const d = getMilestoneDetail(moldCode, cInfo.key) || getMilestoneDetail(moldCode, cycleNum);
                     noteText = `${mH} - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${cInfo.date || d?.date || ''}\nKTV: ${cInfo.tech || d?.tech || ''}\n${cInfo.note || d?.note || ''}`.trim();
                   } else if (cInfo.shots > 0) {
                     val = Math.round(cInfo.shots);
-                    if (cycleNum === 1) cellFormula = `SUM(D${curRow}:P${curRow})`;
+                    // Cữ đang chạy: công thức lũy tiến
+                    if (cycleNum === 1) {
+                      cellFormula = `SUM(D${curRow}:P${curRow})`;
+                    } else {
+                      // Cữ sau = Total Shot Year trừ đi các cữ trước đã chốt
+                      const startMilestoneCol = getColLetter(17);
+                      const prevMilestoneCol = getColLetter(16 + cycleNum - 1);
+                      if (cycleNum === 2) {
+                        cellFormula = `${yearColLetter}${curRow}-${startMilestoneCol}${curRow}`;
+                      } else {
+                        cellFormula = `${yearColLetter}${curRow}-SUM(${startMilestoneCol}${curRow}:${prevMilestoneCol}${curRow})`;
+                      }
+                    }
                   }
                 }
               }
@@ -3956,8 +3980,8 @@ window.MoldMaintenance = (function() {
               const d25 = getMilestoneDetail(moldCode, 25) || getMilestoneDetail(moldCode, '2.5m');
               if (isDone25) {
                 isDone = true;
-                val = Math.round(d25?.closedShots || totAccum || 2500000);
-                cellFormula = `SUM(D${curRow}:P${curRow})`;
+                val = Math.round(d25?.closedShots || 2500000);
+                cellFormula = ''; // Đã chốt: khóa giá trị tĩnh
                 noteText = `MỐC 2.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d25?.date || ''}\nKTV: ${d25?.tech || ''}\n${d25?.note || ''}`.trim();
               } else {
                 if (!m.isHighImpact) {
@@ -3973,8 +3997,8 @@ window.MoldMaintenance = (function() {
               const d4 = getMilestoneDetail(moldCode, 4);
               if (isDone30) {
                 isDone = true;
-                val = Math.round(d4?.closedShots || totAccum || 3000000);
-                cellFormula = `SUM(D${curRow}:P${curRow})`;
+                val = Math.round(d4?.closedShots || 3000000);
+                cellFormula = '';
                 noteText = `MỐC 3.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d4?.date || ''}\nKTV: ${d4?.tech || ''}\n${d4?.note || ''}`.trim();
               } else {
                 // Chỉ nhảy sang mốc 3.0M khi đã đạt 2.5M (>= 2.500.000) HOẶC mốc 2.5M đã chốt!
@@ -3995,8 +4019,8 @@ window.MoldMaintenance = (function() {
               const d5 = getMilestoneDetail(moldCode, 5);
               if (isDone35) {
                 isDone = true;
-                val = Math.round(d5?.closedShots || totAccum || 3500000);
-                cellFormula = `SUM(D${curRow}:P${curRow})`;
+                val = Math.round(d5?.closedShots || 3500000);
+                cellFormula = '';
                 noteText = `MỐC 3.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d5?.date || ''}\nKTV: ${d5?.tech || ''}\n${d5?.note || ''}`.trim();
               } else {
                 // Chỉ nhảy sang mốc 3.5M khi đã đạt 3.0M (>= 3.000.000) HOẶC mốc 3.0M đã chốt!
@@ -4012,8 +4036,8 @@ window.MoldMaintenance = (function() {
               const d6 = getMilestoneDetail(moldCode, 6);
               if (isDone40) {
                 isDone = true;
-                val = Math.round(d6?.closedShots || totAccum || 4000000);
-                cellFormula = `SUM(D${curRow}:P${curRow})`;
+                val = Math.round(d6?.closedShots || 4000000);
+                cellFormula = '';
                 noteText = `MỐC 4.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d6?.date || ''}\nKTV: ${d6?.tech || ''}\n${d6?.note || ''}`.trim();
               } else {
                 if (isDone35 || totAccum >= 3500000) {
@@ -4028,8 +4052,8 @@ window.MoldMaintenance = (function() {
               const d7 = getMilestoneDetail(moldCode, 7);
               if (isDone45) {
                 isDone = true;
-                val = Math.round(d7?.closedShots || totAccum || 4500000);
-                cellFormula = `SUM(D${curRow}:P${curRow})`;
+                val = Math.round(d7?.closedShots || 4500000);
+                cellFormula = '';
                 noteText = `MỐC 4.5M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d7?.date || ''}\nKTV: ${d7?.tech || ''}\n${d7?.note || ''}`.trim();
               } else {
                 if (isDone40 || totAccum >= 4000000) {
@@ -4044,8 +4068,8 @@ window.MoldMaintenance = (function() {
               const d8 = getMilestoneDetail(moldCode, 8);
               if (isDone50) {
                 isDone = true;
-                val = Math.round(d8?.closedShots || totAccum || 5000000);
-                cellFormula = `SUM(D${curRow}:P${curRow})`;
+                val = Math.round(d8?.closedShots || 5000000);
+                cellFormula = '';
                 noteText = `MỐC 5.0M - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${d8?.date || ''}\nKTV: ${d8?.tech || ''}\n${d8?.note || ''}`.trim();
               } else {
                 if (isDone45 || totAccum >= 4500000) {
@@ -4098,8 +4122,13 @@ window.MoldMaintenance = (function() {
             }
           });
 
-          // Total Shot Monitor ở cột cuối cùng
+          // Cột Total Shot Year (Tổng shot trong năm: Cột D Năm trước + 12 Tháng E đến P)
+          row.getCell(totalShotYearCol).value = { formula: `SUM(D${curRow}:P${curRow})`, result: totAccum };
+          row.getCell(totalShotYearCol).numFmt = numAccountingFmt;
+
+          // Cột Total Shot Monitor ở cột cuối cùng (Tổng shot trọn đời: Số shot cũ C + 12 Tháng E đến P)
           row.getCell(totalCols).value = { formula: `SUM(E${curRow}:P${curRow})+C${curRow}`, result: totalLifeAccum };
+          row.getCell(totalCols).numFmt = numAccountingFmt;
 
           row.eachCell({ includeEmpty: true }, (cell, colNum) => {
             cell.border = {
@@ -4123,9 +4152,15 @@ window.MoldMaintenance = (function() {
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
               cell.font = { name: 'Arial', size: 9.5, color: { argb: 'FF0F172A' } };
               cell.numFmt = numAccountingFmt;
+            } else if (colNum === totalShotYearCol) {
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              cell.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+              cell.numFmt = numAccountingFmt;
             } else if (colNum === totalCols) {
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
               cell.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
               cell.numFmt = numAccountingFmt;
             } else {
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -4426,8 +4461,8 @@ window.MoldMaintenance = (function() {
                     else if (mNum === 7) milestoneVal = '4.5M';
                     else if (mNum === 8) milestoneVal = '5.0M';
                     else if (mNumStr.startsWith('400k-')) milestoneVal = mNumStr.toUpperCase();
-                    else if (isHighImpact && mNum >= 1 && mNum <= 8) milestoneVal = `400K-${mNum}`;
-                    else milestoneVal = isHighImpact ? '400K' : '2.5M';
+                    else if ((m.isHighImpact || isHighImpactSheet) && mNum >= 1 && mNum <= 8) milestoneVal = `400K-${mNum}`;
+                    else milestoneVal = (m.isHighImpact || isHighImpactSheet) ? '400K' : '2.5M';
                     dateVal = dStr;
                   }
                 }
