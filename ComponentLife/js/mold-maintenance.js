@@ -218,6 +218,23 @@ window.MoldMaintenance = (function() {
     return num.toLocaleString('vi-VN');
   }
 
+  // Kiểm tra khuôn đặc thù 13086B-14A-m1591 (Mã khuôn: M1591 / I13086B01): Chu kỳ đo lại 30K shots
+  function is30kMold(mOrCode) {
+    if (!mOrCode) return false;
+    if (typeof mOrCode === 'string') {
+      const s = mOrCode.toUpperCase().trim();
+      return s === 'M1591' || s === 'I13086B01' || s.includes('13086B') || s.includes('1591');
+    }
+    const mold = String(mOrCode.mold || '').toUpperCase();
+    const oldMold = String(mOrCode.oldMold || '').toUpperCase();
+    const newMold = String(mOrCode.newMold || '').toUpperCase();
+    const series = String(mOrCode.series || '').toUpperCase();
+    return mold === 'I13086B01' || mold === 'M1591' || 
+           oldMold === 'M1591' || oldMold === 'I13086B01' ||
+           newMold === 'I13086B01' || newMold === 'M1591' ||
+           series.includes('13086B') || mold.includes('1591') || oldMold.includes('1591');
+  }
+
   // Khởi tạo
   let autoSyncTimer = null;
   function startAutoSync() {
@@ -937,11 +954,13 @@ window.MoldMaintenance = (function() {
   }
 
   // Tính toán mốc kế hoạch và trạng thái theo SOP chuẩn mới:
+  // - Riêng khuôn 13086B-14A-m1591: Chu kỳ đo lại 30K (cảnh báo sớm 28K, báo đo lại 29K, vượt mốc ≥30K)
   // - High-Impact: Cữ 400K (cảnh báo sớm tại 380K, bảo dưỡng tại ≥400K)
   // - Khuôn Tiêu Chuẩn: CHỈ TỪ 2.8M - 3M TRỞ LÊN MỚI BẢO DƯỠNG! (Dưới 2.8M tuyệt đối an toàn)
-  function computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones = []) {
-    let plan = 400000;
-    let planDisplay = '400.000';
+  function computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones = [], moldCode = '') {
+    const is30k = is30kMold(moldCode);
+    let plan = is30k ? 30000 : 400000;
+    let planDisplay = is30k ? '30.000' : '400.000';
     let percent = 0;
     let remaining = 0;
     let status = 'safe';
@@ -951,43 +970,84 @@ window.MoldMaintenance = (function() {
     let statusClass = 'running';
 
     if (isHigh) {
-      // RULE MÀU CẢNH BÁO CHO MỐC HIGH-IMPACT 400K (GIẬT LÙI SO VỚI TIÊU CHUẨN):
-      // - 380K ~ 390K (Trước 20K): Màu TÍM (Lên plan cảnh báo)
-      // - 390K ~ 400K (Trước 10K): Màu CAM (Báo bảo dưỡng)
-      // - >= 400K: Màu ĐỎ (Báo vượt mốc tiêu chuẩn / Cần bảo dưỡng)
-      // - < 380K: Màu XANH (An toàn)
-      plan = 400000;
-      percent = Math.min(100, Math.round((curShots / plan) * 100));
-      remaining = Math.max(0, plan - curShots);
+      if (is30k) {
+        // RULE RIÊNG CHO KHUÔN 13086B-14A-m1591 (CHU KỲ ĐO LẠI 30K SHOTS):
+        // - 28K ~ 29K (Trước 2K): Màu TÍM (Lên plan cảnh báo)
+        // - 29K ~ 30K (Trước 1K): Màu CAM/VÀNG (Báo đo lại)
+        // - >= 30K: Màu ĐỎ (Báo vượt mốc / Cần đo lại)
+        // - < 28K: Màu XANH (An toàn)
+        plan = 30000;
+        percent = Math.min(100, Math.round((curShots / plan) * 100));
+        remaining = Math.max(0, plan - curShots);
 
-      if (curShots >= 400000) {
-        status = 'due';
-        statusLevel = 'urgent';
-        statusColor = 'red';
-        planDisplay = '🔥 Cần Bảo Dưỡng (≥400K)';
-        statusText = 'VƯỢT MỐC TIÊU CHUẨN (≥400K)';
-        statusClass = 'danger';
-      } else if (curShots >= 390000) {
-        status = 'warning';
-        statusLevel = 'warning';
-        statusColor = 'orange';
-        planDisplay = '🟠 Báo Bảo Dưỡng (390K~400K)';
-        statusText = 'BÁO BẢO DƯỠNG (390K ~ 400K)';
-        statusClass = 'warning';
-      } else if (curShots >= 380000) {
-        status = 'plan';
-        statusLevel = 'plan';
-        statusColor = 'purple';
-        planDisplay = '🟣 Lên Plan Cảnh Báo (380K~390K)';
-        statusText = 'LÊN PLAN CẢNH BÁO (380K ~ 390K)';
-        statusClass = 'purple';
+        if (curShots >= 30000) {
+          status = 'due';
+          statusLevel = 'urgent';
+          statusColor = 'red';
+          planDisplay = '🔥 Cần Đo Lại (≥30K)';
+          statusText = 'VƯỢT MỐC ĐO LẠI (≥30K)';
+          statusClass = 'danger';
+        } else if (curShots >= 29000) {
+          status = 'warning';
+          statusLevel = 'warning';
+          statusColor = 'orange';
+          planDisplay = '🟠 Báo Đo Lại (29K~30K)';
+          statusText = 'BÁO ĐO LẠI (29K ~ 30K)';
+          statusClass = 'warning';
+        } else if (curShots >= 28000) {
+          status = 'plan';
+          statusLevel = 'plan';
+          statusColor = 'purple';
+          planDisplay = '🟣 Lên Plan Đo Lại (28K~29K)';
+          statusText = 'LÊN PLAN ĐO LẠI (28K ~ 29K)';
+          statusClass = 'purple';
+        } else {
+          status = 'safe';
+          statusLevel = 'safe';
+          statusColor = 'green';
+          planDisplay = '🟢 An Toàn (< 28K)';
+          statusText = 'An Toàn (< 28K)';
+          statusClass = 'running';
+        }
       } else {
-        status = 'safe';
-        statusLevel = 'safe';
-        statusColor = 'green';
-        planDisplay = '🟢 An Toàn (< 380K)';
-        statusText = 'An Toàn (< 380K)';
-        statusClass = 'running';
+        // RULE MÀU CẢNH BÁO CHO MỐC HIGH-IMPACT 400K (GIẬT LÙI SO VỚI TIÊU CHUẨN):
+        // - 380K ~ 390K (Trước 20K): Màu TÍM (Lên plan cảnh báo)
+        // - 390K ~ 400K (Trước 10K): Màu CAM (Báo bảo dưỡng)
+        // - >= 400K: Màu ĐỎ (Báo vượt mốc tiêu chuẩn / Cần bảo dưỡng)
+        // - < 380K: Màu XANH (An toàn)
+        plan = 400000;
+        percent = Math.min(100, Math.round((curShots / plan) * 100));
+        remaining = Math.max(0, plan - curShots);
+
+        if (curShots >= 400000) {
+          status = 'due';
+          statusLevel = 'urgent';
+          statusColor = 'red';
+          planDisplay = '🔥 Cần Bảo Dưỡng (≥400K)';
+          statusText = 'VƯỢT MỐC TIÊU CHUẨN (≥400K)';
+          statusClass = 'danger';
+        } else if (curShots >= 390000) {
+          status = 'warning';
+          statusLevel = 'warning';
+          statusColor = 'orange';
+          planDisplay = '🟠 Báo Bảo Dưỡng (390K~400K)';
+          statusText = 'BÁO BẢO DƯỠNG (390K ~ 400K)';
+          statusClass = 'warning';
+        } else if (curShots >= 380000) {
+          status = 'plan';
+          statusLevel = 'plan';
+          statusColor = 'purple';
+          planDisplay = '🟣 Lên Plan Cảnh Báo (380K~390K)';
+          statusText = 'LÊN PLAN CẢNH BÁO (380K ~ 390K)';
+          statusClass = 'purple';
+        } else {
+          status = 'safe';
+          statusLevel = 'safe';
+          statusColor = 'green';
+          planDisplay = '🟢 An Toàn (< 380K)';
+          statusText = 'An Toàn (< 380K)';
+          statusClass = 'running';
+        }
       }
     } else {
       // RULE MÀU CẢNH BÁO CHO KHUÔN TIÊU CHUẨN:
@@ -1180,8 +1240,12 @@ window.MoldMaintenance = (function() {
       if (String(num).startsWith('400k-')) {
         const n = parseInt(num.replace('400k-', ''), 10);
         if (map[code][n]) return map[code][n];
-      } else if (Number.isFinite(Number(num)) && Number(num) <= 7) {
+      } else if (String(num).startsWith('30k-')) {
+        const n = parseInt(num.replace('30k-', ''), 10);
+        if (map[code][n]) return map[code][n];
+      } else if (Number.isFinite(Number(num)) && Number(num) <= 12) {
         if (map[code]['400k-' + num]) return map[code]['400k-' + num];
+        if (map[code]['30k-' + num]) return map[code]['30k-' + num];
       }
     }
     if (rawData && rawData.excelMasterMolds) {
@@ -1260,27 +1324,44 @@ window.MoldMaintenance = (function() {
     `;
   }
 
-  // Thông tin các cữ 400K của khuôn High-Impact (cữ 1 đến 8)
+  // Thông tin các cữ 400K của khuôn High-Impact (cữ 1 đến 8) hoặc 30K của riêng khuôn 13086B-14A-m1591
   function get400kCyclesInfo(m) {
     const code = String(m?.mold || '').trim().toUpperCase();
+    const is30k = is30kMold(m || code);
+    const stepTarget = is30k ? 30000 : 400000;
+    const prefix = is30k ? '30k-' : '400k-';
     const closedMap = getClosedMilestonesMap();
     const closedList = m?.closedMilestones || closedMap[code] || [];
-    const totalYear = Number(m?.totalYear) || Number(m?.totalAccumulatedYear) || 0;
+    
+    let totalYear = Number(m?.totalYear) || Number(m?.totalAccumulatedYear) || 0;
+    if (is30k && totalYear > 100000) {
+      // Đối với khuôn 30k, nếu totalYear chứa số shot dở dang năm trước từ mốc cũ (354k):
+      // Lấy phần dư dở dang của chu kỳ 30k cuối năm trước:
+      const rawLy = Number(m?.lastYearRemaining || 0);
+      const ly30k = rawLy > 30000 ? (rawLy % 30000) : rawLy;
+      const monthsTotal = totalYear - rawLy;
+      totalYear = ly30k + Math.max(0, monthsTotal);
+    }
 
     const cycles = [];
     let remainingShots = totalYear;
+    const maxCycles = is30k ? 12 : 8;
 
-    for (let i = 1; i <= 8; i++) {
-      const cycleKey = i <= 3 ? i : ('400k-' + i);
-      const isClosed = closedList.includes(i) || closedList.includes('400k-' + i) || closedList.includes(String(i));
-      const detail = getMilestoneDetail(code, cycleKey) || getMilestoneDetail(code, i);
-      const pdf = detail?.pdf || getMilestonePdf(code, cycleKey) || getMilestonePdf(code, i);
+    for (let i = 1; i <= maxCycles; i++) {
+      const cycleKey = is30k ? ('30k-' + i) : (i <= 3 ? i : ('400k-' + i));
+      const cycleName = prefix + i;
+      const isClosed = closedList.includes(cycleKey) || 
+                       closedList.includes(cycleName) || 
+                       closedList.includes(i) || 
+                       closedList.includes(String(i));
+      const detail = getMilestoneDetail(code, cycleKey) || getMilestoneDetail(code, cycleName) || getMilestoneDetail(code, i);
+      const pdf = detail?.pdf || getMilestonePdf(code, cycleKey) || getMilestonePdf(code, cycleName) || getMilestonePdf(code, i);
 
       let closedShots = 0;
       let cycleShots = 0;
 
       if (isClosed) {
-        closedShots = Number(detail?.closedShots) || (i === 1 ? (m?.m1 || 400000) : (i === 2 ? (m?.m2 || 400000) : (i === 3 ? (m?.m3 || 400000) : 400000)));
+        closedShots = Number(detail?.closedShots) || (i === 1 ? (m?.m1 || stepTarget) : (i === 2 ? (m?.m2 || stepTarget) : (i === 3 ? (m?.m3 || stepTarget) : stepTarget)));
         cycleShots = closedShots;
         remainingShots = Math.max(0, remainingShots - closedShots);
       } else {
@@ -1290,11 +1371,12 @@ window.MoldMaintenance = (function() {
 
       cycles.push({
         num: i,
-        name: '400k-' + i,
+        name: cycleName,
         key: cycleKey,
         isClosed,
         closedShots,
         shots: cycleShots,
+        target: stepTarget,
         date: detail?.date || '',
         tech: detail?.tech || '',
         note: detail?.note || '',
@@ -1305,7 +1387,7 @@ window.MoldMaintenance = (function() {
     return cycles;
   }
 
-  // Render ô 400K đơn lẻ trên bảng chính: chỉ ghi số shot kèm màu cảnh báo, chuẩn gọn gàng
+  // Render ô 400K (hoặc 30K với khuôn 13086B-14A-m1591) trên bảng chính: chỉ ghi số shot kèm màu cảnh báo, chuẩn gọn gàng
   // Helper parse số shot nhập dạng text (vd: '380k', '400.000', '1.002.250', 380000)
   function parseShotInput(str) {
     if (typeof str === 'number') return str;
@@ -1328,41 +1410,46 @@ window.MoldMaintenance = (function() {
       return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:6px 4px; border-left:1px solid #f1f5f9;" title="Không áp dụng mốc 400K (Chỉ dành cho khuôn High-Impact)">-</td>`;
     }
 
+    const is30k = is30kMold(m);
     const cycles = get400kCyclesInfo(m);
     const current = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
     const currNum = current ? current.num : 1;
     const currShots = current ? current.shots : 0;
+    const mTarget = is30k ? 30000 : 400000;
+    const warnThreshold = is30k ? 29000 : 390000;
+    const planThreshold = is30k ? 28000 : 380000;
+    const labelPrefix = is30k ? '30K' : '400K';
 
-    // RULE 4 MÀU CHO CỮ 400K (HIGH-IMPACT):
-    // - ĐỎ: >= 400K (Vượt mốc tiêu chuẩn)
-    // - CAM: >= 390K (Báo bảo dưỡng)
-    // - TÍM: >= 380K (Lên plan cảnh báo)
-    // - XANH: < 380K (An toàn)
+    // RULE 4 MÀU CHO CỮ:
+    // - ĐỎ: >= mTarget (Vượt mốc tiêu chuẩn / Cần đo lại)
+    // - CAM/VÀNG: >= warnThreshold (Báo đo lại / bảo dưỡng)
+    // - TÍM: >= planThreshold (Lên plan cảnh báo)
+    // - XANH: < planThreshold (An toàn)
     let cellBg = '#dcfce7';
     let textColor = '#15803d';
     let fontWeight = '700';
     let stateLabel = '';
 
-    if (currShots >= 400000) {
+    if (currShots >= mTarget) {
       cellBg = '#fee2e2';
       textColor = '#b91c1c';
       fontWeight = '800';
-      stateLabel = '[🔴 CẦN BẢO DƯỠNG ≥400K]';
-    } else if (currShots >= 390000) {
+      stateLabel = `[🔴 CẦN ĐO LẠI / BẢO DƯỠNG ≥${labelPrefix}]`;
+    } else if (currShots >= warnThreshold) {
       cellBg = '#fef9c3';
       textColor = '#854d0e';
       fontWeight = '800';
-      stateLabel = '[🟡 BÁO BẢO DƯỠNG 390K~400K]';
-    } else if (currShots >= 380000) {
+      stateLabel = `[🟡 BÁO ĐO LẠI ${is30k ? '29K~30K' : '390K~400K'}]`;
+    } else if (currShots >= planThreshold) {
       cellBg = '#fae8ff';
       textColor = '#701a75';
       fontWeight = '800';
-      stateLabel = '[🟣 LÊN PLAN CẢNH BÁO 380K~390K]';
+      stateLabel = `[🟣 LÊN PLAN CẢNH BÁO ${is30k ? '28K~29K' : '380K~390K'}]`;
     } else {
-      stateLabel = '[🟢 An toàn <380K]';
+      stateLabel = `[🟢 An toàn <${is30k ? '28K' : '380K'}]`;
     }
 
-    const cellTitle = `400K (Cữ ${currNum}): ${formatNum(currShots)} / 400.000 shots ${stateLabel} - Bấm để mở bảng nhập shot`;
+    const cellTitle = `${labelPrefix} (Cữ ${currNum}): ${formatNum(currShots)} / ${formatNum(mTarget)} shots ${stateLabel} - Bấm để mở bảng nhập shot đo lại`;
 
     return `
       <td class="text-center font-mono" style="background:${cellBg}; color:${textColor}; font-weight:${fontWeight}; font-size:12px; vertical-align:middle; padding:6px 6px; border-left:1px solid #f1f5f9; cursor:pointer; user-select:none; transition:background 0.15s ease;"
@@ -1550,7 +1637,7 @@ window.MoldMaintenance = (function() {
               ${mTitleHtml}
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="VD: 380k / 3.0M"
+              <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="${is30kMold(activeShotModalMold) ? 'VD: 30k / 30.000' : 'VD: 380k / 400k'}"
                 oninput="MoldMaintenance.handleShotInputChanged(${idx})"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-family:monospace; font-weight:700; text-align:right; font-size:12.5px; color:#0f172a; background:#ffffff;">
             </td>
@@ -1580,7 +1667,12 @@ window.MoldMaintenance = (function() {
     const notice = document.getElementById('mmModalNotice');
     if (notice) {
       if (activeShotModalTab === '400k') {
-        notice.textContent = '💡 Chu kỳ 400K: Bảo dưỡng dự phòng cho khuôn High-Impact theo từng cữ 400.000 shots.';
+        const is30k = is30kMold(activeShotModalMold);
+        if (is30k) {
+          notice.textContent = '💡 Chu kỳ 30K: Riêng khuôn 13086B-14A (M1591) cảnh báo đo lại ở ngưỡng 30.000 shots, mỗi lần chốt là 30.000 shots.';
+        } else {
+          notice.textContent = '💡 Chu kỳ 400K: Bảo dưỡng dự phòng cho khuôn High-Impact theo từng cữ 400.000 shots.';
+        }
       } else {
         const firstRow = rows[0];
         notice.textContent = firstRow ? `🔒 Mốc ${firstRow.name}: Chốt 1 phát kèm giấy tờ liên quan (Không cho chốt trước hạn).` : '';
@@ -1590,10 +1682,11 @@ window.MoldMaintenance = (function() {
 
   function add400kRow() {
     if (activeShotModalTab === '400k') {
+      const is30k = is30kMold(activeShotModalMold);
       const nextNum = active400kRowsData.length + 1;
       active400kRowsData.push({
         num: nextNum,
-        name: '400k-' + nextNum,
+        name: (is30k ? '30k-' : '400k-') + nextNum,
         actualShot: '',
         date: '',
         ktv: '',
@@ -1730,20 +1823,26 @@ window.MoldMaintenance = (function() {
 
     if (is400k) {
       // =======================================================
-      // CHẾ ĐỘ 1: BẢNG NHẬP SHOT 400K (HIGH-IMPACT)
-      // Mở khóa hoàn toàn các cữ 400k-1..8 để nhập liệu tự do!
+      // CHẾ ĐỘ 1: BẢNG NHẬP SHOT 400K (HIGH-IMPACT) HOẶC 30K (13086B-14A-m1591)
+      // Mở khóa hoàn toàn các cữ để nhập liệu tự do!
       // =======================================================
       activeShotModalTab = '400k';
-      if (mainTitleEl) mainTitleEl.textContent = 'Bảng nhập shot (High Impact - 400k)';
+      const is30k = is30kMold(m);
+      if (mainTitleEl) {
+        mainTitleEl.textContent = is30k 
+          ? 'Bảng nhập shot đo lại (13086B-14A - M1591 - Chu kỳ 30K)' 
+          : 'Bảng nhập shot (High Impact - 400k)';
+      }
       if (addRowTr) addRowTr.style.display = '';
 
       const cycles = get400kCyclesInfo(m);
-      const maxRows = Math.max(8, cycles.length);
+      const minRows = is30k ? 10 : 8;
+      const maxRows = Math.max(minRows, cycles.length);
       active400kRowsData = [];
 
       for (let i = 1; i <= maxRows; i++) {
         const c = cycles.find(x => x.num === i);
-        const rowName = '400k-' + i;
+        const rowName = (is30k ? '30k-' : '400k-') + i;
         if (c && c.isClosed) {
           let shotDisplay = '';
           if (c.closedShots > 0) {
@@ -1763,7 +1862,7 @@ window.MoldMaintenance = (function() {
             isEligible: true // Mở khóa hoàn toàn
           });
         } else {
-          // Các cữ chưa chốt (400k-1, 400k-2, 400k-3, 400k-4...): Đều MỞ KHÓA tự do!
+          // Các cữ chưa chốt: Đều MỞ KHÓA tự do!
           let shotDisplay = '';
           if (c && c.shots > 0) {
             shotDisplay = (c.shots >= 1000 && c.shots % 1000 === 0)
@@ -2063,8 +2162,12 @@ window.MoldMaintenance = (function() {
       if (String(num).startsWith('400k-')) {
         const n = parseInt(num.replace('400k-', ''), 10);
         if (map[code][n]) return map[code][n];
-      } else if (Number.isFinite(Number(num)) && Number(num) <= 7) {
+      } else if (String(num).startsWith('30k-')) {
+        const n = parseInt(num.replace('30k-', ''), 10);
+        if (map[code][n]) return map[code][n];
+      } else if (Number.isFinite(Number(num)) && Number(num) <= 12) {
         if (map[code]['400k-' + num]) return map[code]['400k-' + num];
+        if (map[code]['30k-' + num]) return map[code]['30k-' + num];
       }
     }
     if (rawData && rawData.excelMasterMolds) {
@@ -2347,9 +2450,13 @@ window.MoldMaintenance = (function() {
       if (isHigh) {
         const dummyMoldObj = {
           mold: m.mold,
+          oldMold: m.oldMold || m.old_name,
+          newMold: m.newMold || m.new_name,
+          series: m.series,
           closedMilestones,
           totalYear: totalAccumulatedYear,
-          totalAccumulatedYear
+          totalAccumulatedYear,
+          lastYearRemaining
         };
         const cycles400k = get400kCyclesInfo(dummyMoldObj);
         if (cycles400k[0]) m1 = cycles400k[0].shots;
@@ -2358,7 +2465,8 @@ window.MoldMaintenance = (function() {
 
         const activeCycle = cycles400k.find(c => !c.isClosed) || cycles400k[cycles400k.length - 1];
         curShots = activeCycle ? Math.round(activeCycle.shots) : 0;
-        cycleName = activeCycle ? activeCycle.name : '400k-1';
+        const is30k = is30kMold(dummyMoldObj);
+        cycleName = activeCycle ? activeCycle.name : (is30k ? '30k-1' : '400k-1');
       } else {
         // Khuôn tiêu chuẩn: dùng SUM SHOT YEAR (tổng số shot tích lũy trong năm), KHÔNG dùng tổng vòng đời!
         curShots = Math.round(totalAccumulatedYear);
@@ -2446,7 +2554,7 @@ window.MoldMaintenance = (function() {
       const totalYear = totalAccumulatedYear;
       const moldNote = notesMap[code] || m.note || (live ? live.note : '') || '';
 
-      const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones);
+      const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones, code);
 
       allMoldsMap[code] = {
         totalShotLastYear: Math.round(Number(m.totalShotLastYear || m.total_life || live?.totalLifeShots || 0)),
@@ -2574,22 +2682,27 @@ window.MoldMaintenance = (function() {
     let highestPurpleShots = 0;
     let redCol = '';
 
-    // 1. Cột 400K (High-Impact):
-    // >= 400K: ĐỎ | >= 390K: CAM | >= 380K: TÍM
+    // 1. Cột 400K (High-Impact) hoặc 30K (13086B-14A-m1591):
     if (m.isHighImpact) {
+      const is30k = is30kMold(m);
       const cycles = get400kCyclesInfo(m);
       const curr = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
       if (curr && !curr.isClosed) {
-        if (curr.shots >= 400000) {
+        const mTarget = is30k ? 30000 : 400000;
+        const warnThreshold = is30k ? 29000 : 390000;
+        const planThreshold = is30k ? 28000 : 380000;
+        const labelPrefix = is30k ? '30K' : '400K';
+
+        if (curr.shots >= mTarget) {
           hasRed = true;
           if (curr.shots > highestRedShots) {
             highestRedShots = curr.shots;
-            redCol = `400K (${formatNum(curr.shots)})`;
+            redCol = `${labelPrefix} (${formatNum(curr.shots)})`;
           }
-        } else if (curr.shots >= 390000) {
+        } else if (curr.shots >= warnThreshold) {
           hasOrange = true;
           if (curr.shots > highestOrangeShots) highestOrangeShots = curr.shots;
-        } else if (curr.shots >= 380000) {
+        } else if (curr.shots >= planThreshold) {
           hasPurple = true;
           if (curr.shots > highestPurpleShots) highestPurpleShots = curr.shots;
         }
@@ -3149,7 +3262,7 @@ window.MoldMaintenance = (function() {
         }
 
         if (!isHigh) curShots = uMold ? uMold.curShots : Number(r.totalAccumulatedYear || r.totalYear || curShots);
-        const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones);
+        const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones, code);
         
         let dayShots = 0;
         let dayProd = 0;
@@ -3951,16 +4064,17 @@ window.MoldMaintenance = (function() {
             if (mH.startsWith('400K-')) {
               if (m.isHighImpact) {
                 const cycleNum = parseInt(mH.replace('400K-', ''), 10);
+                const is30k = is30kMold(m);
                 const cycles = get400kCyclesInfo(m);
                 const cInfo = cycles[cycleNum - 1];
                 if (cInfo) {
-                  mTarget = 400000;
+                  mTarget = is30k ? 30000 : 400000;
                   if (cInfo.isClosed) {
                     isDone = true;
-                    val = cInfo.closedShots || 400000;
+                    val = cInfo.closedShots || mTarget;
                     cellFormula = ''; // Đã chốt: khóa giá trị tĩnh, không dùng công thức SUM để tránh bị thay đổi khi số liệu các tháng sau tăng
                     const d = getMilestoneDetail(moldCode, cInfo.key) || getMilestoneDetail(moldCode, cycleNum);
-                    noteText = `${mH} - ĐÃ BẢO DƯỠNG\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${cInfo.date || d?.date || ''}\nKTV: ${cInfo.tech || d?.tech || ''}\n${cInfo.note || d?.note || ''}`.trim();
+                    noteText = `${is30k ? ('30K-' + cycleNum) : mH} - ${is30k ? 'ĐÃ ĐO LẠI' : 'ĐÃ BẢO DƯỠNG'}\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${cInfo.date || d?.date || ''}\nKTV: ${cInfo.tech || d?.tech || ''}\n${cInfo.note || d?.note || ''}`.trim();
                   } else {
                     val = (cInfo.shots > 0) ? Math.round(cInfo.shots) : null;
                     // Cữ chưa chốt: gán công thức động cho mọi cữ để khi người dùng gõ số chốt vào cữ trước, cữ sau tự động nhận số dư lũy kế
@@ -4080,15 +4194,18 @@ window.MoldMaintenance = (function() {
                   };
                 }
               } else if (mTarget > 0) {
+                const is30k = is30kMold(m);
+                const warnDelta = is30k ? 1000 : 10000;
+                const planDelta = is30k ? 2000 : 20000;
                 // Tiêu chuẩn giám sát và plan mới, màu mới (Tím, Vàng, Đỏ)
                 if (val >= mTarget) {
-                  cellFill = 'FFFF0000'; // Đỏ Vượt mốc tiêu chuẩn
+                  cellFill = 'FFFF0000'; // Đỏ Vượt mốc tiêu chuẩn / Cần đo lại
                   fontColor = 'FFFFFFFF';
-                } else if (val >= mTarget - 10000) {
-                  cellFill = 'FFFFF08A'; // Vàng Báo bảo dưỡng (trước 10K)
+                } else if (val >= mTarget - warnDelta) {
+                  cellFill = 'FFFFF08A'; // Vàng Báo đo lại / bảo dưỡng
                   fontColor = 'FF854D0E';
-                } else if (val >= mTarget - 20000) {
-                  cellFill = 'FFD8B4FE'; // Tím Mức Plan (trước 20K)
+                } else if (val >= mTarget - planDelta) {
+                  cellFill = 'FFD8B4FE'; // Tím Mức Plan
                   fontColor = 'FF701A75';
                 }
               }
@@ -4176,7 +4293,7 @@ window.MoldMaintenance = (function() {
               // Rule 1: Nếu cữ tiếp theo có giá trị > 0 -> Cữ này ĐÃ CHỐT / HOÀN THÀNH -> Xanh lá (#DCFCE7)
               if (nextColLetter) {
                 rules.push({
-                  priority: 1,
+                  priority: rules.length + 1,
                   type: 'expression',
                   formulae: [`AND(ISNUMBER(${nextColLetter}${dataStartRow}),${nextColLetter}${dataStartRow}>0)`],
                   style: {
@@ -4186,10 +4303,41 @@ window.MoldMaintenance = (function() {
                 });
               }
 
+              // Riêng cho cột 400K: Áp dụng quy chuẩn đo lại 30K cho khuôn 13086B-14A-m1591 (ngưỡng 30K đỏ, 29K vàng, 28K tím)
+              if (mH.startsWith('400K-')) {
+                rules.push({
+                  priority: rules.length + 1,
+                  type: 'expression',
+                  formulae: [`AND(OR(ISNUMBER(SEARCH("13086B",$A${dataStartRow}&$B${dataStartRow})),ISNUMBER(SEARCH("1591",$A${dataStartRow}&$B${dataStartRow}))),ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=30000)`],
+                  style: {
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' }, bgColor: { argb: 'FFFF0000' } },
+                    font: { color: { argb: 'FFFFFFFF' }, bold: true }
+                  }
+                });
+                rules.push({
+                  priority: rules.length + 1,
+                  type: 'expression',
+                  formulae: [`AND(OR(ISNUMBER(SEARCH("13086B",$A${dataStartRow}&$B${dataStartRow})),ISNUMBER(SEARCH("1591",$A${dataStartRow}&$B${dataStartRow}))),ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=29000,${colLetter}${dataStartRow}<30000)`],
+                  style: {
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF08A' }, bgColor: { argb: 'FFFFF08A' } },
+                    font: { color: { argb: 'FF854D0E' }, bold: true }
+                  }
+                });
+                rules.push({
+                  priority: rules.length + 1,
+                  type: 'expression',
+                  formulae: [`AND(OR(ISNUMBER(SEARCH("13086B",$A${dataStartRow}&$B${dataStartRow})),ISNUMBER(SEARCH("1591",$A${dataStartRow}&$B${dataStartRow}))),ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=28000,${colLetter}${dataStartRow}<29000)`],
+                  style: {
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD8B4FE' }, bgColor: { argb: 'FFD8B4FE' } },
+                    font: { color: { argb: 'FF701A75' }, bold: true }
+                  }
+                });
+              }
+
               // Rule 2: Vượt mốc tiêu chuẩn (>= mTarget) -> Màu ĐỎ (#FFFF0000), chữ trắng
               // BẮT BUỘC dùng ISNUMBER để chặn chuỗi rỗng "" từ công thức không bị Excel coi là lớn hơn số
               rules.push({
-                priority: nextColLetter ? 2 : 1,
+                priority: rules.length + 1,
                 type: 'expression',
                 formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget})`],
                 style: {
@@ -4200,7 +4348,7 @@ window.MoldMaintenance = (function() {
 
               // Rule 3: Báo bảo dưỡng (>= mTarget - 10000) -> Màu VÀNG (#FFFFF08A), chữ nâu đậm
               rules.push({
-                priority: nextColLetter ? 3 : 2,
+                priority: rules.length + 1,
                 type: 'expression',
                 formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget - 10000},${colLetter}${dataStartRow}<${mTarget})`],
                 style: {
@@ -4211,7 +4359,7 @@ window.MoldMaintenance = (function() {
 
               // Rule 4: Mức Plan (>= mTarget - 20000) -> Màu TÍM (#FFD8B4FE), chữ tím đậm
               rules.push({
-                priority: nextColLetter ? 4 : 3,
+                priority: rules.length + 1,
                 type: 'expression',
                 formulae: [`AND(ISNUMBER(${colLetter}${dataStartRow}),${colLetter}${dataStartRow}>=${mTarget - 20000},${colLetter}${dataStartRow}<${mTarget - 10000})`],
                 style: {
