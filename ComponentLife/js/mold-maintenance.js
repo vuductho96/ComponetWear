@@ -1334,13 +1334,22 @@ window.MoldMaintenance = (function() {
     const closedList = m?.closedMilestones || closedMap[code] || [];
     
     let totalYear = Number(m?.totalYear) || Number(m?.totalAccumulatedYear) || 0;
-    if (is30k && totalYear > 100000) {
-      // Đối với khuôn 30k, nếu totalYear chứa số shot dở dang năm trước từ mốc cũ (354k):
-      // Lấy phần dư dở dang của chu kỳ 30k cuối năm trước:
-      const rawLy = Number(m?.lastYearRemaining || 0);
-      const ly30k = rawLy > 30000 ? (rawLy % 30000) : rawLy;
-      const monthsTotal = totalYear - rawLy;
-      totalYear = ly30k + Math.max(0, monthsTotal);
+    if (is30k) {
+      // Yêu cầu người dùng: "tính số shot từ 2026 để cánh báo thôi nhé, đừng tính theo mốc sum shot hiện tại"
+      // -> Chỉ tính số shot phát sinh từ các tháng năm 2026 (T1 đến T12), tuyệt đối KHÔNG cộng số shot dở dang năm cũ (lastYearRemaining)
+      let months2026 = 0;
+      const hist = m?.monthlyHistory || (rawData?.excelMasterMolds?.find(x => is30kMold(x.mold || x.oldMold || x.series))?.monthlyHistory);
+      if (hist) {
+        for (let k = 1; k <= 12; k++) {
+          months2026 += Math.round(Number(hist['M' + k]) || 0);
+        }
+      }
+      if (months2026 > 0) {
+        totalYear = months2026;
+      } else {
+        const rawLy = Number(m?.lastYearRemaining || 0);
+        totalYear = Math.max(0, totalYear - rawLy);
+      }
     }
 
     const cycles = [];
@@ -1809,9 +1818,21 @@ window.MoldMaintenance = (function() {
     const machineEl = document.getElementById('mm400kMachineSub');
     if (machineEl) machineEl.textContent = m.machineNo ? `| Máy: ${m.machineNo}` : '';
 
+    const is30k = is30kMold(m || code);
     const sumEl = document.getElementById('mmModalSumShotSub');
-    const totalShots = Math.round(Number(m.totalAccumulatedYear || m.totalYear || m.totalLife || 0));
-    if (sumEl) sumEl.textContent = `Sum shot: ${formatNum(totalShots)}`;
+    let totalShots = 0;
+    if (is30k) {
+      let months2026 = 0;
+      const hist = m.monthlyHistory || {};
+      for (let k = 1; k <= 12; k++) {
+        months2026 += Math.round(Number(hist['M' + k]) || 0);
+      }
+      totalShots = months2026 > 0 ? months2026 : Math.round(Number(m.totalYear || 0));
+      if (sumEl) sumEl.textContent = `Phát sinh 2026: ${formatNum(totalShots)}`;
+    } else {
+      totalShots = Math.round(Number(m.totalAccumulatedYear || m.totalYear || m.totalLife || 0));
+      if (sumEl) sumEl.textContent = `Sum shot: ${formatNum(totalShots)}`;
+    }
 
     const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
 
@@ -2456,7 +2477,8 @@ window.MoldMaintenance = (function() {
           closedMilestones,
           totalYear: totalAccumulatedYear,
           totalAccumulatedYear,
-          lastYearRemaining
+          lastYearRemaining,
+          monthlyHistory
         };
         const cycles400k = get400kCyclesInfo(dummyMoldObj);
         if (cycles400k[0]) m1 = cycles400k[0].shots;
@@ -4078,15 +4100,17 @@ window.MoldMaintenance = (function() {
                   } else {
                     val = (cInfo.shots > 0) ? Math.round(cInfo.shots) : null;
                     // Cữ chưa chốt: gán công thức động cho mọi cữ để khi người dùng gõ số chốt vào cữ trước, cữ sau tự động nhận số dư lũy kế
+                    // Với khuôn 30K: chỉ tính tổng số shot phát sinh từ các tháng năm 2026 (E đến P), không cộng D (năm trước dở dang)
                     if (cycleNum === 1) {
-                      cellFormula = `${yearColLetter}${curRow}`;
+                      cellFormula = is30k ? `SUM(E${curRow}:P${curRow})` : `${yearColLetter}${curRow}`;
                     } else {
                       const startMilestoneCol = getColLetter(17);
                       const prevMilestoneCol = getColLetter(16 + cycleNum - 1);
+                      const baseSource = is30k ? `SUM(E${curRow}:P${curRow})` : `${yearColLetter}${curRow}`;
                       if (cycleNum === 2) {
-                        cellFormula = `IF(${yearColLetter}${curRow}="","",IF(${yearColLetter}${curRow}>${startMilestoneCol}${curRow},${yearColLetter}${curRow}-${startMilestoneCol}${curRow},""))`;
+                        cellFormula = `IF(${baseSource}="","",IF(${baseSource}>${startMilestoneCol}${curRow},${baseSource}-${startMilestoneCol}${curRow},""))`;
                       } else {
-                        cellFormula = `IF(${yearColLetter}${curRow}="","",IF(${yearColLetter}${curRow}>SUM($${startMilestoneCol}${curRow}:${prevMilestoneCol}${curRow}),${yearColLetter}${curRow}-SUM($${startMilestoneCol}${curRow}:${prevMilestoneCol}${curRow}),""))`;
+                        cellFormula = `IF(${baseSource}="","",IF(${baseSource}>SUM($${startMilestoneCol}${curRow}:${prevMilestoneCol}${curRow}),${baseSource}-SUM($${startMilestoneCol}${curRow}:${prevMilestoneCol}${curRow}),""))`;
                       }
                     }
                   }
