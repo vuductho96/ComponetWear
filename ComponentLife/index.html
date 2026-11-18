@@ -220,12 +220,13 @@
                 </select>
               </div>
 
-              <!-- Bộ Lọc Tiêu Chuẩn (High-Impact vs Tiêu Chuẩn Thường) -->
+              <!-- Bộ Lọc Tiêu Chuẩn (High-Impact vs Tiêu Chuẩn Thường vs Đo Lại 30K) -->
               <div style="display: flex; align-items: center; gap: 8px;">
                 <select id="mmTierSelect" class="mm-input" onchange="MoldMaintenance.onTierFilterChange()" title="Lọc theo tiêu chuẩn khuôn">
                   <option value="all" selected>Tất cả tiêu chuẩn</option>
                   <option value="high_impact">Khuôn High-Impact (Chu kỳ 400K)</option>
                   <option value="standard">Khuôn Tiêu chuẩn</option>
+                  <option value="remeasure_30k">Khuôn Đo Lại (Chu kỳ 30K)</option>
                 </select>
               </div>
 
@@ -747,7 +748,7 @@
   <script src="js/language.js?v=20261020-iqc"></script>
   <script src="js/auth.js?v=20261104_rbac"></script>
   <script src="js/account-permissions.js?v=20261023-per-account"></script>
-  <script src="js/mold-maintenance.js?v=20261117_v15"></script>
+  <script src="js/mold-maintenance.js?v=20261118_v1"></script>
   <script src="js/app.js?v=20261117_v3"></script>
 
     <!-- MODAL BẢNG NHẬP SHOT 400K (HIGH-IMPACT) CHUẨN EXCEL -->
