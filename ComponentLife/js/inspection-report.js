@@ -274,10 +274,10 @@
         for(let i=5;i<values.length;i++){
           maxDecimals=Math.max(maxDecimals,checkDec(values[i]));
         }
-        const is4Dec=maxDecimals>=4;
-        const decimalFormat=is4Dec?('0.'+'0'.repeat(Math.min(maxDecimals,8))):'0.000';
+        const rowPrecision=Math.max(maxDecimals,3);
+        const decimalFormat='0.'+'0'.repeat(Math.min(rowPrecision,8));
         values.forEach((value,i)=>{
-          const code=i>=5?(isAngle?(Number.isInteger(numeric(value))?'0"°"':'0.###############"°"'):decimalFormat):i>=1&&i<=3?(values.sourceFormats?.[i]&&values.sourceFormats[i]!=='General'?values.sourceFormats[i]:(is4Dec?decimalFormat:'General')):null;
+          const code=i>=5?(isAngle?(Number.isInteger(numeric(value))?'0"°"':'0.###############"°"'):decimalFormat):i>=1&&i<=3?(values.sourceFormats?.[i]&&values.sourceFormats[i]!=='General'?values.sourceFormats[i]:decimalFormat):null;
           // Excel ignores numeric formats on text cells. Convert only plain decimal
           // samples; keep dimension prefixes and degree/minute/second text intact.
           if(i>=5&&typeof value==='string'&&/^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?$/i.test(value.trim()))value=numeric(value);
