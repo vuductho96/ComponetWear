@@ -253,9 +253,14 @@ function Get-InspectionCellText {
     $value = $Cell.Value
     if ($null -eq $value) { return '' }
     if ($value -is [double] -or $value -is [decimal] -or $value -is [float] -or $value -is [int] -or $value -is [long]) {
-        $numericText = ([double]$value).ToString('0.###############', [Globalization.CultureInfo]::InvariantCulture)
-        if ($Cell.Style.Numberformat.Format -match '[°º]') { return $numericText + '°' }
-        if ($Cell.Style.Numberformat.Format -match '^"([RCØΦ⌀])"') { return $Matches[1] + $numericText }
+        $format = $Cell.Style.Numberformat.Format
+        if ($format -match '\.(0{4,})') {
+            $numericText = ([double]$value).ToString('0.' + $Matches[1], [Globalization.CultureInfo]::InvariantCulture)
+        } else {
+            $numericText = ([double]$value).ToString('0.###############', [Globalization.CultureInfo]::InvariantCulture)
+        }
+        if ($format -match '[°º]') { return $numericText + '°' }
+        if ($format -match '^"([RCØΦ⌀])"') { return $Matches[1] + $numericText }
         return $numericText
     }
     return (Safe-Text $Cell.Text)

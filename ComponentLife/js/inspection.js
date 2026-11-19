@@ -68,12 +68,45 @@ async function downloadInspectionPackage(recordId) {
     inspectionSaveBlob(await zip.generateAsync({ type:'blob', compression:'STORE' }), report.name.replace(/\.xlsx$/i, '') + '.zip');
   } catch (error) { msg(inspectionEscape(error.message), true); }
 }
+function inspectionRowPrecision(d) {
+  let maxDec = 0;
+  const countDec = v => {
+    if (v === null || v === undefined || v === '') return 0;
+    const s = String(v).trim().toUpperCase().replace(/[RCØΦϕ⌀\s]/g, '').replace(',', '.');
+    if (/[°º]/.test(s)) return 0;
+    const num = Number(s);
+    if (!Number.isFinite(num)) return 0;
+    const fixed = num.toFixed(8).replace(/0+$/, '');
+    const m = fixed.match(/\.(\d+)/);
+    return m ? m[1].length : 0;
+  };
+  for (const idx of [1, 2, 3, 5, 6, 7, 8]) {
+    maxDec = Math.max(maxDec, countDec(d[idx]));
+  }
+  return maxDec;
+}
+
+function inspectionFormatNominal(d) {
+  const val = d[1];
+  if (val === null || val === undefined || val === '') return '—';
+  const str = String(val).trim();
+  if (/[°º]/.test(str)) return str;
+  const num = Number(str.replace(/[RCØΦϕ⌀\s]/g, '').replace(',', '.'));
+  if (!Number.isFinite(num)) return str;
+  const prec = inspectionRowPrecision(d);
+  if (prec >= 4) {
+    const prefix = (str.match(/^[RCØΦ⌀]/i) || [''])[0];
+    return prefix + num.toFixed(prec);
+  }
+  return str;
+}
+
 const inspectionColumns = [
   { key: 'point', label: 'Point', value: d => d[0] },
-  { key: 'nominal', label: 'Nominal', value: d => d[1] },
+  { key: 'nominal', label: 'Nominal', value: d => inspectionFormatNominal(d) },
   { key: 'minus', label: 'Tol (−)', value: d => d[2] },
   { key: 'plus', label: 'Tol (+)', value: d => d[3] },
-  { key: 'limits', label: 'LSL ~ USL', value: d => `${inspectionNumber(d[6])} ~ ${inspectionNumber(d[7])}`, sortValue: d => d[6] },
+  { key: 'limits', label: 'LSL ~ USL', value: d => { const p = inspectionRowPrecision(d); return `${inspectionNumber(d[6], p >= 4 ? p : 0)} ~ ${inspectionNumber(d[7], p >= 4 ? p : 0)}`; }, sortValue: d => d[6] },
   { key: 'sample', label: 'Sample', value: d => d[4] },
   { key: 'actual', label: 'Actual', value: d => d[5] },
   { key: 'deviation', label: 'Δ', value: d => d[8] },
@@ -335,7 +368,14 @@ function nextInspectionPointLocation() {
 }
 
 function inspectionEscape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function inspectionNumber(value) { return value === null || value === undefined || value === '' ? '—' : Number.isFinite(Number(value)) ? Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 6 }) : inspectionEscape(value); }
+function inspectionNumber(value, minDecimals = 0) {
+  if (value === null || value === undefined || value === '') return '—';
+  const num = Number(value);
+  if (!Number.isFinite(num)) return inspectionEscape(value);
+  const opts = { maximumFractionDigits: 6 };
+  if (minDecimals > 0) opts.minimumFractionDigits = minDecimals;
+  return num.toLocaleString('vi-VN', opts);
+}
 function inspectionBadge(quality) { return `<span class="inspection-badge ${String(quality||'').toLowerCase()}">${quality === 'PENDING' ? 'Chưa đo' : quality === 'UNRATED' ? 'Thiếu dung sai' : quality}</span>`; }
 
 async function renderInspectionTab() {
@@ -474,7 +514,7 @@ function renderInspectionDetail() {
     const filtered = column.key in inspectionColumnFilters, sorted = inspectionColumnSort?.key === column.key;
     return `<th scope="col" aria-sort="${sorted ? inspectionColumnSort.direction === 1 ? 'ascending' : 'descending' : 'none'}">${inspectionEscape(column.label)}<button type="button" class="inspection-column-filter ${filtered || sorted ? 'active' : ''}" data-column="${column.key}" aria-label="Lọc và sắp xếp ${inspectionEscape(column.label)}" aria-expanded="false" title="Lọc và sắp xếp ${inspectionEscape(column.label)}">${sorted ? inspectionColumnSort.direction === 1 ? '▴' : '▾' : '▾'}${filtered ? '<i></i>' : ''}</button></th>`;
   }).join('');
-  const rows = dimensions.map(({d,index})=>`<tr data-point="${inspectionEscape(d[0])}" data-dimension="${index}" tabindex="0" class="${inspectionState.dimensionIndex===index?'point-selected ':''}${inspectionCan('details','result')&&d[9]==='NG'?'inspection-ng-row':''}">${visibleColumns.map(column=>`<td>${column.key==='result'?inspectionBadge(d[9]):['actual','deviation'].includes(column.key)?inspectionNumber(column.value(d)):inspectionEscape(column.value(d))}</td>`).join('')}</tr>`).join('');
+  const rows = dimensions.map(({d,index})=>`<tr data-point="${inspectionEscape(d[0])}" data-dimension="${index}" tabindex="0" class="${inspectionState.dimensionIndex===index?'point-selected ':''}${inspectionCan('details','result')&&d[9]==='NG'?'inspection-ng-row':''}">${visibleColumns.map(column=>`<td>${column.key==='result'?inspectionBadge(d[9]):['actual','deviation'].includes(column.key)?inspectionNumber(column.value(d), inspectionRowPrecision(d)>=4?inspectionRowPrecision(d):0):inspectionEscape(column.value(d))}</td>`).join('')}</tr>`).join('');
 
   const active = Object.keys(inspectionColumnFilters).length || inspectionColumnSort;
   const filterInfo = active ? `<div class="inspection-column-summary">Đang hiện ${dimensions.length} mẫu <button type="button" onclick="resetInspectionColumns()">Bỏ lọc / sắp xếp</button></div>` : '';
