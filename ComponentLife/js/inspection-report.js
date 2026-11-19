@@ -252,9 +252,21 @@
       });
       for(let r=spec.first;r<=spec.last;r++){
         const values=page.rows[r-spec.first]||Array(15).fill(null);
+        const isAngle=/[°º]/.test(String(values[1])+(values.sourceFormats?.[1]||''));
+        const nomFmt=String(values.sourceFormats?.[1]||''),nomStr=String(values[1]??'').trim().replace(',','.');
+        const has4DecFormat=/\.0{4}(?:[^0]|$)/.test(nomFmt)||nomFmt.includes('0.0000');
+        const has4DecStr=/\.\d{4}(?:[^\d]|$)/.test(nomStr);
+        const decLen=(nomStr.match(/\.(\d+)/)||[])[1]?.length||0;
+        const is4Dec=has4DecFormat||has4DecStr||decLen>=4;
+        let decimalFormat='0.000';
+        if(/\.0{5,}/.test(nomFmt)||decLen>=5){
+          const count=(nomFmt.match(/\.(0{4,})/)||[])[1]?.length||decLen;
+          decimalFormat='0.'+'0'.repeat(Math.max(4,Math.min(count,8)));
+        }else if(is4Dec){
+          decimalFormat='0.0000';
+        }
         values.forEach((value,i)=>{
-          const isAngle=/[°º]/.test(String(values[1])+(values.sourceFormats?.[1]||''));
-          const code=i>=5?(isAngle?(Number.isInteger(numeric(value))?'0"°"':'0.###############"°"'):'0.000'):i>=1&&i<=3?(values.sourceFormats?.[i]||'General'):null;
+          const code=i>=5?(isAngle?(Number.isInteger(numeric(value))?'0"°"':'0.###############"°"'):decimalFormat):i>=1&&i<=3?(values.sourceFormats?.[i]||(i===1&&is4Dec?decimalFormat:'General')):null;
           // Excel ignores numeric formats on text cells. Convert only plain decimal
           // samples; keep dimension prefixes and degree/minute/second text intact.
           if(i>=5&&typeof value==='string'&&/^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?$/i.test(value.trim()))value=numeric(value);
