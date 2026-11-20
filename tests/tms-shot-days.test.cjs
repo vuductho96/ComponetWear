@@ -332,3 +332,37 @@ test('H18015S01: 400k cycles reset to 0 after each maintenance; cycle 4 tracks 1
   assert.equal(cycles[3].isClosed, false);
   assert.equal(cycles[3].shots, 122222);
 });
+
+test('standard molds display current 400k cycle shots (e.g. H9827S12 at 392,583 maintenance alert, H9637S15 at 56,011 safe)', () => {
+  const context = {
+    window: {},
+    console,
+    fetch: async () => ({ ok: true }),
+    localStorage: {
+      _data: {},
+      getItem(key) { return this._data[key] || null; },
+      setItem(key, value) { this._data[key] = String(value); }
+    },
+    document: {
+      addEventListener() {},
+      getElementById: () => null
+    },
+    alert: () => {}
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source, context);
+  const module = context.window.MoldMaintenance;
+
+  const m9827 = { mold: 'H9827S12', isHighImpact: false, totalYear: 1992583 };
+  const cycles9827 = module.get400kCyclesInfo(m9827, true);
+  const current9827 = cycles9827.find(c => !c.isClosed);
+  assert.ok(current9827, 'Current cycle must exist for H9827S12');
+  assert.equal(current9827.shots, 392583, 'H9827S12 must track 392,583 shots (warning 390k-400k)');
+
+  const m9637 = { mold: 'H9637S15', isHighImpact: false, totalYear: 2456011 };
+  const cycles9637 = module.get400kCyclesInfo(m9637, true);
+  const current9637 = cycles9637.find(c => !c.isClosed);
+  assert.ok(current9637, 'Current cycle must exist for H9637S15');
+  assert.equal(current9637.shots, 56011, 'H9637S15 must track 56,011 shots (<380k safe)');
+});
