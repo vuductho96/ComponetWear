@@ -368,6 +368,54 @@ async function api(request, env, path, user) {
       if (updateReq.milestoneDetails && typeof updateReq.milestoneDetails === 'object') {
         if (!moldItem.milestoneDetails) moldItem.milestoneDetails = {};
         Object.assign(moldItem.milestoneDetails, updateReq.milestoneDetails);
+        try {
+          for (const [mKey, dVal] of Object.entries(updateReq.milestoneDetails)) {
+            if (dVal && (dVal.date || dVal.planDate)) {
+              const msName = String(mKey).startsWith('400k-') || String(mKey).startsWith('30k-') ? String(mKey) : ('400k-' + mKey);
+              await env.DB.prepare(`
+                INSERT INTO mold_automation_plan (mold, milestone, source_date, target, shots, planned_date, closed_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(mold, milestone) DO UPDATE SET
+                  shots = coalesce(excluded.shots, mold_automation_plan.shots),
+                  planned_date = coalesce(excluded.planned_date, mold_automation_plan.planned_date),
+                  closed_date = excluded.closed_date,
+                  source_date = excluded.source_date
+              `).bind(
+                moldCode,
+                msName,
+                dVal.date || dVal.planDate || new Date().toISOString().slice(0, 10),
+                400000,
+                Number(dVal.closedShots) || 400000,
+                dVal.planDate || null,
+                dVal.date || null
+              ).run();
+            }
+          }
+        } catch (e) {
+          console.warn("Update mold_automation_plan on milestoneDetails error:", e.message);
+        }
+      }
+      if (updateReq.unclosedMilestone) {
+        const uKey = String(updateReq.unclosedMilestone);
+        if (moldItem.milestoneDetails) {
+          delete moldItem.milestoneDetails[uKey];
+          delete moldItem.milestoneDetails['400k-' + uKey];
+          delete moldItem.milestoneDetails['30k-' + uKey];
+        }
+        if (moldItem.milestonePdfs) {
+          delete moldItem.milestonePdfs[uKey];
+          delete moldItem.milestonePdfs['400k-' + uKey];
+          delete moldItem.milestonePdfs['30k-' + uKey];
+        }
+        try {
+          await env.DB.prepare(`
+            UPDATE mold_automation_plan 
+            SET closed_date = NULL 
+            WHERE (mold = ? OR mold = ? OR mold = ?) AND (milestone = ? OR milestone = ? OR milestone = ?)
+          `).bind(moldCode, moldItem.oldMold || moldCode, moldItem.newMold || moldCode, uKey, '400k-' + uKey, '30k-' + uKey).run();
+        } catch (e) {
+          console.warn("Update mold_automation_plan unclosed error:", e.message);
+        }
       }
       if (typeof updateReq.closedMilestone === 'number') {
         if (!moldItem.completedMilestones) moldItem.completedMilestones = [];

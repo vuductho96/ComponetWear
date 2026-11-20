@@ -138,3 +138,88 @@ test('annual mold summary and workbook carry December separately from January pr
   assert.equal(previousYear.monthlyHistory.M12, 200);
   assert.equal(previousYear.totalYear, 250);
 });
+
+test('manual milestone closing operates normally and takes precedence when auto mode is active', async () => {
+  const writes = [];
+  const context = {
+    window: {},
+    console,
+    fetch: async (url, options) => {
+      writes.push({ url, body: JSON.parse(options.body) });
+      return { ok: true, json: async () => ({ ok: true }) };
+    },
+    localStorage: {
+      _data: {},
+      getItem(key) { return this._data[key] || null; },
+      setItem(key, value) { this._data[key] = String(value); }
+    },
+    document: {
+      addEventListener() {},
+      getElementById: id => {
+        if (id === 'mm_shot_0') return { value: '405000' };
+        if (id === 'mm_plan_0') return { value: '2026-03-01' };
+        if (id === 'mm_date_0') return { value: '2026-03-05' };
+        if (id === 'mm_ktv_0') return { value: 'TECH-01' };
+        if (id === 'mm_note_0') return { value: 'Manual override OK' };
+        return null;
+      }
+    },
+    alert: message => { throw Error(message); }
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source.replace('getData: () => rawData,', `getData: () => rawData,
+    loadManualFixture: (data) => {
+      rawData = data;
+      activeShotModalMold = 'H10109S01';
+      activeShotModalTab = '400k';
+      active400kRowsData = [{
+        name: '400k-1',
+        num: 1,
+        actualShot: '',
+        planDate: '',
+        date: '',
+        ktv: '',
+        note: '',
+        isClosed: false,
+        isEligible: true
+      }];
+    },`), context);
+  const module = context.window.MoldMaintenance;
+  const fixtureData = {
+    records: [],
+    excelMasterMolds: [{
+      mold: 'H10109S01',
+      totalYear: 410000,
+      completedMilestones: [],
+      milestoneDetails: {}
+    }],
+    automaticMaintenance: [{
+      mold: 'H10109S01',
+      milestone: '400k-1',
+      planned_date: '2026-02-28',
+      closed_date: '2026-03-04',
+      shots: 400000
+    }]
+  };
+  module.loadManualFixture(fixtureData);
+
+  // Perform manual save
+  await module.save400kExcelTable();
+
+  // Verify write occurred
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].body.mold, 'H10109S01');
+  assert.ok(writes[0].body.completedMilestones.includes(1));
+  assert.equal(writes[0].body.milestoneDetails['1'].closedShots, 405000);
+  assert.equal(writes[0].body.milestoneDetails['1'].tech, 'TECH-01');
+
+  // Verify cycles info gives absolute priority to manual entries
+  const cycles = module.get400kCyclesInfo(fixtureData.excelMasterMolds[0], true);
+  const cycle1 = cycles.find(c => c.num === 1);
+  assert.equal(cycle1.isClosed, true);
+  assert.equal(cycle1.closedShots, 405000);
+  assert.equal(cycle1.tech, 'TECH-01');
+  assert.equal(cycle1.date, '2026-03-05');
+  assert.equal(cycle1.planDate, '2026-03-01');
+});

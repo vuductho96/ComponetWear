@@ -1383,7 +1383,7 @@ window.MoldMaintenance = (function() {
       let cycleShots = 0;
 
       if (isClosed) {
-        closedShots = Number(recorded?.shots ?? detail?.closedShots) || (i === 1 ? (m?.m1 || stepTarget) : (i === 2 ? (m?.m2 || stepTarget) : (i === 3 ? (m?.m3 || stepTarget) : stepTarget)));
+        closedShots = Number(detail?.closedShots ?? recorded?.shots) || (i === 1 ? (m?.m1 || stepTarget) : (i === 2 ? (m?.m2 || stepTarget) : (i === 3 ? (m?.m3 || stepTarget) : stepTarget)));
         cycleShots = closedShots;
         remainingShots = Math.max(0, remainingShots - closedShots);
       } else {
@@ -1400,7 +1400,7 @@ window.MoldMaintenance = (function() {
         shots: cycleShots,
         target: stepTarget,
         planDate: detail?.planDate || recorded?.planned_date || '',
-        date: detail?.date || '',
+        date: detail?.date || recorded?.closed_date || '',
         tech: detail?.tech || '',
         note: detail?.note || '',
         pdf
@@ -2355,24 +2355,54 @@ window.MoldMaintenance = (function() {
         map[moldCode].push(Number.isFinite(num) ? num : key);
       }
     } else {
-      map[moldCode] = map[moldCode].filter(x => x !== num && x !== key && x !== ('400k-' + num));
+      map[moldCode] = map[moldCode].filter(x => x !== num && x !== key && x !== ('400k-' + num) && x !== ('30k-' + num));
     }
     try { localStorage.setItem(MOLD_CLOSED_KEY, JSON.stringify(map)); } catch (e) {}
 
     // Update in memory
+    let target = null;
     if (rawData && rawData.excelMasterMolds) {
-      const target = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === moldCode);
+      target = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === moldCode || (m.oldMold && m.oldMold.toUpperCase() === moldCode) || (m.newMold && m.newMold.toUpperCase() === moldCode));
       if (target) {
         target.completedMilestones = map[moldCode];
         if (!target.milestoneDetails) target.milestoneDetails = {};
         if (isChecked && optionalDetail) {
           target.milestoneDetails[num] = optionalDetail;
+          target.milestoneDetails[key] = optionalDetail;
           if (optionalDetail.pdf) {
             if (!target.milestonePdfs) target.milestonePdfs = {};
             target.milestonePdfs[num] = optionalDetail.pdf;
+            target.milestonePdfs[key] = optionalDetail.pdf;
           }
         } else if (!isChecked) {
           delete target.milestoneDetails[num];
+          delete target.milestoneDetails[key];
+          delete target.milestoneDetails['400k-' + num];
+          delete target.milestoneDetails['30k-' + num];
+        }
+      }
+    }
+
+    // Đồng bộ ngay trong rawData.automaticMaintenance để UI và get400kCyclesInfo phản hồi tức thì
+    if (rawData && Array.isArray(rawData.automaticMaintenance)) {
+      const msKey = is30kMold(moldCode) ? ('30k-' + num) : ('400k-' + num);
+      const moldAliases = [moldCode, target?.oldMold, target?.newMold].filter(Boolean).map(x => String(x).toUpperCase());
+      if (!isChecked) {
+        rawData.automaticMaintenance.forEach(entry => {
+          if (moldAliases.includes((entry.mold || '').toUpperCase())) {
+            if (entry.milestone === key || entry.milestone === msKey || entry.milestone === ('400k-' + key) || entry.milestone === ('30k-' + key) || entry.milestone === String(num)) {
+              entry.closed_date = null;
+            }
+          }
+        });
+      } else if (isChecked && optionalDetail) {
+        let found = rawData.automaticMaintenance.find(entry => 
+          moldAliases.includes((entry.mold || '').toUpperCase()) && (entry.milestone === msKey || entry.milestone === key || entry.milestone === String(num))
+        );
+        if (found) {
+          if (optionalDetail.planDate) found.planned_date = optionalDetail.planDate;
+          if (optionalDetail.date) found.closed_date = optionalDetail.date;
+          if (optionalDetail.closedShots) found.shots = optionalDetail.closedShots;
         }
       }
     }
@@ -2387,10 +2417,12 @@ window.MoldMaintenance = (function() {
         completedMilestones: map[moldCode]
       };
       if (isChecked && optionalDetail) {
-        payload.milestoneDetails = { [num]: optionalDetail };
+        payload.milestoneDetails = { [num]: optionalDetail, [key]: optionalDetail };
         if (optionalDetail.pdf) {
           payload.milestonePdfs = { [num]: { name: optionalDetail.pdf.name, size: optionalDetail.pdf.size, date: optionalDetail.pdf.date } };
         }
+      } else if (!isChecked) {
+        payload.unclosedMilestone = key;
       }
       const response = await fetch('/api/molds/update', {
         method: 'POST',
@@ -2623,7 +2655,9 @@ window.MoldMaintenance = (function() {
 
       // Chỉ tính mốc đã chốt nếu người dùng / KTV đã thực sự bấm chốt và lưu lại (closedMap)
       // TUYỆT ĐỐI KHÔNG tự ý chốt bất kỳ mốc nào (kể cả cữ 400k-1, 400k-2) nếu chưa có thao tác chốt thực tế từ người dùng!
-      let closedMilestones = Array.isArray(closedMap[code]) ? [...closedMap[code]] : [];
+      let closedMilestones = Array.isArray(closedMap[code]) && closedMap[code].length > 0
+        ? [...closedMap[code]]
+        : (Array.isArray(m.completedMilestones) ? [...m.completedMilestones] : []);
       closedMilestones = closedMilestones.filter(n => {
         if (n >= 6 && n <= 8) return !!getMilestoneDetail(code, n);
         return true;
