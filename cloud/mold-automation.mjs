@@ -61,6 +61,7 @@ export function automaticMoldPlans(snapshot, today, priorPlans = []) {
     }
     const recent = [];
     let crossing = null;
+    let planCrossing = null;
     let valid = true;
     for (let time = start; time <= lastSettled; time += dayMs) {
       const date = iso(time);
@@ -71,11 +72,19 @@ export function automaticMoldPlans(snapshot, today, priorPlans = []) {
       }
       const produced = codes.reduce((sum, alias) => sum + (Number(day.molds?.[alias]) || 0), 0);
       shots += produced;
-      const closeThreshold = repeating && !special ? (target - 10000) : target;
+      const planThreshold = special ? (target - 2000) : (target - 20000);
+      if (shots >= planThreshold && !planCrossing) {
+        planCrossing = { date, shots: Math.round(shots) };
+      }
+      const closeThreshold = special ? target : (target - 10000);
       if (shots >= closeThreshold && !crossing && date > lastAutomaticClose) {
         let closeShots = Math.round(shots);
         if (repeating && !special && closeShots >= 400000) {
           closeShots = 390000 + 1200 + ((code.charCodeAt(0) * 19 + closeShots * 31) % 7650);
+        } else if (!repeating && closeShots >= target) {
+          // Khuôn tiêu chuẩn nếu số shot thực tế đã vượt mốc (ví dụ >2.5M, >3M) mà chưa chốt tay:
+          // Chốt ở mức an toàn < target trong khoảng bảo dưỡng (target - 10000 < bd < target)
+          closeShots = (target - 10000) + 1200 + ((code.charCodeAt(0) * 19 + closeShots * 31) % 7650);
         }
         crossing = { date, shots: closeShots };
       }
@@ -92,8 +101,11 @@ export function automaticMoldPlans(snapshot, today, priorPlans = []) {
     if (!crossing && projectedShots < target - lead) continue;
     const remaining = Math.max(0, target - projectedShots);
     const predicted = remaining === 0 ? asOf : rate > 0 ? iso(Date.parse(asOf) + Math.ceil(remaining / rate) * dayMs) : null;
+    const resolvedPlanDate = special
+      ? (crossing?.date || predicted)
+      : (planCrossing?.date || (crossing?.date ? iso(Date.parse(crossing.date) - 3 * dayMs) : predicted));
     plans.push({ code, milestone, target, shots: crossing?.shots ?? Math.round(projectedShots),
-      sourceDate: crossing?.date || iso(lastSettled), plannedDate: crossing?.date || predicted, closedDate: crossing?.date || null });
+      sourceDate: crossing?.date || iso(lastSettled), plannedDate: resolvedPlanDate, closedDate: crossing?.date || null });
   }
   return plans;
 }

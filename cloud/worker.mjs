@@ -371,7 +371,34 @@ async function api(request, env, path, user) {
         try {
           for (const [mKey, dVal] of Object.entries(updateReq.milestoneDetails)) {
             if (dVal && (dVal.date || dVal.planDate)) {
-              const msName = String(mKey).startsWith('400k-') || String(mKey).startsWith('30k-') ? String(mKey) : ('400k-' + mKey);
+              const is30k = String(mKey).startsWith('30k-') || moldItem.mold === 'I13086B01';
+              let msName = String(mKey);
+              let msTarget = 400000;
+              if (msName === '25' || msName === '2.5m' || msName === '2.5M') {
+                msName = '25';
+                msTarget = 2500000;
+              } else if (msName === '4' || msName === '3.0m') {
+                msName = '4';
+                msTarget = 3000000;
+              } else if (msName === '5' || msName === '3.5m') {
+                msName = '5';
+                msTarget = 3500000;
+              } else if (msName === '6' || msName === '4.0m') {
+                msName = '6';
+                msTarget = 4000000;
+              } else if (msName === '7' || msName === '4.5m') {
+                msName = '7';
+                msTarget = 4500000;
+              } else if (msName === '8' || msName === '5.0m') {
+                msName = '8';
+                msTarget = 5000000;
+              } else if (is30k) {
+                msName = msName.startsWith('30k-') ? msName : ('30k-' + msName);
+                msTarget = 30000;
+              } else {
+                msName = msName.startsWith('400k-') ? msName : ('400k-' + msName);
+                msTarget = 400000;
+              }
               await env.DB.prepare(`
                 INSERT INTO mold_automation_plan (mold, milestone, source_date, target, shots, planned_date, closed_date)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -384,8 +411,8 @@ async function api(request, env, path, user) {
                 moldCode,
                 msName,
                 dVal.date || dVal.planDate || new Date().toISOString().slice(0, 10),
-                400000,
-                Number(dVal.closedShots) || 400000,
+                msTarget,
+                Number(dVal.closedShots) || msTarget,
                 dVal.planDate || null,
                 dVal.date || null
               ).run();

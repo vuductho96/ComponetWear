@@ -1461,28 +1461,60 @@ window.MoldMaintenance = (function() {
     const closedList = [...new Set(rawList)];
 
     if (num === 25 || num === '25' || num === '2.5m' || num === '2.5M') {
-      return closedList.includes(25) || closedList.includes('25') || closedList.includes('2.5m') || closedList.includes('2.5M');
-    }
-
-    const mNum = Number(num);
-    if (mNum >= 4 && mNum <= 8) {
-      const mStrKey = (mNum === 4 ? '3.0m' : (mNum === 5 ? '3.5m' : (mNum === 6 ? '4.0m' : (mNum === 7 ? '4.5m' : '5.0m'))));
-      if (closedList.includes(mStrKey) || closedList.includes(mStrKey.toUpperCase())) {
+      if (closedList.includes(25) || closedList.includes('25') || closedList.includes('2.5m') || closedList.includes('2.5M')) {
         return true;
       }
-      if (isHigh) {
-        // Khuôn High-Impact: Số nguyên 4..8 nếu có là từ cữ 400K cũ, TUYỆT ĐỐI KHÔNG coi là chốt mốc lớn 3.0M..5.0M!
-        // Chỉ chấp nhận nếu có detail mốc lớn với closedShots >= 2.500.000 và không mang ghi chú 400k
-        const d = getMajorMilestoneDetail(mOrCode, mNum);
-        if (d && d.date && Number(d.closedShots) >= 2500000 && !String(d.note || '').toLowerCase().includes('400k')) {
+    } else {
+      const mNum = Number(num);
+      if (mNum >= 4 && mNum <= 8) {
+        const mStrKey = (mNum === 4 ? '3.0m' : (mNum === 5 ? '3.5m' : (mNum === 6 ? '4.0m' : (mNum === 7 ? '4.5m' : '5.0m'))));
+        if (closedList.includes(mStrKey) || closedList.includes(mStrKey.toUpperCase())) {
           return true;
         }
-        return false;
-      } else {
-        return closedList.includes(mNum) || closedList.includes(String(mNum));
+        if (isHigh) {
+          // Khuôn High-Impact: Số nguyên 4..8 nếu có là từ cữ 400K cũ, TUYỆT ĐỐI KHÔNG coi là chốt mốc lớn 3.0M..5.0M!
+          // Chỉ chấp nhận nếu có detail mốc lớn với closedShots >= 2.500.000 và không mang ghi chú 400k
+          const d = getMajorMilestoneDetail(mOrCode, mNum);
+          if (d && d.date && Number(d.closedShots) >= 2500000 && !String(d.note || '').toLowerCase().includes('400k')) {
+            return true;
+          }
+          return false;
+        } else {
+          if (closedList.includes(mNum) || closedList.includes(String(mNum))) {
+            return true;
+          }
+        }
+      } else if (closedList.includes(num)) {
+        return true;
       }
     }
-    return closedList.includes(num);
+
+    // Kiểm tra trong rawData.automaticMaintenance (hệ thống tự động chốt khi qua ngưỡng bảo dưỡng)
+    if (!isHigh) {
+      const mNum = Number(num);
+      const aliases = (typeof mOrCode === 'object' && mOrCode.moldCodes) 
+        ? mOrCode.moldCodes 
+        : [code, typeof mOrCode === 'object' ? mOrCode.oldMold : '', typeof mOrCode === 'object' ? mOrCode.newMold : ''].filter(Boolean).map(x => String(x).toUpperCase());
+      const autoList = (typeof mOrCode === 'object' && mOrCode.automaticMaintenance) 
+        ? mOrCode.automaticMaintenance 
+        : (rawData?.automaticMaintenance || (typeof window !== 'undefined' ? window._moldMaintenanceData?.automaticMaintenance : null) || []);
+      const autoPlan = autoList.find(p => {
+        if (!aliases.includes(String(p.mold || '').toUpperCase())) return false;
+        const pMs = String(p.milestone || '').toLowerCase();
+        if ((num === 25 || num === '25' || num === '2.5m' || num === '2.5M') && (pMs === '25' || pMs === '2.5m')) return true;
+        if (mNum === 4 && (pMs === '4' || pMs === '3.0m')) return true;
+        if (mNum === 5 && (pMs === '5' || pMs === '3.5m')) return true;
+        if (mNum === 6 && (pMs === '6' || pMs === '4.0m')) return true;
+        if (mNum === 7 && (pMs === '7' || pMs === '4.5m')) return true;
+        if (mNum === 8 && (pMs === '8' || pMs === '5.0m')) return true;
+        return false;
+      });
+      if (autoPlan && autoPlan.closed_date) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   function getMajorMilestoneDetail(mOrCode, num) {
@@ -1490,8 +1522,10 @@ window.MoldMaintenance = (function() {
     const code = typeof mOrCode === 'string' ? mOrCode.trim().toUpperCase() : String(mOrCode.mold || mOrCode.moldNo || '').trim().toUpperCase();
     const isHigh = typeof mOrCode === 'object' ? Boolean(mOrCode.isHighImpact || mOrCode.is_high_impact) : false;
 
+    // Ưu tiên 1: Chi tiết chốt thủ công từ LocalStorage hoặc server
     if (num === 25 || num === '25' || num === '2.5m' || num === '2.5M') {
-      return getMilestoneDetail(code, '2.5m') || getMilestoneDetail(code, 25);
+      const dManual = getMilestoneDetail(code, '2.5m') || getMilestoneDetail(code, 25);
+      if (dManual && dManual.date) return dManual;
     }
 
     const mNum = Number(num);
@@ -1503,17 +1537,53 @@ window.MoldMaintenance = (function() {
       const serverDetails = serverMold?.milestoneDetails || {};
 
       const dStr = moldDetails[mStrKey] || moldDetails[mStrKey.toUpperCase()] || serverDetails[mStrKey] || serverDetails[mStrKey.toUpperCase()];
-      if (dStr) return dStr;
+      if (dStr && dStr.date) return dStr;
 
       if (isHigh) {
         // Khuôn High-Impact: Chỉ lấy detail nếu closedShots >= 2.500.000 và ghi chú không phải 400K
         const dNum = moldDetails[mNum] || moldDetails[String(mNum)] || serverDetails[mNum] || serverDetails[String(mNum)];
-        if (dNum && Number(dNum.closedShots) >= 2500000 && !String(dNum.note || '').toLowerCase().includes('400k')) {
+        if (dNum && dNum.date && Number(dNum.closedShots) >= 2500000 && !String(dNum.note || '').toLowerCase().includes('400k')) {
           return dNum;
         }
-        return null;
       } else {
-        return moldDetails[mNum] || moldDetails[String(mNum)] || serverDetails[mNum] || serverDetails[String(mNum)] || getMilestoneDetail(code, mNum);
+        const dNum = moldDetails[mNum] || moldDetails[String(mNum)] || serverDetails[mNum] || serverDetails[String(mNum)] || getMilestoneDetail(code, mNum);
+        if (dNum && dNum.date) return dNum;
+      }
+    }
+
+    // Ưu tiên 2: Nếu chưa có chi tiết chốt thủ công, lấy từ automaticMaintenance (hệ thống tự động chốt)
+    if (!isHigh && (num === 25 || (mNum >= 4 && mNum <= 8))) {
+      const aliases = (typeof mOrCode === 'object' && mOrCode.moldCodes) 
+        ? mOrCode.moldCodes 
+        : [code, typeof mOrCode === 'object' ? mOrCode.oldMold : '', typeof mOrCode === 'object' ? mOrCode.newMold : ''].filter(Boolean).map(x => String(x).toUpperCase());
+      const autoList = (typeof mOrCode === 'object' && mOrCode.automaticMaintenance) 
+        ? mOrCode.automaticMaintenance 
+        : (rawData?.automaticMaintenance || (typeof window !== 'undefined' ? window._moldMaintenanceData?.automaticMaintenance : null) || []);
+      const autoPlan = autoList.find(p => {
+        if (!aliases.includes(String(p.mold || '').toUpperCase())) return false;
+        const pMs = String(p.milestone || '').toLowerCase();
+        if ((num === 25 || num === '25' || num === '2.5m') && (pMs === '25' || pMs === '2.5m')) return true;
+        if (mNum === 4 && (pMs === '4' || pMs === '3.0m')) return true;
+        if (mNum === 5 && (pMs === '5' || pMs === '3.5m')) return true;
+        if (mNum === 6 && (pMs === '6' || pMs === '4.0m')) return true;
+        if (mNum === 7 && (pMs === '7' || pMs === '4.5m')) return true;
+        if (mNum === 8 && (pMs === '8' || pMs === '5.0m')) return true;
+        return false;
+      });
+      if (autoPlan && autoPlan.closed_date) {
+        let mTargetLabel = '2.5M';
+        if (mNum === 4) mTargetLabel = '3.0M';
+        else if (mNum === 5) mTargetLabel = '3.5M';
+        else if (mNum === 6) mTargetLabel = '4.0M';
+        else if (mNum === 7) mTargetLabel = '4.5M';
+        else if (mNum === 8) mTargetLabel = '5.0M';
+        return {
+          date: autoPlan.closed_date,
+          planDate: autoPlan.planned_date || '',
+          closedShots: Number(autoPlan.shots) || 0,
+          tech: 'AUTO-TMS',
+          note: `Bảo dưỡng định kỳ mốc ${mTargetLabel} (Hệ thống tự động chốt theo ngày bảo dưỡng)`
+        };
       }
     }
     return getMilestoneDetail(code, num);
@@ -2355,8 +2425,8 @@ window.MoldMaintenance = (function() {
           actualShot = formatNum(totalShots);
         }
       } else if (mNum === 4) {
-        // Mốc 3.0M: Cảnh báo từ 2.8M, định mức 3.0M. Không cho chốt sớm!
-        isEligible = isClosed || totalShots >= 2800000;
+        // Mốc 3.0M: Cảnh báo từ 2.98M (Plan trước 20K), 2.99M (Bảo dưỡng trước 10K), định mức 3.0M. Không cho chốt sớm!
+        isEligible = isClosed || totalShots >= 2980000;
         if (!isEligible) {
           lockReason = `Chưa đạt định mức (${formatNum(totalShots)} / 3.000.000) - Không cho chốt sớm`;
         }
@@ -2366,9 +2436,9 @@ window.MoldMaintenance = (function() {
           actualShot = formatNum(totalShots);
         }
       } else if (mNum === 5) {
-        // Mốc 3.5M: Phải chốt 3.0M trước & đạt +500k. Không cho chốt sớm!
+        // Mốc 3.5M: Phải chốt 3.0M trước & đạt +500k (trước 20K: 3.48M). Không cho chốt sớm!
         const shotsSince4 = isDone4 ? Math.max(0, totalShots - (detail4?.closedShots || 3000000)) : 0;
-        isEligible = isClosed || (isDone4 && (shotsSince4 >= 470000 || totalShots >= 3470000));
+        isEligible = isClosed || (isDone4 && (shotsSince4 >= 480000 || totalShots >= 3480000));
         if (!isDone4) {
           lockReason = 'Phải chốt mốc 3.0M trước';
         } else if (!isEligible) {
@@ -2380,9 +2450,9 @@ window.MoldMaintenance = (function() {
           actualShot = formatNum(totalShots);
         }
       } else if (mNum === 6) {
-        // Mốc 4.0M: Phải chốt 3.5M trước
+        // Mốc 4.0M: Phải chốt 3.5M trước & đạt +500k (trước 20K: 3.98M)
         const shotsSince5 = isDone5 ? Math.max(0, totalShots - (detail5?.closedShots || 3500000)) : 0;
-        isEligible = isClosed || (isDone5 && (shotsSince5 >= 470000 || totalShots >= 3970000));
+        isEligible = isClosed || (isDone5 && (shotsSince5 >= 480000 || totalShots >= 3980000));
         if (!isDone5) {
           lockReason = 'Phải chốt mốc 3.5M trước';
         } else if (!isEligible) {
@@ -2394,9 +2464,9 @@ window.MoldMaintenance = (function() {
           actualShot = formatNum(totalShots);
         }
       } else if (mNum === 7) {
-        // Mốc 4.5M: Phải chốt 4.0M trước
+        // Mốc 4.5M: Phải chốt 4.0M trước & đạt +500k (trước 20K: 4.48M)
         const shotsSince6 = isDone6 ? Math.max(0, totalShots - (detail6?.closedShots || 4000000)) : 0;
-        isEligible = isClosed || (isDone6 && (shotsSince6 >= 470000 || totalShots >= 4470000));
+        isEligible = isClosed || (isDone6 && (shotsSince6 >= 480000 || totalShots >= 4480000));
         if (!isDone6) {
           lockReason = 'Phải chốt mốc 4.0M trước';
         } else if (!isEligible) {
@@ -2408,8 +2478,8 @@ window.MoldMaintenance = (function() {
           actualShot = formatNum(totalShots);
         }
       } else if (mNum === 8) {
-        // Mốc 5.0M: Phải chốt 4.5M trước & đạt ngưỡng trần 5.0M (>= 4.8M)
-        isEligible = isClosed || (isDone7 && totalShots >= 4800000);
+        // Mốc 5.0M: Phải chốt 4.5M trước & đạt ngưỡng trần 5.0M (trước 20K: 4.98M)
+        isEligible = isClosed || (isDone7 && totalShots >= 4980000);
         if (!isDone7) {
           lockReason = 'Phải chốt mốc 4.5M trước';
         } else if (!isEligible) {
@@ -5972,6 +6042,10 @@ window.MoldMaintenance = (function() {
     renderKPIs,
     renderKpis: renderKPIs,
     refreshData,
-    ensureDataLoaded
+    ensureDataLoaded,
+    setRawDataForTesting: function(d) {
+      rawData = d;
+      if (typeof window !== 'undefined') window._moldMaintenanceData = d;
+    }
   };
 })();

@@ -510,3 +510,84 @@ test('H10109S01: High-Impact mold completing 400k-4 does NOT trigger or close 3.
   };
   assert.equal(module.isMajorMilestoneClosed(dirtyMoldData, 4), false, 'Dirty cache with number 4 must still NOT close 3.0M for High-Impact mold');
 });
+
+test('Standard molds auto-maintenance: triggers plan before 20k, closes on maintenance date before 10k, safe shots < target', async () => {
+  const { automaticMoldPlans } = await import('../cloud/mold-automation.mjs');
+
+  // Khuôn tiêu chuẩn H9637S15 có lastYearRemaining = 2.470.000 shots
+  // Ngày 1: 5.000 shots -> 2.475.000 (< 2.480.000, chưa đến plan)
+  // Ngày 2: 7.000 shots -> 2.482.000 (>= 2.480.000, kích hoạt planCrossing trước 20k)
+  // Ngày 3: 10.000 shots -> 2.492.000 (>= 2.490.000, kích hoạt crossing trước 10k và chốt bảo dưỡng)
+  const shotDays = {
+    '2026-01-01': { complete: true, incomplete: [], molds: { H9637S15: 5000 } },
+    '2026-01-02': { complete: true, incomplete: [], molds: { H9637S15: 7000 } },
+    '2026-01-03': { complete: true, incomplete: [], molds: { H9637S15: 10000 } },
+    '2026-01-04': { complete: true, incomplete: [], molds: { H9637S15: 0 } },
+    '2026-01-05': { complete: true, incomplete: [], molds: { H9637S15: 0 } }
+  };
+
+  const data = {
+    shotAsOfDate: '2026-01-05',
+    excelMasterMolds: [{ mold: 'H9637S15', is_high_impact: false, lastYearRemaining: 2470000 }],
+    shotDays
+  };
+
+  const plans = automaticMoldPlans(data, '2026-01-05');
+  assert.equal(plans.length, 1);
+  const plan25 = plans[0];
+  assert.equal(plan25.milestone, '25');
+  assert.equal(plan25.target, 2500000);
+  // Ngày plan kích hoạt trước 20k
+  assert.equal(plan25.plannedDate, '2026-01-02');
+  // Ngày chốt kích hoạt trước 10k
+  assert.equal(plan25.closedDate, '2026-01-03');
+  // Số shot chốt an toàn < 2.500.000
+  assert.ok(plan25.shots >= 2490000 && plan25.shots < 2500000, `Shots must be in 2.49M..2.5M, got ${plan25.shots}`);
+
+  // Test frontend tích hợp automaticMaintenance cho mốc lớn
+  const context = {
+    window: {},
+    console,
+    fetch: async () => ({ ok: true }),
+    localStorage: {
+      _data: {},
+      getItem(key) { return this._data[key] || null; },
+      setItem(key, value) { this._data[key] = String(value); }
+    },
+    document: {
+      addEventListener() {},
+      getElementById: () => null
+    },
+    alert: () => {}
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source, context);
+  const module = context.window.MoldMaintenance;
+
+  const moldWithAuto = {
+    mold: 'H9637S15',
+    isHighImpact: false,
+    totalYear: 2492000,
+    closedMilestones: []
+  };
+
+  // Nạp automaticMaintenance vào dữ liệu
+  const appData = {
+    records: [],
+    excelMasterMolds: [moldWithAuto],
+    automaticMaintenance: [
+      { mold: 'H9637S15', milestone: '25', target: 2500000, shots: 2492000, planned_date: '2026-01-02', closed_date: '2026-01-03' }
+    ]
+  };
+  module.setRawDataForTesting(appData);
+  // isMajorMilestoneClosed nhận diện tự động chốt
+  assert.equal(module.isMajorMilestoneClosed(moldWithAuto, 25), true);
+  // getMajorMilestoneDetail trả về chi tiết chốt tự động
+  const autoDetail = module.getMajorMilestoneDetail(moldWithAuto, 25);
+  assert.ok(autoDetail, 'Auto detail must exist');
+  assert.equal(autoDetail.date, '2026-01-03');
+  assert.equal(autoDetail.planDate, '2026-01-02');
+  assert.equal(autoDetail.closedShots, 2492000);
+  assert.equal(autoDetail.tech, 'AUTO-TMS');
+});
