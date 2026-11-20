@@ -164,7 +164,7 @@ window.MoldMaintenance = (function() {
     if (colPrefs.totalYear === undefined) colPrefs.totalYear = true;
   } catch (e) {}
 
-  const MOLD_STORAGE_KEY = 'mm_mold_col_prefs_v15';
+  const MOLD_STORAGE_KEY = 'mm_mold_col_prefs_v16';
   let moldColPrefs = {
     lastYear: false,   // Số shot còn lại năm trước (Last Year carryover): Mặc định ẨN theo yêu cầu
     months: true,      // 12 cột tháng (T1..T12): Mặc định HIỆN (như bảng SHOT COUNT MONITOR PER MONTH)
@@ -185,10 +185,11 @@ window.MoldMaintenance = (function() {
   const MOLD_MILESTONE_NOTES_KEY = 'mm_milestone_notes_v2';
 
   try {
-    const savedM = localStorage.getItem(MOLD_STORAGE_KEY);
+    const savedM = localStorage.getItem(MOLD_STORAGE_KEY) || localStorage.getItem('mm_mold_col_prefs_v15');
     if (savedM) Object.assign(moldColPrefs, JSON.parse(savedM));
+    moldColPrefs.months = true; // Đem tháng quay trở lại giao diện mặc định theo yêu cầu
     if (moldColPrefs.totalYear === undefined) moldColPrefs.totalYear = true;
-    if (moldColPrefs.lastYear === undefined) moldColPrefs.lastYear = false;
+    if (moldColPrefs.lastYear === undefined) moldColPrefs.lastYear = true;
     if (moldColPrefs.totalLife === undefined) moldColPrefs.totalLife = false;
     if (moldColPrefs.machine === undefined) moldColPrefs.machine = true;
   } catch (e) {}
@@ -823,6 +824,7 @@ window.MoldMaintenance = (function() {
     if (currentSubTab === 'molds') {
       const moldFields = [
         { key: 'lastYear', label: 'Số shot còn lại năm trước (Last Year)', defaultOff: false },
+        { key: 'months', label: '12 Tháng trong năm (T1 -> T12)', defaultOff: false },
         { key: 'status', label: 'Trạng thái (An toàn / Cần bảo dưỡng)', defaultOff: false },
         { key: 'totalYear', label: 'Tổng Năm', defaultOff: false },
         { key: 'totalLife', label: 'Tổng số Shot (Tổng vòng đời)', defaultOff: false },
@@ -3225,6 +3227,14 @@ window.MoldMaintenance = (function() {
       lastYearHeader = `<th class="text-right" style="background:#fef2f2; color:#b91c1c; min-width:85px; font-size:12.5px; border-left:1px solid #fee2e2;" title="Số shot dở dang của chu kỳ cuối năm ngoái chuyển sang (Last Year Carryover)">Last Year</th>`;
     }
 
+    let monthHeaders = '';
+    if (moldColPrefs.months !== false) {
+      for (let mIdx = 1; mIdx <= 12; mIdx++) {
+        const mKey = 'T' + mIdx;
+        monthHeaders += `<th class="text-center" style="background:#f8fafc; color:#1e3a8a; min-width:72px; font-size:12.5px; border-left:1px solid #e2e8f0;" title="Số shot tháng ${mIdx}/${selectedYear}">${mKey}</th>`;
+      }
+    }
+
     let sumShotHeader = '';
     if (moldColPrefs.totalYear !== false) {
       sumShotHeader = `<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px; border-left:2px solid #cbd5e1;" title="Last Year cộng shot phát sinh trong năm">Sum shot ${selectedYear}</th>`;
@@ -3262,6 +3272,7 @@ window.MoldMaintenance = (function() {
               ${moldColPrefs.progress ? '<th style="min-width:140px;">Tiến Độ</th>' : ''}
               ${moldColPrefs.status ? '<th class="text-center">Trạng Thái</th>' : ''}
               ${lastYearHeader}
+              ${monthHeaders}
               ${sumShotHeader}
               ${milestoneHeaders}
               ${moldColPrefs.totalLife ? '<th class="text-right font-bold" style="background:#f8fafc; color:#0f172a;">Tổng Vòng Đời</th>' : ''}
@@ -3389,6 +3400,19 @@ window.MoldMaintenance = (function() {
         }
 
         let milestoneCells = '';
+        let monthCells = '';
+        if (moldColPrefs.months !== false) {
+          const hist = m.monthlyHistory || {};
+          for (let mIdx = 1; mIdx <= 12; mIdx++) {
+            const rawM = hist['M' + mIdx] || hist[String(mIdx)] || hist[String(mIdx).padStart(2, '0')];
+            const mVal = rawM ? Math.round(Number(rawM)) : 0;
+            monthCells += `
+              <td class="text-right font-mono" style="font-size:13px; color:${mVal > 0 ? '#1e293b' : '#94a3b8'}; vertical-align:middle; padding:8px 6px; border-left:1px solid #f1f5f9;">
+                ${mVal > 0 ? formatNum(mVal) : '-'}
+              </td>
+            `;
+          }
+        }
 
         let sumShotCell = '';
         if (moldColPrefs.totalYear !== false) {
@@ -3488,6 +3512,7 @@ window.MoldMaintenance = (function() {
               </td>
             ` : ''}
             ${lastYearCell}
+            ${monthCells}
             ${sumShotCell}
             ${milestoneCells}
             ${moldColPrefs.totalLife ? `
