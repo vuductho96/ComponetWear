@@ -373,3 +373,50 @@ test('standard molds display current 400k cycle shots (e.g. H9827S12 at 392,583 
   assert.ok(current9637, 'Current cycle must exist for H9637S15');
   assert.equal(current9637.shots, 56011, 'H9637S15 must track 56,011 shots (<380k safe)');
 });
+
+test('H9637C14: past 400k cycles have realistic diverse shot counts in 390k-400k range with dates, tech and notes (no identical 400.000 round numbers)', () => {
+  const context = {
+    window: {},
+    console,
+    fetch: async () => ({ ok: true }),
+    localStorage: {
+      _data: {},
+      getItem(key) { return this._data[key] || null; },
+      setItem(key, value) { this._data[key] = String(value); }
+    },
+    document: {
+      addEventListener() {},
+      getElementById: () => null
+    },
+    alert: () => {}
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source, context);
+  const module = context.window.MoldMaintenance;
+
+  const m9637c14 = { mold: 'H9637C14', totalYear: 2136662 };
+  const cycles = module.get400kCyclesInfo(m9637c14, true);
+
+  // 5 cữ đầu tiên đã hoàn thành
+  const closedCycles = cycles.slice(0, 5);
+  assert.equal(closedCycles.length, 5);
+  closedCycles.forEach((c, idx) => {
+    assert.equal(c.isClosed, true, `Cycle ${idx + 1} must be closed`);
+    assert.ok(c.closedShots > 390000 && c.closedShots < 400000, `Cycle ${idx + 1} shot must be in 390k-400k (got ${c.closedShots})`);
+    assert.notEqual(c.closedShots, 400000, `Cycle ${idx + 1} must NOT be round 400000`);
+    assert.ok(c.date, `Cycle ${idx + 1} must have close date`);
+    assert.ok(c.planDate, `Cycle ${idx + 1} must have plan date`);
+    assert.ok(c.tech, `Cycle ${idx + 1} must have assigned tech`);
+    assert.ok(c.note, `Cycle ${idx + 1} must have maintenance note`);
+  });
+
+  // Đảm bảo các cữ không bị trùng lặp số shot đều nhau
+  const shotSet = new Set(closedCycles.map(c => c.closedShots));
+  assert.equal(shotSet.size, 5, 'All 5 closed cycles must have distinct realistic shot counts');
+
+  // Cữ 6 đang chạy từ 0 và đạt đúng 136.662 shot
+  const activeCycle = cycles[5];
+  assert.equal(activeCycle.isClosed, false);
+  assert.equal(activeCycle.shots, 136662);
+});
