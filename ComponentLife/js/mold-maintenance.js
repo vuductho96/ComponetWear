@@ -454,13 +454,14 @@ window.MoldMaintenance = (function() {
   function populateDateFilters() {
     const yearSel = document.getElementById('mmYearSelect');
     const monthSel = document.getElementById('mmMonthSelect');
-    const today = new Date();
-    selectedYear = String(today.getFullYear());
-    selectedMonth = String(today.getMonth() + 1).padStart(2, '0');
-    selectedDay = String(today.getDate()).padStart(2, '0');
+    const today = new Date(Date.now() + 7 * 3600000);
+    selectedYear = String(today.getUTCFullYear());
+    selectedMonth = String(today.getUTCMonth() + 1).padStart(2, '0');
+    selectedDay = String(today.getUTCDate()).padStart(2, '0');
     if (yearSel) {
-      const curY = today.getFullYear();
-      yearSel.innerHTML = `<option value="${curY}">Năm ${curY}</option><option value="${curY - 1}">Năm ${curY - 1}</option><option value="all">Tất cả năm</option>`;
+      const years = [...new Set([selectedYear, '2026', ...Object.keys(rawData?.shotDays || {})
+        .filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date)).map(date => date.slice(0, 4))])].sort().reverse();
+      yearSel.innerHTML = years.map(year => `<option value="${year}">Năm ${year}</option>`).join('');
     }
     if (monthSel) {
       monthSel.innerHTML = '<option value="all">Tất cả tháng</option>' + Array.from({ length: 12 }, (_, idx) => {
@@ -760,7 +761,6 @@ window.MoldMaintenance = (function() {
     if (currentSubTab === 'molds') {
       const moldFields = [
         { key: 'lastYear', label: 'Số shot còn lại năm trước (Last Year)', defaultOff: false },
-        { key: 'months', label: '12 Tháng trong năm (T1 -> T12)', defaultOff: false },
         { key: 'status', label: 'Trạng thái (An toàn / Cần bảo dưỡng)', defaultOff: false },
         { key: 'totalYear', label: 'Tổng Năm', defaultOff: false },
         { key: 'totalLife', label: 'Tổng số Shot (Tổng vòng đời)', defaultOff: false },
@@ -1257,6 +1257,12 @@ window.MoldMaintenance = (function() {
         if (String(num).startsWith('400k-')) {
           const n = parseInt(num.replace('400k-', ''), 10);
           if (item.milestoneDetails[n]) return item.milestoneDetails[n];
+        } else if (String(num).startsWith('30k-')) {
+          const n = parseInt(num.replace('30k-', ''), 10);
+          if (item.milestoneDetails[n]) return item.milestoneDetails[n];
+        } else if (Number.isFinite(Number(num)) && Number(num) <= 12) {
+          if (item.milestoneDetails['400k-' + num]) return item.milestoneDetails['400k-' + num];
+          if (item.milestoneDetails['30k-' + num]) return item.milestoneDetails['30k-' + num];
         }
       }
     }
@@ -1327,15 +1333,19 @@ window.MoldMaintenance = (function() {
   }
 
   // Thông tin các cữ 400K của khuôn High-Impact (cữ 1 đến 8) hoặc 30K của riêng khuôn 13086B-14A-m1591
-  function get400kCyclesInfo(m) {
+  function get400kCyclesInfo(m, useShotClosures = false) {
     const code = String(m?.mold || '').trim().toUpperCase();
     const is30k = is30kMold(m || code);
     const stepTarget = is30k ? 30000 : 400000;
     const prefix = is30k ? '30k-' : '400k-';
     const closedMap = getClosedMilestonesMap();
     const closedList = m?.closedMilestones || closedMap[code] || [];
+    const aliases = m?.moldCodes || [code, m?.oldMold, m?.newMold].filter(Boolean);
+    const shotClosures = useShotClosures ? new Map((rawData?.automaticMaintenance || [])
+      .filter(plan => aliases.includes(plan.mold) && plan.closed_date && plan.closed_date.slice(0, 4) <= selectedYear)
+      .map(plan => [plan.milestone, plan])) : new Map();
     
-    let totalYear = Number(m?.totalYear) || Number(m?.totalAccumulatedYear) || 0;
+    let totalYear = (Number(m?.totalYear) || Number(m?.totalAccumulatedYear) || 0) + (Number(m?.priorClosedCycleShots) || 0);
     if (is30k) {
       // Yêu cầu người dùng: "tính số shot từ 2026 để cánh báo thôi nhé, đừng tính theo mốc sum shot hiện tại"
       // -> Chỉ tính số shot phát sinh từ các tháng năm 2026 (T1 đến T12), tuyệt đối KHÔNG cộng số shot dở dang năm cũ (lastYearRemaining)
@@ -1346,8 +1356,8 @@ window.MoldMaintenance = (function() {
           months2026 += Math.round(Number(hist['M' + k]) || 0);
         }
       }
-      if (months2026 > 0) {
-        totalYear = months2026;
+      if (hist) {
+        totalYear = months2026 + (Number(m?.carry30k) || 0);
       } else {
         const rawLy = Number(m?.lastYearRemaining || 0);
         totalYear = Math.max(0, totalYear - rawLy);
@@ -1361,7 +1371,8 @@ window.MoldMaintenance = (function() {
     for (let i = 1; i <= maxCycles; i++) {
       const cycleKey = is30k ? ('30k-' + i) : (i <= 3 ? i : ('400k-' + i));
       const cycleName = prefix + i;
-      const isClosed = closedList.includes(cycleKey) || 
+      const recorded = shotClosures.get(cycleName);
+      const isClosed = Boolean(recorded) || closedList.includes(cycleKey) ||
                        closedList.includes(cycleName) || 
                        closedList.includes(i) || 
                        closedList.includes(String(i));
@@ -1372,7 +1383,7 @@ window.MoldMaintenance = (function() {
       let cycleShots = 0;
 
       if (isClosed) {
-        closedShots = Number(detail?.closedShots) || (i === 1 ? (m?.m1 || stepTarget) : (i === 2 ? (m?.m2 || stepTarget) : (i === 3 ? (m?.m3 || stepTarget) : stepTarget)));
+        closedShots = Number(recorded?.shots ?? detail?.closedShots) || (i === 1 ? (m?.m1 || stepTarget) : (i === 2 ? (m?.m2 || stepTarget) : (i === 3 ? (m?.m3 || stepTarget) : stepTarget)));
         cycleShots = closedShots;
         remainingShots = Math.max(0, remainingShots - closedShots);
       } else {
@@ -1388,6 +1399,7 @@ window.MoldMaintenance = (function() {
         closedShots,
         shots: cycleShots,
         target: stepTarget,
+        planDate: detail?.planDate || recorded?.planned_date || '',
         date: detail?.date || '',
         tech: detail?.tech || '',
         note: detail?.note || '',
@@ -1422,7 +1434,7 @@ window.MoldMaintenance = (function() {
       return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:6px 4px; border-left:1px solid #f1f5f9;" title="Không áp dụng mốc 30K (Chỉ dành cho khuôn đo lại đặc thù 13086B-14A)">-</td>`;
     }
 
-    const cycles = get400kCyclesInfo(m);
+    const cycles = get400kCyclesInfo(m, true);
     const current = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
     const currNum = current ? current.num : 1;
     const currShots = current ? current.shots : 0;
@@ -1468,7 +1480,7 @@ window.MoldMaintenance = (function() {
       return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:6px 4px; border-left:1px solid #f1f5f9;" title="Không áp dụng mốc 400K (Chỉ dành cho khuôn High-Impact)">-</td>`;
     }
 
-    const cycles = get400kCyclesInfo(m);
+    const cycles = get400kCyclesInfo(m, true);
     const current = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
     const currNum = current ? current.num : 1;
     const currShots = current ? current.shots : 0;
@@ -1666,6 +1678,10 @@ window.MoldMaintenance = (function() {
                 title="${row.lockReason}">
             </td>
             <td style="${borderStyle} padding:4px 6px;">
+              <input type="text" id="mm_plan_${idx}" value="" placeholder="-" disabled
+                style="width:100%; border:1px solid #e2e8f0; border-radius:4px; padding:4px 6px; font-size:11px; text-align:center; color:#94a3b8; background:#f8fafc; cursor:not-allowed;">
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
               <input type="text" id="mm_date_${idx}" value="" placeholder="-" disabled
                 style="width:100%; border:1px solid #e2e8f0; border-radius:4px; padding:4px 6px; font-size:11px; text-align:center; color:#94a3b8; background:#f8fafc; cursor:not-allowed;">
             </td>
@@ -1690,12 +1706,16 @@ window.MoldMaintenance = (function() {
               ${mTitleHtml}
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="${is30kMold(activeShotModalMold) ? 'VD: 30k / 30.000' : 'VD: 380k / 400k'}"
+              <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="${row.suggestedShot ? 'Web: ' + row.suggestedShot : is30kMold(activeShotModalMold) ? 'VD: 30k / 30.000' : 'VD: 380k / 400k'}"
                 oninput="MoldMaintenance.handleShotInputChanged(${idx})"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-family:monospace; font-weight:700; text-align:right; font-size:12.5px; color:#0f172a; background:#ffffff;">
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="date" id="mm_date_${idx}" value="${row.date || ''}"
+              <input type="date" id="mm_plan_${idx}" value="${row.planDate || ''}" title="Ngày lập kế hoạch bảo dưỡng"
+                style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; color:#334155; background:#ffffff;">
+            </td>
+            <td style="${borderStyle} padding:4px 6px;">
+              <input type="date" id="mm_date_${idx}" value="${row.date || ''}" title="Ngày hoàn thành bảo dưỡng thực tế"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; color:#334155; background:#ffffff;">
             </td>
             <td style="${borderStyle} padding:4px 6px; text-align:center;">
@@ -1704,7 +1724,7 @@ window.MoldMaintenance = (function() {
               </div>
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="text" id="mm_ktv_${idx}" value="${row.ktv || ''}" placeholder="7139"
+              <input type="text" id="mm_ktv_${idx}" value="${row.ktv || ''}" placeholder="Mã KTV"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; font-weight:600; color:#334155; background:#ffffff;">
             </td>
             <td style="${borderStyle} padding:4px 6px;">
@@ -1871,11 +1891,17 @@ window.MoldMaintenance = (function() {
       for (let k = 1; k <= 12; k++) {
         months2026 += Math.round(Number(hist['M' + k]) || 0);
       }
-      totalShots = months2026 > 0 ? months2026 : Math.round(Number(m.totalYear || 0));
-      if (sumEl) sumEl.textContent = `Phát sinh 2026: ${formatNum(totalShots)}`;
+      totalShots = m.monthlyHistory ? months2026 + (Number(m.carry30k) || 0) : Math.max(0, Number(m.totalYear || 0) - Number(m.lastYearRemaining || 0));
+      if (sumEl) sumEl.textContent = `Shot theo dõi từ 2026: ${formatNum(totalShots)}`;
     } else {
       totalShots = Math.round(Number(m.totalAccumulatedYear || m.totalYear || m.totalLife || 0));
       if (sumEl) sumEl.textContent = `Sum shot: ${formatNum(totalShots)}`;
+    }
+    if (sumEl && m.maintenancePlans?.length) {
+      const plan = m.maintenancePlans[0];
+      sumEl.textContent += plan.closed_date
+        ? ` | Đã chốt ${formatNum(plan.shots)} shot (${plan.closed_date})`
+        : plan.planned_date ? ` | Dự kiến: ${plan.planned_date}` : ' | Chờ ngày dự kiến';
     }
 
     const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
@@ -1919,8 +1945,9 @@ window.MoldMaintenance = (function() {
             num: i,
             name: rowName,
             actualShot: shotDisplay,
+            planDate: c.planDate || '',
             date: c.date || '',
-            ktv: c.tech || '7139',
+            ktv: c.tech || '',
             note: c.note || '',
             pdf: c.pdf || null,
             isClosed: true,
@@ -1937,9 +1964,11 @@ window.MoldMaintenance = (function() {
           active400kRowsData.push({
             num: i,
             name: rowName,
-            actualShot: shotDisplay,
-            date: c?.date || '',
-            ktv: c?.tech || '7139',
+            actualShot: '',
+            suggestedShot: shotDisplay,
+            planDate: c?.planDate || '',
+            date: '',
+            ktv: '',
             note: c?.note || '',
             pdf: c?.pdf || null,
             isClosed: false,
@@ -2069,9 +2098,10 @@ window.MoldMaintenance = (function() {
       activeMajorRowsData = [{
         num: mNum,
         name: mTitle,
-        actualShot,
-        date: detail?.date || (isEligible && !isClosed ? new Date().toISOString().slice(0, 10) : ''),
-        ktv: detail?.tech || (isEligible && !isClosed ? '7139' : ''),
+        actualShot: isClosed ? actualShot : '',
+        suggestedShot: isClosed ? '' : actualShot,
+        date: isClosed ? detail?.date || '' : '',
+        ktv: isClosed ? detail?.tech || '' : '',
         note: detail?.note || '',
         pdf,
         isClosed,
@@ -2080,6 +2110,10 @@ window.MoldMaintenance = (function() {
       }];
     }
 
+    for (const row of getActiveExcelRows()) {
+      row.savedShot = row.actualShot;
+      row.savedPdf = row.pdf;
+    }
     renderActiveExcelRows();
 
     modal.classList.remove('hidden');
@@ -2111,43 +2145,49 @@ window.MoldMaintenance = (function() {
     }
 
     try {
-      // 1. VALIDATION: CHỈ CHẶN CHỐT SỚM VỚI CÁC MỐC 3M, 4M, 5M (Không chặn 400K)
-      if (activeShotModalTab === 'milestone') {
-        for (let idx = 0; idx < rows.length; idx++) {
-          const row = rows[idx];
-          const shotEl = document.getElementById('mm_shot_' + idx);
-          const shotStr = (shotEl ? shotEl.value : '').trim();
-
-          if (shotStr && row.isEligible === false && !row.isClosed) {
-            alert(`LỖI: Mốc ${row.name} chưa đến hạn bảo dưỡng!\n${row.lockReason}\n\nQuy chuẩn SOP nghiêm cấm chốt sớm trước hạn!`);
-            if (shotEl && typeof shotEl.focus === 'function') shotEl.focus();
-            return;
-          }
-        }
-      }
-
-      // 2. LƯU DỮ LIỆU
+      const changes = [];
       for (let idx = 0; idx < rows.length; idx++) {
         const row = rows[idx];
         const shotEl = document.getElementById('mm_shot_' + idx);
+        const planEl = document.getElementById('mm_plan_' + idx);
         const dateEl = document.getElementById('mm_date_' + idx);
         const ktvEl = document.getElementById('mm_ktv_' + idx);
         const noteEl = document.getElementById('mm_note_' + idx);
 
         const shotStr = (shotEl ? shotEl.value : '').trim();
+        const planVal = (planEl ? planEl.value : '').trim();
         const dateVal = (dateEl ? dateEl.value : '').trim();
         const ktvVal = (ktvEl ? ktvEl.value : '').trim();
         const noteVal = (noteEl ? noteEl.value : '').trim();
         const pdfObj = row.pdf || null;
+        if (row.isClosed && shotStr === row.savedShot && planVal === (row.planDate || '') && dateVal === row.date && ktvVal === row.ktv &&
+            noteVal === row.note && pdfObj === (row.savedPdf || null)) continue;
+        if (!shotStr && !row.isClosed) {
+          // Nếu có nhập planDate cho cữ chưa chốt: lưu kế hoạch dự kiến
+          if (planVal && planVal !== (row.planDate || '')) {
+            changes.push({ row, shotStr: '', numShots: 0, planVal, dateVal: '', ktvVal, noteVal, pdfObj });
+          }
+          continue;
+        }
+        if (shotStr && row.isEligible === false && !row.isClosed) {
+          throw new Error(`Mốc ${row.name} chưa đến hạn. ${row.lockReason || ''}`);
+        }
+        const numShots = parseShotInput(shotStr);
+        if (shotStr && (!(numShots > 0) || !dateVal || !ktvVal)) {
+          throw new Error(`Mốc ${row.name} cần số shot hợp lệ, ngày thực hiện và mã KTV.`);
+        }
+        changes.push({ row, shotStr, numShots, planVal, dateVal, ktvVal, noteVal, pdfObj });
+      }
 
+      for (const { row, shotStr, numShots, planVal, dateVal, ktvVal, noteVal, pdfObj } of changes) {
         const key = row.num;
 
         if (shotStr) {
-          const numShots = parseShotInput(shotStr);
           if (numShots > 0) {
             const detailObj = {
-              date: dateVal || new Date().toISOString().slice(0, 10),
-              tech: ktvVal || '7139',
+              planDate: planVal,
+              date: dateVal,
+              tech: ktvVal,
               note: noteVal,
               closedShots: numShots,
               pdf: pdfObj,
@@ -2163,6 +2203,17 @@ window.MoldMaintenance = (function() {
             }
             await toggleMilestoneCheck(moldNo, key, true, detailObj);
           }
+        } else if (!shotStr && planVal) {
+          // Lưu riêng kế hoạch dự kiến cho cữ tiếp theo
+          const existingDetail = getMilestoneDetail(moldNo, key) || {};
+          const planDetail = {
+            ...existingDetail,
+            planDate: planVal,
+            tech: ktvVal || existingDetail.tech || '',
+            note: noteVal || existingDetail.note || ''
+          };
+          saveMilestoneDetail(moldNo, key, planDetail);
+          if (activeShotModalTab === '400k') saveMilestoneDetail(moldNo, row.name, planDetail);
         } else if (row.isClosed) {
           // Người dùng xóa số shot: mở lại / hủy chốt
           saveMilestoneDetail(moldNo, key, null);
@@ -2175,10 +2226,7 @@ window.MoldMaintenance = (function() {
 
       close400kDetailModal();
 
-      // Refresh lại bảng chính
-      if (typeof renderMoldsOverviewSheet === 'function') renderMoldsOverviewSheet();
-      if (typeof renderDailySheet === 'function') renderDailySheet();
-      if (typeof renderKPIs === 'function') renderKPIs();
+      renderAll();
       if (typeof renderMoldMaintenanceAlertsInOverview === 'function') {
         try { renderMoldMaintenanceAlertsInOverview(); } catch (e) {}
       }
@@ -2356,6 +2404,46 @@ window.MoldMaintenance = (function() {
   }
 
   // Danh mục toàn bộ khuôn hợp nhất (Master 455 khuôn + Khuôn trên máy live + Khuôn thêm mới)
+  function buildAutomaticPlan(codes, remaining, threshold, cycleShots) {
+    const asOf = rawData?.shotAsOfDate;
+    if (!asOf || asOf.slice(0, 4) !== selectedYear || !(threshold > 0)) return null;
+    const asOfTime = Date.parse(asOf);
+    const days = Object.entries(rawData.shotDays || {})
+      .filter(([date]) => {
+        const age = (asOfTime - Date.parse(date)) / 86400000;
+        return age >= 0 && age <= 15;
+      })
+      .sort(([left], [right]) => right.localeCompare(left))
+      .map(([date, day]) => ({
+        date,
+        valid: day.complete && !codes.some(code => day.incomplete?.includes(code)),
+        shots: codes.reduce((total, code) => total + (Number(day.molds?.[code]) || 0), 0)
+      }));
+    const finalized = days.filter(day => day.valid && Date.parse(day.date) <= asOfTime - 2 * 86400000);
+    const calendarRate = finalized.length >= 3
+      ? finalized.reduce((total, day) => total + day.shots, 0) / finalized.length : 0;
+    const hasRecentCompleteDay = days.some(day => day.date === asOf && day.valid);
+    const currentDate = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+    const fresh = currentDate === asOf && hasRecentCompleteDay;
+    const daysToTarget = remaining <= 0 ? 0 : (calendarRate > 0 ? Math.ceil(remaining / calendarRate) : Infinity);
+    return {
+      finalizedDate: finalized[0]?.date || '',
+      finalizedShots: finalized[0]?.shots ?? null,
+      threshold,
+      cycleShots,
+      proposedDate: fresh && daysToTarget <= 365
+        ? new Date(asOfTime + daysToTarget * 86400000).toISOString().slice(0, 10) : '',
+      status: !fresh ? 'Cần dữ liệu TMS mới' : remaining <= 0 ? 'Đến mốc — chờ xác nhận thực hiện'
+        : calendarRate > 0 ? 'Ước tính theo lịch sử TMS' : 'Chưa đủ lịch sử TMS'
+    };
+  }
+
+  function savedMaintenancePlans(codes) {
+    return (rawData?.automaticMaintenance || []).filter(entry =>
+      codes.includes(entry.mold) && (entry.closed_date || entry.planned_date || entry.source_date)?.startsWith(selectedYear + '-')
+    );
+  }
+
   function getAllUnifiedMolds() {
     if (!rawData) return [];
     const liveByMold = {};
@@ -2378,11 +2466,10 @@ window.MoldMaintenance = (function() {
     } catch (e) {}
 
     // 1. Tổng hợp số shot thời gian thực theo từng khuôn từ rawData.records (dailyHistory + todayShots)
-    const now = new Date();
-    const curYear = now.getFullYear();
-    const curMonth = now.getMonth() + 1;
+    const todayYmd = rawData.shotAsOfDate || new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+    const [liveYear, curMonth] = todayYmd.split('-').map(Number);
+    const curYear = Number(selectedYear) || liveYear;
     const curMonthKey = 'M' + curMonth;
-    const todayYmd = curYear + '-' + String(curMonth).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
     const liveShotsByMold = {};
     (rawData.records || []).forEach(r => {
@@ -2403,7 +2490,7 @@ window.MoldMaintenance = (function() {
 
       const todayShots = Number(r.todayShots) || 0;
       const moldToday = (r.moldNo || '').toUpperCase().trim();
-      if (todayShots > 0 && moldToday && moldToday !== '-') {
+      if (!rawData.shotDays && curYear === liveYear && todayShots > 0 && moldToday && moldToday !== '-') {
         if (!dh[todayYmd] || !dh[todayYmd].shots) {
           if (!liveShotsByMold[moldToday]) liveShotsByMold[moldToday] = {};
           liveShotsByMold[moldToday][curMonthKey] = (liveShotsByMold[moldToday][curMonthKey] || 0) + todayShots;
@@ -2429,7 +2516,9 @@ window.MoldMaintenance = (function() {
         (oldCode && oldCode !== '-' ? liveShotsByMold[oldCode] : null) || 
         (newCode && newCode !== '-' ? liveShotsByMold[newCode] : null);
 
-      const monthlyHistory = { ...(m.monthlyHistory || (live ? live.monthlyHistory : null) || {}) };
+      const legacyHistory = m.monthlyHistory || live?.monthlyHistory || {};
+      const historyYear = Number(m.monthlyHistoryYear || rawData.monthlyHistoryYear) || 2026;
+      const monthlyHistory = curYear === historyYear ? { ...legacyHistory } : {};
       if (moldLiveShots) {
         Object.keys(moldLiveShots).forEach(mKey => {
           const mNum = parseInt(mKey.replace('M', ''), 10);
@@ -2439,11 +2528,29 @@ window.MoldMaintenance = (function() {
         });
       }
 
-      // Cập nhật số shot thời gian thực mới nhất từ máy ép đang chạy (today + yesterday) vào tháng hiện tại để Web và Excel luôn có số liệu mới nhất đồng nhất:
-      const liveShots = live ? (Number(live.todayShots || 0) + Number(live.yesterdayShots || 0)) : 0;
-      if (liveShots > 0) {
-        const baseCurMonth = Number(m.monthlyHistory?.[curMonthKey]) || 0;
-        monthlyHistory[curMonthKey] = Math.round(baseCurMonth + liveShots);
+      const moldCodes = [...new Set([code, oldCode, newCode].filter(value => value && value !== '-'))];
+      if (rawData.shotDays) {
+        const confirmedTotals = {};
+        const historyTotals = {};
+        for (const [date, day] of Object.entries(rawData.shotDays)) {
+          if (!date.startsWith(curYear + '-') || !day.complete) continue;
+          const key = 'M' + Number(date.slice(5, 7));
+          if (moldCodes.some(moldCode => day.incomplete?.includes(moldCode))) continue;
+          confirmedTotals[key] = (confirmedTotals[key] || 0) +
+            moldCodes.reduce((sum, moldCode) => sum + (Number(day.molds?.[moldCode]) || 0), 0);
+          for (const record of rawData.records || []) {
+            const historical = record.dailyHistory?.[date];
+            if (historical && moldCodes.includes(String(historical.moldNo || record.moldNo || '').trim().toUpperCase())) {
+              historyTotals[key] = (historyTotals[key] || 0) + (Number(historical.shots) || 0);
+            }
+          }
+        }
+        for (const [key, confirmed] of Object.entries(confirmedTotals)) {
+          const legacyDailyTotal = Number(moldLiveShots?.[key]) || 0;
+          const correctedDailyTotal = Math.max(0, legacyDailyTotal - (historyTotals[key] || 0)) + confirmed;
+          const sourceMonthlyTotal = curYear === historyYear ? Number(legacyHistory[key]) || 0 : 0;
+          monthlyHistory[key] = Math.max(sourceMonthlyTotal > legacyDailyTotal ? sourceMonthlyTotal : 0, correctedDailyTotal);
+        }
       }
 
       const novLiveShots = Math.round(Number(monthlyHistory.M11 || moldLiveShots?.M11 || 0));
@@ -2463,6 +2570,49 @@ window.MoldMaintenance = (function() {
         const earlyYearShots = (monthlyHistory.M1 || 0) + (monthlyHistory.M2 || 0) + (monthlyHistory.M3 || 0);
         if (earlyYearShots > 0 && rawM1 > earlyYearShots && (rawM1 - earlyYearShots) > 50000) {
           lastYearRemaining = Math.round(rawM1 - earlyYearShots);
+        }
+      }
+
+      let carry30k = 0;
+      let priorClosedCycleShots = 0;
+      if (curYear > historyYear) {
+        const carriedMonths = Object.fromEntries(Object.entries(legacyHistory).map(([key, value]) =>
+          [`${historyYear}-${key.slice(1).padStart(2, '0')}`, Number(value) || 0]
+        ));
+        const canonicalMonths = {};
+        for (const [date, day] of Object.entries(rawData.shotDays || {})) {
+          const year = Number(date.slice(0, 4));
+          if (year < historyYear || year >= curYear || !day.complete ||
+              moldCodes.some(moldCode => day.incomplete?.includes(moldCode))) continue;
+          const month = date.slice(0, 7);
+          canonicalMonths[month] = (canonicalMonths[month] || 0) +
+            moldCodes.reduce((sum, moldCode) => sum + (Number(day.molds?.[moldCode]) || 0), 0);
+        }
+        for (const [month, shots] of Object.entries(canonicalMonths)) {
+          carriedMonths[month] = Math.max(carriedMonths[month] || 0, shots);
+        }
+        const priorProduction = Object.values(carriedMonths).reduce((sum, shots) => sum + shots, 0);
+        if (is30kMold(m)) {
+          carry30k = priorProduction;
+          lastYearRemaining = priorProduction;
+        } else {
+          lastYearRemaining += priorProduction;
+        }
+        if (isHigh || is30kMold(m)) {
+          const cyclePrefix = is30kMold(m) ? '30k-' : '400k-';
+          const closedNumbers = new Set((closedMap[code] || []).flatMap(key => {
+            const value = String(key).toLowerCase();
+            if (value.startsWith(cyclePrefix)) return [Number(value.slice(cyclePrefix.length))];
+            return /^[1-3]$/.test(value) ? [Number(value)] : [];
+          }));
+          for (const number of closedNumbers) {
+            const detail = getMilestoneDetail(code, cyclePrefix + number) || getMilestoneDetail(code, number);
+            const date = String(detail?.date || '');
+            const year = Number(date.match(/^\d{4}/)?.[0] || date.match(/\d{4}$/)?.[0]);
+            if (year >= historyYear && year < curYear) priorClosedCycleShots += Number(detail?.closedShots) || 0;
+          }
+          priorClosedCycleShots = Math.min(lastYearRemaining, priorClosedCycleShots);
+          lastYearRemaining -= priorClosedCycleShots;
         }
       }
 
@@ -2522,9 +2672,11 @@ window.MoldMaintenance = (function() {
           totalYear: totalAccumulatedYear,
           totalAccumulatedYear,
           lastYearRemaining,
-          monthlyHistory
+          monthlyHistory,
+          carry30k,
+          priorClosedCycleShots
         };
-        const cycles400k = get400kCyclesInfo(dummyMoldObj);
+        const cycles400k = get400kCyclesInfo(dummyMoldObj, true);
         if (cycles400k[0]) m1 = cycles400k[0].shots;
         if (cycles400k[1]) m2 = cycles400k[1].shots;
         if (cycles400k[2]) m3 = cycles400k[2].shots;
@@ -2622,10 +2774,13 @@ window.MoldMaintenance = (function() {
 
       const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, closedMilestones, code);
       const is30k = is30kMold(code) || is30kMold(m);
+      const autoPlan = buildAutomaticPlan(moldCodes, evalData.remaining, evalData.plan, curShots);
 
       allMoldsMap[code] = {
         totalShotLastYear: Math.round(Number(m.totalShotLastYear || m.total_life || live?.totalLifeShots || 0)),
         lastYearRemaining,
+        carry30k,
+        priorClosedCycleShots,
         monthlyHistory,
         mold: m.mold,
         oldMold: m.oldMold || m.old_name || '-',
@@ -2660,7 +2815,10 @@ window.MoldMaintenance = (function() {
         totalLife,
         note: moldNote,
         closedMilestones,
-        currentCycleNum
+        currentCycleNum,
+        moldCodes,
+        maintenancePlans: savedMaintenancePlans(moldCodes),
+        autoPlan
       };
     });
 
@@ -2699,7 +2857,7 @@ window.MoldMaintenance = (function() {
         }
 
         if (!isHigh) curShots = Number(r.totalAccumulatedYear || r.totalYear || curShots);
-        const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, []);
+        const evalData = computeMoldPlanAndStatus(isHigh, curShots, totalLife, [], code);
         const is30k = is30kMold(code) || is30kMold(r);
 
         allMoldsMap[code] = {
@@ -2726,7 +2884,9 @@ window.MoldMaintenance = (function() {
           m1,
           m2,
           m3,
-          totalLife
+          totalLife,
+          maintenancePlans: savedMaintenancePlans([code]),
+          autoPlan: buildAutomaticPlan([code], evalData.remaining, evalData.plan, curShots)
         };
       }
     });
@@ -2755,7 +2915,7 @@ window.MoldMaintenance = (function() {
     // 1. Cột 400K (High-Impact) hoặc 30K (13086B-14A-m1591):
     if (m.isHighImpact) {
       const is30k = is30kMold(m);
-      const cycles = get400kCyclesInfo(m);
+      const cycles = get400kCyclesInfo(m, true);
       const curr = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
       if (curr && !curr.isClosed) {
         const mTarget = is30k ? 30000 : 400000;
@@ -2896,13 +3056,6 @@ window.MoldMaintenance = (function() {
       }
     });
 
-    let monthHeaders = '';
-    if (moldColPrefs.months !== false) {
-      for (let mIdx = 1; mIdx <= 12; mIdx++) {
-        const mKey = 'T' + mIdx;
-        monthHeaders += `<th class="text-center" style="background:#f8fafc; color:#1e3a8a; min-width:72px; font-size:12.5px; border-left:1px solid #e2e8f0;" title="Số shot tháng ${mIdx}/2026">${mKey}</th>`;
-      }
-    }
 
     let lastYearHeader = '';
     if (moldColPrefs.lastYear !== false) {
@@ -2911,7 +3064,7 @@ window.MoldMaintenance = (function() {
 
     let sumShotHeader = '';
     if (moldColPrefs.totalYear !== false) {
-      sumShotHeader = `<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px; border-left:2px solid #cbd5e1;" title="Tổng số shot tích lũy thực tế của các tháng trong năm (Sum shot)">Sum shot</th>`;
+      sumShotHeader = `<th class="text-right font-bold" style="background:#f1f5f9; color:#0f172a; min-width:105px; border-left:2px solid #cbd5e1;" title="Last Year cộng shot phát sinh trong năm">Sum shot ${selectedYear}</th>`;
     }
 
     const milestoneDefs = [
@@ -2946,9 +3099,9 @@ window.MoldMaintenance = (function() {
               ${moldColPrefs.progress ? '<th style="min-width:140px;">Tiến Độ</th>' : ''}
               ${moldColPrefs.status ? '<th class="text-center">Trạng Thái</th>' : ''}
               ${lastYearHeader}
-              ${monthHeaders}
               ${sumShotHeader}
               ${milestoneHeaders}
+              <th style="min-width:150px;">Kế hoạch / Chốt shot</th>
               ${moldColPrefs.totalLife ? '<th class="text-right font-bold" style="background:#f8fafc; color:#0f172a;">Tổng Vòng Đời</th>' : ''}
               ${moldColPrefs.note ? '<th style="min-width:180px;">Note (Ghi Chú)</th>' : ''}
               <th class="text-center" style="width:40px; padding:0; background:#f1f5f9;">
@@ -3074,19 +3227,6 @@ window.MoldMaintenance = (function() {
         }
 
         let milestoneCells = '';
-        let monthCells = '';
-        if (moldColPrefs.months !== false) {
-          const hist = m.monthlyHistory || {};
-          for (let mIdx = 1; mIdx <= 12; mIdx++) {
-            const rawM = hist['M' + mIdx] || hist[String(mIdx)] || hist[String(mIdx).padStart(2, '0')];
-            const mVal = rawM ? Math.round(Number(rawM)) : 0;
-            monthCells += `
-              <td class="text-right font-mono" style="font-size:13px; color:${mVal > 0 ? '#1e293b' : '#94a3b8'}; vertical-align:middle; padding:8px 6px; border-left:1px solid #f1f5f9;">
-                ${mVal > 0 ? formatNum(mVal) : '-'}
-              </td>
-            `;
-          }
-        }
 
         let sumShotCell = '';
         if (moldColPrefs.totalYear !== false) {
@@ -3186,9 +3326,16 @@ window.MoldMaintenance = (function() {
               </td>
             ` : ''}
             ${lastYearCell}
-            ${monthCells}
             ${sumShotCell}
             ${milestoneCells}
+            <td>${(m.maintenancePlans || []).slice(0, 3).map(plan => {
+              const milestone = String(plan.milestone).match(/^(?:30k-\d+|400k-\d+|25|[4-8])$/)?.[0] || '';
+              const date = String(plan.closed_date || plan.planned_date || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0] || '';
+              const planned = String(plan.planned_date || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0] || '';
+              return plan.closed_date
+                ? `<div><strong>Đã chốt ${formatNum(Number(plan.shots) || 0)} shot</strong><br><small>${milestone.toUpperCase()}${planned ? ' · Plan ' + planned : ''} · Chốt ${date}</small></div>`
+                : `<div><strong>${milestone.toUpperCase()}</strong><br><small>${date ? 'Dự kiến ' + date : 'Chờ ngày dự kiến'}</small></div>`;
+            }).join('') || '—'}</td>
             ${moldColPrefs.totalLife ? `
               <td class="text-right font-mono font-bold" style="background:#f8fafc; color:#0f172a; font-size:15px;">
                 ${formatNum(m.totalLife)}
@@ -3785,10 +3932,6 @@ window.MoldMaintenance = (function() {
       wb.modified = new Date();
 
       const allMolds = getAllUnifiedMolds();
-      const recordsByMold = {};
-      (rawData?.records || []).forEach(r => {
-        if (r.moldNo) recordsByMold[r.moldNo.toUpperCase()] = r;
-      });
 
       // Sắp xếp ưu tiên: Khuôn có số shot thực tế trong tháng (M11 / live TMS) lên trên,
       // tiếp theo là tổng số shot trong năm, các khuôn ít hoặc không có shot (vd 500410) cho xuống dưới
@@ -4154,7 +4297,7 @@ window.MoldMaintenance = (function() {
                   noteText = `30K-1 - ĐÃ ĐO LẠI\nSố shot: ${val.toLocaleString('vi-VN')}\nNgày: ${cInfo.date || d?.date || ''}\nKTV: ${cInfo.tech || d?.tech || ''}\n${cInfo.note || d?.note || ''}`.trim();
                 } else {
                   val = (cInfo && cInfo.shots > 0) ? Math.round(cInfo.shots) : null;
-                  cellFormula = `SUM(E${curRow}:P${curRow})`;
+                  cellFormula = `SUM(E${curRow}:P${curRow})+${Number(m.carry30k) || 0}`;
                 }
               }
             } else if (mH.startsWith('400K-') || mH.startsWith('30K-')) {
@@ -4179,12 +4322,13 @@ window.MoldMaintenance = (function() {
                     val = (cInfo.shots > 0) ? Math.round(cInfo.shots) : null;
                     // Cữ chưa chốt: gán công thức động cho mọi cữ để khi người dùng gõ số chốt vào cữ trước, cữ sau tự động nhận số dư lũy kế
                     // Với khuôn 30K: chỉ tính tổng số shot phát sinh từ các tháng năm 2026 (E đến P), không cộng D (năm trước dở dang)
+                    const baseSource = is30k ? `(SUM(E${curRow}:P${curRow})+${Number(m.carry30k) || 0})` :
+                      `(${yearColLetter}${curRow}+${Number(m.priorClosedCycleShots) || 0})`;
                     if (cycleNum === 1) {
-                      cellFormula = is30k ? `SUM(E${curRow}:P${curRow})` : `${yearColLetter}${curRow}`;
+                      cellFormula = baseSource;
                     } else {
                       const startMilestoneCol = getColLetter(isOverviewSheet ? 18 : 17);
                       const prevMilestoneCol = getColLetter((isOverviewSheet ? 17 : 16) + cycleNum - 1);
-                      const baseSource = is30k ? `SUM(E${curRow}:P${curRow})` : `${yearColLetter}${curRow}`;
                       if (cycleNum === 2) {
                         cellFormula = `IF(${baseSource}="","",IF(${baseSource}>${startMilestoneCol}${curRow},${baseSource}-${startMilestoneCol}${curRow},""))`;
                       } else {
@@ -4748,6 +4892,9 @@ window.MoldMaintenance = (function() {
 
             let milestoneVal = '';
             let dateVal = '';
+            const automatic = (m.maintenancePlans || []).filter(plan =>
+              Number((plan.closed_date || plan.planned_date || '').slice(5, 7)) === mIdx
+            );
 
             // Dữ liệu chốt mốc bảo dưỡng THỰC TẾ trên Web (CHỈ lấy khi KTV thực sự chốt trên web có ngày cụ thể)
             // Tuyệt đối không lấy dữ liệu 800K cũ: nếu hệ thống chưa chốt thì để trống sạch sẽ
@@ -4766,7 +4913,8 @@ window.MoldMaintenance = (function() {
                     const parts = dStr.split('/');
                     if (parts.length >= 2) mMonth = parseInt(parts[1], 10);
                   }
-                  if (mMonth === mIdx) {
+                  const detailYear = dStr.match(/^\d{4}/)?.[0] || dStr.match(/\d{4}$/)?.[0];
+                  if (mMonth === mIdx && detailYear === String(currentYearNum)) {
                     const mNum = parseInt(mNumStr, 10);
                     if (mNum === 25 || mNumStr === '25' || mNumStr === '2.5m') milestoneVal = '2.5M';
                     else if (mNum === 4) milestoneVal = '3.0M';
@@ -4800,6 +4948,22 @@ window.MoldMaintenance = (function() {
               cellDate.alignment = { horizontal: 'center', vertical: 'middle' };
               cellDate.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF166534' } };
               cellDate.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+            }
+            if (automatic.length) {
+              const labels = automatic.map(plan => {
+                const label = ({ '25': '2.5M', '4': '3.0M', '5': '3.5M', '6': '4.0M', '7': '4.5M', '8': '5.0M' })[plan.milestone] || String(plan.milestone).toUpperCase();
+                return plan.closed_date ? `Chốt ${label}: ${formatNum(Number(plan.shots) || 0)}` : `Plan ${label}`;
+              });
+              cellShot.value = [milestoneVal, ...labels].filter(Boolean).join(' / ');
+              const autoDates = automatic.map(plan => plan.closed_date
+                ? [plan.planned_date && 'Plan ' + formatDisplayDate(plan.planned_date), 'Chốt ' + formatDisplayDate(plan.closed_date)].filter(Boolean).join(' / ')
+                : formatDisplayDate(plan.planned_date));
+              cellDate.value = [dispDate, ...autoDates].filter(Boolean).join(' / ');
+              for (const cell of [cellShot, cellDate]) {
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                if (!milestoneVal) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } };
+              }
+              r1.height = Math.max(r1.height || 15, automatic.length > 1 || milestoneVal ? 28 : 19);
             }
           }
 
@@ -5031,70 +5195,53 @@ window.MoldMaintenance = (function() {
       // ========================================================================
       // SHEET 3: SẢN XUẤT LIVE 44 MÁY ÉP TMS
       // ========================================================================
-      const ws3 = wb.addWorksheet('San xuat 44 may TMS');
-      ws3.views = [{ showGridLines: true }];
-
-      ws3.mergeCells('A1:O1');
-      const titleCell3 = ws3.getCell('A1');
-      titleCell3.value = `BÁO CÁO GIÁM SÁT SẢN LƯỢNG & SỐ SHOT REAL-TIME 44 MÁY ÉP (TMS SMART)`;
-      titleCell3.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
-      titleCell3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0284C7' } };
-      titleCell3.alignment = { horizontal: 'center', vertical: 'middle' };
-      ws3.getRow(1).height = 30;
-
-      const headers3 = [
-        'STT', 'Mã Máy', 'Trạng Thái', 'Mã Khuôn (Mold No)', 'Tên Sản Phẩm', 'Cavity', 'Cycle Time (s)',
-        'Sản Lượng Hôm Nay', 'NG Máy Hôm Nay', 'NG Screening (Ngoại quan)', 'Số Chứng Từ', 'Số Shot Hôm Nay',
-        'Sản Lượng Hôm Qua', 'NG Máy Hôm Qua', 'Số Shot Hôm Qua'
+      const planSheet = wb.addWorksheet('Chot shot va ke hoach');
+      planSheet.columns = [
+        { header: 'Mã khuôn', width: 20 }, { header: 'Ngày chốt TMS', width: 18 },
+        { header: 'Shot chốt trong ngày', width: 22 }, { header: 'Last Year - shot dở dang', width: 26 },
+        { header: 'Shot theo dõi', width: 18 }, { header: 'Ngưỡng', width: 16 },
+        { header: 'Ngày dự kiến', width: 18 }, { header: 'Ngày thực hiện gần nhất', width: 24 },
+        { header: 'Trạng thái kế hoạch', width: 42 }
       ];
-      const hRow3 = ws3.addRow(headers3);
-      hRow3.height = 24;
-      hRow3.eachCell(cell => {
-        cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
-      });
-
-      // Lọc danh sách máy TMS theo từ khóa tìm kiếm nếu có
-      const rawRecords = rawData?.records || [];
-      const filteredRecords = rawRecords.filter(r => {
-        if (!filterText) return true;
-        const q = filterText.toLowerCase();
-        return (r.machineNo && r.machineNo.toLowerCase().includes(q)) ||
-               (r.moldNo && r.moldNo.toLowerCase().includes(q)) ||
-               (r.series && r.series.toLowerCase().includes(q));
-      });
-
-      filteredRecords.forEach((r, idx) => {
-        const row = ws3.addRow([
-          idx + 1,
-          r.machineNo,
-          r.machineStatus,
-          r.moldNo,
-          r.series,
-          r.cavityStr || r.cavity,
-          r.cycleTime || 0,
-          Math.round(r.todayProdOutputPcs || 0),
-          Math.round(r.todayMachineNg || r.todayScrapPcs || 0),
-          Math.round(r.todayScreeningNg || 0),
-          r.todayDocNo || '-',
-          Math.round(r.todayShots || 0),
-          Math.round(r.yesterdayProdOutputPcs || 0),
-          Math.round(r.yesterdayMachineNg || r.yesterdayScrapPcs || 0),
-          Math.round(r.yesterdayShots || 0)
+      planSheet.getRow(1).font = { bold: true };
+      planSheet.views = [{ state: 'frozen', ySplit: 1 }];
+      filteredMolds.forEach(mold => {
+        const plan = mold.autoPlan;
+        const saved = mold.maintenancePlans?.[0];
+        const actualDates = (mold.closedMilestones || [])
+          .map(key => getMilestoneDetail(mold.mold, key)?.date)
+          .filter(Boolean);
+        planSheet.addRow([
+          mold.mold, plan?.finalizedDate || null, plan?.finalizedShots ?? null,
+          mold.lastYearRemaining ?? null, saved?.shots ?? plan?.cycleShots ?? null, saved?.target ?? plan?.threshold ?? null,
+          saved?.planned_date || null, actualDates.at(-1) || null,
+          saved?.closed_date ? `Đã chốt shot ${saved.closed_date}` : saved ? 'Đã lên kế hoạch' : 'Chưa có kế hoạch tự động'
         ]);
-        row.height = 19;
-        row.eachCell((cell, colNum) => {
-          cell.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
-          cell.font = { name: 'Calibri', size: 10 };
-          if ([1, 2, 3, 4, 6, 11].includes(colNum)) cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          else if ([7, 8, 9, 10, 12, 13, 14, 15].includes(colNum)) {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            cell.numFmt = '#,##0';
-          }
-        });
       });
+      planSheet.autoFilter = 'A1:I1';
+
+      const historySheet = wb.addWorksheet('Shot ngay theo khuon');
+      historySheet.columns = [
+        { header: 'Năm', width: 10 }, { header: 'Tháng', width: 10 },
+        { header: 'Ngày sản xuất', width: 16 }, { header: 'Mã khuôn', width: 22 },
+        { header: 'Số shot', width: 15 }, { header: 'Trạng thái dữ liệu', width: 26 }
+      ];
+      historySheet.getRow(1).font = { bold: true };
+      historySheet.views = [{ state: 'frozen', ySplit: 1 }];
+      for (const [date, day] of Object.entries(rawData?.shotDays || {}).sort(([left], [right]) => left.localeCompare(right))) {
+        if (!date.startsWith(selectedYear + '-')) continue;
+        const [year, month] = date.split('-').map(Number);
+        const settled = Date.parse(date) <= Date.parse(rawData.shotAsOfDate) - 2 * 86400000;
+        for (const mold of filteredMolds) {
+          const codes = mold.moldCodes || [String(mold.mold).trim().toUpperCase()];
+          const incomplete = !day.complete || codes.some(code => day.incomplete?.includes(code));
+          const shots = codes.reduce((sum, code) => sum + (Number(day.molds?.[code]) || 0), 0);
+          if (!shots && !codes.some(code => day.incomplete?.includes(code))) continue;
+          historySheet.addRow([year, month, date, mold.mold, incomplete ? null : shots,
+            incomplete ? 'Cần kiểm tra' : settled ? 'Đã chốt ngày' : 'Tạm tính']);
+        }
+      }
+      historySheet.autoFilter = 'A1:F1';
 
       // Xuất file
       const buffer = await wb.xlsx.writeBuffer();
@@ -5105,9 +5252,8 @@ window.MoldMaintenance = (function() {
       const todayStr = new Date().toISOString().slice(0, 10);
       let tierSuffix = filterTier === 'high_impact' ? '_HighImpact' : (filterTier === 'standard' ? '_Standard' : (filterTier === 'remeasure_30k' ? '_DoLai30K' : '_All'));
       let yearSuffix = selectedYear === 'all' ? '_AllYears' : `_${selectedYear}`;
-      let monthSuffix = selectedMonth === 'all' ? '_AllMonths' : `_T${selectedMonth}`;
       let searchSuffix = filterText ? `_${filterText.replace(/[^a-zA-Z0-9_-]/g, '')}` : '';
-      a.download = `MMFD-I-F-022.01_Bao_Duong_Khuon${tierSuffix}${yearSuffix}${monthSuffix}${searchSuffix}_${todayStr}.xlsx`;
+      a.download = `MMFD-I-F-022.01_Bao_Duong_Khuon${tierSuffix}${yearSuffix}${searchSuffix}_${todayStr}.xlsx`;
       document.body.append(a);
       a.click();
       a.remove();

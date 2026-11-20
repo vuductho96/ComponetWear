@@ -21,6 +21,7 @@ import {
   saveTmsDataToD1,
 } from "./tms-crawler.mjs";
 import { getTmsSecurityMetadata } from "./tms-crypto.mjs";
+import { automationEnabled, runMoldAutomation } from "./mold-automation.mjs";
 
 const cookieName = "__Host-componentlife_session";
 const json = (value, status = 200, headers = {}) =>
@@ -202,6 +203,7 @@ async function api(request, env, path, user) {
       fail("Dữ liệu gửi lên không đúng định dạng.", 400);
     }
     await saveTmsDataToD1(env, incomingData);
+    await updateAutomaticMaintenance(env);
     return json({
       ok: true,
       message: `Đã cập nhật ${incomingData.records.length} máy và lưu an toàn vào Cloudflare D1`,
@@ -217,7 +219,7 @@ async function api(request, env, path, user) {
     }
     // Nếu D1 hợp lệ và có chứa records + excelMasterMolds thì ưu tiên D1
     if (cached && Array.isArray(cached.records) && cached.records.length > 0 && Array.isArray(cached.excelMasterMolds) && cached.excelMasterMolds.length > 0) {
-      return json(cached);
+      return json({ ...cached, automaticMaintenance: await readAutomaticMaintenance(env) });
     }
     // Nếu D1 chưa có hoặc bị rỗng (do bot mới khởi tạo), fallback ngay về static asset JSON chuẩn
     if (assetData && Array.isArray(assetData.records) && assetData.records.length > 0) {
@@ -246,6 +248,7 @@ async function api(request, env, path, user) {
     fail("Phiên thao tác không hợp lệ. Hãy tải lại trang.", 403);
   if (path === "/api/tms/sync" && request.method === "POST") {
     const result = await syncTmsOnCloud(env);
+    if (result.success) await updateAutomaticMaintenance(env);
     return json(result);
   }
   if (path === "/api/auth/logout" && request.method === "POST") {
@@ -402,6 +405,18 @@ async function api(request, env, path, user) {
     return json({ ok: true, mold: moldCode, message: "Đã cập nhật trạng thái mốc khuôn thành công!" });
   }
   if (user.role !== "admin") fail("Chỉ admin được thao tác.", 403);
+  if (path === "/api/admin/mold-automation") {
+    if (request.method === "GET") return json({ enabled: await automationEnabled(env) });
+    if (request.method === "PUT") {
+      const data = await body(request);
+      if (typeof data.enabled !== "boolean") fail("Trạng thái tự động không hợp lệ.", 400);
+      await env.DB.prepare(`INSERT INTO mold_automation_settings (id, enabled) VALUES (1, ?)
+        ON CONFLICT(id) DO UPDATE SET enabled = excluded.enabled`).bind(Number(data.enabled)).run();
+      await audit(env, user, "mold-automation", String(data.enabled));
+      if (data.enabled) await updateAutomaticMaintenance(env);
+      return json({ enabled: data.enabled });
+    }
+  }
   if (path === "/api/admin/settings" && request.method === "PUT") {
     const data = await body(request),
       policy = validatePolicy(data.policy);
@@ -581,9 +596,31 @@ function privateResponse(response) {
   headers.set("X-Content-Type-Options", "nosniff");
   return new Response(response.body, { status: response.status, headers });
 }
+async function readAutomaticMaintenance(env) {
+  try {
+    const { results } = await env.DB.prepare(`SELECT mold, milestone, target, shots, planned_date, closed_date, source_date
+      FROM mold_automation_plan ORDER BY source_date DESC, milestone`).all();
+    return results;
+  } catch (error) {
+    if (!String(error.message).includes("no such table")) throw error;
+    return [];
+  }
+}
+
+async function updateAutomaticMaintenance(env) {
+  try {
+    await runMoldAutomation(env, await getLatestTmsDataFromD1(env));
+  } catch (error) {
+    console.error("Mold automation failed:", error.message);
+  }
+}
+
 export default {
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(syncTmsOnCloud(env));
+    ctx.waitUntil((async () => {
+      const result = await syncTmsOnCloud(env);
+      if (result.success) await updateAutomaticMaintenance(env);
+    })());
   },
   async fetch(request, env) {
     try {
@@ -623,7 +660,7 @@ export default {
       if (path === "/data/mold-maintenance-data.json") {
         const d1Data = await getLatestTmsDataFromD1(env);
         const hasFullD1 = d1Data && Array.isArray(d1Data.records) && d1Data.records.length > 0 && Array.isArray(d1Data.excelMasterMolds) && d1Data.excelMasterMolds.length > 0;
-        if (hasFullD1) return json(d1Data);
+        if (hasFullD1) return json({ ...d1Data, automaticMaintenance: await readAutomaticMaintenance(env) });
 
         // Fallback to static asset and overlay live records from D1 if available
         const assetRes = await env.ASSETS.fetch(request);

@@ -1,4 +1,5 @@
 import { getDecryptedTmsCredentials, getTmsSecurityMetadata } from "./tms-crypto.mjs";
+import { recordShotDay, tmsManufactureDate } from "./tms-shot-days.mjs";
 
 const TMS_BASE_URL = "http://iriso.tmssmart.vn";
 
@@ -65,11 +66,10 @@ export async function syncTmsOnCloud(env) {
     const yesterdayDate = new Date(localToday);
     yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
     const yesterday = dateKey(yesterdayDate);
-    const tmsDate = key => `${key}T17:00:00.000Z`;
 
     const loadDay = async key => {
       const response = await fetch(
-        `${TMS_BASE_URL}/api/v1/dailyMachineChecklists/?offset=0&limit=300&dateOfManufacture=${encodeURIComponent(tmsDate(key))}`,
+        `${TMS_BASE_URL}/api/v1/dailyMachineChecklists/?offset=0&limit=300&dateOfManufacture=${encodeURIComponent(tmsManufactureDate(key))}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -80,7 +80,9 @@ export async function syncTmsOnCloud(env) {
       );
       if (!response.ok) throw new Error(`TMS checklist failed with status ${response.status}`);
       const payload = await response.json();
-      return Array.isArray(payload.data) ? payload.data : payload.data?.list || [];
+      const list = Array.isArray(payload.data) ? payload.data : payload.data?.list;
+      if (!Array.isArray(list)) throw new Error("TMS checklist payload is invalid");
+      return list;
     };
 
     // Tải tuần tự có delay 400ms thay vì burst đồng thời dồn dập
@@ -95,6 +97,8 @@ export async function syncTmsOnCloud(env) {
       if (assetRes.ok) appData = await assetRes.json();
     }
     if (!appData) appData = { records: [] };
+    recordShotDay(appData, yesterday, listYesterday, today);
+    recordShotDay(appData, today, listToday, today);
 
     // 5. Tính toán và cập nhật số liệu
     const stats = {};
@@ -318,7 +322,25 @@ export async function saveTmsDataToD1(env, data) {
   const jsonStr = typeof data === "string" ? data : JSON.stringify(data);
   const now = Date.now();
   await env.DB.prepare(
-    "INSERT INTO tms_sync_data (id, data, updated_at) VALUES ('current', ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at"
+    `INSERT INTO tms_sync_data (id, data, updated_at) VALUES ('current', ?, ?)
+     ON CONFLICT(id) DO UPDATE SET data = CASE
+       WHEN json_type(tms_sync_data.data, '$.shotDays') IS NULL THEN excluded.data
+       ELSE json_set(
+         excluded.data,
+         '$.shotAsOfDate', max(coalesce(json_extract(tms_sync_data.data, '$.shotAsOfDate'), ''), coalesce(json_extract(excluded.data, '$.shotAsOfDate'), '')),
+         '$.shotDays', json((
+           SELECT json_group_object(key, json(value))
+           FROM (
+             SELECT key, value, row_number() OVER (PARTITION BY key ORDER BY json_extract(value, '$.observedAt') DESC) AS priority
+             FROM (
+               SELECT key, value FROM json_each(tms_sync_data.data, '$.shotDays')
+               UNION ALL
+               SELECT key, value FROM json_each(excluded.data, '$.shotDays')
+             )
+           ) WHERE priority = 1
+         ))
+       )
+     END, updated_at = excluded.updated_at`
   )
     .bind(jsonStr, now)
     .run();

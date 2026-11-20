@@ -208,6 +208,66 @@ function openAccount() {
     "Tài khoản",
     `<p><strong>${accountEscape(ComponentAuth.user.username)}</strong> · ${ComponentAuth.admin() ? "Admin" : "Staff"}</p><div class="account-actions">${ComponentAuth.admin() ? '<button onclick="openAccountUsers()">Quản lý tài khoản</button><button onclick="openGuestFields()">Cột hiển thị cho khách</button>' : ""}<button onclick="openPasswordChange()">Đổi mật khẩu</button><button id="logoutButton">Đăng xuất</button></div>`,
   );
+  if (ComponentAuth.admin()) {
+    const adminPanel = document.createElement("div");
+    adminPanel.className = "admin-automation-panel";
+    adminPanel.style.cssText = "margin: 14px 0 16px 0; padding: 12px 14px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1.5px solid #cbd5e1; border-radius: 8px;";
+    adminPanel.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div>
+          <div style="font-weight: 700; color: #0f172a; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+            <span>⚡ Tự động chốt mốc bảo dưỡng (Plan & Chốt)</span>
+          </div>
+          <div style="font-size: 11.5px; color: #64748b; margin-top: 3px; line-height: 1.4;">
+            Tự động tính số shot lũy kế, tạo ngày Plan và ngày Chốt mốc cho khuôn đến hạn
+          </div>
+        </div>
+        <label class="admin-switch" title="Bật/Tắt tự động chốt mốc bảo dưỡng">
+          <input type="checkbox" id="adminAutoCloseToggle" disabled>
+          <span class="admin-slider"></span>
+        </label>
+      </div>
+      <div id="adminAutoCloseStatus" style="font-size: 11.5px; font-weight: 600; color: #0284c7; margin-top: 6px; min-height: 16px;">Đang tải trạng thái…</div>
+    `;
+    dialog.querySelector(".account-actions").before(adminPanel);
+
+    const toggle = adminPanel.querySelector("#adminAutoCloseToggle");
+    const statusEl = adminPanel.querySelector("#adminAutoCloseStatus");
+    ComponentAuth.request("/api/admin/mold-automation", "GET")
+      .then(settings => {
+        toggle.checked = !!settings.enabled;
+        toggle.disabled = false;
+        statusEl.innerHTML = toggle.checked
+          ? '<span style="color:#16a34a;">🟢 Đang BẬT: Hệ thống tự động lên plan và chốt mốc khuôn</span>'
+          : '<span style="color:#64748b;">⚪ Đang TẮT: Chế độ chốt mốc thủ công</span>';
+      })
+      .catch(err => {
+        statusEl.textContent = "Không tải được trạng thái: " + err.message;
+      });
+
+    toggle.onchange = async () => {
+      toggle.disabled = true;
+      statusEl.textContent = "Đang lưu cấu hình…";
+      try {
+        const result = await ComponentAuth.request("/api/admin/mold-automation", "PUT", { enabled: toggle.checked });
+        statusEl.innerHTML = result.enabled
+          ? '<span style="color:#16a34a;">🟢 Đã BẬT tự động lên plan và chốt mốc khuôn</span>'
+          : '<span style="color:#64748b;">⚪ Đã TẮT tự động chốt mốc khuôn</span>';
+        window.MoldMaintenance?.refreshData?.();
+      } catch (err) {
+        statusEl.textContent = "Lỗi: " + err.message;
+        toggle.checked = !toggle.checked;
+      } finally {
+        toggle.disabled = false;
+      }
+    };
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Chi tiết cấu hình tự động";
+    button.onclick = openMoldAutomation;
+    dialog.querySelector(".account-actions").prepend(button);
+  }
   dialog.querySelector("#logoutButton").onclick = async (event) => {
     event.target.disabled = true;
     try {
@@ -219,6 +279,33 @@ function openAccount() {
       event.target.disabled = false;
     }
   };
+}
+async function openMoldAutomation() {
+  if (!ComponentAuth.admin()) return;
+  const dialog = accountDialog(
+    "Tự động bảo dưỡng khuôn",
+    '<form><label><input name="enabled" type="checkbox" disabled> Tự lên kế hoạch và chốt số shot tại mốc</label><p>Ngày thực hiện được xác nhận riêng sau khi đo lại hoặc bảo dưỡng.</p><button type="submit" class="account-primary" disabled>Lưu</button></form>',
+  );
+  const status = dialog.querySelector("#accountStatus");
+  const form = dialog.querySelector("form");
+  const checkbox = form.elements.enabled;
+  const save = form.querySelector('button[type="submit"]');
+  status.textContent = "Đang tải…";
+  try {
+    const settings = await ComponentAuth.request("/api/admin/mold-automation", "GET");
+    checkbox.checked = settings.enabled;
+    checkbox.disabled = false;
+    save.disabled = false;
+    status.textContent = "";
+  } catch (error) {
+    status.textContent = error.message;
+    return;
+  }
+  form.onsubmit = event => accountSubmit(event, async () => {
+    const result = await ComponentAuth.request("/api/admin/mold-automation", "PUT", { enabled: checkbox.checked });
+    status.textContent = result.enabled ? "Đã bật tự động." : "Đã tắt tự động. Lịch sử đã ghi vẫn hiển thị.";
+    window.MoldMaintenance?.refreshData?.();
+  });
 }
 function openPasswordChange() {
   const dialog = accountDialog(

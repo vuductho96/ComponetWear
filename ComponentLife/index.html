@@ -37,7 +37,7 @@
 
   <!-- Tabler SVG Icons (Offline standalone library) -->
   <script src="js/icons.js?v=20261016_v3"></script>
-<link rel="stylesheet" href="css/auth.css?v=20261023-account-permissions">
+<link rel="stylesheet" href="css/auth.css?v=20261120_switch">
 </head>
 <body class="auth-loading">
   <div class="app app-layout" id="app">
@@ -230,31 +230,10 @@
                 </select>
               </div>
 
-              <!-- Bộ Lọc Ngày / Tháng / Năm (Dành cho Bảng 2 Live 44 máy) -->
+              <!-- Bộ lọc năm cho bảng theo dõi khuôn -->
               <div id="mmDateFiltersWrap" class="mm-date-filters" style="display: flex; align-items: center; gap: 8px;">
                 <select id="mmYearSelect" class="mm-input" onchange="MoldMaintenance.onDateFilterChange()" title="Lọc theo năm">
                   <option value="2026" selected>Năm 2026</option>
-                  <option value="2025">Năm 2025</option>
-                  <option value="all">Tất cả năm</option>
-                </select>
-                <select id="mmMonthSelect" class="mm-input" onchange="MoldMaintenance.onDateFilterChange()" title="Lọc theo tháng">
-                  <option value="all">Tất cả tháng</option>
-                  <option value="11" selected>Tháng 11</option>
-                  <option value="10">Tháng 10</option>
-                  <option value="09">Tháng 09</option>
-                  <option value="08">Tháng 08</option>
-                  <option value="07">Tháng 07</option>
-                  <option value="06">Tháng 06</option>
-                  <option value="05">Tháng 05</option>
-                  <option value="04">Tháng 04</option>
-                  <option value="03">Tháng 03</option>
-                  <option value="02">Tháng 02</option>
-                  <option value="01">Tháng 01</option>
-                </select>
-                <select id="mmDaySelect" class="mm-input" onchange="MoldMaintenance.onDateFilterChange()" title="Lọc theo ngày">
-                  <option value="30" selected>Ngày 30 (Hôm nay)</option>
-                  <option value="29">Ngày 29 (Hôm qua)</option>
-                  <option value="all">Tất cả ngày</option>
                 </select>
               </div>
 
@@ -746,14 +725,14 @@
   <script src="js/inspection.js?v=20261119_precision_all"></script>
   <script src="js/dimension-ocr.js?v=20261020-iqc"></script>
   <script src="js/language.js?v=20261020-iqc"></script>
-  <script src="js/auth.js?v=20261104_rbac"></script>
+  <script src="js/auth.js?v=20261120_mold_auto_v2"></script>
   <script src="js/account-permissions.js?v=20261023-per-account"></script>
-  <script src="js/mold-maintenance.js?v=20261118_v2"></script>
+  <script src="js/mold-maintenance.js?v=20261120_plan_close_v3"></script>
   <script src="js/app.js?v=20261117_v3"></script>
 
     <!-- MODAL BẢNG NHẬP SHOT 400K (HIGH-IMPACT) CHUẨN EXCEL -->
     <div id="mm400kDetailModal" class="hidden" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.65); align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) MoldMaintenance.close400kDetailModal()">
-      <div style="background:#ffffff; border-radius:10px; width:100%; max-width:860px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; max-height:92vh;" onclick="event.stopPropagation()">
+      <div style="background:#ffffff; border-radius:10px; width:100%; max-width:960px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; max-height:92vh;" onclick="event.stopPropagation()">
         <!-- Header -->
         <div style="padding:12px 18px; background:#f8fafc; border-bottom:1px solid #cbd5e1; display:flex; align-items:center; justify-content:space-between;">
           <div style="display:flex; align-items:baseline; gap:10px;">
@@ -774,17 +753,18 @@
               <thead>
                 <tr style="background:#f1f5f9; color:#1e293b; border-bottom:1px solid #94a3b8; text-align:center;">
                   <th style="border:1px solid #94a3b8; padding:8px 6px; width:85px; font-weight:700;">Mốc</th>
-                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:130px; font-weight:700;">Actual shot</th>
-                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:140px; font-weight:700;">Ngày</th>
-                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:140px; font-weight:700;">Tài liệu</th>
-                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:100px; font-weight:700;">ktv</th>
+                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:120px; font-weight:700;">Actual shot</th>
+                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:130px; font-weight:700;" title="Kế hoạch bảo dưỡng dự kiến">Ngày Plan</th>
+                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:130px; font-weight:700;" title="Ngày thực hiện chốt hoàn thành bảo dưỡng">Ngày Chốt</th>
+                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:130px; font-weight:700;">Tài liệu</th>
+                  <th style="border:1px solid #94a3b8; padding:8px 8px; width:95px; font-weight:700;">ktv</th>
                   <th style="border:1px solid #94a3b8; padding:8px 8px; font-weight:700;">Note</th>
                 </tr>
               </thead>
               <tbody id="mm400kTableBody"></tbody>
               <tfoot>
                 <tr id="mmExcelAddRowTr">
-                  <td colspan="6" onclick="MoldMaintenance.add400kRow()" 
+                  <td colspan="7" onclick="MoldMaintenance.add400kRow()" 
                       style="text-align:center; padding:9px; background:#f8fafc; color:#0284c7; font-weight:700; cursor:pointer; border:1px solid #94a3b8; user-select:none; transition:background 0.15s ease;"
                       onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
                     + thêm dòng

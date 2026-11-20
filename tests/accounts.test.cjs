@@ -65,6 +65,23 @@ test("D1 accounts, sessions, cloud policy and direct asset authorization in work
   });
   try {
     const db = await mf.getD1Database("DB");
+    const { saveTmsDataToD1, getLatestTmsDataFromD1 } = await import("../cloud/tms-crawler.mjs");
+    await db.prepare("CREATE TABLE tms_sync_data (id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)").run();
+    for (const sql of fs.readFileSync(path.join(root, "cloud/migrations/0004_mold_automation.sql"), "utf8").split(";").map(value => value.trim()).filter(Boolean)) {
+      await db.prepare(sql).run();
+    }
+    const env = { DB: db };
+    await saveTmsDataToD1(env, { shotAsOfDate: "2027-01-02", shotDays: {
+      "2026-12-31": { molds: { A: 20 }, observedAt: 2 },
+    } });
+    await saveTmsDataToD1(env, { shotAsOfDate: "2027-01-01", shotDays: {
+      "2026-12-31": { molds: { B: 10 }, observedAt: 1 },
+      "2027-01-01": { molds: { A: 15 }, observedAt: 3 },
+    } });
+    const mergedDays = await getLatestTmsDataFromD1(env);
+    assert.equal(mergedDays.shotAsOfDate, "2027-01-02");
+    assert.deepEqual(mergedDays.shotDays["2026-12-31"].molds, { A: 20 });
+    assert.deepEqual(mergedDays.shotDays["2027-01-01"].molds, { A: 15 });
     for (const sql of fs
       .readFileSync(path.join(root, "cloud/migrations/0001_auth.sql"), "utf8")
       .split(";")
@@ -137,6 +154,31 @@ test("D1 accounts, sessions, cloud policy and direct asset authorization in work
     const admin = await response.json(),
       cookie = response.headers.get("set-cookie").split(";")[0],
       headers = { Cookie: cookie, "X-CSRF-Token": admin.csrf };
+    assert.equal((await call("/api/admin/mold-automation")).status, 401);
+    assert.deepEqual(await (await call("/api/admin/mold-automation", "GET", undefined, headers)).json(), { enabled: false });
+    assert.equal((await call("/api/admin/mold-automation", "PUT", { enabled: true }, { Cookie: cookie })).status, 403);
+    assert.deepEqual(await (await call("/api/admin/mold-automation", "PUT", { enabled: true }, headers)).json(), { enabled: true });
+    const { runMoldAutomation } = await import("../cloud/mold-automation.mjs");
+    const msPerDay = 86400000;
+    const vietnamNow = new Date(Date.now() + 7 * 3600000);
+    const fixtureDate = vietnamNow.toISOString().slice(0, 10);
+    const firstOfPreviousMonth = Date.UTC(vietnamNow.getUTCFullYear(), vietnamNow.getUTCMonth() - 1, 1);
+    const fixture = {
+      shotAsOfDate: fixtureDate,
+      excelMasterMolds: [{ mold: "M1591", monthlyHistoryYear: new Date(firstOfPreviousMonth).getUTCFullYear(),
+        monthlyHistory: Object.fromEntries(Array.from({ length: 12 }, (_, month) => [`M${month + 1}`, 0])) }],
+      shotDays: {},
+    };
+    for (let time = firstOfPreviousMonth; time <= Date.parse(fixtureDate); time += msPerDay) {
+      fixture.shotDays[new Date(time).toISOString().slice(0, 10)] = { complete: true, incomplete: [], molds: { M1591: 10000 } };
+    }
+    await runMoldAutomation(env, fixture);
+    const recorded = await db.prepare("SELECT shots, closed_date FROM mold_automation_plan WHERE mold='M1591'").first();
+    assert.deepEqual(recorded, { shots: 30000, closed_date: new Date(firstOfPreviousMonth + 2 * msPerDay).toISOString().slice(0, 10) });
+    assert.deepEqual(await (await call("/api/admin/mold-automation", "PUT", { enabled: false }, headers)).json(), { enabled: false });
+    fixture.excelMasterMolds.push({ ...fixture.excelMasterMolds[0], mold: "M1591-NEW", oldMold: "M1591" });
+    await runMoldAutomation(env, fixture);
+    assert.equal((await db.prepare("SELECT count(*) AS count FROM mold_automation_plan").first()).count, 1);
     assert.match(
       response.headers.get("set-cookie"),
       /Secure; HttpOnly; SameSite=Strict/,
