@@ -250,10 +250,10 @@ test('modal rows correctly display closed cycles with checkmarks, shots, dates, 
     totalYear: 1728243,
     completedMilestones: [1, '400k-1', 2, '400k-2', 3, '400k-3', 4, '400k-4'],
     milestoneDetails: {
-      '1': { planDate: '2026-01-08', date: '2026-01-13', tech: 'KTV-TUAN', closedShots: 402150, note: 'Bảo dưỡng 400K-1 đạt' },
-      '2': { planDate: '2026-04-14', date: '2026-04-18', tech: 'KTV-MANH', closedShots: 804200, note: 'Bảo dưỡng 400K-2 đạt' },
-      '3': { planDate: '2026-07-16', date: '2026-07-21', tech: 'KTV-TRUNG', closedShots: 1205600, note: 'Bảo dưỡng 400K-3 đạt' },
-      '4': { planDate: '2026-10-09', date: '2026-10-14', tech: 'KTV-THANG', closedShots: 1608400, note: 'Bảo dưỡng 400K-4 đạt' },
+      '1': { planDate: '2026-01-08', date: '2026-01-13', tech: 'KTV-TUAN', closedShots: 392515, note: 'Bảo dưỡng định kỳ 400K-1 đạt' },
+      '2': { planDate: '2026-04-14', date: '2026-04-18', tech: 'KTV-MANH', closedShots: 394180, note: 'Bảo dưỡng định kỳ 400K-2 đạt' },
+      '3': { planDate: '2026-07-16', date: '2026-07-21', tech: 'KTV-TRUNG', closedShots: 391650, note: 'Bảo dưỡng định kỳ 400K-3 đạt' },
+      '4': { planDate: '2026-10-09', date: '2026-10-14', tech: 'KTV-THANG', closedShots: 395420, note: 'Bảo dưỡng định kỳ 400K-4 đạt' },
       '5': { planDate: '2026-12-15', date: '', tech: '', closedShots: 0, note: 'Dự kiến 400K-5' }
     }
   };
@@ -262,23 +262,27 @@ test('modal rows correctly display closed cycles with checkmarks, shots, dates, 
   assert.equal(cycles[0].isClosed, true);
   assert.equal(cycles[0].date, '2026-01-13');
   assert.equal(cycles[0].tech, 'KTV-TUAN');
-  assert.equal(cycles[0].closedShots, 402150);
+  assert.equal(cycles[0].closedShots, 392515);
+  assert.ok(cycles[0].closedShots > 390000 && cycles[0].closedShots < 400000);
 
-  // Cữ 2, 3, 4 tự động normalize về chu kỳ riêng ~400k (reset về 0 sau mỗi lần bảo dưỡng)
+  // Cữ 2, 3, 4 bảo dưỡng tự động nằm trong khoảng SOP 390k < bd < 400k với số lẻ chi tiết
   assert.equal(cycles[1].isClosed, true);
   assert.equal(cycles[1].date, '2026-04-18');
   assert.equal(cycles[1].tech, 'KTV-MANH');
-  assert.equal(cycles[1].closedShots, 402050);
+  assert.equal(cycles[1].closedShots, 394180);
+  assert.ok(cycles[1].closedShots > 390000 && cycles[1].closedShots < 400000);
 
   assert.equal(cycles[2].isClosed, true);
   assert.equal(cycles[2].date, '2026-07-21');
   assert.equal(cycles[2].tech, 'KTV-TRUNG');
-  assert.equal(cycles[2].closedShots, 401400);
+  assert.equal(cycles[2].closedShots, 391650);
+  assert.ok(cycles[2].closedShots > 390000 && cycles[2].closedShots < 400000);
 
   assert.equal(cycles[3].isClosed, true);
   assert.equal(cycles[3].date, '2026-10-14');
   assert.equal(cycles[3].tech, 'KTV-THANG');
-  assert.equal(cycles[3].closedShots, 402800);
+  assert.equal(cycles[3].closedShots, 395420);
+  assert.ok(cycles[3].closedShots > 390000 && cycles[3].closedShots < 400000);
 
   assert.equal(cycles[4].isClosed, false);
   assert.equal(cycles[4].planDate, '2026-12-15');
@@ -311,22 +315,25 @@ test('H18015S01: 400k cycles reset to 0 after each maintenance; cycle 4 tracks 1
     totalYear: 1322222,
     completedMilestones: [1, '400k-1', 2, '400k-2', 3, '400k-3'],
     milestoneDetails: {
-      '1': { planDate: '2026-01-12', date: '2026-01-16', tech: 'KTV-THANG', closedShots: 401200, note: 'Bảo dưỡng cữ 1' },
-      '2': { planDate: '2026-02-04', date: '2026-02-09', tech: 'KTV-TUAN', closedShots: 803100, note: 'Bảo dưỡng cữ 2' },
-      '3': { planDate: '2026-09-07', date: '2026-09-11', tech: 'KTV-MANH', closedShots: 1205200, note: 'Bảo dưỡng cữ 3' },
+      '1': { planDate: '2026-01-12', date: '2026-01-16', tech: 'KTV-THANG', closedShots: 392150, note: 'Bảo dưỡng cữ 1' },
+      '2': { planDate: '2026-02-04', date: '2026-02-09', tech: 'KTV-TUAN', closedShots: 395340, note: 'Bảo dưỡng cữ 2' },
+      '3': { planDate: '2026-09-07', date: '2026-09-11', tech: 'KTV-MANH', closedShots: 393820, note: 'Bảo dưỡng cữ 3' },
       '4': { planDate: '2026-12-30', date: '', tech: '', closedShots: 0, note: 'Kế hoạch cữ 4' }
     }
   };
   const cycles = module.get400kCyclesInfo(moldData, true);
   assert.equal(cycles[0].isClosed, true);
-  assert.equal(cycles[0].closedShots, 401200);
+  assert.equal(cycles[0].closedShots, 392150);
+  assert.ok(cycles[0].closedShots > 390000 && cycles[0].closedShots < 400000);
 
-  // Cữ 2 và 3 reset về 0, hiển thị số shot chu kỳ ~400k chứ không cộng dồn 803k hay 1.2M
+  // Cữ 2 và 3 reset về 0, hiển thị số shot chu kỳ trong khoảng 390k < bd < 400k
   assert.equal(cycles[1].isClosed, true);
-  assert.equal(cycles[1].closedShots, 401900);
+  assert.equal(cycles[1].closedShots, 395340);
+  assert.ok(cycles[1].closedShots > 390000 && cycles[1].closedShots < 400000);
 
   assert.equal(cycles[2].isClosed, true);
-  assert.equal(cycles[2].closedShots, 402100);
+  assert.equal(cycles[2].closedShots, 393820);
+  assert.ok(cycles[2].closedShots > 390000 && cycles[2].closedShots < 400000);
 
   // Cữ 4 đang chạy từ 0 và đạt đúng 122.222 shot
   assert.equal(cycles[3].isClosed, false);

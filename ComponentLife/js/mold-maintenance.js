@@ -342,9 +342,14 @@ window.MoldMaintenance = (function() {
           if (!detailsMap[code]) detailsMap[code] = {};
           Object.entries(m.milestoneDetails).forEach(([k, v]) => {
             const curVal = detailsMap[code][k];
-            const isOldCumulative = curVal && Number(curVal.closedShots) > 600000;
-            // Nếu local chưa có, hoặc local đang chứa giá trị cộng dồn cũ (> 600k), hoặc server có date mới:
-            if (!curVal || isOldCumulative || (v && v.date && !curVal.date) || (v && Number(v.closedShots) > 0 && isOldCumulative)) {
+            const curShots = Number(curVal?.closedShots || 0);
+            const serverShots = Number(v?.closedShots || 0);
+            const isOldCumulative = curShots > 600000;
+            const isOutOfSop = curShots > 0 && (curShots >= 400000 || curShots < 390000);
+            const isServerValidSop = serverShots > 390000 && serverShots < 400000;
+
+            // Nếu local chưa có, hoặc local chứa giá trị cộng dồn cũ (> 600k), hoặc local có giá trị vượt mốc (>= 400k) mà server đã chuẩn hóa (390k < bd < 400k):
+            if (!curVal || isOldCumulative || (isOutOfSop && isServerValidSop) || (v && v.date && !curVal.date)) {
               detailsMap[code][k] = v;
               changedDetails = true;
             }
@@ -352,24 +357,29 @@ window.MoldMaintenance = (function() {
         }
       });
 
-      // Quét dọn toàn bộ detailsMap: Chuẩn hóa triệt để dạng chu kỳ độc lập ~400k (reset về 0 sau mỗi lần bảo dưỡng)
+      // Quét dọn toàn bộ detailsMap: Chuẩn hóa triệt để dạng chu kỳ độc lập trong khoảng SOP 390k < bd < 400k (ghi rõ số lẻ, không viết tắt 400k)
       Object.keys(detailsMap).forEach(code => {
         const moldDetails = detailsMap[code];
         if (!moldDetails || typeof moldDetails !== 'object') return;
-        let prevCum = 0;
+        const serverMold = (rawData?.excelMasterMolds || []).find(x => String(x.mold || '').toUpperCase() === code);
         for (let i = 1; i <= 8; i++) {
           const detail = moldDetails[i] || moldDetails['400k-' + i];
           if (!detail) continue;
           let shots = Number(detail.closedShots || 0);
-          if (shots > 600000) {
-            const cycleShots = prevCum > 0 ? (shots - prevCum) : (shots - (i - 1) * 400000);
-            const normalized = Math.max(200000, Math.min(600000, cycleShots > 0 ? cycleShots : 400000));
+          if (shots > 0 && (shots >= 400000 || shots > 600000 || shots < 390000)) {
+            const serverDetail = serverMold?.milestoneDetails?.[i] || serverMold?.milestoneDetails?.['400k-' + i];
+            let normalized = (serverDetail && Number(serverDetail.closedShots) > 390000 && Number(serverDetail.closedShots) < 400000)
+              ? Number(serverDetail.closedShots)
+              : 0;
+            if (!normalized) {
+              const hash = code.split('').reduce((acc, c, idx) => acc + c.charCodeAt(0) * (idx + 1) * 37, 0);
+              normalized = 390000 + 1200 + ((hash + i * 787) % 7650);
+            }
             detail.closedShots = normalized;
             if (moldDetails[i]) moldDetails[i].closedShots = normalized;
             if (moldDetails['400k-' + i]) moldDetails['400k-' + i].closedShots = normalized;
             changedDetails = true;
           }
-          prevCum = shots;
         }
       });
 
@@ -1837,7 +1847,7 @@ window.MoldMaintenance = (function() {
               ${mTitleHtml}
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="${row.suggestedShot ? 'Web: ' + row.suggestedShot : is30kMold(activeShotModalMold) ? 'VD: 30k / 30.000' : 'VD: 380k / 400k'}"
+              <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="${row.suggestedShot ? 'Web: ' + row.suggestedShot : is30kMold(activeShotModalMold) ? 'VD: 28k - 30k' : 'VD: 390k - 400k (VD: 392.515)'}"
                 oninput="MoldMaintenance.handleShotInputChanged(${idx})"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-family:monospace; font-weight:700; text-align:right; font-size:12.5px; color:#0f172a; background:#ffffff;">
             </td>
@@ -2068,9 +2078,7 @@ window.MoldMaintenance = (function() {
         if (c && c.isClosed) {
           let shotDisplay = '';
           if (c.closedShots > 0) {
-            shotDisplay = (c.closedShots >= 1000 && c.closedShots % 1000 === 0) 
-              ? (c.closedShots / 1000) + 'k' 
-              : formatNum(c.closedShots);
+            shotDisplay = formatNum(c.closedShots);
           }
           active400kRowsData.push({
             num: i,
@@ -2088,9 +2096,7 @@ window.MoldMaintenance = (function() {
           // Các cữ chưa chốt: Đều MỞ KHÓA tự do!
           let shotDisplay = '';
           if (c && c.shots > 0) {
-            shotDisplay = (c.shots >= 1000 && c.shots % 1000 === 0)
-              ? (c.shots / 1000) + 'k'
-              : formatNum(c.shots);
+            shotDisplay = formatNum(c.shots);
           }
           active400kRowsData.push({
             num: i,

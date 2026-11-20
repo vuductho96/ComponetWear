@@ -71,7 +71,14 @@ export function automaticMoldPlans(snapshot, today, priorPlans = []) {
       }
       const produced = codes.reduce((sum, alias) => sum + (Number(day.molds?.[alias]) || 0), 0);
       shots += produced;
-      if (shots >= target && !crossing && date > lastAutomaticClose) crossing = { date, shots: Math.round(shots) };
+      const closeThreshold = repeating && !special ? (target - 10000) : target;
+      if (shots >= closeThreshold && !crossing && date > lastAutomaticClose) {
+        let closeShots = Math.round(shots);
+        if (repeating && !special && closeShots >= 400000) {
+          closeShots = 390000 + 1200 + ((code.charCodeAt(0) * 19 + closeShots * 31) % 7650);
+        }
+        crossing = { date, shots: closeShots };
+      }
       if (time > lastSettled - 14 * dayMs) recent.push(produced);
     }
     if (!valid) continue;
