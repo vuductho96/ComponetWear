@@ -694,4 +694,18 @@ test('MMFD-I-F-022.01 Excel export: generates 3 dedicated sheets (High Impact, S
   assert.match(String(dateCell.value), /^Plan:\(11-Feb-26\)$/i);
   // Nền tím cho ô Plan
   assert.equal(dateCell.fill?.fgColor?.argb, 'FFDDD6FE');
+
+  // 4. Xác nhận khuôn High-Impact TUYỆT ĐỐI KHÔNG chứa mốc 3.0M hay 3.5M
+  const highImpactRows = wsHigh.getRows(7, wsHigh.rowCount - 6);
+  const falseMilestone = highImpactRows.find(r => ['E','F','G','H','I','J','K','L','M','N','O','P'].some(col => String(r.getCell(col).value).includes('3.0M') || String(r.getCell(col).value).includes('3.5M')));
+  assert.equal(falseMilestone, undefined, 'High-Impact sheet must NOT contain 3.0M or 3.5M milestones');
+
+  // 5. Xác nhận tháng tương lai chưa chạy (Dec-26 / Cột P) không lên plan trước
+  const decPlan = highImpactRows.find(r => String(r.getCell('P').value).includes('Plan'));
+  assert.equal(decPlan, undefined, 'Dec-26 future month must not have unperformed plans');
+
+  // 6. Xác nhận đã loại bỏ tên cá nhân khỏi ô chữ ký
+  const allCellValues = [];
+  wsHigh.eachRow(r => r.eachCell(c => allCellValues.push(String(c.value || ''))));
+  assert.equal(allCellValues.some(v => v.includes('Vũ Đức Thọ')), false, 'Signature must NOT contain personal name Vũ Đức Thọ');
 });

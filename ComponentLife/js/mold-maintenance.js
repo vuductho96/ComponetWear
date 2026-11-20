@@ -5446,17 +5446,39 @@ window.MoldMaintenance = (function() {
               if ((pClosed && pClosed.m === mIdx) || (pPlan && pPlan.m === mIdx)) {
                 let msLabel = '';
                 const mNum = parseInt(mNumStr, 10);
-                if (mNum === 25 || mNumStr === '25' || mNumStr === '2.5m' || mNumStr === '2.5M') msLabel = '2.5M';
-                else if (mNum === 4 || mNumStr === '3.0m') msLabel = '3.0M';
-                else if (mNum === 5 || mNumStr === '3.5m') msLabel = '3.5M';
-                else if (mNum === 6 || mNumStr === '4.0m') msLabel = '4.0M';
-                else if (mNum === 7 || mNumStr === '4.5m') msLabel = '4.5M';
-                else if (mNum === 8 || mNumStr === '5.0m') msLabel = '5.0M';
-                else if (mNumStr.toLowerCase().startsWith('400k-')) msLabel = mNumStr.toLowerCase();
-                else if (mNumStr.toLowerCase().startsWith('30k-')) msLabel = mNumStr.toLowerCase();
-                else if (is30kMold(m)) msLabel = `30k-${mNum || 1}`;
-                else if (m.isHighImpact || isHighImpactSheet) msLabel = `400k-${mNum || 1}`;
-                else msLabel = '2.5M';
+                const mLower = String(mNumStr).toLowerCase();
+
+                if (isHighImpactSheet || m.isHighImpact) {
+                  // Khuôn High-Impact: CHỈ CHẤP NHẬN cữ 400K (400k-1..8 hoặc index 1..8)
+                  // TUYỆT ĐỐI KHÔNG GÁN MỐC 3.0M, 3.5M, 2.5M...
+                  if (mLower.startsWith('400k-')) {
+                    msLabel = mLower;
+                  } else if (mNum >= 1 && mNum <= 8 && !mLower.includes('m') && !mLower.includes('25')) {
+                    msLabel = `400k-${mNum}`;
+                  } else {
+                    continue;
+                  }
+                } else if (is30kMold(m)) {
+                  // Khuôn 30K: CHỈ CHẤP NHẬN cữ 30K (30k-1..10 hoặc index 1..10)
+                  if (mLower.startsWith('30k-')) {
+                    msLabel = mLower;
+                  } else if (mNum >= 1 && mNum <= 10) {
+                    msLabel = `30k-${mNum}`;
+                  } else {
+                    continue;
+                  }
+                } else {
+                  // Khuôn Tiêu Chuẩn: CHỈ CHẤP NHẬN mốc 2.5M, 3.0M, 3.5M, 4.0M, 4.5M, 5.0M
+                  if (mNum === 25 || mLower === '25' || mLower === '2.5m') msLabel = '2.5M';
+                  else if (mNum === 4 || mLower === '3.0m') msLabel = '3.0M';
+                  else if (mNum === 5 || mLower === '3.5m') msLabel = '3.5M';
+                  else if (mNum === 6 || mLower === '4.0m') msLabel = '4.0M';
+                  else if (mNum === 7 || mLower === '4.5m') msLabel = '4.5M';
+                  else if (mNum === 8 || mLower === '5.0m') msLabel = '5.0M';
+                  else {
+                    continue;
+                  }
+                }
 
                 event = {
                   msLabel,
@@ -5480,24 +5502,39 @@ window.MoldMaintenance = (function() {
               if (autoItem) {
                 const pMs = String(autoItem.milestone || '').toLowerCase();
                 let msLabel = '';
-                if (pMs === '25' || pMs === '2.5m') msLabel = '2.5M';
-                else if (pMs === '4' || pMs === '3.0m') msLabel = '3.0M';
-                else if (pMs === '5' || pMs === '3.5m') msLabel = '3.5M';
-                else if (pMs === '6' || pMs === '4.0m') msLabel = '4.0M';
-                else if (pMs === '7' || pMs === '4.5m') msLabel = '4.5M';
-                else if (pMs === '8' || pMs === '5.0m') msLabel = '5.0M';
-                else if (pMs.startsWith('400k-')) msLabel = pMs;
-                else if (pMs.startsWith('30k-')) msLabel = pMs;
-                else if (is30kMold(m)) msLabel = `30k-${pMs}`;
-                else if (m.isHighImpact || isHighImpactSheet) msLabel = `400k-${pMs}`;
-                else msLabel = '2.5M';
+                if (isHighImpactSheet || m.isHighImpact) {
+                  if (pMs.startsWith('400k-')) msLabel = pMs;
+                  else if (/^[1-8]$/.test(pMs)) msLabel = `400k-${pMs}`;
+                } else if (is30kMold(m)) {
+                  if (pMs.startsWith('30k-')) msLabel = pMs;
+                  else if (/^\d+$/.test(pMs)) msLabel = `30k-${pMs}`;
+                } else {
+                  if (pMs === '25' || pMs === '2.5m') msLabel = '2.5M';
+                  else if (pMs === '4' || pMs === '3.0m') msLabel = '3.0M';
+                  else if (pMs === '5' || pMs === '3.5m') msLabel = '3.5M';
+                  else if (pMs === '6' || pMs === '4.0m') msLabel = '4.0M';
+                  else if (pMs === '7' || pMs === '4.5m') msLabel = '4.5M';
+                  else if (pMs === '8' || pMs === '5.0m') msLabel = '5.0M';
+                }
 
-                event = {
-                  msLabel,
-                  closedDate: autoItem.closed_date || '',
-                  planDate: autoItem.planned_date || ''
-                };
+                if (msLabel) {
+                  event = {
+                    msLabel,
+                    closedDate: autoItem.closed_date || '',
+                    planDate: autoItem.planned_date || ''
+                  };
+                }
               }
+            }
+
+            // Quy tắc: Tháng tương lai chưa chạy (như Dec-26) chưa có sản lượng thực tế -> KHÔNG lên plan trước
+            const asOfDateStr = rawData?.shotAsOfDate || '';
+            let maxActiveMonth = 11;
+            if (asOfDateStr.includes('-')) {
+              maxActiveMonth = parseInt(asOfDateStr.split('-')[1], 10) || 11;
+            }
+            if (mIdx > maxActiveMonth && (!event || !event.closedDate)) {
+              event = null;
             }
 
             if (event) {
@@ -5694,13 +5731,13 @@ window.MoldMaintenance = (function() {
         // Chữ ký Người thao tác & Người kiểm tra (gộp 4 hàng chuẩn PDF)
         ws.mergeCells(`${opStart}${curRow + 1}:${opEnd}${curRow + 4}`);
         const cOp = ws.getCell(`${opStart}${curRow + 1}`);
-        cOp.value = 'Mr. Thao\r\nEng.Technicial\r\n(Vũ Đức Thọ)';
+        cOp.value = 'Eng. Technician';
         cOp.font = { name: 'Arial', size: 9.5, bold: true };
         cOp.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         ws.mergeCells(`${chkStart}${curRow + 1}:${chkEnd}${curRow + 4}`);
         const cChk = ws.getCell(`${chkStart}${curRow + 1}`);
-        cChk.value = 'Mr. Toan\r\nSectional Chief\r\n(Nguyễn Văn Toàn)';
+        cChk.value = 'Section Chief';
         cChk.font = { name: 'Arial', size: 9.5, bold: true };
         cChk.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
