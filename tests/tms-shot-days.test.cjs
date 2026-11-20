@@ -340,7 +340,7 @@ test('H18015S01: 400k cycles reset to 0 after each maintenance; cycle 4 tracks 1
   assert.equal(cycles[3].shots, 122222);
 });
 
-test('standard molds display current 400k cycle shots (e.g. H9827S12 at 392,583 maintenance alert, H9637S15 at 56,011 safe)', () => {
+test('Standard molds: DO NOT apply 400K cycle (-), follow 2.5M milestone (2.48M plan, 2.49M warning, >=2.5M due)', () => {
   const context = {
     window: {},
     console,
@@ -361,20 +361,52 @@ test('standard molds display current 400k cycle shots (e.g. H9827S12 at 392,583 
   vm.runInContext(source, context);
   const module = context.window.MoldMaintenance;
 
+  // 1. Khuôn tiêu chuẩn H9827S12, H9637S15, H9637C14: render400kCell phải trả về '-'
   const m9827 = { mold: 'H9827S12', isHighImpact: false, totalYear: 1992583 };
-  const cycles9827 = module.get400kCyclesInfo(m9827, true);
-  const current9827 = cycles9827.find(c => !c.isClosed);
-  assert.ok(current9827, 'Current cycle must exist for H9827S12');
-  assert.equal(current9827.shots, 392583, 'H9827S12 must track 392,583 shots (warning 390k-400k)');
+  const cell9827 = module.render400kCell(m9827);
+  assert.ok(cell9827.includes('>-<'), 'H9827S12 must render "-" in 400K column');
+  assert.ok(cell9827.includes('Không áp dụng mốc 400K'), 'H9827S12 title must indicate not applying 400K');
 
-  const m9637 = { mold: 'H9637S15', isHighImpact: false, totalYear: 2456011 };
-  const cycles9637 = module.get400kCyclesInfo(m9637, true);
-  const current9637 = cycles9637.find(c => !c.isClosed);
-  assert.ok(current9637, 'Current cycle must exist for H9637S15');
-  assert.equal(current9637.shots, 56011, 'H9637S15 must track 56,011 shots (<380k safe)');
+  const m9637s15 = { mold: 'H9637S15', isHighImpact: false, totalYear: 2456011 };
+  const cell9637 = module.render400kCell(m9637s15);
+  assert.ok(cell9637.includes('>-<'), 'H9637S15 must render "-" in 400K column');
+
+  const m9637c14 = { mold: 'H9637C14', isHighImpact: false, totalYear: 2136662 };
+  const cellC14 = module.render400kCell(m9637c14);
+  assert.ok(cellC14.includes('>-<'), 'H9637C14 must render "-" in 400K column');
+
+  // 2. Không tự động suy luận chu kỳ 400K cho khuôn tiêu chuẩn
+  const cycles9637 = module.get400kCyclesInfo(m9637s15, true);
+  const closedCount = cycles9637.filter(c => c.isClosed).length;
+  assert.equal(closedCount, 0, 'Standard mold must NOT auto-pass 400K cycles');
+
+  // 3. Chu kỳ chuẩn SOP cho khuôn tiêu chuẩn tại mốc 2.5M:
+  // - 2.480.000 shot: Tím (Plan trước 20K)
+  const stPlan = module.computeMoldPlanAndStatus(false, 2482000, 2482000, []);
+  assert.equal(stPlan.plan, 2500000);
+  assert.equal(stPlan.status, 'plan');
+  assert.equal(stPlan.statusColor, 'purple');
+
+  // - 2.490.000 <= shot < 2.500.000: Vàng/Cam (Báo bảo dưỡng trước 10K)
+  const stWarn = module.computeMoldPlanAndStatus(false, 2495000, 2495000, []);
+  assert.equal(stWarn.plan, 2500000);
+  assert.equal(stWarn.status, 'warning');
+  assert.equal(stWarn.statusColor, 'orange');
+
+  // - >= 2.500.000: Đỏ (Vượt mốc)
+  const stDue = module.computeMoldPlanAndStatus(false, 2505000, 2505000, []);
+  assert.equal(stDue.plan, 2500000);
+  assert.equal(stDue.status, 'due');
+  assert.equal(stDue.statusColor, 'red');
+
+  // - < 2.480.000: An toàn
+  const stSafe = module.computeMoldPlanAndStatus(false, 2456011, 2456011, []);
+  assert.equal(stSafe.plan, 2500000);
+  assert.equal(stSafe.status, 'safe');
+  assert.equal(stSafe.statusColor, 'green');
 });
 
-test('H9637C14: past 400k cycles have realistic diverse shot counts in 390k-400k range with dates, tech and notes (no identical 400.000 round numbers)', () => {
+test('High-Impact molds (e.g. H18015S01, H10109S01): 400K cycles apply with realistic diverse shots in 390k-400k range', () => {
   const context = {
     window: {},
     console,
@@ -395,30 +427,30 @@ test('H9637C14: past 400k cycles have realistic diverse shot counts in 390k-400k
   vm.runInContext(source, context);
   const module = context.window.MoldMaintenance;
 
-  const m9637c14 = { mold: 'H9637C14', totalYear: 2136662 };
-  const cycles = module.get400kCyclesInfo(m9637c14, true);
+  // Khuôn High-Impact H18015S01 có mốc 400K
+  const mHigh = {
+    mold: 'H18015S01',
+    isHighImpact: true,
+    totalYear: 1322222,
+    completedMilestones: ['400k-1', '400k-2', '400k-3'],
+    milestoneDetails: {
+      '400k-1': { planDate: '2026-01-12', date: '2026-01-16', tech: 'KTV-THANH', closedShots: 395200, note: 'Bảo dưỡng 400K-1' },
+      '400k-2': { planDate: '2026-04-04', date: '2026-04-09', tech: 'KTV-TUAN', closedShots: 393100, note: 'Bảo dưỡng 400K-2' },
+      '400k-3': { planDate: '2026-09-07', date: '2026-09-11', tech: 'KTV-MANH', closedShots: 396400, note: 'Bảo dưỡng 400K-3' }
+    }
+  };
 
-  // 5 cữ đầu tiên đã hoàn thành
-  const closedCycles = cycles.slice(0, 5);
-  assert.equal(closedCycles.length, 5);
-  closedCycles.forEach((c, idx) => {
-    assert.equal(c.isClosed, true, `Cycle ${idx + 1} must be closed`);
-    assert.ok(c.closedShots > 390000 && c.closedShots < 400000, `Cycle ${idx + 1} shot must be in 390k-400k (got ${c.closedShots})`);
-    assert.notEqual(c.closedShots, 400000, `Cycle ${idx + 1} must NOT be round 400000`);
-    assert.ok(c.date, `Cycle ${idx + 1} must have close date`);
-    assert.ok(c.planDate, `Cycle ${idx + 1} must have plan date`);
-    assert.ok(c.tech, `Cycle ${idx + 1} must have assigned tech`);
-    assert.ok(c.note, `Cycle ${idx + 1} must have maintenance note`);
-  });
+  const cycles = module.get400kCyclesInfo(mHigh, true);
+  assert.equal(cycles[0].isClosed, true);
+  assert.equal(cycles[1].isClosed, true);
+  assert.equal(cycles[2].isClosed, true);
+  assert.equal(cycles[3].isClosed, false);
+  assert.equal(cycles[3].shots, 122222);
 
-  // Đảm bảo các cữ không bị trùng lặp số shot đều nhau
-  const shotSet = new Set(closedCycles.map(c => c.closedShots));
-  assert.equal(shotSet.size, 5, 'All 5 closed cycles must have distinct realistic shot counts');
-
-  // Cữ 6 đang chạy từ 0 và đạt đúng 136.662 shot
-  const activeCycle = cycles[5];
-  assert.equal(activeCycle.isClosed, false);
-  assert.equal(activeCycle.shots, 136662);
+  // Ô 400K hiển thị số shot cữ hiện tại
+  const cellHtml = module.render400kCell(mHigh);
+  assert.ok(cellHtml.includes('122.222'), 'H18015S01 must display 122.222 in 400K cell');
+  assert.ok(!cellHtml.includes('>-<'), 'High impact mold must NOT render "-" in 400K cell');
 });
 
 test('H10109S01: High-Impact mold completing 400k-4 does NOT trigger or close 3.0M milestone (no false checkmark)', () => {

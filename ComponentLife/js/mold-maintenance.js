@@ -327,26 +327,47 @@ window.MoldMaintenance = (function() {
       let changedDetails = false;
 
       // 1. Quét sạch xung đột số nguyên 4..8 ở khuôn High-Impact trong LocalStorage
+      // và quét sạch cữ 400K khỏi khuôn tiêu chuẩn nếu lỡ bị lưu nhầm vào LocalStorage
       const highImpactSet = new Set();
       (rawData?.records || []).forEach(r => { if (r.isHighImpact) highImpactSet.add(String(r.moldNo || '').trim().toUpperCase()); });
       (rawData?.excelMasterMolds || []).forEach(m => { if (m.is_high_impact) highImpactSet.add(String(m.mold || '').trim().toUpperCase()); });
 
       Object.keys(closedMap).forEach(code => {
-        if (highImpactSet.has(code.toUpperCase())) {
-          const list = closedMap[code];
-          if (Array.isArray(list)) {
-            const cleaned = list.filter(item => {
-              // Cữ 400K của khuôn High-Impact chỉ dùng chuỗi '400k-1'..'400k-8'
-              // Loại bỏ số nguyên 4..8 tránh nhầm sang mốc lớn 3.0M..5.0M!
+        const isHigh = highImpactSet.has(code.toUpperCase());
+        const list = closedMap[code];
+        if (Array.isArray(list)) {
+          let cleaned = list;
+          if (isHigh) {
+            // Cữ 400K của khuôn High-Impact chỉ dùng chuỗi '400k-1'..'400k-8'
+            // Loại bỏ số nguyên 4..8 tránh nhầm sang mốc lớn 3.0M..5.0M!
+            cleaned = list.filter(item => {
               if (item === 4 || item === '4' || item === 5 || item === '5' || item === 6 || item === '6' || item === 7 || item === '7' || item === 8 || item === '8') {
                 return false;
               }
               return true;
             });
-            if (cleaned.length !== list.length) {
-              closedMap[code] = cleaned;
-              changedClosed = true;
-            }
+          } else {
+            // Khuôn tiêu chuẩn: Tuyệt đối không áp dụng chu kỳ 400K (chỉ áp dụng mốc 2.5M, 3.0M...)
+            cleaned = list.filter(item => !String(item).toLowerCase().startsWith('400k'));
+          }
+          if (cleaned.length !== list.length) {
+            closedMap[code] = cleaned;
+            changedClosed = true;
+          }
+        }
+      });
+
+      // Dọn sạch milestoneDetails của khuôn tiêu chuẩn nếu có key 400k
+      Object.keys(detailsMap).forEach(code => {
+        if (!highImpactSet.has(code.toUpperCase())) {
+          const mDetails = detailsMap[code];
+          if (mDetails && typeof mDetails === 'object') {
+            Object.keys(mDetails).forEach(k => {
+              if (String(k).toLowerCase().startsWith('400k')) {
+                delete mDetails[k];
+                changedDetails = true;
+              }
+            });
           }
         }
       });
@@ -1256,6 +1277,8 @@ window.MoldMaintenance = (function() {
       percent,
       remaining,
       status,
+      statusLevel,
+      statusColor,
       statusText,
       statusClass,
       lifeAlert,
@@ -1590,10 +1613,10 @@ window.MoldMaintenance = (function() {
       }
     }
 
-    // Nếu khuôn chưa có cữ nào chốt thủ công nhưng totalYear >= stepTarget (ví dụ: H9827S12 có 1.992.583 shot):
-    // Tự động suy luận các chu kỳ đã hoàn thành trước đó (cứ mỗi stepTarget là 1 chu kỳ đã qua)
-    // để cữ hiện tại hiển thị đúng CURRENT SHOT (totalYear % stepTarget)
-    const autoPassedCount = (!hasAnyExplicitClosure && !is30k && totalYear >= stepTarget)
+    // Nếu khuôn chưa có cữ nào chốt thủ công nhưng totalYear >= stepTarget:
+    // CHỈ tự động suy luận cho khuôn High-Impact (Khuôn tiêu chuẩn tuyệt đối không áp dụng chu kỳ 400K)
+    const isHigh = Boolean(m?.isHighImpact || m?.is_high_impact);
+    const autoPassedCount = (!hasAnyExplicitClosure && isHigh && !is30k && totalYear >= stepTarget)
       ? Math.min(maxCycles - 1, Math.floor(totalYear / stepTarget))
       : 0;
 
@@ -1781,8 +1804,9 @@ window.MoldMaintenance = (function() {
   }
 
   function render400kCell(m) {
-    if (!m || is30kMold(m)) {
-      return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:6px 4px; border-left:1px solid #f1f5f9;" title="Không áp dụng mốc 400K (Khuôn đo lại 30K)">-</td>`;
+    const isHigh = Boolean(m && (m.isHighImpact || m.is_high_impact));
+    if (!m || !isHigh || is30kMold(m)) {
+      return `<td class="text-center font-mono" style="background:#f8fafc; color:#cbd5e1; vertical-align:middle; padding:6px 4px; border-left:1px solid #f1f5f9;" title="Không áp dụng mốc 400K (Khuôn tiêu chuẩn áp dụng mốc 2.5M)">-</td>`;
     }
 
     const cycles = get400kCyclesInfo(m, true);
@@ -2222,8 +2246,12 @@ window.MoldMaintenance = (function() {
       // CHẾ ĐỘ 1: BẢNG NHẬP SHOT 400K (HIGH-IMPACT) HOẶC 30K (13086B-14A-m1591)
       // Mở khóa hoàn toàn các cữ để nhập liệu tự do!
       // =======================================================
-      activeShotModalTab = '400k';
       const is30k = is30kMold(m);
+      if (!isHigh && !is30k) {
+        alert(`Khuôn ${moldNo} là khuôn tiêu chuẩn (áp dụng mốc 2.5M, không áp dụng chu kỳ 400K của High-Impact).`);
+        return;
+      }
+      activeShotModalTab = '400k';
       if (mainTitleEl) {
         mainTitleEl.textContent = is30k 
           ? 'Bảng nhập shot đo lại (13086B-14A - M1591 - Chu kỳ 30K)' 
@@ -4647,7 +4675,8 @@ window.MoldMaintenance = (function() {
               }
             } else if (mH === '400K') {
               const is30k = is30kMold(m);
-              if (!is30k) {
+              const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
+              if (!is30k && isHigh) {
                 mTarget = 400000;
                 const cycles = get400kCyclesInfo(m, true);
                 const current = cycles.find(c => !c.isClosed) || cycles[cycles.length - 1];
@@ -4656,15 +4685,24 @@ window.MoldMaintenance = (function() {
                 cellFormula = '';
                 const currNum = current ? current.num : 1;
                 noteText = `400K (Cữ ${currNum}): ${(val || 0).toLocaleString('vi-VN')} / 400.000 shots\n(Mức Plan: 380K-390K, Báo BD: 390K-400K)`;
+              } else {
+                val = null;
+                cellFormula = '';
               }
             } else if (mH.startsWith('400K-') || mH.startsWith('30K-')) {
               const is30kHeader = mH.startsWith('30K-');
               const cycleNum = is30kHeader ? parseInt(mH.replace('30K-', ''), 10) : parseInt(mH.replace('400K-', ''), 10);
               const is30k = is30kMold(m);
-              // Nếu là cột 400K- thì khuôn 30k KHÔNG hiển thị ở đây (đã ở cột 30K)
-              if (!is30kHeader && is30k) {
-                // để trống
-              } else if (!is30k || is30kHeader) {
+              const isHigh = Boolean(m.isHighImpact || m.is_high_impact);
+              // Cột 400K-: CHỈ dành cho khuôn High-Impact (Khuôn tiêu chuẩn & khuôn 30k KHÔNG hiển thị)
+              // Cột 30K-: CHỈ dành cho khuôn 30k
+              if (!is30kHeader && (!isHigh || is30k)) {
+                val = null;
+                cellFormula = '';
+              } else if (is30kHeader && !is30k) {
+                val = null;
+                cellFormula = '';
+              } else {
                 const cycles = get400kCyclesInfo(m, true);
                 const cInfo = cycles[cycleNum - 1];
                 if (cInfo) {
@@ -5920,6 +5958,8 @@ window.MoldMaintenance = (function() {
     isMajorMilestoneClosed,
     getMajorMilestoneDetail,
     get400kCyclesInfo,
+    render400kCell,
+    computeMoldPlanAndStatus,
     viewMilestonePdf,
     getMilestonePdf,
     goToMoldPage,
