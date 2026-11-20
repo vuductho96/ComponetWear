@@ -262,15 +262,73 @@ test('modal rows correctly display closed cycles with checkmarks, shots, dates, 
   assert.equal(cycles[0].isClosed, true);
   assert.equal(cycles[0].date, '2026-01-13');
   assert.equal(cycles[0].tech, 'KTV-TUAN');
+  assert.equal(cycles[0].closedShots, 402150);
+
+  // Cữ 2, 3, 4 tự động normalize về chu kỳ riêng ~400k (reset về 0 sau mỗi lần bảo dưỡng)
   assert.equal(cycles[1].isClosed, true);
   assert.equal(cycles[1].date, '2026-04-18');
   assert.equal(cycles[1].tech, 'KTV-MANH');
+  assert.equal(cycles[1].closedShots, 402050);
+
   assert.equal(cycles[2].isClosed, true);
   assert.equal(cycles[2].date, '2026-07-21');
   assert.equal(cycles[2].tech, 'KTV-TRUNG');
+  assert.equal(cycles[2].closedShots, 401400);
+
   assert.equal(cycles[3].isClosed, true);
   assert.equal(cycles[3].date, '2026-10-14');
   assert.equal(cycles[3].tech, 'KTV-THANG');
+  assert.equal(cycles[3].closedShots, 402800);
+
   assert.equal(cycles[4].isClosed, false);
   assert.equal(cycles[4].planDate, '2026-12-15');
+  assert.equal(cycles[4].shots, 128243);
+});
+
+test('H18015S01: 400k cycles reset to 0 after each maintenance; cycle 4 tracks 122,222 shots from zero', () => {
+  const context = {
+    window: {},
+    console,
+    fetch: async () => ({ ok: true }),
+    localStorage: {
+      _data: {},
+      getItem(key) { return this._data[key] || null; },
+      setItem(key, value) { this._data[key] = String(value); }
+    },
+    document: {
+      addEventListener() {},
+      getElementById: () => null
+    },
+    alert: () => {}
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source, context);
+  const module = context.window.MoldMaintenance;
+  const moldData = {
+    mold: 'H18015S01',
+    isHighImpact: true,
+    totalYear: 1322222,
+    completedMilestones: [1, '400k-1', 2, '400k-2', 3, '400k-3'],
+    milestoneDetails: {
+      '1': { planDate: '2026-01-12', date: '2026-01-16', tech: 'KTV-THANG', closedShots: 401200, note: 'Bảo dưỡng cữ 1' },
+      '2': { planDate: '2026-02-04', date: '2026-02-09', tech: 'KTV-TUAN', closedShots: 803100, note: 'Bảo dưỡng cữ 2' },
+      '3': { planDate: '2026-09-07', date: '2026-09-11', tech: 'KTV-MANH', closedShots: 1205200, note: 'Bảo dưỡng cữ 3' },
+      '4': { planDate: '2026-12-30', date: '', tech: '', closedShots: 0, note: 'Kế hoạch cữ 4' }
+    }
+  };
+  const cycles = module.get400kCyclesInfo(moldData, true);
+  assert.equal(cycles[0].isClosed, true);
+  assert.equal(cycles[0].closedShots, 401200);
+
+  // Cữ 2 và 3 reset về 0, hiển thị số shot chu kỳ ~400k chứ không cộng dồn 803k hay 1.2M
+  assert.equal(cycles[1].isClosed, true);
+  assert.equal(cycles[1].closedShots, 401900);
+
+  assert.equal(cycles[2].isClosed, true);
+  assert.equal(cycles[2].closedShots, 402100);
+
+  // Cữ 4 đang chạy từ 0 và đạt đúng 122.222 shot
+  assert.equal(cycles[3].isClosed, false);
+  assert.equal(cycles[3].shots, 122222);
 });

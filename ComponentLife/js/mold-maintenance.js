@@ -340,11 +340,35 @@ window.MoldMaintenance = (function() {
         if (m.milestoneDetails && typeof m.milestoneDetails === 'object') {
           if (!detailsMap[code]) detailsMap[code] = {};
           Object.entries(m.milestoneDetails).forEach(([k, v]) => {
-            if (!detailsMap[code][k] || (v && v.date && !detailsMap[code][k].date)) {
+            const curVal = detailsMap[code][k];
+            const isOldCumulative = curVal && Number(curVal.closedShots) > 600000;
+            // Nếu local chưa có, hoặc local đang chứa giá trị cộng dồn cũ (> 600k), hoặc server có date mới:
+            if (!curVal || isOldCumulative || (v && v.date && !curVal.date) || (v && Number(v.closedShots) > 0 && isOldCumulative)) {
               detailsMap[code][k] = v;
               changedDetails = true;
             }
           });
+        }
+      });
+
+      // Quét dọn toàn bộ detailsMap: Chuẩn hóa triệt để dạng chu kỳ độc lập ~400k (reset về 0 sau mỗi lần bảo dưỡng)
+      Object.keys(detailsMap).forEach(code => {
+        const moldDetails = detailsMap[code];
+        if (!moldDetails || typeof moldDetails !== 'object') return;
+        let prevCum = 0;
+        for (let i = 1; i <= 8; i++) {
+          const detail = moldDetails[i] || moldDetails['400k-' + i];
+          if (!detail) continue;
+          let shots = Number(detail.closedShots || 0);
+          if (shots > 600000) {
+            const cycleShots = prevCum > 0 ? (shots - prevCum) : (shots - (i - 1) * 400000);
+            const normalized = Math.max(200000, Math.min(600000, cycleShots > 0 ? cycleShots : 400000));
+            detail.closedShots = normalized;
+            if (moldDetails[i]) moldDetails[i].closedShots = normalized;
+            if (moldDetails['400k-' + i]) moldDetails['400k-' + i].closedShots = normalized;
+            changedDetails = true;
+          }
+          prevCum = shots;
         }
       });
 
@@ -1419,6 +1443,7 @@ window.MoldMaintenance = (function() {
     const cycles = [];
     let remainingShots = totalYear;
     const maxCycles = is30k ? 12 : 8;
+    let prevAccum = 0;
 
     for (let i = 1; i <= maxCycles; i++) {
       const cycleKey = is30k ? ('30k-' + i) : (i <= 3 ? i : ('400k-' + i));
@@ -1438,17 +1463,30 @@ window.MoldMaintenance = (function() {
                        closedList.includes(cycleKey) ||
                        closedList.includes(cycleName) || 
                        closedList.includes(i) || 
-                       closedList.includes(String(i)) ||
+                       closedList.includes(String(i)) || 
                        hasClosedDetail;
 
       let closedShots = 0;
       let cycleShots = 0;
 
       if (isClosed) {
-        closedShots = Number(detail?.closedShots ?? recorded?.shots) || (i === 1 ? (m?.m1 || stepTarget) : (i === 2 ? (m?.m2 || stepTarget) : (i === 3 ? (m?.m3 || stepTarget) : stepTarget)));
+        let rawShots = Number(detail?.closedShots ?? recorded?.shots) || (i === 1 ? (m?.m1 || stepTarget) : (i === 2 ? (m?.m2 || stepTarget) : (i === 3 ? (m?.m3 || stepTarget) : stepTarget)));
+
+        // Chuẩn hóa số shot chu kỳ:
+        // 'mỗi 400k sẽ tiến hành bảo dưỡng vì vậy khi bảo dưỡng xong mức shot reset lại về 0, 400k-1 bảo dưỡng ở mức 392k shot, ngay lập tức reset về 0, sau đó tiếp tục ở mức 400k-2'
+        // Nếu rawShots > 600.000 (dữ liệu tích lũy cũ trước đây), chuyển về số shot chu kỳ riêng:
+        if (!is30k && rawShots > 600000) {
+          const delta = prevAccum > 0 ? (rawShots - prevAccum) : (rawShots - (i - 1) * stepTarget);
+          rawShots = (delta > 0 && delta <= 600000) ? delta : stepTarget;
+          if (detail) detail.closedShots = rawShots;
+        }
+
+        closedShots = rawShots;
         cycleShots = closedShots;
-        const delta = (i > 1 && closedShots > (i - 0.5) * stepTarget) ? stepTarget : (closedShots > stepTarget ? stepTarget : closedShots);
-        remainingShots = Math.max(0, remainingShots - delta);
+        prevAccum += (rawShots >= stepTarget * 0.7 && rawShots <= stepTarget * 1.5) ? rawShots : stepTarget;
+
+        // Reset về 0: Trừ đúng stepTarget định mức của cữ đã hoàn thành để cữ đang chạy hiển thị đúng số shot tích lũy tính từ 0
+        remainingShots = Math.max(0, remainingShots - stepTarget);
       } else {
         cycleShots = remainingShots;
         remainingShots = 0;
