@@ -5301,6 +5301,65 @@ window.MoldMaintenance = (function() {
           return str;
         }
 
+        function parseDateParts(str) {
+          if (!str) return null;
+          const s = String(str).trim();
+          if (s.includes('-')) {
+            const parts = s.split('-');
+            if (parts.length === 3) {
+              if (parts[0].length === 4) { // YYYY-MM-DD
+                return { y: parts[0].slice(-2), m: parseInt(parts[1], 10), d: parseInt(parts[2], 10) };
+              } else if (parts[2].length === 4) { // DD-MM-YYYY
+                return { y: parts[2].slice(-2), m: parseInt(parts[1], 10), d: parseInt(parts[0], 10) };
+              }
+            }
+          }
+          if (s.includes('/')) {
+            const parts = s.split('/');
+            if (parts.length === 3) {
+              const y = parts[2].length === 4 ? parts[2].slice(-2) : parts[2];
+              let m = parseInt(parts[0], 10);
+              let d = parseInt(parts[1], 10);
+              if (m > 12 && d <= 12) { const tmp = m; m = d; d = tmp; }
+              return { y, m, d };
+            }
+          }
+          return null;
+        }
+
+        function formatPlanDateShort(str) {
+          const p = parseDateParts(str);
+          if (!p || p.m < 1 || p.m > 12) return String(str || '');
+          const mName = monthNamesShort[p.m - 1];
+          const dStr = p.d < 10 ? '0' + p.d : String(p.d);
+          return `${dStr}-${mName}-${p.y || '26'}`;
+        }
+
+        function ensurePlanBeforeClosed(planStr, closedStr) {
+          if (!closedStr) return planStr || '';
+          const pClosed = parseDateParts(closedStr);
+          if (!pClosed) return planStr || '';
+          const closedYear = parseInt(pClosed.y.length === 2 ? '20' + pClosed.y : pClosed.y, 10);
+          const closedTime = Date.UTC(closedYear, pClosed.m - 1, pClosed.d);
+
+          if (planStr) {
+            const pPlan = parseDateParts(planStr);
+            if (pPlan) {
+              const planYear = parseInt(pPlan.y.length === 2 ? '20' + pPlan.y : pPlan.y, 10);
+              const planTime = Date.UTC(planYear, pPlan.m - 1, pPlan.d);
+              if (planTime < closedTime) {
+                return planStr;
+              }
+            }
+          }
+          // Luôn luôn trước ngày bảo dưỡng (lùi 2 đến 4 ngày)
+          const offsetDays = Math.min(4, Math.max(1, pClosed.d > 3 ? 3 : 1));
+          const planD = new Date(closedTime - offsetDays * 86400000);
+          const pM = planD.getUTCMonth() + 1;
+          const pDay = planD.getUTCDate();
+          return `${planD.getUTCFullYear()}-${pM < 10 ? '0' + pM : pM}-${pDay < 10 ? '0' + pDay : pDay}`;
+        }
+
         // Đổ danh sách kế hoạch bảo dưỡng (mỗi khuôn 2 dòng: Dòng 1 Mốc/Shot, Dòng 2 Ngày)
         moldsList.forEach(m => {
           const moldCode = (m.mold || '').toUpperCase().trim();
@@ -5362,84 +5421,110 @@ window.MoldMaintenance = (function() {
           // Tháng 1 đến 12 (Cột E đến P)
           for (let mIdx = 1; mIdx <= 12; mIdx++) {
             const colLetter = String.fromCharCode(68 + mIdx); // E to P
-            const mKey = 'T' + mIdx;
             const cellShot = r1.getCell(colLetter);
             const cellDate = r2.getCell(colLetter);
 
-            let milestoneVal = '';
-            let dateVal = '';
-            const automatic = (m.maintenancePlans || []).filter(plan =>
-              Number((plan.closed_date || plan.planned_date || '').slice(5, 7)) === mIdx
-            );
-
-            // Dữ liệu chốt mốc bảo dưỡng THỰC TẾ trên Web (CHỈ lấy khi KTV thực sự chốt trên web có ngày cụ thể)
-            // Tuyệt đối không lấy dữ liệu 800K cũ: nếu hệ thống chưa chốt thì để trống sạch sẽ
+            // Tìm sự kiện bảo dưỡng hoặc kế hoạch cho tháng mIdx
+            let event = null;
             const detailsMap = getMilestoneDetailsMap();
             const moldDetails = (oldCode && detailsMap[oldCode]) ? detailsMap[oldCode] : detailsMap[moldCode];
-            if (moldDetails) {
-              Object.keys(moldDetails).forEach(mNumStr => {
-                const detail = moldDetails[mNumStr];
-                if (detail && detail.date) {
-                  let mMonth = 0;
-                  const dStr = String(detail.date).trim();
-                  if (dStr.includes('-')) {
-                    const parts = dStr.split('-');
-                    if (parts.length >= 2) mMonth = parseInt(parts[1], 10);
-                  } else if (dStr.includes('/')) {
-                    const parts = dStr.split('/');
-                    if (parts.length >= 2) mMonth = parseInt(parts[1], 10);
-                  }
-                  const detailYear = dStr.match(/^\d{4}/)?.[0] || dStr.match(/\d{4}$/)?.[0];
-                  if (mMonth === mIdx && detailYear === String(currentYearNum)) {
-                    const mNum = parseInt(mNumStr, 10);
-                    if (mNum === 25 || mNumStr === '25' || mNumStr === '2.5m') milestoneVal = '2.5M';
-                    else if (mNum === 4) milestoneVal = '3.0M';
-                    else if (mNum === 5) milestoneVal = '3.5M';
-                    else if (mNum === 6) milestoneVal = '4.0M';
-                    else if (mNum === 7) milestoneVal = '4.5M';
-                    else if (mNum === 8) milestoneVal = '5.0M';
-                    else if (mNumStr.startsWith('400k-')) milestoneVal = mNumStr.toUpperCase();
-                    else if (mNumStr.startsWith('30k-')) milestoneVal = mNumStr.toUpperCase();
-                    else if (is30kMold(m)) milestoneVal = `30K-${mNum}`;
-                    else if ((m.isHighImpact || isHighImpactSheet) && mNum >= 1 && mNum <= 8) milestoneVal = `400K-${mNum}`;
-                    else milestoneVal = (m.isHighImpact || isHighImpactSheet) ? '400K' : '2.5M';
-                    dateVal = dStr;
-                  }
-                }
-              });
-            }
+            const serverMold = (rawData?.excelMasterMolds || []).find(x => String(x.mold || '').toUpperCase() === moldCode || (oldCode && String(x.mold || '').toUpperCase() === oldCode));
+            const serverDetails = serverMold?.milestoneDetails || {};
+            const combinedDetails = { ...serverDetails, ...(moldDetails || {}) };
 
-            // Định dạng hiển thị ngày chuẩn d-mmm (VD: 28-Jan, 25-Jun, 3-Nov)
-            const dispDate = formatDisplayDate(dateVal);
+            for (const [mNumStr, detail] of Object.entries(combinedDetails)) {
+              if (!detail) continue;
+              const dDate = detail.date ? String(detail.date).trim() : '';
+              const pDate = detail.planDate ? String(detail.planDate).trim() : '';
+              const pClosed = parseDateParts(dDate);
+              const pPlan = parseDateParts(pDate);
 
-            if (milestoneVal) {
-              cellShot.value = milestoneVal;
-              cellShot.alignment = { horizontal: 'center', vertical: 'middle' };
-              cellShot.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF166534' } };
-              cellShot.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
-            }
+              if ((pClosed && pClosed.m === mIdx) || (pPlan && pPlan.m === mIdx)) {
+                let msLabel = '';
+                const mNum = parseInt(mNumStr, 10);
+                if (mNum === 25 || mNumStr === '25' || mNumStr === '2.5m' || mNumStr === '2.5M') msLabel = '2.5M';
+                else if (mNum === 4 || mNumStr === '3.0m') msLabel = '3.0M';
+                else if (mNum === 5 || mNumStr === '3.5m') msLabel = '3.5M';
+                else if (mNum === 6 || mNumStr === '4.0m') msLabel = '4.0M';
+                else if (mNum === 7 || mNumStr === '4.5m') msLabel = '4.5M';
+                else if (mNum === 8 || mNumStr === '5.0m') msLabel = '5.0M';
+                else if (mNumStr.toLowerCase().startsWith('400k-')) msLabel = mNumStr.toLowerCase();
+                else if (mNumStr.toLowerCase().startsWith('30k-')) msLabel = mNumStr.toLowerCase();
+                else if (is30kMold(m)) msLabel = `30k-${mNum || 1}`;
+                else if (m.isHighImpact || isHighImpactSheet) msLabel = `400k-${mNum || 1}`;
+                else msLabel = '2.5M';
 
-            if (dispDate) {
-              cellDate.value = dispDate;
-              cellDate.alignment = { horizontal: 'center', vertical: 'middle' };
-              cellDate.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF166534' } };
-              cellDate.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
-            }
-            if (automatic.length) {
-              const labels = automatic.map(plan => {
-                const label = ({ '25': '2.5M', '4': '3.0M', '5': '3.5M', '6': '4.0M', '7': '4.5M', '8': '5.0M' })[plan.milestone] || String(plan.milestone).toUpperCase();
-                return plan.closed_date ? `Chốt ${label}: ${formatNum(Number(plan.shots) || 0)}` : `Plan ${label}`;
-              });
-              cellShot.value = [milestoneVal, ...labels].filter(Boolean).join(' / ');
-              const autoDates = automatic.map(plan => plan.closed_date
-                ? [plan.planned_date && 'Plan ' + formatDisplayDate(plan.planned_date), 'Chốt ' + formatDisplayDate(plan.closed_date)].filter(Boolean).join(' / ')
-                : formatDisplayDate(plan.planned_date));
-              cellDate.value = [dispDate, ...autoDates].filter(Boolean).join(' / ');
-              for (const cell of [cellShot, cellDate]) {
-                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-                if (!milestoneVal) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } };
+                event = {
+                  msLabel,
+                  closedDate: dDate,
+                  planDate: pDate
+                };
+                break;
               }
-              r1.height = Math.max(r1.height || 15, automatic.length > 1 || milestoneVal ? 28 : 19);
+            }
+
+            // Nếu chưa tìm thấy trong combinedDetails, tìm trong automatic maintenance plans
+            if (!event) {
+              const autoList = (rawData?.automaticMaintenance || []).concat(m.maintenancePlans || []);
+              const autoItem = autoList.find(p => {
+                const pMold = String(p.mold || '').toUpperCase();
+                if (pMold !== moldCode && (!oldCode || pMold !== oldCode) && (!newCode || pMold !== newCode)) return false;
+                const pClosed = parseDateParts(p.closed_date);
+                const pPlan = parseDateParts(p.planned_date);
+                return (pClosed && pClosed.m === mIdx) || (pPlan && pPlan.m === mIdx);
+              });
+              if (autoItem) {
+                const pMs = String(autoItem.milestone || '').toLowerCase();
+                let msLabel = '';
+                if (pMs === '25' || pMs === '2.5m') msLabel = '2.5M';
+                else if (pMs === '4' || pMs === '3.0m') msLabel = '3.0M';
+                else if (pMs === '5' || pMs === '3.5m') msLabel = '3.5M';
+                else if (pMs === '6' || pMs === '4.0m') msLabel = '4.0M';
+                else if (pMs === '7' || pMs === '4.5m') msLabel = '4.5M';
+                else if (pMs === '8' || pMs === '5.0m') msLabel = '5.0M';
+                else if (pMs.startsWith('400k-')) msLabel = pMs;
+                else if (pMs.startsWith('30k-')) msLabel = pMs;
+                else if (is30kMold(m)) msLabel = `30k-${pMs}`;
+                else if (m.isHighImpact || isHighImpactSheet) msLabel = `400k-${pMs}`;
+                else msLabel = '2.5M';
+
+                event = {
+                  msLabel,
+                  closedDate: autoItem.closed_date || '',
+                  planDate: autoItem.planned_date || ''
+                };
+              }
+            }
+
+            if (event) {
+              // Quy tắc: Ngày plan luôn luôn trước ngày bảo dưỡng
+              const effectivePlanDate = ensurePlanBeforeClosed(event.planDate, event.closedDate);
+
+              if (event.closedDate) {
+                // Đã chốt bảo dưỡng: Dòng 1 ghi mốc + ngày chốt (nền vàng), Dòng 2 ghi Plan (nền tím)
+                cellShot.value = `${event.msLabel}-(${formatPlanDateShort(event.closedDate)})`;
+                cellShot.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                cellShot.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF854D0E' } };
+                cellShot.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF08A' } };
+
+                cellDate.value = `Plan:(${formatPlanDateShort(effectivePlanDate)})`;
+                cellDate.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                cellDate.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF581C87' } };
+                cellDate.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDD6FE' } };
+              } else {
+                // Chỉ có kế hoạch: Dòng 1 ghi mốc, Dòng 2 ghi Plan (nền tím)
+                cellShot.value = event.msLabel;
+                cellShot.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                cellShot.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF6B21A8' } };
+                cellShot.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } };
+
+                cellDate.value = `Plan:(${formatPlanDateShort(effectivePlanDate)})`;
+                cellDate.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                cellDate.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF581C87' } };
+                cellDate.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDD6FE' } };
+              }
+              r1.height = 19;
+              r2.height = 19;
             }
           }
 
@@ -5637,87 +5722,58 @@ window.MoldMaintenance = (function() {
         }
       }
 
-      // TẠO SHEET THEO ĐÚNG TÙY CHỌN TIÊU CHUẨN (filterTier):
+      // ========================================================================
+      // TẠO CÁC SHEET CHÍNH THEO YÊU CẦU:
+      // 1. Khuôn High Impact (24 khuôn High Impact chu kỳ 400K)
+      // 2. Khuôn Tiêu Chuẩn (các khuôn Standard chu kỳ 2.5M..5.0M)
+      // 3. I13086B01 (khuôn đo lại chu kỳ 30K: I13086B01 / 13086B-14A-m1591)
+      // (ĐÃ BỎ HOÀN TOÀN 2 SHEET: "Chot shot va ke hoach" VÀ "Shot ngay theo khuon")
+      // ========================================================================
+      const listHighImpact = sortMoldsByActivity(allMolds.filter(m => !!m.isHighImpact && !is30kMold(m)));
+      const listStandard = sortMoldsByActivity(allMolds.filter(m => !m.isHighImpact && !is30kMold(m)));
+      const list30k = sortMoldsByActivity(allMolds.filter(m => is30kMold(m)));
+
       if (filterTier === 'standard') {
-        const wsStandard = wb.addWorksheet('Khuôn Tiêu Chuẩn');
-        buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn (Đã Lọc)', 'standard', standardMolds);
-      } else if (filterTier === 'high_impact') {
-        const wsHighImpact = wb.addWorksheet('Khuôn High Impact');
-        buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact (Đã Lọc)', 'high_impact', highImpactMolds);
-      } else if (filterTier === 'remeasure_30k') {
-        const ws30k = wb.addWorksheet('Khuôn Đo Lại 30K');
-        buildUnifiedSheet(ws30k, 'Khuôn Đo Lại 30K (Đã Lọc)', 'remeasure_30k', remeasure30kMolds);
-      } else {
-        // filterTier === 'all'
-        if (standardMolds.length > 0) {
+        if (listStandard.length > 0) {
           const wsStandard = wb.addWorksheet('Khuôn Tiêu Chuẩn');
-          buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn', 'standard', standardMolds);
+          buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn', 'standard', listStandard);
         }
-        if (highImpactMolds.length > 0) {
+        if (listHighImpact.length > 0) {
           const wsHighImpact = wb.addWorksheet('Khuôn High Impact');
-          buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact', 'high_impact', highImpactMolds);
+          buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact', 'high_impact', listHighImpact);
         }
-        if (remeasure30kMolds.length > 0) {
-          const ws30k = wb.addWorksheet('Khuôn Đo Lại 30K');
-          buildUnifiedSheet(ws30k, 'Khuôn Đo Lại 30K', 'remeasure_30k', remeasure30kMolds);
+        if (list30k.length > 0) {
+          const ws30k = wb.addWorksheet('I13086B01');
+          buildUnifiedSheet(ws30k, 'Khuôn Đo Lại 30K (I13086B01)', 'remeasure_30k', list30k);
         }
-        // Thêm sheet Tổng hợp nếu có cả các loại
-        if (filteredMolds.length > 0) {
-          const wsOverview = wb.addWorksheet('Toàn Bộ Khuôn');
-          buildUnifiedSheet(wsOverview, 'Toàn Bộ Khuôn (Bộ Lọc)', 'overview', filteredMolds);
+      } else if (filterTier === 'remeasure_30k') {
+        if (list30k.length > 0) {
+          const ws30k = wb.addWorksheet('I13086B01');
+          buildUnifiedSheet(ws30k, 'Khuôn Đo Lại 30K (I13086B01)', 'remeasure_30k', list30k);
         }
-      }
-
-      // ========================================================================
-      // SHEET 3: SẢN XUẤT LIVE 44 MÁY ÉP TMS
-      // ========================================================================
-      const planSheet = wb.addWorksheet('Chot shot va ke hoach');
-      planSheet.columns = [
-        { header: 'Mã khuôn', width: 20 }, { header: 'Ngày chốt TMS', width: 18 },
-        { header: 'Shot chốt trong ngày', width: 22 }, { header: 'Last Year - shot dở dang', width: 26 },
-        { header: 'Shot theo dõi', width: 18 }, { header: 'Ngưỡng', width: 16 },
-        { header: 'Ngày dự kiến', width: 18 }, { header: 'Ngày thực hiện gần nhất', width: 24 },
-        { header: 'Trạng thái kế hoạch', width: 42 }
-      ];
-      planSheet.getRow(1).font = { bold: true };
-      planSheet.views = [{ state: 'frozen', ySplit: 1 }];
-      filteredMolds.forEach(mold => {
-        const plan = mold.autoPlan;
-        const saved = mold.maintenancePlans?.[0];
-        const actualDates = (mold.closedMilestones || [])
-          .map(key => getMilestoneDetail(mold.mold, key)?.date)
-          .filter(Boolean);
-        planSheet.addRow([
-          mold.mold, plan?.finalizedDate || null, plan?.finalizedShots ?? null,
-          mold.lastYearRemaining ?? null, saved?.shots ?? plan?.cycleShots ?? null, saved?.target ?? plan?.threshold ?? null,
-          saved?.planned_date || null, actualDates.at(-1) || null,
-          saved?.closed_date ? `Đã chốt shot ${saved.closed_date}` : saved ? 'Đã lên kế hoạch' : 'Chưa có kế hoạch tự động'
-        ]);
-      });
-      planSheet.autoFilter = 'A1:I1';
-
-      const historySheet = wb.addWorksheet('Shot ngay theo khuon');
-      historySheet.columns = [
-        { header: 'Năm', width: 10 }, { header: 'Tháng', width: 10 },
-        { header: 'Ngày sản xuất', width: 16 }, { header: 'Mã khuôn', width: 22 },
-        { header: 'Số shot', width: 15 }, { header: 'Trạng thái dữ liệu', width: 26 }
-      ];
-      historySheet.getRow(1).font = { bold: true };
-      historySheet.views = [{ state: 'frozen', ySplit: 1 }];
-      for (const [date, day] of Object.entries(rawData?.shotDays || {}).sort(([left], [right]) => left.localeCompare(right))) {
-        if (!date.startsWith(selectedYear + '-')) continue;
-        const [year, month] = date.split('-').map(Number);
-        const settled = Date.parse(date) <= Date.parse(rawData.shotAsOfDate) - 2 * 86400000;
-        for (const mold of filteredMolds) {
-          const codes = mold.moldCodes || [String(mold.mold).trim().toUpperCase()];
-          const incomplete = !day.complete || codes.some(code => day.incomplete?.includes(code));
-          const shots = codes.reduce((sum, code) => sum + (Number(day.molds?.[code]) || 0), 0);
-          if (!shots && !codes.some(code => day.incomplete?.includes(code))) continue;
-          historySheet.addRow([year, month, date, mold.mold, incomplete ? null : shots,
-            incomplete ? 'Cần kiểm tra' : settled ? 'Đã chốt ngày' : 'Tạm tính']);
+        if (listHighImpact.length > 0) {
+          const wsHighImpact = wb.addWorksheet('Khuôn High Impact');
+          buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact', 'high_impact', listHighImpact);
+        }
+        if (listStandard.length > 0) {
+          const wsStandard = wb.addWorksheet('Khuôn Tiêu Chuẩn');
+          buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn', 'standard', listStandard);
+        }
+      } else {
+        // Mặc định hoặc filterTier === 'high_impact' / 'all'
+        if (listHighImpact.length > 0) {
+          const wsHighImpact = wb.addWorksheet('Khuôn High Impact');
+          buildUnifiedSheet(wsHighImpact, 'Khuôn High Impact', 'high_impact', listHighImpact);
+        }
+        if (listStandard.length > 0) {
+          const wsStandard = wb.addWorksheet('Khuôn Tiêu Chuẩn');
+          buildUnifiedSheet(wsStandard, 'Khuôn Tiêu Chuẩn', 'standard', listStandard);
+        }
+        if (list30k.length > 0) {
+          const ws30k = wb.addWorksheet('I13086B01');
+          buildUnifiedSheet(ws30k, 'Khuôn Đo Lại 30K (I13086B01)', 'remeasure_30k', list30k);
         }
       }
-      historySheet.autoFilter = 'A1:F1';
 
       // Xuất file
       const buffer = await wb.xlsx.writeBuffer();

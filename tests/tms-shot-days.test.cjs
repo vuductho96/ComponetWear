@@ -127,12 +127,12 @@ test('annual mold summary and workbook carry December separately from January pr
   assert.equal(workbook.getWorksheet('Khuôn Tiêu Chuẩn').getCell('D6').value, 250);
   assert.equal(workbook.getWorksheet('Khuôn Tiêu Chuẩn').getCell('E6').value, 20);
   const standardSheet = workbook.getWorksheet('Khuôn Tiêu Chuẩn');
-  const planRow = standardSheet.getRows(7, standardSheet.rowCount - 6).find(row => String(row.getCell('E').value).startsWith('Chốt 2.5M'));
+  const planRow = standardSheet.getRows(7, standardSheet.rowCount - 6).find(row => String(row.getCell('E').value).includes('2.5M'));
   assert.ok(planRow, 'automatic closure is written to January in the MMFD maintenance matrix');
-  assert.match(standardSheet.getCell(`E${planRow.number + 1}`).value, /Plan .*Chốt/);
-  const dailySheet = workbook.getWorksheet('Shot ngay theo khuon');
-  const exportedDay = dailySheet.getRows(1, dailySheet.rowCount).find(row => row.getCell(3).value === '2027-01-01');
-  assert.equal(exportedDay?.getCell(5).value, 20);
+  assert.match(standardSheet.getCell(`E${planRow.number + 1}`).value, /Plan:\(12-Jan-27\)/);
+  // Xác nhận 2 sheet cũ đã được loại bỏ theo yêu cầu người dùng
+  assert.equal(workbook.getWorksheet('Shot ngay theo khuon'), undefined);
+  assert.equal(workbook.getWorksheet('Chot shot va ke hoach'), undefined);
   module.loadFixture(data, '2026');
   const [previousYear] = module.getAllUnifiedMolds();
   assert.equal(previousYear.monthlyHistory.M12, 200);
@@ -590,4 +590,108 @@ test('Standard molds auto-maintenance: triggers plan before 20k, closes on maint
   assert.equal(autoDetail.planDate, '2026-01-02');
   assert.equal(autoDetail.closedShots, 2492000);
   assert.equal(autoDetail.tech, 'AUTO-TMS');
+});
+
+test('MMFD-I-F-022.01 Excel export: generates 3 dedicated sheets (High Impact, Standard, I13086B01), removes 2 redundant sheets, purple plan color, short format, plan strictly before maintenance', async () => {
+  const ExcelJS = require('../ComponentLife/js/exceljs.min.js');
+  class FixtureWorkbook extends ExcelJS.Workbook {
+    addWorksheet(...args) {
+      const sheet = super.addWorksheet(...args);
+      const addRow = sheet.addRow.bind(sheet);
+      sheet.addRow = (values, ...options) => addRow(Array.isArray(values) ? Array.from(values) : values, ...options);
+      return sheet;
+    }
+  }
+  let downloaded;
+  const context = {
+    window: {},
+    console,
+    ExcelJS: { Workbook: FixtureWorkbook },
+    Blob,
+    fetch: async () => ({ ok: false }),
+    alert: message => { throw new Error(message); },
+    URL: { createObjectURL(blob) { downloaded = blob; return 'blob:fixture'; }, revokeObjectURL() {} },
+    localStorage: { getItem: () => null, setItem() {} },
+    document: {
+      addEventListener() {},
+      getElementById: () => null,
+      createElement: () => ({ click() {}, remove() {} }),
+      body: { append() {} }
+    }
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source, context);
+  const module = context.window.MoldMaintenance;
+
+  const fixtureData = {
+    records: [],
+    shotAsOfDate: '2026-02-15',
+    excelMasterMolds: [
+      {
+        mold: 'H10109S01',
+        oldMold: 'IRSV-038',
+        series: '10109S-E1E',
+        is_high_impact: true,
+        monthlyHistory: { M1: 142815, M2: 176123 },
+        milestoneDetails: {
+          '400k-1': { date: '2026-02-12', planDate: '2026-02-11', closedShots: 402150 }
+        }
+      },
+      {
+        mold: 'H9637S15',
+        series: '9637S',
+        is_high_impact: false,
+        monthlyHistory: { M1: 164178, M2: 26250 },
+        milestoneDetails: {
+          '25': { date: '2026-02-20', planDate: '2026-02-16', closedShots: 2495000 }
+        }
+      },
+      {
+        mold: 'I13086B01',
+        oldMold: 'M1591',
+        series: '13086B-14A',
+        is_high_impact: false,
+        monthlyHistory: { M1: 15000, M2: 15000 },
+        milestoneDetails: {
+          '30k-1': { date: '2026-02-10', planDate: '2026-02-08', closedShots: 30200 }
+        }
+      }
+    ]
+  };
+  module.setRawDataForTesting(fixtureData);
+
+  await module.exportExcel();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await downloaded.arrayBuffer());
+
+  // 1. Kiểm tra 3 sheet theo đúng yêu cầu
+  const wsHigh = wb.getWorksheet('Khuôn High Impact');
+  const wsStd = wb.getWorksheet('Khuôn Tiêu Chuẩn');
+  const ws30k = wb.getWorksheet('I13086B01');
+  assert.ok(wsHigh, 'Sheet "Khuôn High Impact" must exist');
+  assert.ok(wsStd, 'Sheet "Khuôn Tiêu Chuẩn" must exist');
+  assert.ok(ws30k, 'Sheet "I13086B01" must exist');
+
+  // 2. Xác nhận đã loại bỏ 2 sheet cũ
+  assert.equal(wb.getWorksheet('Chot shot va ke hoach'), undefined, 'Sheet "Chot shot va ke hoach" must be removed');
+  assert.equal(wb.getWorksheet('Shot ngay theo khuon'), undefined, 'Sheet "Shot ngay theo khuon" must be removed');
+
+  // 3. Kiểm tra format ngắn gọn, màu vàng và màu tím trong sheet High Impact (Tháng 2 = Cột F)
+  // Tìm hàng của IRSV-038 / H10109S01 trong bảng 2
+  const febCellShot = wsHigh.getCell('F59'); // Hoặc tìm theo hàng
+  const febRow = wsHigh.getRows(7, wsHigh.rowCount - 6).find(r => String(r.getCell('F').value).includes('400k-1'));
+  assert.ok(febRow, 'Row with 400k-1 in Feb must exist in Table 2');
+  const shotCell = febRow.getCell('F');
+  const dateCell = wsHigh.getCell(`F${febRow.number + 1}`);
+
+  // Format ngắn gọn: "400k-1-(12-Feb-26)"
+  assert.match(String(shotCell.value), /^400k-1-\(12-Feb-26\)$/i);
+  // Nền vàng cho ô bảo dưỡng
+  assert.equal(shotCell.fill?.fgColor?.argb, 'FFFEF08A');
+
+  // Dòng 2 format ngắn gọn: "Plan:(11-Feb-26)"
+  assert.match(String(dateCell.value), /^Plan:\(11-Feb-26\)$/i);
+  // Nền tím cho ô Plan
+  assert.equal(dateCell.fill?.fgColor?.argb, 'FFDDD6FE');
 });
