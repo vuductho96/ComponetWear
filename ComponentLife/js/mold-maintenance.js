@@ -318,6 +318,43 @@ window.MoldMaintenance = (function() {
     return dataLoadingPromise;
   }
 
+  function syncServerMilestonesToLocalStorage() {
+    try {
+      const closedMap = JSON.parse(localStorage.getItem(MOLD_CLOSED_KEY) || '{}');
+      const detailsMap = JSON.parse(localStorage.getItem(MOLD_DETAILS_KEY) || '{}');
+      let changedClosed = false;
+      let changedDetails = false;
+
+      (rawData?.excelMasterMolds || []).forEach(m => {
+        const code = String(m.mold || '').trim().toUpperCase();
+        if (!code) return;
+        if (Array.isArray(m.completedMilestones) && m.completedMilestones.length > 0) {
+          if (!closedMap[code]) closedMap[code] = [];
+          m.completedMilestones.forEach(ms => {
+            if (!closedMap[code].includes(ms)) {
+              closedMap[code].push(ms);
+              changedClosed = true;
+            }
+          });
+        }
+        if (m.milestoneDetails && typeof m.milestoneDetails === 'object') {
+          if (!detailsMap[code]) detailsMap[code] = {};
+          Object.entries(m.milestoneDetails).forEach(([k, v]) => {
+            if (!detailsMap[code][k] || (v && v.date && !detailsMap[code][k].date)) {
+              detailsMap[code][k] = v;
+              changedDetails = true;
+            }
+          });
+        }
+      });
+
+      if (changedClosed) localStorage.setItem(MOLD_CLOSED_KEY, JSON.stringify(closedMap));
+      if (changedDetails) localStorage.setItem(MOLD_DETAILS_KEY, JSON.stringify(detailsMap));
+    } catch (e) {
+      console.warn('syncServerMilestonesToLocalStorage error:', e);
+    }
+  }
+
   async function init() {
     console.log('[MOLD MAINTENANCE] Initializing module...');
     await ensureDataLoaded();
@@ -347,6 +384,7 @@ window.MoldMaintenance = (function() {
         window._moldMaintenanceData = rawData;
       }
       populateDateFilters();
+      syncServerMilestonesToLocalStorage();
       updateToolbarVisibility();
       // Xóa triệt để mọi autofill (email, mã 0501, username/password) do trình duyệt tự ý điền vào ô tìm kiếm
       const clearSearchAutofill = () => {
@@ -1175,6 +1213,18 @@ window.MoldMaintenance = (function() {
   function getClosedMilestonesMap() {
     try {
       const map = JSON.parse(localStorage.getItem(MOLD_CLOSED_KEY) || '{}');
+      // Merge completedMilestones from rawData if available
+      if (rawData && Array.isArray(rawData.excelMasterMolds)) {
+        rawData.excelMasterMolds.forEach(item => {
+          const code = String(item.mold || '').trim().toUpperCase();
+          if (code && Array.isArray(item.completedMilestones) && item.completedMilestones.length > 0) {
+            if (!map[code]) map[code] = [];
+            item.completedMilestones.forEach(ms => {
+              if (!map[code].includes(ms)) map[code].push(ms);
+            });
+          }
+        });
+      }
       // Tuyệt đối không tự ý chốt mốc 6, 7, 8: chỉ coi là đã chốt nếu có biên bản/chi tiết xác nhận thực tế từ Staff
       let changed = false;
       Object.keys(map).forEach(k => {
@@ -1339,7 +1389,9 @@ window.MoldMaintenance = (function() {
     const stepTarget = is30k ? 30000 : 400000;
     const prefix = is30k ? '30k-' : '400k-';
     const closedMap = getClosedMilestonesMap();
-    const closedList = m?.closedMilestones || closedMap[code] || [];
+    const rawCompleted = Array.isArray(m?.completedMilestones) ? m.completedMilestones : [];
+    const localCompleted = Array.isArray(m?.closedMilestones) ? m.closedMilestones : (Array.isArray(closedMap[code]) ? closedMap[code] : []);
+    const closedList = [...new Set([...rawCompleted, ...localCompleted])];
     const aliases = m?.moldCodes || [code, m?.oldMold, m?.newMold].filter(Boolean);
     const shotClosures = useShotClosures ? new Map((rawData?.automaticMaintenance || [])
       .filter(plan => aliases.includes(plan.mold) && plan.closed_date && plan.closed_date.slice(0, 4) <= selectedYear)
@@ -1372,12 +1424,22 @@ window.MoldMaintenance = (function() {
       const cycleKey = is30k ? ('30k-' + i) : (i <= 3 ? i : ('400k-' + i));
       const cycleName = prefix + i;
       const recorded = shotClosures.get(cycleName);
-      const isClosed = Boolean(recorded) || closedList.includes(cycleKey) ||
+      const detail = m?.milestoneDetails?.[cycleKey] || 
+                     m?.milestoneDetails?.[cycleName] || 
+                     m?.milestoneDetails?.[i] || 
+                     m?.milestoneDetails?.[String(i)] || 
+                     getMilestoneDetail(code, cycleKey) || 
+                     getMilestoneDetail(code, cycleName) || 
+                     getMilestoneDetail(code, i);
+      const pdf = detail?.pdf || getMilestonePdf(code, cycleKey) || getMilestonePdf(code, cycleName) || getMilestonePdf(code, i);
+
+      const hasClosedDetail = Boolean(detail && detail.date && Number(detail.closedShots) > 0);
+      const isClosed = Boolean(recorded?.closed_date) || 
+                       closedList.includes(cycleKey) ||
                        closedList.includes(cycleName) || 
                        closedList.includes(i) || 
-                       closedList.includes(String(i));
-      const detail = getMilestoneDetail(code, cycleKey) || getMilestoneDetail(code, cycleName) || getMilestoneDetail(code, i);
-      const pdf = detail?.pdf || getMilestonePdf(code, cycleKey) || getMilestonePdf(code, cycleName) || getMilestonePdf(code, i);
+                       closedList.includes(String(i)) ||
+                       hasClosedDetail;
 
       let closedShots = 0;
       let cycleShots = 0;
@@ -1385,7 +1447,8 @@ window.MoldMaintenance = (function() {
       if (isClosed) {
         closedShots = Number(detail?.closedShots ?? recorded?.shots) || (i === 1 ? (m?.m1 || stepTarget) : (i === 2 ? (m?.m2 || stepTarget) : (i === 3 ? (m?.m3 || stepTarget) : stepTarget)));
         cycleShots = closedShots;
-        remainingShots = Math.max(0, remainingShots - closedShots);
+        const delta = (i > 1 && closedShots > (i - 0.5) * stepTarget) ? stepTarget : (closedShots > stepTarget ? stepTarget : closedShots);
+        remainingShots = Math.max(0, remainingShots - delta);
       } else {
         cycleShots = remainingShots;
         remainingShots = 0;
@@ -1926,7 +1989,7 @@ window.MoldMaintenance = (function() {
       }
       if (addRowTr) addRowTr.style.display = '';
 
-      const cycles = get400kCyclesInfo(m);
+      const cycles = get400kCyclesInfo(m, true);
       const minRows = is30k ? 10 : 8;
       const maxRows = Math.max(minRows, cycles.length);
       active400kRowsData = [];
@@ -3135,7 +3198,6 @@ window.MoldMaintenance = (function() {
               ${lastYearHeader}
               ${sumShotHeader}
               ${milestoneHeaders}
-              <th style="min-width:150px;">Kế hoạch / Chốt shot</th>
               ${moldColPrefs.totalLife ? '<th class="text-right font-bold" style="background:#f8fafc; color:#0f172a;">Tổng Vòng Đời</th>' : ''}
               ${moldColPrefs.note ? '<th style="min-width:180px;">Note (Ghi Chú)</th>' : ''}
               <th class="text-center" style="width:40px; padding:0; background:#f1f5f9;">
@@ -3362,14 +3424,6 @@ window.MoldMaintenance = (function() {
             ${lastYearCell}
             ${sumShotCell}
             ${milestoneCells}
-            <td>${(m.maintenancePlans || []).slice(0, 3).map(plan => {
-              const milestone = String(plan.milestone).match(/^(?:30k-\d+|400k-\d+|25|[4-8])$/)?.[0] || '';
-              const date = String(plan.closed_date || plan.planned_date || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0] || '';
-              const planned = String(plan.planned_date || '').match(/^\d{4}-\d{2}-\d{2}$/)?.[0] || '';
-              return plan.closed_date
-                ? `<div><strong>Đã chốt ${formatNum(Number(plan.shots) || 0)} shot</strong><br><small>${milestone.toUpperCase()}${planned ? ' · Plan ' + planned : ''} · Chốt ${date}</small></div>`
-                : `<div><strong>${milestone.toUpperCase()}</strong><br><small>${date ? 'Dự kiến ' + date : 'Chờ ngày dự kiến'}</small></div>`;
-            }).join('') || '—'}</td>
             ${moldColPrefs.totalLife ? `
               <td class="text-right font-mono font-bold" style="background:#f8fafc; color:#0f172a; font-size:15px;">
                 ${formatNum(m.totalLife)}
@@ -4321,7 +4375,7 @@ window.MoldMaintenance = (function() {
               const is30k = is30kMold(m);
               if (is30k) {
                 mTarget = 30000;
-                const cycles = get400kCyclesInfo(m);
+                const cycles = get400kCyclesInfo(m, true);
                 const cInfo = cycles[0];
                 if (cInfo && cInfo.isClosed) {
                   isDone = true;
@@ -4342,7 +4396,7 @@ window.MoldMaintenance = (function() {
               if (!is30kHeader && is30k) {
                 // để trống
               } else if (m.isHighImpact || is30k || is30kHeader) {
-                const cycles = get400kCyclesInfo(m);
+                const cycles = get400kCyclesInfo(m, true);
                 const cInfo = cycles[cycleNum - 1];
                 if (cInfo) {
                   mTarget = is30k ? 30000 : 400000;

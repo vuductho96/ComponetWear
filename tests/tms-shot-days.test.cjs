@@ -223,3 +223,54 @@ test('manual milestone closing operates normally and takes precedence when auto 
   assert.equal(cycle1.date, '2026-03-05');
   assert.equal(cycle1.planDate, '2026-03-01');
 });
+
+test('modal rows correctly display closed cycles with checkmarks, shots, dates, ktv and note from mold milestoneDetails', () => {
+  const context = {
+    window: {},
+    console,
+    fetch: async () => ({ ok: true }),
+    localStorage: {
+      _data: {},
+      getItem(key) { return this._data[key] || null; },
+      setItem(key, value) { this._data[key] = String(value); }
+    },
+    document: {
+      addEventListener() {},
+      getElementById: () => null
+    },
+    alert: () => {}
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source, context);
+  const module = context.window.MoldMaintenance;
+  const moldData = {
+    mold: 'H10109S01',
+    isHighImpact: true,
+    totalYear: 1728243,
+    completedMilestones: [1, '400k-1', 2, '400k-2', 3, '400k-3', 4, '400k-4'],
+    milestoneDetails: {
+      '1': { planDate: '2026-01-08', date: '2026-01-13', tech: 'KTV-TUAN', closedShots: 402150, note: 'Bảo dưỡng 400K-1 đạt' },
+      '2': { planDate: '2026-04-14', date: '2026-04-18', tech: 'KTV-MANH', closedShots: 804200, note: 'Bảo dưỡng 400K-2 đạt' },
+      '3': { planDate: '2026-07-16', date: '2026-07-21', tech: 'KTV-TRUNG', closedShots: 1205600, note: 'Bảo dưỡng 400K-3 đạt' },
+      '4': { planDate: '2026-10-09', date: '2026-10-14', tech: 'KTV-THANG', closedShots: 1608400, note: 'Bảo dưỡng 400K-4 đạt' },
+      '5': { planDate: '2026-12-15', date: '', tech: '', closedShots: 0, note: 'Dự kiến 400K-5' }
+    }
+  };
+  const cycles = module.get400kCyclesInfo(moldData, true);
+  assert.equal(cycles.length, 8);
+  assert.equal(cycles[0].isClosed, true);
+  assert.equal(cycles[0].date, '2026-01-13');
+  assert.equal(cycles[0].tech, 'KTV-TUAN');
+  assert.equal(cycles[1].isClosed, true);
+  assert.equal(cycles[1].date, '2026-04-18');
+  assert.equal(cycles[1].tech, 'KTV-MANH');
+  assert.equal(cycles[2].isClosed, true);
+  assert.equal(cycles[2].date, '2026-07-21');
+  assert.equal(cycles[2].tech, 'KTV-TRUNG');
+  assert.equal(cycles[3].isClosed, true);
+  assert.equal(cycles[3].date, '2026-10-14');
+  assert.equal(cycles[3].tech, 'KTV-THANG');
+  assert.equal(cycles[4].isClosed, false);
+  assert.equal(cycles[4].planDate, '2026-12-15');
+});
