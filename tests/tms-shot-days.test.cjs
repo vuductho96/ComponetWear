@@ -261,26 +261,30 @@ test('modal rows correctly display closed cycles with checkmarks, shots, dates, 
   assert.equal(cycles.length, 8);
   assert.equal(cycles[0].isClosed, true);
   assert.equal(cycles[0].date, '2026-01-13');
-  assert.equal(cycles[0].tech, 'KTV-TUAN');
+  assert.equal(cycles[0].tech, '7139', 'KTV-TUAN được chuẩn hóa sang 7139');
+  assert.equal(cycles[0].note, '', 'Bỏ nội dung note tự động');
   assert.equal(cycles[0].closedShots, 392515);
   assert.ok(cycles[0].closedShots > 390000 && cycles[0].closedShots < 400000);
 
   // Cữ 2, 3, 4 bảo dưỡng tự động nằm trong khoảng SOP 390k < bd < 400k với số lẻ chi tiết
   assert.equal(cycles[1].isClosed, true);
   assert.equal(cycles[1].date, '2026-04-18');
-  assert.equal(cycles[1].tech, 'KTV-MANH');
+  assert.equal(cycles[1].tech, '7139');
+  assert.equal(cycles[1].note, '');
   assert.equal(cycles[1].closedShots, 394180);
   assert.ok(cycles[1].closedShots > 390000 && cycles[1].closedShots < 400000);
 
   assert.equal(cycles[2].isClosed, true);
   assert.equal(cycles[2].date, '2026-07-21');
-  assert.equal(cycles[2].tech, 'KTV-TRUNG');
+  assert.equal(cycles[2].tech, '7139');
+  assert.equal(cycles[2].note, '');
   assert.equal(cycles[2].closedShots, 391650);
   assert.ok(cycles[2].closedShots > 390000 && cycles[2].closedShots < 400000);
 
   assert.equal(cycles[3].isClosed, true);
   assert.equal(cycles[3].date, '2026-10-14');
-  assert.equal(cycles[3].tech, 'KTV-THANG');
+  assert.equal(cycles[3].tech, '7139');
+  assert.equal(cycles[3].note, '');
   assert.equal(cycles[3].closedShots, 395420);
   assert.ok(cycles[3].closedShots > 390000 && cycles[3].closedShots < 400000);
 
@@ -463,8 +467,8 @@ test('High-Impact molds (e.g. H18015S01, H10109S01): 400K cycles apply with real
   };
   const autoCycles = module.get400kCyclesInfo(mAutoNoDetails, true);
   assert.equal(autoCycles[0].isClosed, true);
-  assert.equal(autoCycles[0].tech, '', 'Tự chốt cữ 1 không được tự ý ghi KTV');
-  assert.equal(autoCycles[0].note, '', 'Tự chốt cữ 1 không được tự ý ghi Note');
+  assert.equal(autoCycles[0].tech, '7139', 'Tự chốt cữ 1 gán KTV 7139 theo yêu cầu');
+  assert.equal(autoCycles[0].note, '', 'Tự chốt cữ 1 không có note mẫu tự động');
 });
 
 test('H10109S01: High-Impact mold completing 400k-4 does NOT trigger or close 3.0M milestone (no false checkmark)', () => {
@@ -723,4 +727,49 @@ test('MMFD-I-F-022.01 Excel export: generates 3 dedicated sheets (High Impact, S
   const allCellValues = [];
   wsHigh.eachRow(r => r.eachCell(c => allCellValues.push(String(c.value || ''))));
   assert.equal(allCellValues.some(v => v.includes('Vũ Đức Thọ')), false, 'Signature must NOT contain personal name Vũ Đức Thọ');
+});
+
+test('modal: closed rows are directly editable, support reopenExcelRow, and sanitize KTV to 7139 with clean note', () => {
+  const context = {
+    window: {},
+    console,
+    fetch: async () => ({ ok: true }),
+    localStorage: {
+      _data: {
+        'mm_milestone_details_v2': JSON.stringify({
+          'H10109S01': {
+            '400k-1': { planDate: '2026-01-08', date: '2026-01-13', tech: 'KTV-TUAN', closedShots: 392515, note: 'Bảo dưỡng định kỳ 400K-1: Vệ sinh...' },
+            '400k-2': { planDate: '2026-04-14', date: '2026-04-18', tech: 'KTV-MANH', closedShots: 394180, note: 'Bảo dưỡng định kỳ 400K-2: Thay...' }
+          }
+        })
+      },
+      getItem(key) { return this._data[key] || null; },
+      setItem(key, value) { this._data[key] = String(value); }
+    },
+    confirm: () => true,
+    document: {
+      addEventListener() {},
+      getElementById: () => ({ value: '', focus() {}, click() {} })
+    },
+    alert: () => {}
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source, context);
+  const module = context.window.MoldMaintenance;
+
+  const moldData = {
+    mold: 'H10109S01',
+    isHighImpact: true,
+    totalYear: 1728243,
+    completedMilestones: ['400k-1', '400k-2']
+  };
+
+  const cycles = module.get400kCyclesInfo(moldData, true);
+  // KTV phải được chuẩn hóa sang 7139, note giả bị loại bỏ
+  assert.equal(cycles[0].tech, '7139', 'KTV-TUAN phải được đổi sang 7139');
+  assert.equal(cycles[0].note, '', 'Note tự động phải được xóa');
+  assert.equal(cycles[1].tech, '7139', 'KTV-MANH phải được đổi sang 7139');
+  assert.equal(cycles[1].note, '', 'Note tự động cữ 2 phải được xóa');
+  assert.equal(typeof module.reopenExcelRow, 'function', 'reopenExcelRow phải tồn tại');
 });

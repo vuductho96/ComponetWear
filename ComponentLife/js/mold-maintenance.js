@@ -1377,9 +1377,45 @@ window.MoldMaintenance = (function() {
 
   const MOLD_DETAILS_KEY = 'mm_milestone_details_v2';
 
+  // Chuẩn hóa và làm sạch dữ liệu chi tiết mốc: bỏ KTV giả, gán 7139, bỏ note mẫu tự động
+  function sanitizeDetailObject(detail) {
+    if (!detail || typeof detail !== 'object') return false;
+    let modified = false;
+    const tech = String(detail.tech || '').trim();
+    if (!tech || tech.startsWith('KTV-') || tech === 'AUTO-TMS' || tech === 'KTV Bảo Dưỡng') {
+      if (detail.tech !== '7139') {
+        detail.tech = '7139';
+        modified = true;
+      }
+    }
+    const note = String(detail.note || '').trim();
+    if (note.startsWith('Bảo dưỡng định kỳ') || note.startsWith('Bảo dưỡng đo lại') || note.startsWith('Hệ thống tự động') || note.startsWith('Kế hoạch bảo dưỡng dự kiến')) {
+      if (detail.note !== '') {
+        detail.note = '';
+        modified = true;
+      }
+    }
+    return modified;
+  }
+
   function getMilestoneDetailsMap() {
     try {
-      return JSON.parse(localStorage.getItem(MOLD_DETAILS_KEY) || '{}');
+      const map = JSON.parse(localStorage.getItem(MOLD_DETAILS_KEY) || '{}');
+      let changed = false;
+      for (const mCode of Object.keys(map)) {
+        const moldDetails = map[mCode];
+        if (moldDetails && typeof moldDetails === 'object') {
+          for (const key of Object.keys(moldDetails)) {
+            if (sanitizeDetailObject(moldDetails[key])) {
+              changed = true;
+            }
+          }
+        }
+      }
+      if (changed) {
+        try { localStorage.setItem(MOLD_DETAILS_KEY, JSON.stringify(map)); } catch (e) {}
+      }
+      return map;
     } catch (e) {
       return {};
     }
@@ -1405,16 +1441,20 @@ window.MoldMaintenance = (function() {
     if (rawData && rawData.excelMasterMolds) {
       const item = rawData.excelMasterMolds.find(m => (m.mold || '').toUpperCase() === code);
       if (item && item.milestoneDetails) {
-        if (item.milestoneDetails[num]) return item.milestoneDetails[num];
-        if (String(num).startsWith('400k-')) {
+        let found = item.milestoneDetails[num];
+        if (!found && String(num).startsWith('400k-')) {
           const n = parseInt(num.replace('400k-', ''), 10);
-          if (n <= 3 && item.milestoneDetails[n]) return item.milestoneDetails[n];
-        } else if (String(num).startsWith('30k-')) {
+          if (n <= 3 && item.milestoneDetails[n]) found = item.milestoneDetails[n];
+        } else if (!found && String(num).startsWith('30k-')) {
           const n = parseInt(num.replace('30k-', ''), 10);
-          if (item.milestoneDetails[n]) return item.milestoneDetails[n];
-        } else if (num === 1 || num === 2 || num === 3 || num === '1' || num === '2' || num === '3') {
-          if (item.milestoneDetails['400k-' + num]) return item.milestoneDetails['400k-' + num];
-          if (item.milestoneDetails['30k-' + num]) return item.milestoneDetails['30k-' + num];
+          if (item.milestoneDetails[n]) found = item.milestoneDetails[n];
+        } else if (!found && (num === 1 || num === 2 || num === 3 || num === '1' || num === '2' || num === '3')) {
+          if (item.milestoneDetails['400k-' + num]) found = item.milestoneDetails['400k-' + num];
+          if (item.milestoneDetails['30k-' + num]) found = item.milestoneDetails['30k-' + num];
+        }
+        if (found) {
+          sanitizeDetailObject(found);
+          return found;
         }
       }
     }
@@ -1756,8 +1796,15 @@ window.MoldMaintenance = (function() {
       // Ngày plan, ngày chốt cho cữ đã hoàn thành (nếu chưa có ngày thực tế thì nội suy ngày):
       let cyclePlanDate = detail?.planDate || recorded?.planned_date || '';
       let cycleCloseDate = detail?.date || recorded?.closed_date || '';
-      let cycleTech = detail?.tech || '';
+      let cycleTech = detail?.tech || (isClosed ? '7139' : '');
       let cycleNote = detail?.note || '';
+
+      if (cycleTech.startsWith('KTV-') || cycleTech === 'AUTO-TMS' || cycleTech === 'KTV Bảo Dưỡng') {
+        cycleTech = '7139';
+      }
+      if (cycleNote.startsWith('Bảo dưỡng định kỳ') || cycleNote.startsWith('Bảo dưỡng đo lại') || cycleNote.startsWith('Hệ thống tự động') || cycleNote.startsWith('Kế hoạch bảo dưỡng dự kiến')) {
+        cycleNote = '';
+      }
 
       if (isClosed && !cycleCloseDate) {
         const hash = code.split('').reduce((acc, c, idx) => acc + c.charCodeAt(0) * (idx + 1) * 37, 0);
@@ -2075,10 +2122,13 @@ window.MoldMaintenance = (function() {
               <input type="text" id="mm_note_${idx}" value="" placeholder="Chưa đến hạn" disabled
                 style="width:100%; border:1px solid #e2e8f0; border-radius:4px; padding:4px 6px; font-size:11px; color:#94a3b8; background:#f8fafc; cursor:not-allowed;">
             </td>
+            <td style="${borderStyle} padding:4px 6px; text-align:center;">
+              <span style="color:#94a3b8; font-size:11px;">🔒 Khóa</span>
+            </td>
           </tr>
         `;
       } else {
-        // DÒNG HỢP LỆ (MỞ KHÓA HOÀN TOÀN)
+        // DÒNG HỢP LỆ (MỞ KHÓA HOÀN TOÀN / CHO PHÉP CHỈNH SỬA TẤT CẢ CÁC MỤC)
         html += `
           <tr style="border-bottom:1px solid #94a3b8; background:${rowBg};">
             <td style="${borderStyle} padding:6px; text-align:center; font-weight:700; background:#f8fafc; color:#1e293b; user-select:none;">
@@ -2087,14 +2137,15 @@ window.MoldMaintenance = (function() {
             <td style="${borderStyle} padding:4px 6px;">
               <input type="text" id="mm_shot_${idx}" value="${row.actualShot || ''}" placeholder="${row.suggestedShot ? 'Web: ' + row.suggestedShot : is30kMold(activeShotModalMold) ? 'VD: 28k - 30k' : 'VD: 390k - 400k (VD: 392.515)'}"
                 oninput="MoldMaintenance.handleShotInputChanged(${idx})"
+                title="${row.isClosed ? 'Đã chốt - Bấm để sửa lại số shot' : 'Nhập số shot bảo dưỡng'}"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-family:monospace; font-weight:700; text-align:right; font-size:12.5px; color:#0f172a; background:#ffffff;">
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="date" id="mm_plan_${idx}" value="${row.planDate || ''}" title="Ngày lập kế hoạch bảo dưỡng"
+              <input type="date" id="mm_plan_${idx}" value="${row.planDate || ''}" title="Ngày lập kế hoạch bảo dưỡng (bấm để sửa)"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; color:#334155; background:#ffffff;">
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="date" id="mm_date_${idx}" value="${row.date || ''}" title="Ngày hoàn thành bảo dưỡng thực tế"
+              <input type="date" id="mm_date_${idx}" value="${row.date || ''}" title="Ngày hoàn thành bảo dưỡng thực tế (bấm để sửa)"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; color:#334155; background:#ffffff;">
             </td>
             <td style="${borderStyle} padding:4px 6px; text-align:center;">
@@ -2103,12 +2154,30 @@ window.MoldMaintenance = (function() {
               </div>
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="text" id="mm_ktv_${idx}" value="${row.ktv || ''}" placeholder="Mã KTV"
+              <input type="text" id="mm_ktv_${idx}" value="${row.ktv || '7139'}" placeholder="7139" title="Mã KTV (mặc định 7139 hoặc sửa tự do)"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; text-align:center; font-weight:600; color:#334155; background:#ffffff;">
             </td>
             <td style="${borderStyle} padding:4px 6px;">
-              <input type="text" id="mm_note_${idx}" value="${row.note || ''}" placeholder="Ghi chú bảo dưỡng..."
+              <input type="text" id="mm_note_${idx}" value="${row.note || ''}" placeholder="Ghi chú bảo dưỡng..." title="Ghi chú bảo dưỡng (bấm để sửa)"
                 style="width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; font-size:12px; color:#334155; background:#ffffff;">
+            </td>
+            <td style="${borderStyle} padding:4px 4px; text-align:center;">
+              ${row.isClosed ? `
+                <div style="display:inline-flex; align-items:center; justify-content:center; gap:3px;">
+                  <button type="button" onclick="document.getElementById('mm_shot_${idx}').focus()" 
+                    title="Chỉnh sửa cữ này (sửa số shot, ngày, KTV, ghi chú)"
+                    style="padding:2px 6px; border:1px solid #0284c7; background:#e0f2fe; color:#0369a1; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer;">
+                    ✏️ Sửa
+                  </button>
+                  <button type="button" onclick="MoldMaintenance.reopenExcelRow(${idx})" 
+                    title="Mở lại cữ này (hủy chốt để nhập lại)"
+                    style="padding:2px 5px; border:1px solid #f87171; background:#fee2e2; color:#b91c1c; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer;">
+                    ↺
+                  </button>
+                </div>
+              ` : `
+                <span style="color:#64748b; font-size:11px;">Chờ chốt</span>
+              `}
             </td>
           </tr>
         `;
@@ -2130,6 +2199,18 @@ window.MoldMaintenance = (function() {
         notice.textContent = firstRow ? `🔒 Mốc ${firstRow.name}: Chốt 1 phát kèm giấy tờ liên quan (Không cho chốt trước hạn).` : '';
       }
     }
+  }
+
+  function reopenExcelRow(idx) {
+    const rows = getActiveExcelRows();
+    const row = rows[idx];
+    if (!row) return;
+    if (!confirm(`Bạn có chắc muốn mở lại (hủy chốt) mốc ${row.name}?`)) return;
+    row.isClosed = false;
+    row.actualShot = '';
+    renderActiveExcelRows();
+    const shotEl = document.getElementById('mm_shot_' + idx);
+    if (shotEl) shotEl.focus();
   }
 
   function add400kRow() {
@@ -2322,14 +2403,16 @@ window.MoldMaintenance = (function() {
           if (c.closedShots > 0) {
             shotDisplay = formatNum(c.closedShots);
           }
+          const cleanTech = (c.tech && !c.tech.startsWith('KTV-') && c.tech !== 'AUTO-TMS' && c.tech !== 'KTV Bảo Dưỡng') ? c.tech : '7139';
+          const cleanNote = (c.note && !c.note.startsWith('Bảo dưỡng định kỳ') && !c.note.startsWith('Bảo dưỡng đo lại') && !c.note.startsWith('Hệ thống tự động') && !c.note.startsWith('Kế hoạch bảo dưỡng dự kiến')) ? c.note : '';
           active400kRowsData.push({
             num: i,
             name: rowName,
             actualShot: shotDisplay,
             planDate: c.planDate || '',
             date: c.date || '',
-            ktv: c.tech || '',
-            note: c.note || '',
+            ktv: cleanTech,
+            note: cleanNote,
             pdf: c.pdf || null,
             isClosed: true,
             isEligible: true // Mở khóa hoàn toàn
@@ -2340,6 +2423,7 @@ window.MoldMaintenance = (function() {
           if (c && c.shots > 0) {
             shotDisplay = formatNum(c.shots);
           }
+          const cleanNote = (c?.note && !c.note.startsWith('Bảo dưỡng định kỳ') && !c.note.startsWith('Bảo dưỡng đo lại') && !c.note.startsWith('Hệ thống tự động') && !c.note.startsWith('Kế hoạch bảo dưỡng dự kiến')) ? c.note : '';
           active400kRowsData.push({
             num: i,
             name: rowName,
@@ -2348,7 +2432,7 @@ window.MoldMaintenance = (function() {
             planDate: c?.planDate || '',
             date: '',
             ktv: '',
-            note: c?.note || '',
+            note: cleanNote,
             pdf: c?.pdf || null,
             isClosed: false,
             isEligible: true // Mở khóa hoàn toàn theo yêu cầu!
@@ -2472,6 +2556,9 @@ window.MoldMaintenance = (function() {
         }
       }
 
+      const cleanMajorTech = (detail?.tech && !detail.tech.startsWith('KTV-') && detail.tech !== 'AUTO-TMS' && detail.tech !== 'KTV Bảo Dưỡng') ? detail.tech : (isClosed ? '7139' : '');
+      const cleanMajorNote = (detail?.note && !detail.note.startsWith('Bảo dưỡng định kỳ') && !detail.note.startsWith('Bảo dưỡng đo lại') && !detail.note.startsWith('Hệ thống tự động') && !detail.note.startsWith('Kế hoạch bảo dưỡng dự kiến')) ? detail.note : '';
+
       // Chỉ tạo ĐÚNG 1 DÒNG cho mốc này
       activeMajorRowsData = [{
         num: mNum,
@@ -2479,8 +2566,8 @@ window.MoldMaintenance = (function() {
         actualShot: isClosed ? actualShot : '',
         suggestedShot: isClosed ? '' : actualShot,
         date: isClosed ? detail?.date || '' : '',
-        ktv: isClosed ? detail?.tech || '' : '',
-        note: detail?.note || '',
+        ktv: cleanMajorTech,
+        note: cleanMajorNote,
         pdf,
         isClosed,
         isEligible,
@@ -2535,9 +2622,15 @@ window.MoldMaintenance = (function() {
         const shotStr = (shotEl ? shotEl.value : '').trim();
         const planVal = (planEl ? planEl.value : '').trim();
         const dateVal = (dateEl ? dateEl.value : '').trim();
-        const ktvVal = (ktvEl ? ktvEl.value : '').trim();
+        let ktvVal = (ktvEl ? ktvEl.value : '').trim();
         const noteVal = (noteEl ? noteEl.value : '').trim();
         const pdfObj = row.pdf || null;
+
+        // Nếu có nhập shot hoặc đang sửa cữ đã chốt mà chưa có KTV: tự động gán 7139
+        if (shotStr && !ktvVal) {
+          ktvVal = '7139';
+        }
+
         if (row.isClosed && shotStr === row.savedShot && planVal === (row.planDate || '') && dateVal === row.date && ktvVal === row.ktv &&
             noteVal === row.note && pdfObj === (row.savedPdf || null)) continue;
         if (!shotStr && !row.isClosed) {
@@ -2551,8 +2644,8 @@ window.MoldMaintenance = (function() {
           throw new Error(`Mốc ${row.name} chưa đến hạn. ${row.lockReason || ''}`);
         }
         const numShots = parseShotInput(shotStr);
-        if (shotStr && (!(numShots > 0) || !dateVal || !ktvVal)) {
-          throw new Error(`Mốc ${row.name} cần số shot hợp lệ, ngày thực hiện và mã KTV.`);
+        if (shotStr && (!(numShots > 0) || !dateVal)) {
+          throw new Error(`Mốc ${row.name} cần số shot hợp lệ và ngày thực hiện.`);
         }
         changes.push({ row, shotStr, numShots, planVal, dateVal, ktvVal, noteVal, pdfObj });
       }
@@ -6088,6 +6181,7 @@ window.MoldMaintenance = (function() {
     open30kDetailModal: open400kDetailModal,
     open400kDetailModal,
     close400kDetailModal,
+    reopenExcelRow,
     unlockExcelEdit,
     applyExcelUnlockState,
     add400kRow,
