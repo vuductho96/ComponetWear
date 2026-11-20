@@ -210,9 +210,9 @@ test('manual milestone closing operates normally and takes precedence when auto 
   // Verify write occurred
   assert.equal(writes.length, 1);
   assert.equal(writes[0].body.mold, 'H10109S01');
-  assert.ok(writes[0].body.completedMilestones.includes(1));
-  assert.equal(writes[0].body.milestoneDetails['1'].closedShots, 405000);
-  assert.equal(writes[0].body.milestoneDetails['1'].tech, 'TECH-01');
+  assert.ok(writes[0].body.completedMilestones.includes('400k-1') || writes[0].body.completedMilestones.includes(1));
+  assert.equal((writes[0].body.milestoneDetails['400k-1'] || writes[0].body.milestoneDetails['1']).closedShots, 405000);
+  assert.equal((writes[0].body.milestoneDetails['400k-1'] || writes[0].body.milestoneDetails['1']).tech, 'TECH-01');
 
   // Verify cycles info gives absolute priority to manual entries
   const cycles = module.get400kCyclesInfo(fixtureData.excelMasterMolds[0], true);
@@ -419,4 +419,62 @@ test('H9637C14: past 400k cycles have realistic diverse shot counts in 390k-400k
   const activeCycle = cycles[5];
   assert.equal(activeCycle.isClosed, false);
   assert.equal(activeCycle.shots, 136662);
+});
+
+test('H10109S01: High-Impact mold completing 400k-4 does NOT trigger or close 3.0M milestone (no false checkmark)', () => {
+  const context = {
+    window: {},
+    console,
+    fetch: async () => ({ ok: true }),
+    localStorage: {
+      _data: {},
+      getItem(key) { return this._data[key] || null; },
+      setItem(key, value) { this._data[key] = String(value); }
+    },
+    document: {
+      addEventListener() {},
+      getElementById: () => null
+    },
+    alert: () => {}
+  };
+  vm.createContext(context);
+  const source = fs.readFileSync(path.join(__dirname, '../ComponentLife/js/mold-maintenance.js'), 'utf8');
+  vm.runInContext(source, context);
+  const module = context.window.MoldMaintenance;
+
+  const moldData = {
+    mold: 'H10109S01',
+    isHighImpact: true,
+    totalYear: 1728243,
+    totalAccumulatedYear: 1728243,
+    completedMilestones: ['400k-1', '400k-2', '400k-3', '400k-4'],
+    closedMilestones: ['400k-1', '400k-2', '400k-3', '400k-4'],
+    milestoneDetails: {
+      '400k-1': { planDate: '2026-01-08', date: '2026-01-13', tech: 'KTV-TUAN', closedShots: 392515, note: 'Bảo dưỡng 400K-1' },
+      '400k-2': { planDate: '2026-04-14', date: '2026-04-18', tech: 'KTV-MANH', closedShots: 394180, note: 'Bảo dưỡng 400K-2' },
+      '400k-3': { planDate: '2026-07-16', date: '2026-07-21', tech: 'KTV-TRUNG', closedShots: 391650, note: 'Bảo dưỡng 400K-3' },
+      '400k-4': { planDate: '2026-10-09', date: '2026-10-14', tech: 'KTV-THANG', closedShots: 395420, note: 'Bảo dưỡng định kỳ 400K-4' },
+      '400k-5': { planDate: '2026-12-15', date: '', tech: '', closedShots: 0, note: 'Kế hoạch 400K-5' }
+    }
+  };
+
+  // 1. Cữ 400k-4 phải chốt thành công trong modal 400K
+  const cycles = module.get400kCyclesInfo(moldData, true);
+  assert.equal(cycles[3].isClosed, true);
+  assert.equal(cycles[3].date, '2026-10-14');
+  assert.equal(cycles[3].closedShots, 395420);
+
+  // 2. Mốc 3.0M (num = 4) TUYỆT ĐỐI KHÔNG ĐƯỢC CHỐT (isMajorMilestoneClosed phải false)
+  assert.equal(module.isMajorMilestoneClosed(moldData, 4), false, 'Milestone 3.0M must NOT be closed for High-Impact mold at 1.7M shots');
+
+  // 3. Detail của mốc lớn 3.0M không được lấy nhầm detail của cữ 400k-4
+  const majorDetail = module.getMajorMilestoneDetail(moldData, 4);
+  assert.equal(majorDetail, null, 'Milestone 3.0M detail must be null, not 400K-4 detail');
+
+  // 4. Kể cả nếu closedMilestones có chứa số 4 do cache cũ, isMajorMilestoneClosed vẫn bảo vệ và trả về false
+  const dirtyMoldData = {
+    ...moldData,
+    closedMilestones: [1, 2, 3, 4, '400k-1', '400k-2', '400k-3', '400k-4']
+  };
+  assert.equal(module.isMajorMilestoneClosed(dirtyMoldData, 4), false, 'Dirty cache with number 4 must still NOT close 3.0M for High-Impact mold');
 });

@@ -326,12 +326,41 @@ window.MoldMaintenance = (function() {
       let changedClosed = false;
       let changedDetails = false;
 
+      // 1. Quét sạch xung đột số nguyên 4..8 ở khuôn High-Impact trong LocalStorage
+      const highImpactSet = new Set();
+      (rawData?.records || []).forEach(r => { if (r.isHighImpact) highImpactSet.add(String(r.moldNo || '').trim().toUpperCase()); });
+      (rawData?.excelMasterMolds || []).forEach(m => { if (m.is_high_impact) highImpactSet.add(String(m.mold || '').trim().toUpperCase()); });
+
+      Object.keys(closedMap).forEach(code => {
+        if (highImpactSet.has(code.toUpperCase())) {
+          const list = closedMap[code];
+          if (Array.isArray(list)) {
+            const cleaned = list.filter(item => {
+              // Cữ 400K của khuôn High-Impact chỉ dùng chuỗi '400k-1'..'400k-8'
+              // Loại bỏ số nguyên 4..8 tránh nhầm sang mốc lớn 3.0M..5.0M!
+              if (item === 4 || item === '4' || item === 5 || item === '5' || item === 6 || item === '6' || item === 7 || item === '7' || item === 8 || item === '8') {
+                return false;
+              }
+              return true;
+            });
+            if (cleaned.length !== list.length) {
+              closedMap[code] = cleaned;
+              changedClosed = true;
+            }
+          }
+        }
+      });
+
       (rawData?.excelMasterMolds || []).forEach(m => {
         const code = String(m.mold || '').trim().toUpperCase();
         if (!code) return;
+        const isHigh = highImpactSet.has(code);
         if (Array.isArray(m.completedMilestones) && m.completedMilestones.length > 0) {
           if (!closedMap[code]) closedMap[code] = [];
           m.completedMilestones.forEach(ms => {
+            if (isHigh && (ms === 4 || ms === '4' || ms === 5 || ms === '5' || ms === 6 || ms === '6' || ms === 7 || ms === '7' || ms === 8 || ms === '8')) {
+              return; // Bỏ qua số nguyên 4..8 cho khuôn High-Impact
+            }
             if (!closedMap[code].includes(ms)) {
               closedMap[code].push(ms);
               changedClosed = true;
@@ -1261,12 +1290,25 @@ window.MoldMaintenance = (function() {
           }
         });
       }
-      // Tuyệt đối không tự ý chốt mốc 6, 7, 8: chỉ coi là đã chốt nếu có biên bản/chi tiết xác nhận thực tế từ Staff
+      // 1. Tuyệt đối không tự ý chốt mốc 6, 7, 8: chỉ coi là đã chốt nếu có biên bản/chi tiết xác nhận thực tế từ Staff
+      // 2. Với khuôn High-Impact: Loại bỏ các số nguyên 4..8 gây xung đột với mốc lớn 3.0M..5.0M (cữ 400K dùng chuỗi '400k-1'..'400k-8')
       let changed = false;
+      const highImpactSet = new Set();
+      if (rawData && Array.isArray(rawData.records)) {
+        rawData.records.forEach(r => { if (r.isHighImpact) highImpactSet.add(String(r.moldNo || '').trim().toUpperCase()); });
+      }
+      if (rawData && Array.isArray(rawData.excelMasterMolds)) {
+        rawData.excelMasterMolds.forEach(m => { if (m.is_high_impact) highImpactSet.add(String(m.mold || '').trim().toUpperCase()); });
+      }
+
       Object.keys(map).forEach(k => {
         if (Array.isArray(map[k])) {
           const originalLen = map[k].length;
+          const isHigh = highImpactSet.has(k);
           map[k] = map[k].filter(n => {
+            if (isHigh && (n === 4 || n === '4' || n === 5 || n === '5' || n === 6 || n === '6' || n === 7 || n === '7' || n === 8 || n === '8')) {
+              return false; // Loại bỏ số nguyên 4..8 tránh nhầm cữ 400K-4 sang mốc 3.0M
+            }
             if (n >= 6 && n <= 8) return !!getMilestoneDetail(k, n);
             return true;
           });
@@ -1327,11 +1369,12 @@ window.MoldMaintenance = (function() {
       if (map[code][num]) return map[code][num];
       if (String(num).startsWith('400k-')) {
         const n = parseInt(num.replace('400k-', ''), 10);
-        if (map[code][n]) return map[code][n];
+        if (n <= 3 && map[code][n]) return map[code][n];
       } else if (String(num).startsWith('30k-')) {
         const n = parseInt(num.replace('30k-', ''), 10);
         if (map[code][n]) return map[code][n];
-      } else if (Number.isFinite(Number(num)) && Number(num) <= 12) {
+      } else if (num === 1 || num === 2 || num === 3 || num === '1' || num === '2' || num === '3') {
+        // Chỉ mốc 1..3 cũ mới fallback sang 400k-1..3; mốc 4..8 là mốc lớn 3.0M..5.0M tuyệt đối không fallback sang cữ 400K-4..8!
         if (map[code]['400k-' + num]) return map[code]['400k-' + num];
         if (map[code]['30k-' + num]) return map[code]['30k-' + num];
       }
@@ -1342,11 +1385,11 @@ window.MoldMaintenance = (function() {
         if (item.milestoneDetails[num]) return item.milestoneDetails[num];
         if (String(num).startsWith('400k-')) {
           const n = parseInt(num.replace('400k-', ''), 10);
-          if (item.milestoneDetails[n]) return item.milestoneDetails[n];
+          if (n <= 3 && item.milestoneDetails[n]) return item.milestoneDetails[n];
         } else if (String(num).startsWith('30k-')) {
           const n = parseInt(num.replace('30k-', ''), 10);
           if (item.milestoneDetails[n]) return item.milestoneDetails[n];
-        } else if (Number.isFinite(Number(num)) && Number(num) <= 12) {
+        } else if (num === 1 || num === 2 || num === 3 || num === '1' || num === '2' || num === '3') {
           if (item.milestoneDetails['400k-' + num]) return item.milestoneDetails['400k-' + num];
           if (item.milestoneDetails['30k-' + num]) return item.milestoneDetails['30k-' + num];
         }
@@ -1380,6 +1423,77 @@ window.MoldMaintenance = (function() {
         else delete item.milestoneDetails[num];
       }
     }
+  }
+
+  // Kiểm tra trạng thái chốt của MỐC LỚN (2.5M, 3.0M, 3.5M, 4.0M, 4.5M, 5.0M)
+  // Tuyệt đối không nhầm lẫn số nguyên 4..8 với cữ 400K-4..8 của khuôn High-Impact
+  function isMajorMilestoneClosed(mOrCode, num) {
+    if (!mOrCode) return false;
+    const code = typeof mOrCode === 'string' ? mOrCode.trim().toUpperCase() : String(mOrCode.mold || mOrCode.moldNo || '').trim().toUpperCase();
+    const isHigh = typeof mOrCode === 'object' ? Boolean(mOrCode.isHighImpact || mOrCode.is_high_impact) : false;
+    const closedMap = getClosedMilestonesMap();
+    const rawList = typeof mOrCode === 'object' && Array.isArray(mOrCode.closedMilestones) 
+      ? mOrCode.closedMilestones 
+      : (typeof mOrCode === 'object' && Array.isArray(mOrCode.completedMilestones) ? mOrCode.completedMilestones : (closedMap[code] || []));
+    const closedList = [...new Set(rawList)];
+
+    if (num === 25 || num === '25' || num === '2.5m' || num === '2.5M') {
+      return closedList.includes(25) || closedList.includes('25') || closedList.includes('2.5m') || closedList.includes('2.5M');
+    }
+
+    const mNum = Number(num);
+    if (mNum >= 4 && mNum <= 8) {
+      const mStrKey = (mNum === 4 ? '3.0m' : (mNum === 5 ? '3.5m' : (mNum === 6 ? '4.0m' : (mNum === 7 ? '4.5m' : '5.0m'))));
+      if (closedList.includes(mStrKey) || closedList.includes(mStrKey.toUpperCase())) {
+        return true;
+      }
+      if (isHigh) {
+        // Khuôn High-Impact: Số nguyên 4..8 nếu có là từ cữ 400K cũ, TUYỆT ĐỐI KHÔNG coi là chốt mốc lớn 3.0M..5.0M!
+        // Chỉ chấp nhận nếu có detail mốc lớn với closedShots >= 2.500.000 và không mang ghi chú 400k
+        const d = getMajorMilestoneDetail(mOrCode, mNum);
+        if (d && d.date && Number(d.closedShots) >= 2500000 && !String(d.note || '').toLowerCase().includes('400k')) {
+          return true;
+        }
+        return false;
+      } else {
+        return closedList.includes(mNum) || closedList.includes(String(mNum));
+      }
+    }
+    return closedList.includes(num);
+  }
+
+  function getMajorMilestoneDetail(mOrCode, num) {
+    if (!mOrCode) return null;
+    const code = typeof mOrCode === 'string' ? mOrCode.trim().toUpperCase() : String(mOrCode.mold || mOrCode.moldNo || '').trim().toUpperCase();
+    const isHigh = typeof mOrCode === 'object' ? Boolean(mOrCode.isHighImpact || mOrCode.is_high_impact) : false;
+
+    if (num === 25 || num === '25' || num === '2.5m' || num === '2.5M') {
+      return getMilestoneDetail(code, '2.5m') || getMilestoneDetail(code, 25);
+    }
+
+    const mNum = Number(num);
+    if (mNum >= 4 && mNum <= 8) {
+      const mStrKey = (mNum === 4 ? '3.0m' : (mNum === 5 ? '3.5m' : (mNum === 6 ? '4.0m' : (mNum === 7 ? '4.5m' : '5.0m'))));
+      const detailsMap = getMilestoneDetailsMap();
+      const moldDetails = detailsMap[code] || {};
+      const serverMold = (rawData?.excelMasterMolds || []).find(x => String(x.mold || '').toUpperCase() === code);
+      const serverDetails = serverMold?.milestoneDetails || {};
+
+      const dStr = moldDetails[mStrKey] || moldDetails[mStrKey.toUpperCase()] || serverDetails[mStrKey] || serverDetails[mStrKey.toUpperCase()];
+      if (dStr) return dStr;
+
+      if (isHigh) {
+        // Khuôn High-Impact: Chỉ lấy detail nếu closedShots >= 2.500.000 và ghi chú không phải 400K
+        const dNum = moldDetails[mNum] || moldDetails[String(mNum)] || serverDetails[mNum] || serverDetails[String(mNum)];
+        if (dNum && Number(dNum.closedShots) >= 2500000 && !String(dNum.note || '').toLowerCase().includes('400k')) {
+          return dNum;
+        }
+        return null;
+      } else {
+        return moldDetails[mNum] || moldDetails[String(mNum)] || serverDetails[mNum] || serverDetails[String(mNum)] || getMilestoneDetail(code, mNum);
+      }
+    }
+    return getMilestoneDetail(code, num);
   }
 
   // Format tên mold: ưu tiên tên khuôn mới (VD: H9637S15), giữ mã cũ & series trong tooltip
@@ -1460,7 +1574,7 @@ window.MoldMaintenance = (function() {
     // Kiểm tra xem khuôn có bất kỳ cữ nào đã chốt thủ công / ghi nhận chi tiết không
     let hasAnyExplicitClosure = false;
     for (let k = 1; k <= maxCycles; k++) {
-      const cKey = is30k ? ('30k-' + k) : (k <= 3 ? k : ('400k-' + k));
+      const cKey = prefix + k;
       const cName = prefix + k;
       const d = m?.milestoneDetails?.[cKey] || 
                 m?.milestoneDetails?.[cName] || 
@@ -1484,7 +1598,7 @@ window.MoldMaintenance = (function() {
       : 0;
 
     for (let i = 1; i <= maxCycles; i++) {
-      const cycleKey = is30k ? ('30k-' + i) : (i <= 3 ? i : ('400k-' + i));
+      const cycleKey = prefix + i;
       const cycleName = prefix + i;
       const recorded = shotClosures.get(cycleName);
       const detail = m?.milestoneDetails?.[cycleKey] || 
@@ -2184,19 +2298,18 @@ window.MoldMaintenance = (function() {
       const mTitle = mNum === 25 ? '2.5M' : (mNum === 4 ? '3.0M' : (mNum === 5 ? '3.5M' : (mNum === 6 ? '4.0M' : (mNum === 7 ? '4.5M' : (mNum === 8 ? '5.0M' : `${mNum}M`)))));
       if (mainTitleEl) mainTitleEl.textContent = `Bảng nhập shot (Mốc ${mTitle})`;
 
-      const closedList = m.closedMilestones || [];
-      const isClosed = closedList.includes(mNum);
-      const detail = getMilestoneDetail(code, mNum);
+      const isClosed = isMajorMilestoneClosed(m, mNum);
+      const detail = getMajorMilestoneDetail(m, mNum);
       const pdf = detail?.pdf || getMilestonePdf(code, mNum);
 
-      const isDone4 = closedList.includes(4);
-      const isDone5 = closedList.includes(5);
-      const isDone6 = closedList.includes(6);
-      const isDone7 = closedList.includes(7);
+      const isDone4 = isMajorMilestoneClosed(m, 4);
+      const isDone5 = isMajorMilestoneClosed(m, 5);
+      const isDone6 = isMajorMilestoneClosed(m, 6);
+      const isDone7 = isMajorMilestoneClosed(m, 7);
 
-      const detail4 = getMilestoneDetail(code, 4);
-      const detail5 = getMilestoneDetail(code, 5);
-      const detail6 = getMilestoneDetail(code, 6);
+      const detail4 = getMajorMilestoneDetail(m, 4);
+      const detail5 = getMajorMilestoneDetail(m, 5);
+      const detail6 = getMajorMilestoneDetail(m, 6);
 
       let isEligible = false;
       let lockReason = '';
@@ -2367,7 +2480,8 @@ window.MoldMaintenance = (function() {
       }
 
       for (const { row, shotStr, numShots, planVal, dateVal, ktvVal, noteVal, pdfObj } of changes) {
-        const key = row.num;
+        const is400k = activeShotModalTab === '400k';
+        const mainKey = is400k ? row.name : row.num;
 
         if (shotStr) {
           if (numShots > 0) {
@@ -2380,34 +2494,27 @@ window.MoldMaintenance = (function() {
               pdf: pdfObj,
               closedAt: new Date().toISOString()
             };
-            saveMilestoneDetail(moldNo, key, detailObj);
-            if (activeShotModalTab === '400k') {
-              saveMilestoneDetail(moldNo, row.name, detailObj);
-            }
+            saveMilestoneDetail(moldNo, mainKey, detailObj);
             if (pdfObj) {
-              saveMilestonePdf(moldNo, key, pdfObj);
-              if (activeShotModalTab === '400k') saveMilestonePdf(moldNo, row.name, pdfObj);
+              saveMilestonePdf(moldNo, mainKey, pdfObj);
             }
-            await toggleMilestoneCheck(moldNo, key, true, detailObj);
+            await toggleMilestoneCheck(moldNo, mainKey, true, detailObj);
           }
         } else if (!shotStr && planVal) {
           // Lưu riêng kế hoạch dự kiến cho cữ tiếp theo
-          const existingDetail = getMilestoneDetail(moldNo, key) || {};
+          const existingDetail = getMilestoneDetail(moldNo, mainKey) || {};
           const planDetail = {
             ...existingDetail,
             planDate: planVal,
             tech: ktvVal || existingDetail.tech || '',
             note: noteVal || existingDetail.note || ''
           };
-          saveMilestoneDetail(moldNo, key, planDetail);
-          if (activeShotModalTab === '400k') saveMilestoneDetail(moldNo, row.name, planDetail);
+          saveMilestoneDetail(moldNo, mainKey, planDetail);
         } else if (row.isClosed) {
           // Người dùng xóa số shot: mở lại / hủy chốt
-          saveMilestoneDetail(moldNo, key, null);
-          if (activeShotModalTab === '400k') saveMilestoneDetail(moldNo, row.name, null);
-          saveMilestonePdf(moldNo, key, null);
-          if (activeShotModalTab === '400k') saveMilestonePdf(moldNo, row.name, null);
-          await toggleMilestoneCheck(moldNo, key, false);
+          saveMilestoneDetail(moldNo, mainKey, null);
+          saveMilestonePdf(moldNo, mainKey, null);
+          await toggleMilestoneCheck(moldNo, mainKey, false);
         }
       }
 
@@ -2461,11 +2568,11 @@ window.MoldMaintenance = (function() {
       if (map[code][num]) return map[code][num];
       if (String(num).startsWith('400k-')) {
         const n = parseInt(num.replace('400k-', ''), 10);
-        if (map[code][n]) return map[code][n];
+        if (n <= 3 && map[code][n]) return map[code][n];
       } else if (String(num).startsWith('30k-')) {
         const n = parseInt(num.replace('30k-', ''), 10);
         if (map[code][n]) return map[code][n];
-      } else if (Number.isFinite(Number(num)) && Number(num) <= 12) {
+      } else if (num === 1 || num === 2 || num === 3 || num === '1' || num === '2' || num === '3') {
         if (map[code]['400k-' + num]) return map[code]['400k-' + num];
         if (map[code]['30k-' + num]) return map[code]['30k-' + num];
       }
@@ -2869,11 +2976,6 @@ window.MoldMaintenance = (function() {
       const d1 = getMilestoneDetail(code, 1);
       const d2 = getMilestoneDetail(code, 2);
       const d3 = getMilestoneDetail(code, 3);
-      const d4 = getMilestoneDetail(code, 4);
-      const d5 = getMilestoneDetail(code, 5);
-      const d6 = getMilestoneDetail(code, 6);
-      const d7 = getMilestoneDetail(code, 7);
-      const d8 = getMilestoneDetail(code, 8);
 
       // XÁC ĐỊNH M1, M2, M3, CỮ 400K VÀ SỐ SHOT CHU KỲ (CURSHOTS)
       // Đồng bộ 100% với get400kCyclesInfo và cột 400K trên bảng Bảo Dưỡng Khuôn
@@ -2924,8 +3026,11 @@ window.MoldMaintenance = (function() {
         }
       }
 
+      const currentMoldTarget = { mold: code, isHighImpact: isHigh, is_high_impact: isHigh, closedMilestones, completedMilestones: m.completedMilestones };
+
       // CỘT 4 (3.0M): CHỈ XUẤT HIỆN KHI ĐÃ ĐẠT 2.5M (>= 2.500.000) HOẶC ĐÃ CHỐT 2.5M!
-      const isDone4 = closedMilestones.includes(4);
+      const isDone4 = isMajorMilestoneClosed(currentMoldTarget, 4);
+      const d4 = getMajorMilestoneDetail(currentMoldTarget, 4);
       let m4 = null;
       if (!isHigh) {
         if (isDone4) {
@@ -2935,8 +3040,8 @@ window.MoldMaintenance = (function() {
         } else {
           m4 = null; // Chưa đạt 2.5M thì KHÔNG ghi vào 3.0M!
         }
-      } else if (closedMilestones.includes(3) || totalAccumulatedYear >= 2500000) {
-        // Khuôn High-Impact: đã chốt xong 3 cữ 400K hoặc đạt 2.5M
+      } else if (totalAccumulatedYear >= 2500000) {
+        // Khuôn High-Impact: Chỉ xuất hiện khi đạt từ 2.5M trở lên
         if (isDone4) {
           m4 = Math.round(d4?.closedShots || 3000000);
         } else if (totalAccumulatedYear >= 3000000) {
@@ -2949,7 +3054,8 @@ window.MoldMaintenance = (function() {
       // CỘT 5 (3.5M): Chỉ xuất hiện khi Mốc 4 đã được chốt HOẶC đạt >= 3.000.000
       let m5 = null;
       if (isDone4 || totalAccumulatedYear >= 3000000) {
-        const isDone5 = closedMilestones.includes(5);
+        const isDone5 = isMajorMilestoneClosed(currentMoldTarget, 5);
+        const d5 = getMajorMilestoneDetail(currentMoldTarget, 5);
         if (isDone5) {
           m5 = Math.round(d5?.closedShots || 3500000);
         } else {
@@ -2959,8 +3065,9 @@ window.MoldMaintenance = (function() {
 
       // CỘT 6 (4.0M): Chỉ xuất hiện khi Mốc 5 đã được chốt HOẶC đạt >= 3.500.000
       let m6 = null;
-      if (closedMilestones.includes(5) || totalAccumulatedYear >= 3500000) {
-        const isDone6 = closedMilestones.includes(6);
+      if (isMajorMilestoneClosed(currentMoldTarget, 5) || totalAccumulatedYear >= 3500000) {
+        const isDone6 = isMajorMilestoneClosed(currentMoldTarget, 6);
+        const d6 = getMajorMilestoneDetail(currentMoldTarget, 6);
         if (isDone6) {
           m6 = Math.round(d6?.closedShots || 4000000);
         } else {
@@ -2970,8 +3077,9 @@ window.MoldMaintenance = (function() {
 
       // CỘT 7 (4.5M): Chỉ xuất hiện khi Mốc 6 đã được chốt HOẶC đạt >= 4.000.000
       let m7 = null;
-      if (closedMilestones.includes(6) || totalAccumulatedYear >= 4000000) {
-        const isDone7 = closedMilestones.includes(7);
+      if (isMajorMilestoneClosed(currentMoldTarget, 6) || totalAccumulatedYear >= 4000000) {
+        const isDone7 = isMajorMilestoneClosed(currentMoldTarget, 7);
+        const d7 = getMajorMilestoneDetail(currentMoldTarget, 7);
         if (isDone7) {
           m7 = Math.round(d7?.closedShots || 4500000);
         } else {
@@ -2981,8 +3089,9 @@ window.MoldMaintenance = (function() {
 
       // CỘT 8 (5.0M): Chỉ xuất hiện khi Mốc 7 đã được chốt HOẶC đạt >= 4.500.000
       let m8 = null;
-      if (closedMilestones.includes(7) || totalAccumulatedYear >= 4500000) {
-        const isDone8 = closedMilestones.includes(8);
+      if (isMajorMilestoneClosed(currentMoldTarget, 7) || totalAccumulatedYear >= 4500000) {
+        const isDone8 = isMajorMilestoneClosed(currentMoldTarget, 8);
+        const d8 = getMajorMilestoneDetail(currentMoldTarget, 8);
         if (isDone8) {
           m8 = Math.round(d8?.closedShots || 5000000);
         } else {
@@ -3351,8 +3460,8 @@ window.MoldMaintenance = (function() {
         else if (m.status === 'warning') barColor = '#f59e0b';
 
         const renderMilestoneCell = (num, shotVal) => {
-          const isDone = (m.closedMilestones || []).includes(num);
-          const detail = getMilestoneDetail(m.mold, num);
+          const isDone = isMajorMilestoneClosed(m, num);
+          const detail = getMajorMilestoneDetail(m, num);
           const pdfData = detail?.pdf || getMilestonePdf(m.mold, num);
           // removed duplicate mTitle
 
@@ -3763,9 +3872,10 @@ window.MoldMaintenance = (function() {
           dayScrap = entry.scrap || 0;
         }
 
+        const dailyMoldTarget = uMold || { mold: r.moldNo, moldNo: r.moldNo, isHighImpact: isHigh, is_high_impact: isHigh, closedMilestones };
         const renderMilestoneCell = (num, shotVal) => {
-          const isDone = closedMilestones.includes(num);
-          const detail = getMilestoneDetail(r.moldNo, num);
+          const isDone = isMajorMilestoneClosed(dailyMoldTarget, num);
+          const detail = getMajorMilestoneDetail(dailyMoldTarget, num);
           const pdfData = detail?.pdf || getMilestonePdf(r.moldNo, num);
           // removed duplicate mTitle
 
@@ -4502,12 +4612,12 @@ window.MoldMaintenance = (function() {
             ? Number(m.totalYear)
             : (Number(m.lastYearRemaining || 0) + sumMonths));
 
-          const isDone25 = closed.includes(25) || closed.includes('25') || closed.includes('2.5m') || closed.includes('2.5M');
-          const isDone30 = closed.includes(4);
-          const isDone35 = closed.includes(5);
-          const isDone40 = closed.includes(6);
-          const isDone45 = closed.includes(7);
-          const isDone50 = closed.includes(8);
+          const isDone25 = isMajorMilestoneClosed(m, 25);
+          const isDone30 = isMajorMilestoneClosed(m, 4);
+          const isDone35 = isMajorMilestoneClosed(m, 5);
+          const isDone40 = isMajorMilestoneClosed(m, 6);
+          const isDone45 = isMajorMilestoneClosed(m, 7);
+          const isDone50 = isMajorMilestoneClosed(m, 8);
 
           milestoneHeaders.forEach((mH, idx) => {
             const colIdx = 17 + idx;
@@ -4587,7 +4697,7 @@ window.MoldMaintenance = (function() {
               }
             } else if (mH === '2.5M') {
               mTarget = 2500000;
-              const d25 = getMilestoneDetail(moldCode, 25) || getMilestoneDetail(moldCode, '2.5m');
+              const d25 = getMajorMilestoneDetail(m, 25);
               if (isDone25) {
                 isDone = true;
                 val = Math.round(d25?.closedShots || 2500000);
@@ -4604,7 +4714,7 @@ window.MoldMaintenance = (function() {
               }
             } else if (mH === '3.0M') {
               mTarget = 3000000;
-              const d4 = getMilestoneDetail(moldCode, 4);
+              const d4 = getMajorMilestoneDetail(m, 4);
               if (isDone30) {
                 isDone = true;
                 val = Math.round(d4?.closedShots || 3000000);
@@ -4616,7 +4726,7 @@ window.MoldMaintenance = (function() {
               }
             } else if (mH === '3.5M') {
               mTarget = 3500000;
-              const d5 = getMilestoneDetail(moldCode, 5);
+              const d5 = getMajorMilestoneDetail(m, 5);
               if (isDone35) {
                 isDone = true;
                 val = Math.round(d5?.closedShots || 3500000);
@@ -4628,7 +4738,7 @@ window.MoldMaintenance = (function() {
               }
             } else if (mH === '4.0M') {
               mTarget = 4000000;
-              const d6 = getMilestoneDetail(moldCode, 6);
+              const d6 = getMajorMilestoneDetail(m, 6);
               if (isDone40) {
                 isDone = true;
                 val = Math.round(d6?.closedShots || 4000000);
@@ -4640,7 +4750,7 @@ window.MoldMaintenance = (function() {
               }
             } else if (mH === '4.5M') {
               mTarget = 4500000;
-              const d7 = getMilestoneDetail(moldCode, 7);
+              const d7 = getMajorMilestoneDetail(m, 7);
               if (isDone45) {
                 isDone = true;
                 val = Math.round(d7?.closedShots || 4500000);
@@ -4652,7 +4762,7 @@ window.MoldMaintenance = (function() {
               }
             } else if (mH === '5.0M') {
               mTarget = 5000000;
-              const d8 = getMilestoneDetail(moldCode, 8);
+              const d8 = getMajorMilestoneDetail(m, 8);
               if (isDone50) {
                 isDone = true;
                 val = Math.round(d8?.closedShots || 5000000);
@@ -5807,6 +5917,8 @@ window.MoldMaintenance = (function() {
     save400kExcelTable,
     confirm400kFromModal: save400kExcelTable,
     confirmMilestoneAuth: save400kExcelTable,
+    isMajorMilestoneClosed,
+    getMajorMilestoneDetail,
     get400kCyclesInfo,
     viewMilestonePdf,
     getMilestonePdf,
