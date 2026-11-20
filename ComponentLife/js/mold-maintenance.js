@@ -4376,16 +4376,20 @@ window.MoldMaintenance = (function() {
 
       const allMolds = getAllUnifiedMolds();
 
+      function getUnclosedDueInfo(m) {
+        if (!m) return { tier: 3, maxRatio: 0, highestVal: 0 };
+        if (m.status === 'due') return { tier: 1, maxRatio: 1.0, highestVal: Number(m.curShots || 0) };
+        if (m.status === 'warning') return { tier: 2, maxRatio: 0.95, highestVal: Number(m.curShots || 0) };
+        return { tier: 3, maxRatio: 0, highestVal: 0 };
+      }
+
       // Sắp xếp ưu tiên: Khuôn có số shot thực tế trong tháng (M11 / live TMS) lên trên,
       // tiếp theo là tổng số shot trong năm, các khuôn ít hoặc không có shot (vd 500410) cho xuống dưới
       const sortMoldsByActivity = (list) => {
         return [...list].sort((a, b) => {
-          const infoA = getUnclosedDueInfo(a);
-          const infoB = getUnclosedDueInfo(b);
-          if (infoA.tier !== infoB.tier) return infoA.tier - infoB.tier;
-          if (infoA.tier <= 2 && infoB.maxRatio !== infoA.maxRatio) {
-            return infoB.maxRatio - infoA.maxRatio;
-          }
+          const pA = a.status === 'due' ? 1 : (a.status === 'warning' ? 2 : 3);
+          const pB = b.status === 'due' ? 1 : (b.status === 'warning' ? 2 : 3);
+          if (pA !== pB) return pA - pB;
 
           const histA = a.monthlyHistory || {};
           const histB = b.monthlyHistory || {};
