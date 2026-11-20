@@ -451,6 +451,20 @@ test('High-Impact molds (e.g. H18015S01, H10109S01): 400K cycles apply with real
   const cellHtml = module.render400kCell(mHigh);
   assert.ok(cellHtml.includes('122.222'), 'H18015S01 must display 122.222 in 400K cell');
   assert.ok(!cellHtml.includes('>-<'), 'High impact mold must NOT render "-" in 400K cell');
+
+  // Khuôn tự động chốt nhưng chưa có KTV hay Note do người dùng nhập -> Không được tự ý bịa KTV hoặc Note
+  const mAutoNoDetails = {
+    mold: 'H9637C14',
+    isHighImpact: true,
+    totalYear: 1728793,
+    completedMilestones: [],
+    closedMilestones: [],
+    milestoneDetails: {}
+  };
+  const autoCycles = module.get400kCyclesInfo(mAutoNoDetails, true);
+  assert.equal(autoCycles[0].isClosed, true);
+  assert.equal(autoCycles[0].tech, '', 'Tự chốt cữ 1 không được tự ý ghi KTV');
+  assert.equal(autoCycles[0].note, '', 'Tự chốt cữ 1 không được tự ý ghi Note');
 });
 
 test('H10109S01: High-Impact mold completing 400k-4 does NOT trigger or close 3.0M milestone (no false checkmark)', () => {
@@ -589,7 +603,8 @@ test('Standard molds auto-maintenance: triggers plan before 20k, closes on maint
   assert.equal(autoDetail.date, '2026-01-03');
   assert.equal(autoDetail.planDate, '2026-01-02');
   assert.equal(autoDetail.closedShots, 2492000);
-  assert.equal(autoDetail.tech, 'AUTO-TMS');
+  assert.equal(autoDetail.tech, '', 'Tự chốt không tự ý ghi thêm KTV');
+  assert.equal(autoDetail.note, '', 'Tự chốt không tự ý ghi thêm Note');
 });
 
 test('MMFD-I-F-022.01 Excel export: generates 3 dedicated sheets (High Impact, Standard, I13086B01), removes 2 redundant sheets, purple plan color, short format, plan strictly before maintenance', async () => {
